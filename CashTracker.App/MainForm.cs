@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Drawing;
 using System.Windows.Forms;
 using CashTracker.App.Controls;
@@ -31,10 +32,10 @@ namespace CashTracker.App
         private readonly AppRuntimeOptions _runtimeOptions;
         private readonly ILicenseService _licenseService;
         private readonly ReceiptOcrSettings _receiptOcrSettings;
-        private readonly UpdateManifestService _updateService;
+        private readonly GitHubUpdateService _updateService;
         private readonly StartupMetrics _startupMetrics;
         private readonly System.Windows.Forms.Timer _dateChangeTimer;
-        private ManifestUpdateCheckResult? _cachedUpdateResult;
+        private UpdateCheckResult? _cachedUpdateResult;
         private Label _lblUpdateBadge = null!;
         private Panel _licenseBanner = null!;
         private Label _lblLicenseBannerTitle = null!;
@@ -71,6 +72,12 @@ namespace CashTracker.App
         private Label _lblSnapshotNetValue = null!;
         private Label _lblSnapshotExpenseValue = null!;
         private Label _lblSnapshotExpenseDelta = null!;
+        private Label _lblActivePageTitle = null!;
+        private Panel _contentHost = null!;
+        private Panel _dashboardViewport = null!;
+        private Form? _activeEmbeddedForm;
+        private Button? _activeNavButton;
+        private readonly List<Button> _sidebarButtons = new();
         private DashboardSparkBarsControl _netSparkChart = null!;
         private DashboardDonutChartControl _paymentDistributionChart = null!;
         private ContextMenuStrip? _businessSelectorMenu;
@@ -108,7 +115,7 @@ namespace CashTracker.App
             AppRuntimeOptions runtimeOptions,
             ILicenseService licenseService,
             ReceiptOcrSettings receiptOcrSettings,
-            UpdateManifestService updateService,
+            GitHubUpdateService updateService,
             StartupMetrics startupMetrics)
         {
             _kasaService = kasaService;
@@ -154,6 +161,7 @@ namespace CashTracker.App
             FormClosed += (_, __) =>
             {
                 _businessSelectorMenu?.Dispose();
+                _activeEmbeddedForm?.Dispose();
                 _dateChangeTimer.Dispose();
             };
         }

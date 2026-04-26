@@ -30,6 +30,9 @@ telegram-setup.json
 .nuget-packages/
 .nuget-http-cache/
 .npm-cache/
+**/node_modules/
+**/dist/
+*.tsbuildinfo
 .tmp/
 --configfile
 Microsoft/

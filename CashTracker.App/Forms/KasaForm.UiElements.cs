@@ -9,14 +9,16 @@ namespace CashTracker.App.Forms
     {
         private static Panel CreateSectionHeader(string title, string subtitle)
         {
-            var titleFont = BrandTheme.CreateHeadingFont(13.5f, FontStyle.Bold);
+            var titleFont = BrandTheme.CreateHeadingFont(17.5f, FontStyle.Bold);
             var subtitleFont = BrandTheme.CreateFont(9.4f, FontStyle.Regular);
             var panel = new Panel
             {
                 Dock = DockStyle.Top,
                 AutoSize = true,
                 AutoSizeMode = AutoSizeMode.GrowAndShrink,
-                MinimumSize = new Size(0, UiMetrics.GetHeaderHeight(titleFont, subtitleFont, 18, 2))
+                MinimumSize = new Size(0, string.IsNullOrWhiteSpace(subtitle)
+                    ? UiMetrics.GetTextLineHeight(titleFont) + 8
+                    : UiMetrics.GetHeaderHeight(titleFont, subtitleFont, 18, 2))
             };
 
             var layout = new TableLayoutPanel
@@ -40,6 +42,9 @@ namespace CashTracker.App.Forms
             };
             layout.Controls.Add(titleLabel, 0, 0);
 
+            if (string.IsNullOrWhiteSpace(subtitle))
+                return panel;
+
             var subtitleLabel = new Label
             {
                 Text = subtitle,
@@ -55,19 +60,21 @@ namespace CashTracker.App.Forms
 
         private static Button CreateButton(string text, Color back, Color fore)
         {
-            var font = BrandTheme.CreateHeadingFont(9.5f, FontStyle.Bold);
+            var font = BrandTheme.CreateHeadingFont(10.4f, FontStyle.Bold);
             var button = new Button
             {
                 Text = text,
-                Width = 108,
-                MinimumSize = new Size(108, UiMetrics.GetButtonHeight(font)),
+                Width = 104,
+                Height = UiMetrics.GetButtonHeight(font, 44),
+                MinimumSize = new Size(104, UiMetrics.GetButtonHeight(font, 44)),
                 BackColor = back,
                 ForeColor = fore,
                 Font = font,
                 Cursor = Cursors.Hand,
-                Margin = new Padding(8, 0, 0, 0),
+                Margin = new Padding(6, 0, 0, 0),
                 Padding = UiMetrics.ButtonPadding,
-                FlatStyle = FlatStyle.Flat
+                FlatStyle = FlatStyle.Flat,
+                UseVisualStyleBackColor = false
             };
 
             button.FlatAppearance.BorderColor = Color.FromArgb(21, 38, 61);

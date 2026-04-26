@@ -12,11 +12,20 @@ namespace CashTracker.App.Services
                 return false;
 
             var escapedInstaller = installerPath.Replace("'", "''");
+            var installedExe = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "Programs",
+                "CashTracker",
+                "CashTracker.exe");
+            var escapedInstalledExe = installedExe.Replace("'", "''");
             var script =
                 $"$installer='{escapedInstaller}'; " +
+                $"$installedExe='{escapedInstalledExe}'; " +
                 $"$pidToWait={waitForProcessId}; " +
                 "if($pidToWait -gt 0){ try{ Wait-Process -Id $pidToWait -Timeout 300 -ErrorAction Stop } catch{ } } " +
-                "Start-Process -FilePath $installer -ArgumentList '/CURRENTUSER /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /TASKS=desktopicon' -WindowStyle Hidden";
+                "$process = Start-Process -FilePath $installer -ArgumentList '/CURRENTUSER /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /TASKS=desktopicon' -WindowStyle Hidden -PassThru; " +
+                "if($null -ne $process){ try{ $process.WaitForExit() } catch{ } } " +
+                "if(Test-Path $installedExe){ Start-Sleep -Milliseconds 500; Start-Process -FilePath $installedExe -WorkingDirectory (Split-Path -Parent $installedExe) }";
 
             try
             {

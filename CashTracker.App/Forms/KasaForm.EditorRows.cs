@@ -10,6 +10,7 @@ namespace CashTracker.App.Forms
         private const int OdemeButtonWidth = 150;
         private const int OdemeButtonGapX = 12;
         private const int OdemeButtonGapY = 8;
+        private const int EditorLabelWidth = 120;
 
         private static TableLayoutPanel CreateEditorForm()
         {
@@ -17,34 +18,35 @@ namespace CashTracker.App.Forms
             {
                 Dock = DockStyle.Fill,
                 ColumnCount = 2,
+                RowCount = 8,
                 AutoSize = false,
-                AutoScroll = true,
-                GrowStyle = TableLayoutPanelGrowStyle.AddRows,
-                Padding = new Padding(0, 2, 0, 2)
+                AutoScroll = false,
+                GrowStyle = TableLayoutPanelGrowStyle.FixedSize,
+                Padding = new Padding(0),
+                BackColor = Color.Transparent
             };
 
-            form.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 36));
-            form.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 64));
+            form.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, EditorLabelWidth));
+            form.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            form.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            form.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            form.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            form.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            form.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            form.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            form.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            form.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
             return form;
         }
 
         private void AddTypeRow(TableLayoutPanel form)
         {
-            var label = new Label { Text = AppLocalization.T("common.type"), AutoSize = true, Anchor = AnchorStyles.Left };
-            var comboFont = BrandTheme.CreateFont(10f);
+            var label = CreateEditorLabel(AppLocalization.T("common.type"));
             _cmbTip = new ComboBox
             {
                 DropDownStyle = ComboBoxStyle.DropDownList,
-                Anchor = AnchorStyles.Left | AnchorStyles.Right,
-                BackColor = Color.White,
-                Margin = new Padding(0, 8, 0, 8),
-                FlatStyle = FlatStyle.Flat,
-                IntegralHeight = false,
-                Font = comboFont,
-                MinimumSize = new Size(0, UiMetrics.GetInputHeight(comboFont))
+                Visible = false
             };
-            label.Font = BrandTheme.CreateHeadingFont(9.4f, FontStyle.Bold);
-            label.Margin = new Padding(0, 8, 10, 8);
 
             _cmbTip.Items.AddRange(new object[]
             {
@@ -54,58 +56,113 @@ namespace CashTracker.App.Forms
             _cmbTip.SelectedIndex = 0;
             _cmbTip.SelectedIndexChanged += async (_, __) =>
             {
+                ApplyTipButtonStyles();
                 await LoadKalemlerForTipAsync();
                 UpdateStockLinkUi();
             };
+
+            var typePanel = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Top,
+                AutoSize = false,
+                FlowDirection = FlowDirection.LeftToRight,
+                WrapContents = false,
+                Height = 40,
+                MinimumSize = new Size(0, 40),
+                Margin = new Padding(0, 2, 0, 2),
+                BackColor = Color.Transparent
+            };
+            _btnTipGelir = CreateChoiceButton(AppLocalization.T("tip.income"), 104, 38);
+            _btnTipGider = CreateChoiceButton(AppLocalization.T("tip.expense"), 104, 38);
+            _btnTipGelir.Click += (_, __) => SetSelectedTip("Gelir");
+            _btnTipGider.Click += (_, __) => SetSelectedTip("Gider");
+            typePanel.Controls.Add(_btnTipGelir);
+            typePanel.Controls.Add(_btnTipGider);
+            typePanel.Controls.Add(_cmbTip);
+
             form.Controls.Add(label);
-            form.Controls.Add(_cmbTip);
+            form.Controls.Add(typePanel);
+            ApplyTipButtonStyles();
         }
 
         private void AddAmountRow(TableLayoutPanel form)
         {
-            var label = new Label { Text = AppLocalization.T("common.amount"), AutoSize = true, Anchor = AnchorStyles.Left };
-            var inputFont = BrandTheme.CreateFont(10f);
+            var label = CreateEditorLabel(AppLocalization.T("common.amount"));
+            var inputFont = BrandTheme.CreateFont(11.5f);
             _txtTutar = new TextBox
             {
-                Anchor = AnchorStyles.Left | AnchorStyles.Right,
+                Dock = DockStyle.Fill,
                 AutoSize = false,
-                Margin = new Padding(0, 8, 0, 8),
-                BorderStyle = BorderStyle.FixedSingle,
+                Margin = new Padding(0),
+                BorderStyle = BorderStyle.None,
                 Font = inputFont,
-                Height = UiMetrics.GetInputHeight(inputFont),
-                MinimumSize = new Size(0, UiMetrics.GetInputHeight(inputFont)),
+                Height = UiMetrics.GetTextLineHeight(inputFont) + 4,
                 PlaceholderText = AppLocalization.T("kasa.amount.placeholder")
             };
             _txtTutar.KeyPress += AmountTextBoxKeyPress;
 
-            label.Font = BrandTheme.CreateHeadingFont(9.4f, FontStyle.Bold);
-            label.Margin = new Padding(0, 8, 10, 8);
+            var amountFrame = new Panel
+            {
+                Dock = DockStyle.Top,
+                Height = 40,
+                MinimumSize = new Size(0, 40),
+                Margin = new Padding(0, 2, 0, 2),
+                BackColor = Color.White
+            };
+            ApplyRoundedRegion(amountFrame, 8);
+            amountFrame.Paint += (_, e) =>
+            {
+                e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+                using var path = CreateRoundedPath(new Rectangle(0, 0, amountFrame.Width - 1, amountFrame.Height - 1), 8);
+                using var pen = new Pen(Color.FromArgb(157, 166, 179), 1.2f);
+                e.Graphics.DrawPath(pen, path);
+                using var splitPen = new Pen(Color.FromArgb(180, 188, 200), 1f);
+                e.Graphics.DrawLine(splitPen, 54, 0, 54, amountFrame.Height);
+            };
+            var prefix = new Label
+            {
+                Text = "TL",
+                Dock = DockStyle.Left,
+                Width = 54,
+                TextAlign = ContentAlignment.MiddleCenter,
+                Font = BrandTheme.CreateHeadingFont(11f, FontStyle.Bold),
+                ForeColor = Color.FromArgb(31, 41, 55),
+                Margin = new Padding(0)
+            };
+            var inputHost = new Panel
+            {
+                Dock = DockStyle.Fill,
+                Padding = new Padding(12, 7, 10, 5),
+                BackColor = Color.White
+            };
+            inputHost.Controls.Add(_txtTutar);
+            amountFrame.Controls.Add(inputHost);
+            amountFrame.Controls.Add(prefix);
 
             form.Controls.Add(label);
-            form.Controls.Add(_txtTutar);
+            form.Controls.Add(amountFrame);
         }
 
         private void AddPaymentMethodRow(TableLayoutPanel form)
         {
-            var label = new Label { Text = AppLocalization.T("common.method"), AutoSize = true, Anchor = AnchorStyles.Left };
-            label.Font = BrandTheme.CreateHeadingFont(9.4f, FontStyle.Bold);
-            label.Margin = new Padding(0, 8, 10, 8);
-            var paymentButtonHeight = UiMetrics.GetCompactButtonHeight(BrandTheme.CreateHeadingFont(8.9f, FontStyle.Bold));
+            var label = CreateEditorLabel(AppLocalization.T("common.method"));
+            var paymentButtonHeight = UiMetrics.GetCompactButtonHeight(BrandTheme.CreateHeadingFont(10f, FontStyle.Bold));
 
             var methodsPanel = new TableLayoutPanel
             {
-                Dock = DockStyle.Fill,
+                Dock = DockStyle.Top,
                 ColumnCount = 3,
                 RowCount = 3,
-                AutoSize = true,
-                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                AutoSize = false,
                 GrowStyle = TableLayoutPanelGrowStyle.FixedSize,
-                Margin = new Padding(0, 6, 0, 10),
+                Height = (paymentButtonHeight * 2) + OdemeButtonGapY,
+                MinimumSize = new Size(0, (paymentButtonHeight * 2) + OdemeButtonGapY),
+                Margin = new Padding(0, 2, 0, 4),
                 Padding = new Padding(0)
             };
-            methodsPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, OdemeButtonWidth));
+            methodsPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
             methodsPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, OdemeButtonGapX));
-            methodsPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, OdemeButtonWidth));
+            methodsPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
             methodsPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, paymentButtonHeight));
             methodsPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, OdemeButtonGapY));
             methodsPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, paymentButtonHeight));
@@ -157,15 +214,13 @@ namespace CashTracker.App.Forms
 
         private static Button CreateOdemeYontemiBaseButton(string text)
         {
-            var font = BrandTheme.CreateHeadingFont(8.9f, FontStyle.Bold);
+            var font = BrandTheme.CreateHeadingFont(10f, FontStyle.Bold);
             var buttonHeight = UiMetrics.GetCompactButtonHeight(font);
             var button = new Button
             {
                 Text = text,
-                Width = OdemeButtonWidth,
                 Height = buttonHeight,
-                MinimumSize = new Size(OdemeButtonWidth, buttonHeight),
-                MaximumSize = new Size(OdemeButtonWidth, buttonHeight),
+                MinimumSize = new Size(128, buttonHeight),
                 AutoSize = false,
                 AutoEllipsis = true,
                 Margin = Padding.Empty,
@@ -174,8 +229,8 @@ namespace CashTracker.App.Forms
                 Font = font,
                 TextAlign = ContentAlignment.MiddleCenter,
                 TextImageRelation = TextImageRelation.ImageBeforeText,
-                ImageAlign = ContentAlignment.MiddleLeft,
-                Padding = new Padding(10, 0, 10, 0),
+                ImageAlign = ContentAlignment.MiddleCenter,
+                Padding = new Padding(0),
                 BackColor = Color.White,
                 ForeColor = Color.FromArgb(38, 53, 72),
                 UseVisualStyleBackColor = false
@@ -190,35 +245,30 @@ namespace CashTracker.App.Forms
 
         private void AddStockLinkRow(TableLayoutPanel form)
         {
-            var label = new Label
-            {
-                Text = "Stok girisi",
-                AutoSize = true,
-                Anchor = AnchorStyles.Left,
-                Font = BrandTheme.CreateHeadingFont(9.4f, FontStyle.Bold),
-                Margin = new Padding(0, 8, 10, 8)
-            };
+            var label = CreateEditorLabel("Stok Girisi");
 
             var panel = new TableLayoutPanel
             {
-                Dock = DockStyle.Fill,
+                Dock = DockStyle.Top,
                 ColumnCount = 1,
                 RowCount = 4,
-                AutoSize = true,
-                AutoSizeMode = AutoSizeMode.GrowAndShrink,
-                Margin = new Padding(0, 6, 0, 10)
+                AutoSize = false,
+                Height = 92,
+                MinimumSize = new Size(0, 92),
+                Margin = new Padding(0, 2, 0, 2),
+                BackColor = Color.Transparent
             };
             panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-            panel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            panel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            panel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            panel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 22));
+            panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 28));
+            panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 28));
+            panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 14));
 
             _chkStokGiris = new CheckBox
             {
                 Text = "Bu gider stoklu urun alimi",
                 AutoSize = true,
-                Margin = new Padding(0, 0, 0, 6)
+                Margin = new Padding(0, 1, 0, 0)
             };
             _chkStokGiris.CheckedChanged += (_, __) => UpdateStockLinkUi();
 
@@ -229,8 +279,9 @@ namespace CashTracker.App.Forms
                 FlatStyle = FlatStyle.Flat,
                 IntegralHeight = false,
                 Font = BrandTheme.CreateFont(10f),
-                Margin = new Padding(0, 0, 0, 6),
-                MinimumSize = new Size(0, UiMetrics.GetInputHeight(BrandTheme.CreateFont(10f)))
+                Margin = new Padding(0, 0, 0, 3),
+                Height = 26,
+                MinimumSize = new Size(0, 26)
             };
 
             _numStokMiktar = new NumericUpDown
@@ -241,15 +292,19 @@ namespace CashTracker.App.Forms
                 Value = 1,
                 Dock = DockStyle.Top,
                 Font = BrandTheme.CreateFont(10f),
-                Margin = new Padding(0, 0, 0, 6)
+                Height = 26,
+                MinimumSize = new Size(0, 26),
+                Margin = new Padding(0, 0, 0, 3)
             };
 
             _lblStokGirisHint = new Label
             {
                 Text = "Sadece yeni gider kaydinda stok hareketi olusturulur.",
-                AutoSize = true,
+                AutoSize = false,
+                Dock = DockStyle.Fill,
                 ForeColor = Color.FromArgb(106, 118, 136),
-                Font = BrandTheme.CreateFont(8.8f),
+                Font = BrandTheme.CreateFont(8.2f),
+                AutoEllipsis = true,
                 Margin = new Padding(0)
             };
 
@@ -269,6 +324,68 @@ namespace CashTracker.App.Forms
             button.Image = CreateOdemeYontemiIcon(value);
             button.Click += (_, __) => SetSelectedOdemeYontemi(value);
             return button;
+        }
+
+        private static Label CreateEditorLabel(string text)
+        {
+            return new Label
+            {
+                Text = text,
+                AutoSize = false,
+                Dock = DockStyle.Fill,
+                TextAlign = ContentAlignment.MiddleLeft,
+                Font = BrandTheme.CreateHeadingFont(10.6f, FontStyle.Bold),
+                ForeColor = Color.FromArgb(15, 23, 42),
+                Margin = new Padding(0, 0, 12, 0)
+            };
+        }
+
+        private static Button CreateChoiceButton(string text, int width, int height)
+        {
+            var button = new Button
+            {
+                Text = text,
+                Width = width,
+                Height = height,
+                Margin = new Padding(0, 0, 10, 0),
+                BackColor = Color.White,
+                ForeColor = Color.FromArgb(31, 41, 55),
+                FlatStyle = FlatStyle.Flat,
+                Font = BrandTheme.CreateFont(10.8f),
+                TextAlign = ContentAlignment.MiddleCenter,
+                Cursor = Cursors.Hand
+            };
+            button.FlatAppearance.BorderSize = 1;
+            button.FlatAppearance.BorderColor = Color.FromArgb(196, 205, 216);
+            button.FlatAppearance.MouseOverBackColor = Color.FromArgb(241, 247, 253);
+            return button;
+        }
+
+        private void SetSelectedTip(string tip)
+        {
+            var target = tip == "Gider" ? AppLocalization.T("tip.expense") : AppLocalization.T("tip.income");
+            _cmbTip.SelectedItem = target;
+            ApplyTipButtonStyles();
+        }
+
+        private void ApplyTipButtonStyles()
+        {
+            if (_btnTipGelir is null || _btnTipGider is null || _cmbTip is null)
+                return;
+
+            var tip = MapTip(_cmbTip.SelectedItem?.ToString());
+            ApplyTypeButtonStyle(_btnTipGelir, tip == "Gelir");
+            ApplyTypeButtonStyle(_btnTipGider, tip == "Gider");
+        }
+
+        private static void ApplyTypeButtonStyle(Button button, bool selected)
+        {
+            button.BackColor = selected ? Color.FromArgb(222, 235, 251) : Color.White;
+            button.ForeColor = selected ? Color.FromArgb(18, 56, 98) : Color.FromArgb(31, 41, 55);
+            button.Font = BrandTheme.CreateFont(10.8f, selected ? FontStyle.Bold : FontStyle.Regular);
+            button.FlatAppearance.BorderColor = selected
+                ? Color.FromArgb(55, 104, 171)
+                : Color.FromArgb(196, 205, 216);
         }
 
         private static Bitmap CreateOdemeYontemiIcon(string value)

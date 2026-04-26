@@ -9,17 +9,16 @@ namespace CashTracker.App.Forms
         private void BuildUi()
         {
             _rootLayout = CreateRootLayout();
-            _lblActiveBusiness = CreateActiveBusinessLabel();
             _leftPanel = CreateSurfacePanel();
             _rightPanel = CreateSurfacePanel();
-            _leftPanel.Margin = new Padding(0, 0, 10, 0);
-            _rightPanel.Margin = new Padding(10, 0, 0, 0);
-            _rightPanel.AutoScroll = true;
+            _leftPanel.Padding = new Padding(24, 22, 24, 22);
+            _rightPanel.Padding = new Padding(24, 22, 24, 22);
+            _leftPanel.Margin = new Padding(0, 0, 12, 0);
+            _rightPanel.Margin = new Padding(12, 0, 0, 0);
+            _rightPanel.AutoScroll = false;
 
-            _rootLayout.Controls.Add(_lblActiveBusiness, 0, 0);
-            _rootLayout.SetColumnSpan(_lblActiveBusiness, 2);
-            _rootLayout.Controls.Add(_leftPanel, 0, 1);
-            _rootLayout.Controls.Add(_rightPanel, 1, 1);
+            _rootLayout.Controls.Add(_leftPanel, 0, 0);
+            _rootLayout.Controls.Add(_rightPanel, 1, 0);
             Controls.Add(_rootLayout);
 
             BuildGridSection(_leftPanel);
@@ -29,20 +28,18 @@ namespace CashTracker.App.Forms
 
         private static TableLayoutPanel CreateRootLayout()
         {
-            var bannerHeight = UiMetrics.GetBannerHeight(BrandTheme.CreateFont(9.2f, FontStyle.Bold), 20, 44);
             var root = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
-                Padding = new Padding(14, 12, 14, 14),
+                Padding = new Padding(34, 30, 34, 26),
                 ColumnCount = 2,
-                RowCount = 2,
+                RowCount = 1,
                 BackColor = BrandTheme.AppBackground
             };
 
-            root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 62));
-            root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 38));
-            root.RowStyles.Add(new RowStyle(SizeType.Absolute, bannerHeight));
             root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+            root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 58));
+            root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 42));
             return root;
         }
 
@@ -73,11 +70,31 @@ namespace CashTracker.App.Forms
             var panel = new Panel
             {
                 Dock = DockStyle.Fill,
-                Padding = new Padding(14),
+                Padding = new Padding(22),
                 BackColor = Color.White,
-                BorderStyle = BorderStyle.FixedSingle
+                BorderStyle = BorderStyle.None
+            };
+            UiMetrics.EnableDoubleBuffer(panel);
+            panel.Paint += (_, e) =>
+            {
+                e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                var rect = new Rectangle(0, 0, panel.Width - 1, panel.Height - 1);
+                using var path = CreateRoundedPath(rect, 18);
+                using var pen = new Pen(Color.FromArgb(211, 220, 232), 1.1f);
+                e.Graphics.DrawPath(pen, path);
             };
             return panel;
+        }
+
+        private static void ApplyRoundedRegion(Control control, int radius)
+        {
+            if (control.Width <= 0 || control.Height <= 0)
+                return;
+
+            using var path = CreateRoundedPath(new Rectangle(0, 0, control.Width - 1, control.Height - 1), radius);
+            var oldRegion = control.Region;
+            control.Region = new Region(path);
+            oldRegion?.Dispose();
         }
     }
 }

@@ -8,24 +8,29 @@ namespace CashTracker.App.Forms
     {
         private static void AddRow(TableLayoutPanel panel, string label, out TextBox textBox)
         {
-            var inputFont = BrandTheme.CreateFont(10f);
+            var inputFont = BrandTheme.CreateFont(11.2f);
+            var isDescription = label == AppLocalization.T("common.description");
             var lbl = new Label
             {
                 Text = label,
-                AutoSize = true,
-                Anchor = AnchorStyles.Left,
-                Font = BrandTheme.CreateHeadingFont(9.4f),
-                Margin = new Padding(0, 8, 10, 8)
+                AutoSize = false,
+                Dock = DockStyle.Fill,
+                TextAlign = isDescription ? ContentAlignment.TopLeft : ContentAlignment.MiddleLeft,
+                Font = BrandTheme.CreateHeadingFont(10.6f, FontStyle.Bold),
+                ForeColor = Color.FromArgb(15, 23, 42),
+                Margin = new Padding(0, isDescription ? 10 : 0, 12, 0)
             };
             textBox = new TextBox
             {
-                Anchor = AnchorStyles.Left | AnchorStyles.Right,
+                Dock = isDescription ? DockStyle.Fill : DockStyle.Top,
                 AutoSize = false,
                 BorderStyle = BorderStyle.FixedSingle,
-                Margin = new Padding(0, 8, 0, 8),
+                Margin = isDescription ? new Padding(0, 6, 0, 0) : new Padding(0, 2, 0, 2),
                 Font = inputFont,
-                Height = UiMetrics.GetInputHeight(inputFont),
-                MinimumSize = new Size(0, UiMetrics.GetInputHeight(inputFont))
+                Height = isDescription ? 72 : 40,
+                MinimumSize = new Size(0, isDescription ? 72 : 40),
+                Multiline = isDescription,
+                ScrollBars = isDescription ? ScrollBars.Vertical : ScrollBars.None
             };
             panel.Controls.Add(lbl);
             panel.Controls.Add(textBox);
@@ -33,27 +38,29 @@ namespace CashTracker.App.Forms
 
         private static void AddRow(TableLayoutPanel panel, string label, out ComboBox comboBox)
         {
-            var comboFont = BrandTheme.CreateFont(10f);
+            var comboFont = BrandTheme.CreateFont(11.2f);
             var lbl = new Label
             {
                 Text = label,
-                AutoSize = true,
-                Anchor = AnchorStyles.Left,
-                Font = BrandTheme.CreateHeadingFont(9.4f),
-                Margin = new Padding(0, 8, 10, 8)
+                AutoSize = false,
+                Dock = DockStyle.Fill,
+                TextAlign = ContentAlignment.MiddleLeft,
+                Font = BrandTheme.CreateHeadingFont(10.6f, FontStyle.Bold),
+                ForeColor = Color.FromArgb(15, 23, 42),
+                Margin = new Padding(0, 0, 12, 0)
             };
 
             comboBox = new ComboBox
             {
-                Anchor = AnchorStyles.Left | AnchorStyles.Right,
-                Margin = new Padding(0, 8, 0, 8),
+                Dock = DockStyle.Top,
+                Margin = new Padding(0, 2, 0, 2),
                 DropDownStyle = ComboBoxStyle.DropDownList,
                 FlatStyle = FlatStyle.Flat,
                 BackColor = Color.White,
                 IntegralHeight = false,
                 Font = comboFont,
-                Height = UiMetrics.GetInputHeight(comboFont),
-                MinimumSize = new Size(0, UiMetrics.GetInputHeight(comboFont))
+                Height = 40,
+                MinimumSize = new Size(0, 40)
             };
 
             panel.Controls.Add(lbl);
@@ -66,15 +73,17 @@ namespace CashTracker.App.Forms
             {
                 Text = string.Empty,
                 AutoSize = true,
-                Margin = new Padding(0, 0, 0, 8)
+                Margin = Padding.Empty
             };
 
             var right = new TableLayoutPanel
             {
-                Dock = DockStyle.Fill,
+                Dock = DockStyle.Top,
                 ColumnCount = 1,
                 RowCount = 2,
-                Margin = new Padding(0, 0, 0, 10)
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                Margin = new Padding(0, 0, 0, 2)
             };
             right.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             right.RowStyles.Add(new RowStyle(SizeType.AutoSize));
@@ -106,20 +115,30 @@ namespace CashTracker.App.Forms
 
         private static void AddRow(TableLayoutPanel panel, string label, out DateTimePicker dtp)
         {
-            var pickerFont = BrandTheme.CreateFont(10f);
+            var pickerFont = BrandTheme.CreateFont(11.2f);
             var lbl = new Label
             {
                 Text = label,
-                AutoSize = true,
-                Anchor = AnchorStyles.Left,
-                Font = BrandTheme.CreateHeadingFont(9.4f),
-                Margin = new Padding(0, 8, 10, 8)
+                AutoSize = false,
+                Dock = DockStyle.Fill,
+                TextAlign = ContentAlignment.MiddleLeft,
+                Font = BrandTheme.CreateHeadingFont(10.6f, FontStyle.Bold),
+                ForeColor = Color.FromArgb(15, 23, 42),
+                Margin = new Padding(0, 0, 12, 0)
             };
             var wrapper = new Panel
             {
-                Dock = DockStyle.Fill,
-                Margin = new Padding(0, 8, 0, 8),
-                Padding = new Padding(8, 0, 0, 0)
+                Dock = DockStyle.Top,
+                Height = 40,
+                MinimumSize = new Size(0, 40),
+                Margin = new Padding(0, 2, 0, 2),
+                Padding = new Padding(10, 3, 10, 3),
+                BackColor = Color.White
+            };
+            wrapper.Paint += (_, e) =>
+            {
+                using var pen = new Pen(Color.FromArgb(157, 166, 179), 1.2f);
+                e.Graphics.DrawRectangle(pen, 0, 0, wrapper.Width - 1, wrapper.Height - 1);
             };
             dtp = new DateTimePicker
             {
@@ -128,7 +147,7 @@ namespace CashTracker.App.Forms
                 Format = DateTimePickerFormat.Custom,
                 CustomFormat = "dd.MM.yyyy HH:mm",
                 Font = pickerFont,
-                MinimumSize = new Size(0, UiMetrics.GetInputHeight(pickerFont))
+                MinimumSize = new Size(0, 30)
             };
             wrapper.Controls.Add(dtp);
             panel.Controls.Add(lbl);

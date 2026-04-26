@@ -117,11 +117,13 @@ namespace CashTracker.App
                     ImageAlign = ContentAlignment.MiddleLeft,
                     TextAlign = ContentAlignment.MiddleLeft,
                     TextImageRelation = TextImageRelation.ImageBeforeText,
-                    Padding = new Padding(18, 0, 0, 0)
+                    Padding = new Padding(18, 0, 0, 0),
+                    Tag = iconKey
                 };
                 button.FlatAppearance.BorderSize = 0;
                 button.FlatAppearance.MouseDownBackColor = sidebarHover;
                 button.FlatAppearance.MouseOverBackColor = sidebarHover;
+                _sidebarButtons.Add(button);
                 return button;
             }
 
@@ -401,71 +403,65 @@ namespace CashTracker.App
 
             btnGelirGider.Click += (_, __) =>
             {
-                using var form = new KasaForm(
-                    _kasaService,
-                    _isletmeService,
-                    _kalemTanimiService,
-                    _urunHizmetService,
-                    _stokService,
-                    _telegramApprovalService,
-                    _runtimeOptions,
-                    _appSecurityService,
-                    _licenseService,
-                    _receiptOcrSettings);
-                form.ShowDialog(this);
-                _ = RefreshSummariesAsync();
+                ShowEmbeddedForm(
+                    "Gelir & Gider Yönetimi",
+                    btnGelirGider,
+                    new ReactCashflowForm(
+                        _kasaService,
+                        _isletmeService,
+                        _kalemTanimiService,
+                        _urunHizmetService,
+                        _stokService),
+                    refreshAfterClose: true);
             };
             btnCari.Click += (_, __) =>
             {
-                using var form = new CariForm(_cariService);
-                form.ShowDialog(this);
-                _ = RefreshSummariesAsync();
+                ShowEmbeddedForm("Cari Hesaplar", btnCari, new CariForm(_cariService), refreshAfterClose: true);
             };
             btnUrunStok.Click += (_, __) =>
             {
-                using var form = new UrunStokForm(_urunHizmetService, _stokService);
-                form.ShowDialog(this);
-                _ = RefreshSummariesAsync();
+                ShowEmbeddedForm("Urun / Stok", btnUrunStok, new UrunStokForm(_urunHizmetService, _stokService), refreshAfterClose: true);
             };
             btnFaturalar.Click += (_, __) =>
             {
-                using var form = new FaturaForm(
-                    _faturaService,
-                    _cariService,
-                    _urunHizmetService,
-                    _stokService,
-                    _gibPortalService,
-                    _tahsilatOdemeService);
-                form.ShowDialog(this);
-                _ = RefreshSummariesAsync();
+                ShowEmbeddedForm(
+                    "Faturalar",
+                    btnFaturalar,
+                    new FaturaForm(
+                        _faturaService,
+                        _cariService,
+                        _urunHizmetService,
+                        _stokService,
+                        _gibPortalService,
+                        _tahsilatOdemeService),
+                    refreshAfterClose: true);
             };
             btnTahsilat.Click += (_, __) =>
             {
-                using var form = new FaturaForm(
-                    _faturaService,
-                    _cariService,
-                    _urunHizmetService,
-                    _stokService,
-                    _gibPortalService,
-                    _tahsilatOdemeService);
-                form.ShowDialog(this);
-                _ = RefreshSummariesAsync();
+                ShowEmbeddedForm(
+                    "Tahsilat / Odeme",
+                    btnTahsilat,
+                    new FaturaForm(
+                        _faturaService,
+                        _cariService,
+                        _urunHizmetService,
+                        _stokService,
+                        _gibPortalService,
+                        _tahsilatOdemeService),
+                    refreshAfterClose: true);
             };
             btnMuhasebeci.Click += (_, __) =>
             {
-                using var form = new OnMuhasebeReportForm(_onMuhasebeReportService);
-                form.ShowDialog(this);
+                ShowEmbeddedForm("Muhasebeci Raporu", btnMuhasebeci, new OnMuhasebeReportForm(_onMuhasebeReportService));
             };
             btnGibPortal.Click += (_, __) =>
             {
-                using var form = new GibPortalSettingsForm(_gibPortalService);
-                form.ShowDialog(this);
+                ShowEmbeddedForm("GIB Portal Ayarlari", btnGibPortal, new GibPortalSettingsForm(_gibPortalService));
             };
-            btnChangeBot.Click += (_, __) => OpenBotSettings();
+            btnChangeBot.Click += (_, __) => OpenBotSettings(btnChangeBot);
             btnPrint.Click += (_, __) =>
             {
-                using var form = new PrintPreviewForm(_kasaService, _summaryService, _isletmeService);
-                form.ShowDialog(this);
+                ShowEmbeddedForm("Yazdir", btnPrint, new PrintPreviewForm(_kasaService, _summaryService, _isletmeService));
             };
             _btnUpdateNav.Click += async (_, __) => await CheckForUpdatesAsync(_btnUpdateNav);
 
@@ -505,7 +501,7 @@ namespace CashTracker.App
 
             var footerSettings = CreateGhostIconButton("settingsmodern", Color.FromArgb(228, 236, 247), 48, 30);
             footerSettings.Margin = new Padding(0);
-            footerSettings.Click += (_, __) => OpenSettingsDialog();
+            footerSettings.Click += (_, __) => ShowSettingsPage();
             footerBottom.Controls.Add(footerSettings, 0, 0);
 
             var contentShell = new TableLayoutPanel
@@ -548,7 +544,30 @@ namespace CashTracker.App
             topLayout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             topPanel.Controls.Add(topLayout);
 
-            topLayout.Controls.Add(new Panel { Dock = DockStyle.Fill, BackColor = Color.Transparent }, 0, 0);
+            var pageTitleHost = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 1,
+                RowCount = 1,
+                BackColor = Color.Transparent,
+                Margin = new Padding(0)
+            };
+            UiMetrics.EnableDoubleBuffer(pageTitleHost);
+            pageTitleHost.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            pageTitleHost.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+            topLayout.Controls.Add(pageTitleHost, 0, 0);
+
+            _lblActivePageTitle = new Label
+            {
+                Text = "Hizli Finansal Ozet",
+                AutoSize = true,
+                Anchor = AnchorStyles.Left,
+                Font = BrandTheme.CreateHeadingFont(25f, FontStyle.Bold),
+                ForeColor = heading,
+                Margin = new Padding(12, 0, 0, 0),
+                UseMnemonic = false
+            };
+            pageTitleHost.Controls.Add(_lblActivePageTitle, 0, 0);
 
             var actionsRow = new FlowLayoutPanel
             {
@@ -767,33 +786,42 @@ namespace CashTracker.App
             _btnLicenseBannerAction.FlatAppearance.MouseOverBackColor = Color.FromArgb(186, 133, 30);
             _btnLicenseBannerAction.Click += (_, __) =>
             {
-                OpenSettingsDialog();
+                ShowSettingsPage();
                 _ = RefreshLicenseBannerAsync();
             };
             bannerLayout.Controls.Add(_btnLicenseBannerAction, 1, 0);
 
-            var dashboardViewport = new Panel
+            _contentHost = new Panel
+            {
+                Dock = DockStyle.Fill,
+                BackColor = contentBackground,
+                Margin = new Padding(0)
+            };
+            UiMetrics.EnableDoubleBuffer(_contentHost);
+            contentShell.Controls.Add(_contentHost, 0, 2);
+
+            _dashboardViewport = new Panel
             {
                 Dock = DockStyle.Fill,
                 AutoScroll = true,
                 BackColor = contentBackground,
                 Padding = new Padding(36, 26, 36, 30)
             };
-            UiMetrics.EnableDoubleBuffer(dashboardViewport);
-            dashboardViewport.Paint += (_, e) =>
+            UiMetrics.EnableDoubleBuffer(_dashboardViewport);
+            _dashboardViewport.Paint += (_, e) =>
             {
-                using var brush = new LinearGradientBrush(dashboardViewport.ClientRectangle, Color.FromArgb(243, 246, 251), Color.FromArgb(232, 238, 247), 0f);
-                e.Graphics.FillRectangle(brush, dashboardViewport.ClientRectangle);
+                using var brush = new LinearGradientBrush(_dashboardViewport.ClientRectangle, Color.FromArgb(243, 246, 251), Color.FromArgb(232, 238, 247), 0f);
+                e.Graphics.FillRectangle(brush, _dashboardViewport.ClientRectangle);
 
                 using var accentBrush = new SolidBrush(Color.FromArgb(16, 88, 132, 194));
                 e.Graphics.FillEllipse(
                     accentBrush,
-                    dashboardViewport.ClientSize.Width - 360,
-                    dashboardViewport.ClientSize.Height - 240,
+                    _dashboardViewport.ClientSize.Width - 360,
+                    _dashboardViewport.ClientSize.Height - 240,
                     240,
                     240);
             };
-            contentShell.Controls.Add(dashboardViewport, 0, 2);
+            _contentHost.Controls.Add(_dashboardViewport);
 
             var dashboard = new TableLayoutPanel
             {
@@ -806,7 +834,7 @@ namespace CashTracker.App
             };
             UiMetrics.EnableDoubleBuffer(dashboard);
             dashboard.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-            dashboardViewport.Controls.Add(dashboard);
+            _dashboardViewport.Controls.Add(dashboard);
 
             var headerRow = new TableLayoutPanel
             {
@@ -1181,8 +1209,7 @@ namespace CashTracker.App
             btnShareWhatsapp.Click += (_, __) => MessageBox.Show("WhatsApp paylasimi sonraki surumde acilacak.", "Paylasim", MessageBoxButtons.OK, MessageBoxIcon.Information);
             btnSharePdf.Click += (_, __) =>
             {
-                using var form = new PrintPreviewForm(_kasaService, _summaryService, _isletmeService);
-                form.ShowDialog(this);
+                ShowEmbeddedForm("Yazdir", null, new PrintPreviewForm(_kasaService, _summaryService, _isletmeService));
             };
 
             shareMenuLayout.Controls.Add(btnShareTelegram, 0, 0);

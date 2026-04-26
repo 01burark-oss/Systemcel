@@ -1,3 +1,4 @@
+using System;
 using System.Drawing;
 using System.Collections.Generic;
 using System.Windows.Forms;
@@ -24,9 +25,12 @@ namespace CashTracker.App.Forms
         private readonly ReceiptOcrSettings _receiptOcrSettings;
 
         private DataGridView _grid = null!;
+        private TextBox _txtSearch = null!;
         private ComboBox _cmbTip = null!;
         private DateTimePicker _dtTarih = null!;
         private TextBox _txtTutar = null!;
+        private Button _btnTipGelir = null!;
+        private Button _btnTipGider = null!;
         private ComboBox _cmbKalem = null!;
         private Button _btnOdemeNakit = null!;
         private Button _btnOdemeKrediKarti = null!;
@@ -51,8 +55,13 @@ namespace CashTracker.App.Forms
         private int _selectedId;
         private bool _isLoadingKalemler;
         private bool _isLoadingStockProducts;
+        private bool _isBindingGrid;
+        private bool _suppressGridToForm;
         private string _selectedOdemeYontemi = "Nakit";
         private List<UrunHizmet> _stockProducts = new();
+        private List<Kasa> _allRecords = new();
+
+        public Action? EmbeddedSettingsRequested { get; init; }
 
         internal KasaForm(
             IKasaService kasaService,

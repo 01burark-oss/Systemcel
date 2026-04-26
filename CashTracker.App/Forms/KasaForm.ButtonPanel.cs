@@ -9,19 +9,20 @@ namespace CashTracker.App.Forms
         private FlowLayoutPanel CreateButtonPanel()
         {
             _btnSave = CreateButton(AppLocalization.T("common.save"), BrandTheme.Navy, Color.White);
-            _btnNew = CreateButton(AppLocalization.T("common.new"), BrandTheme.Navy, Color.White);
-            _btnDelete = CreateButton(AppLocalization.T("common.delete"), BrandTheme.Navy, Color.White);
-            _btnRefresh = CreateButton(AppLocalization.T("common.refresh"), BrandTheme.Navy, Color.White);
+            _btnNew = CreateButton(AppLocalization.T("common.new"), Color.White, BrandTheme.Navy);
+            _btnDelete = CreateButton(AppLocalization.T("common.delete"), Color.White, BrandTheme.Navy);
+            _btnRefresh = CreateButton(AppLocalization.T("common.refresh"), Color.White, BrandTheme.Navy);
 
             WireButtons();
             return new FlowLayoutPanel
             {
-                Dock = DockStyle.Fill,
+                Dock = DockStyle.Top,
                 FlowDirection = FlowDirection.RightToLeft,
                 WrapContents = false,
                 AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
                 Margin = new Padding(0),
-                Padding = new Padding(0, 14, 0, 0)
+                Padding = new Padding(0)
             };
         }
 

@@ -5,7 +5,6 @@ Download EXE (GitHub Release):
 - Latest release page: https://github.com/01burark-oss/CashTracker/releases/latest
 - Direct download (latest): https://github.com/01burark-oss/CashTracker/releases/latest/download/CashTracker-Setup.exe
 - SHA256 (latest): https://github.com/01burark-oss/CashTracker/releases/latest/download/CashTracker-Setup.exe.sha256
-- Update manifest (latest): https://github.com/01burark-oss/CashTracker/releases/latest/download/update-manifest.json
 
 How to use:
 
@@ -40,9 +39,8 @@ Tag push triggers `.github/workflows/release.yml` and uploads:
 
 - `CashTracker-Setup.exe`
 - `CashTracker-Setup.exe.sha256`
-- `update-manifest.json`
 
 Release note:
 
 - Primary install asset is `CashTracker-Setup.exe`.
-- In-app updates use the signed `update-manifest.json` asset and launch the installer in per-user upgrade mode.
+- In-app updates read the latest GitHub Release, download `CashTracker-Setup.exe`, verify the sibling `.sha256`, and run the installer in per-user upgrade mode.

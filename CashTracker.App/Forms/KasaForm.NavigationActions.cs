@@ -7,6 +7,12 @@ namespace CashTracker.App.Forms
         // Frontend butonu eklendiginde bu metod dogrudan cagrilacak.
         private async Task OpenSettingsForKalemManagementAsync()
         {
+            if (EmbeddedSettingsRequested is not null)
+            {
+                EmbeddedSettingsRequested();
+                return;
+            }
+
             using var form = new SettingsForm(
                 _isletmeService,
                 _kalemTanimiService,

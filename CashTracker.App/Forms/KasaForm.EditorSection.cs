@@ -10,7 +10,8 @@ namespace CashTracker.App.Forms
             {
                 Dock = DockStyle.Fill,
                 ColumnCount = 1,
-                RowCount = 3
+                RowCount = 3,
+                BackColor = System.Drawing.Color.Transparent
             };
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
@@ -18,8 +19,8 @@ namespace CashTracker.App.Forms
             layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             right.Controls.Add(layout);
 
-            var header = CreateSectionHeader(AppLocalization.T("kasa.form.title"), AppLocalization.T("kasa.form.subtitle"));
-            header.Margin = new Padding(0, 0, 0, 8);
+            var header = CreateSectionHeader("Islem Kayit Formu", string.Empty);
+            header.Margin = new Padding(0, 0, 0, 14);
             layout.Controls.Add(header, 0, 0);
 
             var form = CreateEditorForm();
@@ -40,6 +41,7 @@ namespace CashTracker.App.Forms
 
             var buttons = CreateButtonPanel();
             buttons.Controls.AddRange(new Control[] { _btnSave, _btnNew, _btnDelete, _btnRefresh });
+            buttons.Margin = new Padding(0, 12, 0, 0);
             layout.Controls.Add(buttons, 0, 2);
         }
     }

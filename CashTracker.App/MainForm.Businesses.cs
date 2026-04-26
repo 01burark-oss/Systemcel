@@ -13,17 +13,7 @@ namespace CashTracker.App
     {
         private void OpenSettingsDialog()
         {
-            using var form = new SettingsForm(
-                _isletmeService,
-                _kalemTanimiService,
-                _telegramApprovalService,
-                _runtimeOptions,
-                _appSecurityService,
-                _licenseService,
-                _receiptOcrSettings);
-            form.ShowDialog(this);
-            _ = RefreshSummariesAsync();
-            _ = RefreshLicenseBannerAsync();
+            ShowSettingsPage();
         }
 
         private async Task ShowBusinessSelectorMenuAsync()

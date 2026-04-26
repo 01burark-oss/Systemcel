@@ -85,9 +85,6 @@ static class Program
         {
             RepoOwner = FirstNonEmpty(config["Update:RepoOwner"], "01burark-oss"),
             RepoName = FirstNonEmpty(config["Update:RepoName"], "CashTracker"),
-            ManifestUrl = FirstNonEmpty(
-                config["Update:ManifestUrl"],
-                "https://github.com/01burark-oss/CashTracker/releases/latest/download/update-manifest.json"),
             AutoCheckDelaySeconds = int.TryParse(config["Update:AutoCheckDelaySeconds"], out var acd) ? acd : 30
         };
 
@@ -120,7 +117,7 @@ static class Program
         services.AddSingleton(startupMetrics);
 
         services.AddSingleton<HttpClient>();
-        services.AddSingleton<UpdateManifestService>();
+        services.AddSingleton<GitHubUpdateService>();
         services.AddSingleton<TelegramBotService>(sp =>
             new TelegramBotService(sp.GetRequiredService<HttpClient>(), telegramSettings.BotToken));
         services.AddSingleton<ITelegramApprovalService, TelegramApprovalService>();

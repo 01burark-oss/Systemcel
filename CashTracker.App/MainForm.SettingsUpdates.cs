@@ -28,9 +28,6 @@ namespace CashTracker.App
                     return;
 
                 MarkUpdateAvailable(result);
-
-                if (result.IsMandatory)
-                    await PromptAndInstallUpdateAsync(_btnUpdateNav, result);
             }
             catch
             {
@@ -38,27 +35,32 @@ namespace CashTracker.App
             }
         }
 
-        private void OpenBotSettings()
+        private void OpenBotSettings(Button navButton)
         {
-            using var form = new InitialSetupForm(_telegramSettings.BotToken, _telegramSettings.ChatId, _telegramSettings.AllowedUserIds, true);
-            if (form.ShowDialog(this) != DialogResult.OK)
-                return;
-
-            UserTelegramSetupStore.Save(_runtimeOptions.AppDataPath, new UserTelegramSetup
+            var form = new InitialSetupForm(_telegramSettings.BotToken, _telegramSettings.ChatId, _telegramSettings.AllowedUserIds, true);
+            form.FormClosed += (_, __) =>
             {
-                BotToken = form.BotToken,
-                ChatId = form.ChatId,
-                AllowedUserIds = form.AllowedUserIds
-            });
+                if (form.DialogResult != DialogResult.OK)
+                    return;
 
-            MessageBox.Show(
-                AppLocalization.T("main.bot.savedBody"),
-                AppLocalization.T("main.bot.savedTitle"),
-                MessageBoxButtons.OK,
-                MessageBoxIcon.Information);
+                UserTelegramSetupStore.Save(_runtimeOptions.AppDataPath, new UserTelegramSetup
+                {
+                    BotToken = form.BotToken,
+                    ChatId = form.ChatId,
+                    AllowedUserIds = form.AllowedUserIds
+                });
 
-            Application.Restart();
-            Close();
+                MessageBox.Show(
+                    AppLocalization.T("main.bot.savedBody"),
+                    AppLocalization.T("main.bot.savedTitle"),
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+
+                Application.Restart();
+                Close();
+            };
+
+            ShowEmbeddedForm(AppLocalization.T("main.nav.bot"), navButton, form);
         }
 
         private async Task CheckForUpdatesAsync(Button triggerButton)
@@ -112,7 +114,7 @@ namespace CashTracker.App
             }
         }
 
-        private async Task<ManifestUpdateCheckResult> FetchUpdateResultAsync(bool forceRefresh)
+        private async Task<UpdateCheckResult> FetchUpdateResultAsync(bool forceRefresh)
         {
             if (!forceRefresh && _cachedUpdateResult is not null)
                 return _cachedUpdateResult;
@@ -122,16 +124,13 @@ namespace CashTracker.App
             return _cachedUpdateResult;
         }
 
-        private void MarkUpdateAvailable(ManifestUpdateCheckResult result)
+        private void MarkUpdateAvailable(UpdateCheckResult result)
         {
             _cachedUpdateResult = result;
             if (_lblUpdateBadge is null)
                 return;
 
-            _lblUpdateBadge.Text = AppLocalization.T(
-                result.IsMandatory
-                    ? "main.badge.updateRequired"
-                    : "main.badge.updateAvailable");
+            _lblUpdateBadge.Text = AppLocalization.T("main.badge.updateAvailable");
             _lblUpdateBadge.Visible = result.HasUpdate;
         }
 
@@ -142,45 +141,29 @@ namespace CashTracker.App
                 _lblUpdateBadge.Visible = false;
         }
 
-        private async Task PromptAndInstallUpdateAsync(Button triggerButton, ManifestUpdateCheckResult result)
+        private async Task PromptAndInstallUpdateAsync(Button triggerButton, UpdateCheckResult result)
         {
-            var minimumVersionText = string.IsNullOrWhiteSpace(result.MinSupportedVersion)
-                ? "-"
-                : result.MinSupportedVersion;
             var installPrompt = result.CanInstallInApp
-                ? (result.IsMandatory
-                    ? "Bu guncelleme zorunlu. Devam etmek icin kuruluma gecilecek."
-                    : "Guncelleme paketini indirip kurmak istiyor musunuz?")
+                ? "Guncelleme paketini indirip kurmak istiyor musunuz?"
                 : "Bu surum icin otomatik kurulum paketi yayinlanmamis. Release sayfasini acmak istiyor musunuz?";
             var message =
-                $"Yeni surum: {result.LatestVersion}\n" +
-                $"Asgari desteklenen surum: {minimumVersionText}\n\n" +
+                $"Yeni surum: {result.LatestTag}\n\n" +
                 $"Notlar:\n{(string.IsNullOrWhiteSpace(result.ReleaseNotes) ? "- Not yok -" : result.ReleaseNotes)}\n\n" +
                 installPrompt;
 
-            var buttons = result.IsMandatory ? MessageBoxButtons.OKCancel : MessageBoxButtons.YesNo;
             var confirm = MessageBox.Show(
                 message,
                 AppLocalization.T("main.update.availableTitle"),
-                buttons,
+                MessageBoxButtons.YesNo,
                 MessageBoxIcon.Information);
 
-            var wantsInstall = result.IsMandatory
-                ? confirm == DialogResult.OK
-                : confirm == DialogResult.Yes;
-
-            if (!wantsInstall)
-            {
-                if (result.IsMandatory)
-                    Close();
-
+            if (confirm != DialogResult.Yes)
                 return;
-            }
 
             if (!result.CanInstallInApp)
             {
                 var targetUrl = string.IsNullOrWhiteSpace(result.ReleasePageUrl)
-                    ? result.PackageUrl
+                    ? result.AssetDownloadUrl
                     : result.ReleasePageUrl;
                 if (string.IsNullOrWhiteSpace(targetUrl))
                     throw new InvalidOperationException("Guncelleme sayfasi bulunamadi.");
@@ -193,12 +176,23 @@ namespace CashTracker.App
                 return;
             }
 
-            var packagePath = await _updateService.DownloadPackageAsync(
-                result.PackageUrl,
-                string.IsNullOrWhiteSpace(result.PackageFileName) ? "CashTracker-Setup.exe" : result.PackageFileName,
+            if (string.IsNullOrWhiteSpace(result.AssetDownloadUrl))
+                throw new InvalidOperationException(AppLocalization.T("main.update.packageMissing"));
+
+            var expectedSha256 = await _updateService.ResolveExpectedSha256Async(result);
+            if (string.IsNullOrWhiteSpace(expectedSha256))
+                throw new InvalidOperationException(AppLocalization.T("main.update.checksumMissingBody"));
+
+            var packageFileName = string.IsNullOrWhiteSpace(result.AssetName)
+                ? "CashTracker-Setup.exe"
+                : result.AssetName;
+
+            var packagePath = await _updateService.DownloadAssetAsync(
+                result.AssetDownloadUrl,
+                packageFileName,
                 _runtimeOptions.AppDataPath);
 
-            UpdateManifestService.VerifyPackageHash(packagePath, result.Sha256);
+            GitHubUpdateService.VerifyDownloadedAssetHash(packagePath, expectedSha256);
 
             if (!InstallerLaunchService.TryScheduleInstall(packagePath, Process.GetCurrentProcess().Id))
                 throw new InvalidOperationException("Installer baslatilamadi.");

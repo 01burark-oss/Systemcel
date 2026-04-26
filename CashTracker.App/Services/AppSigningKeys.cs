@@ -8,9 +8,6 @@ namespace CashTracker.App.Services
         private const string DefaultLicensePublicKeyXml =
             "<RSAKeyValue><Modulus>526JV46QA+8OJIS6jF9boltTQvdZxX3sGH4clNgHxtNoaIWsC/QIqamRn/S8igwl3VuZH7duNnp4ymif6nKdicOSpedt6jakto3k3JnkFyTVuIEoqWPNRc/Ixd4cLH+CQ+Fl9+Dz3Owb+RQGKNapv1zC3fo4hDwupXdBfqi4R0g2vFUfSqrTmjbgyT7OJzicDDCnhfxbeXSbxUe8T3xNBq/rvAZinIvlHf45rGC2EbD2wYER2C2p60mbMa3m5rWhdK05hq5nFHIfouyZfWVh/j2SD4lLwQdv4yyyHH6h0IcSRmKUpCrJuaRw/actIP4ZbkwZBQUXiG/m3xKlKPb/0Q==</Modulus><Exponent>AQAB</Exponent></RSAKeyValue>";
 
-        private const string DefaultUpdateManifestPublicKeyXml =
-            "<RSAKeyValue><Modulus>ukz4hBxCeei00kiHJLs9ITV9xXi7eFB/HwYrHi6sf567d4y+IgKGWDqXGdAXHkHimDFYVZHwPNsSSaCoeGg6PamkgtjIn0Jzp+vCp3MFDEiLwGaqCf49uGnHDIBGjacoN2xWrC985E4nDBKwo2ZCqNmmMVyJaqrCa1t0uGhmZeelluh3amqTqijpd3kBNYZmvPLz7UVGGAiXIt827JxBYUvD6pEESAem2Vy9mYWr2spc7l5mEfMzBxtxPC8lI8Dg6vSP4kdpcnVb064sEvIMWSE31xCLOa9RaXk+vMm3XhRWyP+SkykhNXW0cOtSSIkHB2k5fhUZGAG5vu0kNmOlPQ==</Modulus><Exponent>AQAB</Exponent></RSAKeyValue>";
-
         public static string GetLicensePublicKeyXml(string? appDataPath = null)
         {
             return ResolveKey(
@@ -18,15 +15,6 @@ namespace CashTracker.App.Services
                 "license-public-key.xml",
                 appDataPath,
                 DefaultLicensePublicKeyXml);
-        }
-
-        public static string GetUpdateManifestPublicKeyXml(string? appDataPath = null)
-        {
-            return ResolveKey(
-                "CASHTRACKER_UPDATE_PUBLIC_KEY_XML",
-                "update-public-key.xml",
-                appDataPath,
-                DefaultUpdateManifestPublicKeyXml);
         }
 
         private static string ResolveKey(

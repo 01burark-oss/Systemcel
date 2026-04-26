@@ -11,8 +11,6 @@ permissions:
 jobs:
   build-and-release:
     runs-on: windows-latest
-    env:
-      CASHTRACKER_UPDATE_SIGNING_PRIVATE_KEY_XML: ${{ secrets.CASHTRACKER_UPDATE_SIGNING_PRIVATE_KEY_XML }}
 
     steps:
       - name: Checkout
@@ -65,21 +63,6 @@ jobs:
             -Configuration "Release" `
             -SetupBaseName "CashTracker-Setup"
 
-      - name: Write Update Manifest
-        if: ${{ env.CASHTRACKER_UPDATE_SIGNING_PRIVATE_KEY_XML != '' }}
-        shell: pwsh
-        run: |
-          $version = "${{ steps.meta.outputs.version }}"
-          $packagePath = ".\artifacts\$version\CashTracker-Setup.exe"
-          $packageUrl = "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/CashTracker-Setup.exe"
-
-          .\scripts\write-update-manifest.ps1 `
-            -Version "v$version" `
-            -PackageUrl $packageUrl `
-            -PackagePath $packagePath `
-            -OutputPath ".\artifacts\$version\update-manifest.json" `
-            -MinSupportedVersion "$version"
-
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -90,4 +73,3 @@ jobs:
           files: |
             artifacts/${{ steps.meta.outputs.version }}/CashTracker-Setup.exe
             artifacts/${{ steps.meta.outputs.version }}/CashTracker-Setup.exe.sha256
-            artifacts/${{ steps.meta.outputs.version }}/update-manifest.json

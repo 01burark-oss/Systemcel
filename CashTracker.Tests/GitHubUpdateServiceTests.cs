@@ -1,4 +1,8 @@
+using System;
+using System.IO;
+using System.Net;
 using System.Net.Http;
+using System.Security.Cryptography;
 using System.Threading.Tasks;
 using CashTracker.App.Services;
 using CashTracker.Core.Models;
@@ -9,51 +13,118 @@ namespace CashTracker.Tests
 {
     public sealed class GitHubUpdateServiceTests
     {
-        [Theory]
-        [InlineData("1.0.3", "1.0.3")]
-        [InlineData("1.0.3", "v1.0.3")]
-        [InlineData("1.0.3.0", "v1.0.3")]
-        [InlineData("v1.0.3", "1.0.3")]
-        public async Task CheckAsync_SameVersionFormats_DoesNotReportUpdate(string currentVersion, string latestVersion)
+        [Fact]
+        public async Task CheckAsync_WhenSetupAssetExists_ReturnsInstallerUpdate()
         {
-            var handler = new RecordingHttpMessageHandler((_, _) =>
-                RecordingHttpMessageHandler.OkJson($$"""
+            var handler = new RecordingHttpMessageHandler((request, _) =>
+            {
+                var url = request.RequestUri?.ToString() ?? string.Empty;
+                if (url.Contains("/repos/owner/repo/releases/latest", StringComparison.Ordinal))
                 {
-                  "tag_name": "{{latestVersion}}",
-                  "html_url": "https://example.test/release"
+                    return RecordingHttpMessageHandler.OkJson("""
+                    {
+                      "tag_name": "v2.0.0",
+                      "html_url": "https://example.test/release",
+                      "body": "Stable release",
+                      "assets": [
+                        {
+                          "name": "CashTracker-Setup.exe",
+                          "browser_download_url": "https://example.test/CashTracker-Setup.exe"
+                        },
+                        {
+                          "name": "CashTracker-Setup.exe.sha256",
+                          "browser_download_url": "https://example.test/CashTracker-Setup.exe.sha256"
+                        },
+                        {
+                          "name": "CashTracker-v2.0.0.zip",
+                          "browser_download_url": "https://example.test/CashTracker-v2.0.0.zip"
+                        }
+                      ]
+                    }
+                    """);
                 }
-                """));
+
+                throw new HttpRequestException($"Unexpected request: {url}");
+            });
+
             using var http = new HttpClient(handler);
             var service = new GitHubUpdateService(http);
 
             var result = await service.CheckAsync(
-                new UpdateSettings { RepoOwner = "owner", RepoName = "repo" },
-                currentVersion);
+                new UpdateSettings
+                {
+                    RepoOwner = "owner",
+                    RepoName = "repo"
+                },
+                "1.9.0");
 
             Assert.True(result.IsConfigured);
-            Assert.False(result.HasUpdate);
-            Assert.Contains("/repos/owner/repo/releases/latest", handler.Requests[0].Url);
+            Assert.True(result.HasUpdate);
+            Assert.Equal("v2.0.0", result.LatestTag);
+            Assert.Equal("CashTracker-Setup.exe", result.AssetName);
+            Assert.True(result.CanInstallInApp);
+            Assert.Equal("CashTracker-Setup.exe.sha256", result.ChecksumAssetName);
+            Assert.Equal("https://example.test/release", result.ReleasePageUrl);
         }
 
         [Fact]
-        public async Task CheckAsync_NewerPatchVersion_ReportsUpdate()
+        public async Task ResolveExpectedSha256Async_DownloadsAndParsesChecksum()
         {
-            var handler = new RecordingHttpMessageHandler((_, _) =>
-                RecordingHttpMessageHandler.OkJson("""
+            const string expectedSha256 = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+            var handler = new RecordingHttpMessageHandler((request, _) =>
+            {
+                var url = request.RequestUri?.ToString() ?? string.Empty;
+                if (url.EndsWith(".sha256", StringComparison.OrdinalIgnoreCase))
                 {
-                  "tag_name": "v1.0.4",
-                  "html_url": "https://example.test/release"
+                    return new HttpResponseMessage(HttpStatusCode.OK)
+                    {
+                        Content = new StringContent($"{expectedSha256} *CashTracker-Setup.exe")
+                    };
                 }
-                """));
+
+                throw new HttpRequestException($"Unexpected request: {url}");
+            });
+
             using var http = new HttpClient(handler);
             var service = new GitHubUpdateService(http);
 
-            var result = await service.CheckAsync(
-                new UpdateSettings { RepoOwner = "owner", RepoName = "repo" },
-                "1.0.3");
+            var result = new UpdateCheckResult(
+                true,
+                true,
+                "v2.0.0",
+                "CashTracker-Setup.exe",
+                "https://example.test/CashTracker-Setup.exe",
+                "CashTracker-Setup.exe.sha256",
+                "https://example.test/CashTracker-Setup.exe.sha256",
+                "https://example.test/release",
+                "Stable release");
 
-            Assert.True(result.HasUpdate);
-            Assert.Equal("v1.0.4", result.LatestTag);
+            var actual = await service.ResolveExpectedSha256Async(result);
+
+            Assert.Equal(expectedSha256, actual);
+        }
+
+        [Fact]
+        public void VerifyDownloadedAssetHash_ValidatesExpectedHash()
+        {
+            var tempFile = Path.GetTempFileName();
+            try
+            {
+                File.WriteAllText(tempFile, "cashtracker");
+                using var stream = File.OpenRead(tempFile);
+                var expectedSha256 = Convert.ToHexString(SHA256.HashData(stream)).ToLowerInvariant();
+
+                GitHubUpdateService.VerifyDownloadedAssetHash(tempFile, expectedSha256);
+
+                var error = Assert.Throws<InvalidOperationException>(() =>
+                    GitHubUpdateService.VerifyDownloadedAssetHash(tempFile, new string('0', 64)));
+                Assert.Equal("Indirilen paket dogrulanamadi.", error.Message);
+            }
+            finally
+            {
+                if (File.Exists(tempFile))
+                    File.Delete(tempFile);
+            }
         }
     }
 }

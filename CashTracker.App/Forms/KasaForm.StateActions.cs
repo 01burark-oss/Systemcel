@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
 using System.Linq;
@@ -12,16 +13,29 @@ namespace CashTracker.App.Forms
     {
         private async Task LoadAllAsync()
         {
-            await RefreshActiveBusinessInfoAsync();
-            await LoadStockProductsAsync();
-            var list = await _kasaService.GetAllAsync();
-            _grid.DataSource = new BindingList<Kasa>(list);
-            _grid.ClearSelection();
-            await ClearFormAsync();
+            _suppressGridToForm = true;
+            try
+            {
+                await RefreshActiveBusinessInfoAsync();
+                await LoadStockProductsAsync();
+                _allRecords = (await _kasaService.GetAllAsync()).ToList();
+                _selectedId = 0;
+                ApplyRecordFilter();
+                _grid.ClearSelection();
+                _grid.CurrentCell = null;
+                await ClearFormAsync();
+            }
+            finally
+            {
+                _suppressGridToForm = false;
+            }
         }
 
         private async Task GridToFormAsync()
         {
+            if (_isBindingGrid || _suppressGridToForm)
+                return;
+
             if (_grid.CurrentRow?.DataBoundItem is not Kasa kasa)
                 return;
 
@@ -47,6 +61,47 @@ namespace CashTracker.App.Forms
             _numStokMiktar.Value = 1;
             await LoadKalemlerForTipAsync();
             UpdateStockLinkUi();
+        }
+
+        private void ApplyRecordFilter()
+        {
+            if (_grid is null)
+                return;
+
+            var query = (_txtSearch?.Text ?? string.Empty).Trim();
+            IEnumerable<Kasa> rows = _allRecords;
+            if (!string.IsNullOrWhiteSpace(query))
+            {
+                rows = rows.Where(row => RecordMatchesSearch(row, query));
+            }
+
+            _isBindingGrid = true;
+            try
+            {
+                _grid.DataSource = new BindingList<Kasa>(rows.ToList());
+                _grid.ClearSelection();
+                _grid.CurrentCell = null;
+            }
+            finally
+            {
+                _isBindingGrid = false;
+            }
+        }
+
+        private static bool RecordMatchesSearch(Kasa row, string query)
+        {
+            var haystack = string.Join(" ", new[]
+            {
+                row.Tarih.ToString("dd.MM.yyyy HH:mm", AppLocalization.CurrentCulture),
+                AppLocalization.GetTipDisplay(MapTip(row.Tip)),
+                MapOdemeYontemiLabel(row.OdemeYontemi),
+                row.Tutar.ToString("N2", AppLocalization.CurrentCulture),
+                row.Kalem,
+                row.GiderTuru,
+                row.Aciklama
+            });
+
+            return haystack.Contains(query, StringComparison.CurrentCultureIgnoreCase);
         }
 
         private async Task LoadKalemlerForTipAsync(string? preferredKalem = null)
@@ -243,12 +298,14 @@ namespace CashTracker.App.Forms
                     ? AppLocalization.T("common.unknown")
                     : active.Ad.Trim();
 
-                _lblActiveBusiness.Text = AppLocalization.F("kasa.activeBusiness", businessName);
+                if (_lblActiveBusiness is not null)
+                    _lblActiveBusiness.Text = AppLocalization.F("kasa.activeBusiness", businessName);
                 Text = AppLocalization.F("kasa.titleWithBusiness", businessName);
             }
             catch
             {
-                _lblActiveBusiness.Text = AppLocalization.F("kasa.activeBusiness", AppLocalization.T("common.unknown"));
+                if (_lblActiveBusiness is not null)
+                    _lblActiveBusiness.Text = AppLocalization.F("kasa.activeBusiness", AppLocalization.T("common.unknown"));
                 Text = AppLocalization.T("kasa.title");
             }
         }

@@ -2,6 +2,7 @@
 using System.IO;
 using System.Linq;
 using System.Net.Http;
+using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 using System.Text.Json;
 using System.Threading;
@@ -10,6 +11,9 @@ using CashTracker.Core.Models;
 
 namespace CashTracker.App.Services
 {
+    /// <summary>
+    /// Primary in-app update service based on GitHub Releases.
+    /// </summary>
     internal sealed class GitHubUpdateService
     {
         private readonly HttpClient _httpClient;
@@ -124,6 +128,56 @@ namespace CashTracker.App.Services
             using var response = await _httpClient.SendAsync(request, ct);
             response.EnsureSuccessStatusCode();
             return await response.Content.ReadAsStringAsync(ct);
+        }
+
+        public async Task<string> ResolveExpectedSha256Async(
+            UpdateCheckResult result,
+            CancellationToken ct = default)
+        {
+            if (string.IsNullOrWhiteSpace(result.ChecksumAssetDownloadUrl))
+                return string.Empty;
+
+            var raw = await DownloadTextAsync(result.ChecksumAssetDownloadUrl, ct);
+            return ExtractSha256(raw);
+        }
+
+        public static void VerifyDownloadedAssetHash(string assetPath, string expectedSha256)
+        {
+            var normalizedExpected = (expectedSha256 ?? string.Empty).Trim().ToLowerInvariant();
+            if (string.IsNullOrWhiteSpace(assetPath) ||
+                !File.Exists(assetPath) ||
+                string.IsNullOrWhiteSpace(normalizedExpected))
+            {
+                throw new InvalidOperationException("Indirilen paket dogrulanamadi.");
+            }
+
+            using var stream = File.OpenRead(assetPath);
+            var actual = Convert.ToHexString(SHA256.HashData(stream)).ToLowerInvariant();
+            if (!string.Equals(actual, normalizedExpected, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException("Indirilen paket dogrulanamadi.");
+        }
+
+        public static bool IsInstallerPackage(string? pathOrFileName)
+        {
+            if (string.IsNullOrWhiteSpace(pathOrFileName))
+                return false;
+
+            var name = Path.GetFileName(pathOrFileName).Trim();
+            if (name.EndsWith(".msi", StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            return name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) &&
+                (name.Contains("setup", StringComparison.OrdinalIgnoreCase) ||
+                 name.Contains("installer", StringComparison.OrdinalIgnoreCase));
+        }
+
+        internal static string ExtractSha256(string raw)
+        {
+            if (string.IsNullOrWhiteSpace(raw))
+                return string.Empty;
+
+            var match = Regex.Match(raw, "[a-fA-F0-9]{64}");
+            return match.Success ? match.Value.ToLowerInvariant() : string.Empty;
         }
 
         private static JsonElement? SelectAsset(JsonElement[] assets, string preferredName)
@@ -276,6 +330,9 @@ namespace CashTracker.App.Services
                 string.Empty,
                 string.Empty);
         }
+
+        public bool CanInstallInApp =>
+            GitHubUpdateService.IsInstallerPackage(AssetName);
     }
 }
 
