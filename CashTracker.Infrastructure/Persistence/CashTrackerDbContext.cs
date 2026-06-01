@@ -9,6 +9,16 @@ namespace CashTracker.Infrastructure.Persistence
 
         public DbSet<Kasa> Kasalar => Set<Kasa>();
         public DbSet<Isletme> Isletmeler => Set<Isletme>();
+        public DbSet<Kullanici> Kullanicilar => Set<Kullanici>();
+        public DbSet<IsletmeUyelik> IsletmeUyelikleri => Set<IsletmeUyelik>();
+        public DbSet<MuhasebeciMusteri> MuhasebeciMusterileri => Set<MuhasebeciMusteri>();
+        public DbSet<MuhasebeciProfil> MuhasebeciProfilleri => Set<MuhasebeciProfil>();
+        public DbSet<MuhasebeciMusteriTalebi> MuhasebeciMusteriTalepleri => Set<MuhasebeciMusteriTalebi>();
+        public DbSet<MuhasebeciSohbetMesaji> MuhasebeciSohbetMesajlari => Set<MuhasebeciSohbetMesaji>();
+        public DbSet<Abonelik> Abonelikler => Set<Abonelik>();
+        public DbSet<IsletmeDeneme> IsletmeDenemeleri => Set<IsletmeDeneme>();
+        public DbSet<IsletmeEntitlement> IsletmeEntitlementlari => Set<IsletmeEntitlement>();
+        public DbSet<AiKullanimDonemi> AiKullanimDonemleri => Set<AiKullanimDonemi>();
         public DbSet<KalemTanimi> KalemTanimlari => Set<KalemTanimi>();
         public DbSet<AppSetting> AppSettings => Set<AppSetting>();
         public DbSet<CariKart> CariKartlari => Set<CariKart>();
@@ -40,7 +50,160 @@ namespace CashTracker.Infrastructure.Persistence
                 e.ToTable("Isletme");
                 e.HasKey(x => x.Id);
                 e.Property(x => x.Ad).IsRequired();
+                e.Property(x => x.IsletmeTuru).IsRequired();
+                e.Property(x => x.Konum).IsRequired();
+                e.Property(x => x.TenantTipi).IsRequired();
                 e.HasIndex(x => x.IsAktif);
+                e.HasIndex(x => x.MuhasebeciVarMi);
+                e.HasIndex(x => x.IsletmeTuru);
+                e.HasIndex(x => x.TenantTipi);
+                e.HasIndex(x => x.SahipKullaniciId);
+                e.HasIndex(x => x.ClerkOrganizationId).IsUnique();
+            });
+
+            modelBuilder.Entity<Kullanici>(e =>
+            {
+                e.ToTable("Kullanici");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.AuthProvider).IsRequired();
+                e.Property(x => x.AuthProviderUserId).IsRequired();
+                e.Property(x => x.Eposta).IsRequired();
+                e.Property(x => x.AdSoyad).IsRequired();
+                e.Property(x => x.HesapTipi).IsRequired();
+                e.Property(x => x.Durum).IsRequired();
+                e.HasIndex(x => new { x.AuthProvider, x.AuthProviderUserId }).IsUnique();
+                e.HasIndex(x => x.Eposta);
+                e.HasIndex(x => x.HesapTipi);
+            });
+
+            modelBuilder.Entity<IsletmeUyelik>(e =>
+            {
+                e.ToTable("IsletmeUyelik");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Rol).IsRequired();
+                e.Property(x => x.Durum).IsRequired();
+                e.Property(x => x.DavetEposta).IsRequired();
+                e.HasIndex(x => x.IsletmeId);
+                e.HasIndex(x => x.KullaniciId);
+                e.HasIndex(x => new { x.IsletmeId, x.KullaniciId }).IsUnique();
+                e.HasIndex(x => x.DavetKodu).IsUnique();
+            });
+
+            modelBuilder.Entity<MuhasebeciMusteri>(e =>
+            {
+                e.ToTable("MuhasebeciMusteri");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Durum).IsRequired();
+                e.Property(x => x.YetkiSeviyesi).IsRequired();
+                e.Property(x => x.Kaynak).IsRequired();
+                e.Property(x => x.Notlar).IsRequired();
+                e.HasIndex(x => x.MuhasebeciIsletmeId);
+                e.HasIndex(x => x.MusteriIsletmeId);
+                e.HasIndex(x => new { x.MuhasebeciIsletmeId, x.MusteriIsletmeId }).IsUnique();
+                e.HasIndex(x => x.DavetKodu).IsUnique();
+                e.HasIndex(x => x.TalepId);
+                e.HasIndex(x => x.YetkiSeviyesi);
+            });
+
+            modelBuilder.Entity<MuhasebeciProfil>(e =>
+            {
+                e.ToTable("MuhasebeciProfil");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Unvan).IsRequired();
+                e.Property(x => x.Konum).IsRequired();
+                e.Property(x => x.Telefon).IsRequired();
+                e.Property(x => x.ProfilResmiUrl).IsRequired();
+                e.Property(x => x.UcretBilgisi).IsRequired();
+                e.Property(x => x.Uzmanliklar).IsRequired();
+                e.Property(x => x.MusteriTipleri).IsRequired();
+                e.Property(x => x.KisaAciklama).IsRequired();
+                e.HasIndex(x => x.MuhasebeciIsletmeId).IsUnique();
+                e.HasIndex(x => x.Yayinda);
+                e.HasIndex(x => x.Konum);
+                e.HasIndex(x => x.DeneyimYili);
+            });
+
+            modelBuilder.Entity<MuhasebeciMusteriTalebi>(e =>
+            {
+                e.ToTable("MuhasebeciMusteriTalebi");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Tur).IsRequired();
+                e.Property(x => x.Durum).IsRequired();
+                e.Property(x => x.YetkiSeviyesi).IsRequired();
+                e.Property(x => x.DavetKodu).IsRequired();
+                e.Property(x => x.Mesaj).IsRequired();
+                e.HasIndex(x => x.MuhasebeciIsletmeId);
+                e.HasIndex(x => x.MusteriIsletmeId);
+                e.HasIndex(x => x.TalepEdenIsletmeId);
+                e.HasIndex(x => x.Durum);
+                e.HasIndex(x => x.DavetKodu);
+                e.HasIndex(x => new { x.MuhasebeciIsletmeId, x.MusteriIsletmeId, x.Durum });
+            });
+
+            modelBuilder.Entity<MuhasebeciSohbetMesaji>(e =>
+            {
+                e.ToTable("MuhasebeciSohbetMesaji");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Mesaj).IsRequired();
+                e.HasIndex(x => x.MuhasebeciIsletmeId);
+                e.HasIndex(x => x.MusteriIsletmeId);
+                e.HasIndex(x => x.TalepId);
+                e.HasIndex(x => x.BaglantiId);
+                e.HasIndex(x => x.OkunduAt);
+                e.HasIndex(x => new { x.MuhasebeciIsletmeId, x.MusteriIsletmeId, x.CreatedAt });
+            });
+
+            modelBuilder.Entity<Abonelik>(e =>
+            {
+                e.ToTable("Abonelik");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.HesapTipi).IsRequired();
+                e.Property(x => x.PlanKodu).IsRequired();
+                e.Property(x => x.Durum).IsRequired();
+                e.Property(x => x.AylikTutar).HasColumnType("NUMERIC");
+                e.Property(x => x.ParaBirimi).IsRequired();
+                e.Property(x => x.OdemeSaglayici).IsRequired();
+                e.Property(x => x.SaglayiciMusteriId).IsRequired();
+                e.Property(x => x.SaglayiciAbonelikId).IsRequired();
+                e.HasIndex(x => x.IsletmeId);
+                e.HasIndex(x => new { x.IsletmeId, x.Durum });
+                e.HasIndex(x => x.PlanKodu);
+                e.HasIndex(x => x.SaglayiciAbonelikId);
+            });
+
+            modelBuilder.Entity<IsletmeDeneme>(e =>
+            {
+                e.ToTable("IsletmeDeneme");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.PlanKodu).IsRequired();
+                e.Property(x => x.Durum).IsRequired();
+                e.Property(x => x.OdemeSaglayici).IsRequired();
+                e.Property(x => x.SaglayiciMusteriId).IsRequired();
+                e.Property(x => x.SaglayiciOdemeYontemiId).IsRequired();
+                e.HasIndex(x => x.IsletmeId);
+                e.HasIndex(x => new { x.IsletmeId, x.PlanKodu }).IsUnique();
+                e.HasIndex(x => x.Durum);
+            });
+
+            modelBuilder.Entity<IsletmeEntitlement>(e =>
+            {
+                e.ToTable("IsletmeEntitlement");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.PlanKodu).IsRequired();
+                e.Property(x => x.Kaynak).IsRequired();
+                e.HasIndex(x => x.IsletmeId).IsUnique();
+                e.HasIndex(x => x.PlanKodu);
+                e.HasIndex(x => x.Kaynak);
+                e.HasIndex(x => x.SponsorMuhasebeciIsletmeId);
+            });
+
+            modelBuilder.Entity<AiKullanimDonemi>(e =>
+            {
+                e.ToTable("AiKullanimDonemi");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.DonemAnahtari).IsRequired();
+                e.HasIndex(x => x.IsletmeId);
+                e.HasIndex(x => new { x.IsletmeId, x.DonemAnahtari }).IsUnique();
             });
 
             modelBuilder.Entity<KalemTanimi>(e =>
@@ -175,6 +338,21 @@ namespace CashTracker.Infrastructure.Persistence
                 e.HasIndex(x => x.IsletmeId);
                 e.HasIndex(x => new { x.IsletmeId, x.FaturaId, x.Tarih });
             });
+
+            ConfigureDateTimeColumns(modelBuilder);
+        }
+
+        private static void ConfigureDateTimeColumns(ModelBuilder modelBuilder)
+        {
+            foreach (var entityType in modelBuilder.Model.GetEntityTypes())
+            {
+                foreach (var property in entityType.GetProperties())
+                {
+                    var clrType = Nullable.GetUnderlyingType(property.ClrType) ?? property.ClrType;
+                    if (clrType == typeof(DateTime))
+                        property.SetColumnType("timestamp without time zone");
+                }
+            }
         }
     }
 }

@@ -3,6 +3,7 @@ using System.IO;
 using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
+using CashTracker.Core.Models;
 using CashTracker.Infrastructure.Services;
 using CashTracker.Tests.Support;
 using Xunit;
@@ -77,6 +78,58 @@ namespace CashTracker.Tests
                 if (File.Exists(tempPath))
                     File.Delete(tempPath);
             }
+        }
+
+        [Fact]
+        public async Task SendTextAsync_WithSettings_UsesLatestBotToken()
+        {
+            var handler = new RecordingHttpMessageHandler();
+            var settings = new TelegramSettings { BotToken = "111:first-token" };
+            var bot = new TelegramBotService(new HttpClient(handler), settings);
+
+            await bot.SendTextAsync("123", "ilk");
+            settings.BotToken = "222:second-token";
+            await bot.SendTextAsync("123", "ikinci");
+
+            Assert.Contains("/bot111:first-token/sendMessage", handler.Requests[0].Url);
+            Assert.Contains("/bot222:second-token/sendMessage", handler.Requests[1].Url);
+        }
+
+        [Fact]
+        public async Task GetMeAsync_ParsesBotIdentity()
+        {
+            var handler = new RecordingHttpMessageHandler((request, _) =>
+            {
+                var url = request.RequestUri?.ToString() ?? string.Empty;
+                if (url.Contains("/getMe", StringComparison.OrdinalIgnoreCase))
+                {
+                    return RecordingHttpMessageHandler.OkJson(
+                        "{\"ok\":true,\"result\":{\"id\":987,\"is_bot\":true,\"first_name\":\"Systemcel\",\"username\":\"SystemcelBot\"}}");
+                }
+
+                return RecordingHttpMessageHandler.OkJson("{\"ok\":true,\"result\":{}}");
+            });
+
+            var bot = new TelegramBotService(new HttpClient(handler), "test-token");
+            var identity = await bot.GetMeAsync();
+
+            Assert.Equal(987, identity.Id);
+            Assert.Equal("SystemcelBot", identity.Username);
+            Assert.Equal("Systemcel", identity.FirstName);
+        }
+
+        [Fact]
+        public async Task SetCommandsAsync_PostsTelegramCommandMenu()
+        {
+            var handler = new RecordingHttpMessageHandler();
+            var bot = new TelegramBotService(new HttpClient(handler), "test-token");
+
+            await bot.SetCommandsAsync(TelegramCommandCatalog.BotMenu);
+
+            var request = Assert.Single(handler.Requests);
+            Assert.Contains("/setMyCommands", request.Url);
+            Assert.Contains("\"command\":\"yardim\"", request.Body);
+            Assert.Contains("\"command\":\"bugun\"", request.Body);
         }
     }
 }

@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using CashTracker.App.Services;
 using CashTracker.Core.Entities;
 using CashTracker.Core.Models;
 using CashTracker.Core.Services;
@@ -203,11 +202,50 @@ namespace CashTracker.Tests.Support
             return Task.CompletedTask;
         }
 
+        public Task UpdateSetupAsync(int id, string ad, string isletmeTuru, string konum, bool tamamlandi, string? hesapTipi = null, bool? muhasebeciVarMi = null, MuhasebeciProfilKaydetRequest? muhasebeciProfil = null)
+        {
+            if (id == Active.Id)
+            {
+                Active.Ad = ad;
+                Active.IsletmeTuru = isletmeTuru;
+                Active.Konum = konum;
+                Active.KolayKurulumTamamlandi = tamamlandi;
+                if (muhasebeciVarMi.HasValue)
+                    Active.MuhasebeciVarMi = muhasebeciVarMi.Value;
+                if (!string.IsNullOrWhiteSpace(hesapTipi))
+                    Active.TenantTipi = hesapTipi;
+            }
+
+            return Task.CompletedTask;
+        }
+
         public Task SetActiveAsync(int id)
         {
             Active.Id = id;
             Active.IsAktif = true;
             return Task.CompletedTask;
+        }
+
+        public Task SetActiveCustomerContextAsync(int musteriIsletmeId)
+        {
+            Active.Id = musteriIsletmeId;
+            Active.IsAktif = true;
+            return Task.CompletedTask;
+        }
+
+        public Task ClearActiveCustomerContextAsync()
+        {
+            return Task.CompletedTask;
+        }
+
+        public Task<ActiveBusinessAccess> GetActiveAccessAsync()
+        {
+            return Task.FromResult(new ActiveBusinessAccess
+            {
+                IsletmeId = Active.Id,
+                MuhasebeciMusteriBaglami = false,
+                YetkiSeviyesi = MuhasebeciYetkiSeviyeleri.TamIslem
+            });
         }
 
         public Task DeleteAsync(int id)
@@ -429,6 +467,26 @@ namespace CashTracker.Tests.Support
             return Task.FromResult(stock);
         }
 
+        public Task<List<StokHareket>> GetRecentMovementsAsync(int limit = 20, CancellationToken ct = default)
+        {
+            var rows = Requests
+                .TakeLast(Math.Clamp(limit, 1, 100))
+                .Select((request, index) => new StokHareket
+                {
+                    Id = index + 1,
+                    UrunHizmetId = request.UrunHizmetId,
+                    Tarih = request.Tarih ?? DateTime.Today,
+                    Miktar = request.Miktar,
+                    Kaynak = request.Kaynak,
+                    Aciklama = request.Aciklama
+                })
+                .OrderByDescending(x => x.Tarih)
+                .ThenByDescending(x => x.Id)
+                .ToList();
+
+            return Task.FromResult(rows);
+        }
+
         public Task<StokHareketResult> CreateMovementAsync(StokHareketCreateRequest request, CancellationToken ct = default)
         {
             Requests.Add(request);
@@ -483,47 +541,4 @@ namespace CashTracker.Tests.Support
         }
     }
 
-    internal sealed class FakeInstallIdentityService : IInstallIdentityService
-    {
-        public string InstallCode { get; set; } = "CTI-TEST-CODE";
-        public string InstallCodeHash { get; set; } = "test-install-hash";
-
-        public string GetInstallCode() => InstallCode;
-        public string GetInstallCodeHash() => InstallCodeHash;
-    }
-
-    internal sealed class FakeLicenseRuntimeStateStore : ILicenseRuntimeStateStore
-    {
-        public LicenseRuntimeState State { get; private set; } = new();
-
-        public LicenseRuntimeState Load()
-        {
-            return new LicenseRuntimeState
-            {
-                InstallCode = State.InstallCode,
-                TrialStartedAtUtc = State.TrialStartedAtUtc,
-                LastSeenAtUtc = State.LastSeenAtUtc,
-                LegacyExempt = State.LegacyExempt,
-                TamperLocked = State.TamperLocked,
-                ActivatedAtUtc = State.ActivatedAtUtc,
-                ActivatedLicenseId = State.ActivatedLicenseId,
-                UpdatedAtUtc = State.UpdatedAtUtc
-            };
-        }
-
-        public void Save(LicenseRuntimeState state)
-        {
-            State = new LicenseRuntimeState
-            {
-                InstallCode = state.InstallCode,
-                TrialStartedAtUtc = state.TrialStartedAtUtc,
-                LastSeenAtUtc = state.LastSeenAtUtc,
-                LegacyExempt = state.LegacyExempt,
-                TamperLocked = state.TamperLocked,
-                ActivatedAtUtc = state.ActivatedAtUtc,
-                ActivatedLicenseId = state.ActivatedLicenseId,
-                UpdatedAtUtc = state.UpdatedAtUtc
-            };
-        }
-    }
 }

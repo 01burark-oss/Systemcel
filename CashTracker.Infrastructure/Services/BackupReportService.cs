@@ -73,9 +73,9 @@ namespace CashTracker.Infrastructure.Services
             sb.AppendLine($"Gelir: {r.IncomeTotal:n2}");
             sb.AppendLine($"Gider: {r.ExpenseTotal:n2}");
             sb.AppendLine($"Net: {(r.IncomeTotal - r.ExpenseTotal):n2}");
-            sb.AppendLine($"Islem: {r.IncomeCount + r.ExpenseCount} (Gelir {r.IncomeCount}, Gider {r.ExpenseCount})");
+            sb.AppendLine($"İşlem: {r.IncomeCount + r.ExpenseCount} (Gelir {r.IncomeCount}, Gider {r.ExpenseCount})");
             sb.AppendLine();
-            sb.AppendLine("Odeme Yontemleri:");
+            sb.AppendLine("Ödeme Yöntemleri:");
 
             foreach (var method in new[] { "Nakit", "KrediKarti", "OnlineOdeme", "Havale" })
             {
@@ -93,8 +93,8 @@ namespace CashTracker.Infrastructure.Services
         {
             return method switch
             {
-                "KrediKarti" => "Kredi Karti",
-                "OnlineOdeme" => "Online Odeme",
+                "KrediKarti" => "Kredi Kartı",
+                "OnlineOdeme" => "Online Ödeme",
                 _ => method
             };
         }

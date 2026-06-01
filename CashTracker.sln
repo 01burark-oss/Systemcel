@@ -3,15 +3,15 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CashTracker.App", "CashTracker.App\CashTracker.App.csproj", "{4A87E5EE-668F-4593-9A4E-5C49E12D5449}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CashTracker.Core", "CashTracker.Core\CashTracker.Core.csproj", "{EBEB2011-BB08-491D-A323-71D3539FECF1}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CashTracker.Infrastructure", "CashTracker.Infrastructure\CashTracker.Infrastructure.csproj", "{4C9D8F00-0306-4507-87EC-6C020782FF61}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CashTracker.Tests", "CashTracker.Tests\CashTracker.Tests.csproj", "{A268999E-096B-4BCD-B4CB-380544125F3B}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CashTracker.LicenseAdmin", "CashTracker.LicenseAdmin\CashTracker.LicenseAdmin.csproj", "{5C54834A-40F1-47E3-BD18-473246A82885}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Systemcel.Api", "Systemcel.Api\Systemcel.Api.csproj", "{1EABCE3E-8FA5-480D-BDC4-066E05ED3E8A}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Systemcel.DesktopImportTool", "tools\Systemcel.DesktopImportTool\Systemcel.DesktopImportTool.csproj", "{45EA88E2-122E-4F53-8E5A-E2E7C538F26E}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -19,10 +19,6 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{4A87E5EE-668F-4593-9A4E-5C49E12D5449}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{4A87E5EE-668F-4593-9A4E-5C49E12D5449}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{4A87E5EE-668F-4593-9A4E-5C49E12D5449}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{4A87E5EE-668F-4593-9A4E-5C49E12D5449}.Release|Any CPU.Build.0 = Release|Any CPU
 		{EBEB2011-BB08-491D-A323-71D3539FECF1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{EBEB2011-BB08-491D-A323-71D3539FECF1}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{EBEB2011-BB08-491D-A323-71D3539FECF1}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -35,10 +31,14 @@ Global
 		{A268999E-096B-4BCD-B4CB-380544125F3B}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A268999E-096B-4BCD-B4CB-380544125F3B}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A268999E-096B-4BCD-B4CB-380544125F3B}.Release|Any CPU.Build.0 = Release|Any CPU
-		{5C54834A-40F1-47E3-BD18-473246A82885}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{5C54834A-40F1-47E3-BD18-473246A82885}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{5C54834A-40F1-47E3-BD18-473246A82885}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{5C54834A-40F1-47E3-BD18-473246A82885}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1EABCE3E-8FA5-480D-BDC4-066E05ED3E8A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1EABCE3E-8FA5-480D-BDC4-066E05ED3E8A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1EABCE3E-8FA5-480D-BDC4-066E05ED3E8A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1EABCE3E-8FA5-480D-BDC4-066E05ED3E8A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{45EA88E2-122E-4F53-8E5A-E2E7C538F26E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{45EA88E2-122E-4F53-8E5A-E2E7C538F26E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{45EA88E2-122E-4F53-8E5A-E2E7C538F26E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{45EA88E2-122E-4F53-8E5A-E2E7C538F26E}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

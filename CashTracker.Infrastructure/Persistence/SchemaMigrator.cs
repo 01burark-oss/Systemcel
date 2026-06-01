@@ -6,8 +6,10 @@ namespace CashTracker.Infrastructure.Persistence
 {
     public static partial class SchemaMigrator
     {
-        private const string VarsayilanIsletmeAdi = "Mevcut Isletme";
+        private const string VarsayilanIsletmeAdi = "Mevcut İşletme";
+        private const string EskiVarsayilanIsletmeAdi = "Mevcut Isletme";
         private const string SchemaBootstrappedKey = "SchemaBootstrappedV2";
+        private const string ApprovedAccountantProfilesPublishedKey = "ApprovedAccountantProfilesPublishedV1";
 
         public static void EnsureKasaSchema(CashTrackerDbContext db)
         {
@@ -29,17 +31,27 @@ namespace CashTracker.Infrastructure.Persistence
             EnsureBelgeDosyaTable(db);
             EnsureGibPortalAyarTable(db);
             EnsureGibPortalIslemLogTable(db);
+            EnsureWebAuthTables(db);
 
             EnsureKasaColumns(db, conn);
+            EnsureIsletmeColumns(db, conn);
+            EnsureWebAuthColumns(db, conn);
+            NormalizeLegacyBusinessNames(db);
             EnsureIndexes(db);
 
             var activeIsletmeId = EnsureActiveBusiness(db, conn);
-            if (!HasSchemaBootstrapMarker(conn))
+            if (!HasAppSettingMarker(conn, SchemaBootstrappedKey))
             {
                 BackfillKasaBusiness(db, activeIsletmeId);
                 BackfillKasaKalem(db);
                 SeedKalemFromKasa(db);
-                SetSchemaBootstrapMarker(db);
+                SetAppSettingMarker(db, SchemaBootstrappedKey);
+            }
+
+            if (!HasAppSettingMarker(conn, ApprovedAccountantProfilesPublishedKey))
+            {
+                PublishApprovedCompleteAccountantProfiles(db);
+                SetAppSettingMarker(db, ApprovedAccountantProfilesPublishedKey);
             }
 
             EnsureDefaultKalemler(db, activeIsletmeId);
@@ -82,26 +94,34 @@ namespace CashTracker.Infrastructure.Persistence
             return Convert.ToInt32(result);
         }
 
-        private static bool HasSchemaBootstrapMarker(DbConnection conn)
+        private static bool HasAppSettingMarker(DbConnection conn, string key)
         {
             using var cmd = conn.CreateCommand();
             cmd.CommandText = "SELECT COUNT(1) FROM AppSetting WHERE Key = $key AND Value = '1';";
             var p = cmd.CreateParameter();
             p.ParameterName = "$key";
-            p.Value = SchemaBootstrappedKey;
+            p.Value = key;
             cmd.Parameters.Add(p);
             var result = cmd.ExecuteScalar();
             return result != null && result != DBNull.Value && Convert.ToInt32(result) > 0;
         }
 
-        private static void SetSchemaBootstrapMarker(CashTrackerDbContext db)
+        private static void SetAppSettingMarker(CashTrackerDbContext db, string key)
         {
             db.Database.ExecuteSqlRaw(@"
 INSERT INTO AppSetting (Key, Value, CreatedAt, UpdatedAt)
 SELECT {0}, '1', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
 WHERE NOT EXISTS (
     SELECT 1 FROM AppSetting WHERE Key = {0}
-);", SchemaBootstrappedKey);
+);", key);
+        }
+
+        private static void NormalizeLegacyBusinessNames(CashTrackerDbContext db)
+        {
+            db.Database.ExecuteSqlRaw(
+                "UPDATE Isletme SET Ad = {0} WHERE Ad = {1};",
+                VarsayilanIsletmeAdi,
+                EskiVarsayilanIsletmeAdi);
         }
 
         private static partial void EnsureKasaTable(CashTrackerDbContext db, DbConnection conn);
@@ -118,12 +138,16 @@ WHERE NOT EXISTS (
         private static partial void EnsureBelgeDosyaTable(CashTrackerDbContext db);
         private static partial void EnsureGibPortalAyarTable(CashTrackerDbContext db);
         private static partial void EnsureGibPortalIslemLogTable(CashTrackerDbContext db);
+        private static partial void EnsureWebAuthTables(CashTrackerDbContext db);
         private static partial void EnsureKasaColumns(CashTrackerDbContext db, DbConnection conn);
+        private static partial void EnsureIsletmeColumns(CashTrackerDbContext db, DbConnection conn);
+        private static partial void EnsureWebAuthColumns(CashTrackerDbContext db, DbConnection conn);
         private static partial void EnsureIndexes(CashTrackerDbContext db);
         private static partial int EnsureActiveBusiness(CashTrackerDbContext db, DbConnection conn);
         private static partial void BackfillKasaBusiness(CashTrackerDbContext db, int activeIsletmeId);
         private static partial void BackfillKasaKalem(CashTrackerDbContext db);
         private static partial void SeedKalemFromKasa(CashTrackerDbContext db);
+        private static partial void PublishApprovedCompleteAccountantProfiles(CashTrackerDbContext db);
         private static partial void EnsureDefaultKalemler(CashTrackerDbContext db, int isletmeId);
     }
 }

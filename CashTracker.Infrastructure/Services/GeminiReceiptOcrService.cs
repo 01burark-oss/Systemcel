@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Net.Http;
@@ -42,6 +43,67 @@ namespace CashTracker.Infrastructure.Services
             if (request.ImageBytes is null || request.ImageBytes.Length == 0)
                 throw new ArgumentException("Receipt image is required.", nameof(request));
 
+            ReceiptOcrResult? primaryResult = null;
+            Exception? primaryError = null;
+
+            try
+            {
+                primaryResult = await AnalyzeReceiptWithModelAsync(request, _settings.EffectiveModel, ct);
+                if (!ShouldRetryWithFallback(primaryResult))
+                    return primaryResult;
+            }
+            catch (Exception ex)
+            {
+                primaryError = ex;
+            }
+
+            var fallbackModel = _settings.EffectiveFallbackModel;
+            if (!string.IsNullOrWhiteSpace(fallbackModel) &&
+                !string.Equals(fallbackModel, _settings.EffectiveModel, StringComparison.OrdinalIgnoreCase))
+            {
+                try
+                {
+                    return await AnalyzeReceiptWithModelAsync(request, fallbackModel, ct);
+                }
+                catch when (primaryResult is not null)
+                {
+                    return primaryResult;
+                }
+                catch (Exception ex) when (primaryError is not null)
+                {
+                    throw new InvalidOperationException("Gemini OCR birincil ve yedek modelle basarisiz oldu.", ex);
+                }
+            }
+
+            if (primaryError is not null)
+                throw primaryError;
+
+            return primaryResult ?? throw new InvalidOperationException("Gemini OCR yaniti bos.");
+        }
+
+        private async Task<ReceiptOcrResult> AnalyzeReceiptWithModelAsync(
+            ReceiptOcrRequest request,
+            string model,
+            CancellationToken ct)
+        {
+            if (string.IsNullOrWhiteSpace(model))
+                throw new InvalidOperationException("Gemini OCR modeli eksik.");
+
+            var generationConfig = new Dictionary<string, object>
+            {
+                ["responseMimeType"] = "application/json",
+                ["temperature"] = 0,
+                ["maxOutputTokens"] = 2048
+            };
+
+            if (IsFlashModel(model))
+            {
+                generationConfig["thinkingConfig"] = new
+                {
+                    thinkingBudget = 0
+                };
+            }
+
             var payload = new
             {
                 contents = new object[]
@@ -62,14 +124,11 @@ namespace CashTracker.Infrastructure.Services
                         }
                     }
                 },
-                generationConfig = new
-                {
-                    responseMimeType = "application/json"
-                }
+                generationConfig
             };
 
             var url =
-                $"https://generativelanguage.googleapis.com/v1beta/models/{Uri.EscapeDataString(_settings.EffectiveModel)}:generateContent" +
+                $"https://generativelanguage.googleapis.com/v1beta/models/{Uri.EscapeDataString(model.Trim())}:generateContent" +
                 $"?key={Uri.EscapeDataString(_settings.EffectiveApiKey)}";
 
             using var httpRequest = new HttpRequestMessage(HttpMethod.Post, url)
@@ -112,6 +171,19 @@ namespace CashTracker.Infrastructure.Services
                     })
                     .ToList() ?? []
             };
+        }
+
+        private bool ShouldRetryWithFallback(ReceiptOcrResult result)
+        {
+            if (string.IsNullOrWhiteSpace(_settings.EffectiveFallbackModel))
+                return false;
+
+            return result.ReceiptTotal is null || result.Items.Count == 0;
+        }
+
+        private static bool IsFlashModel(string model)
+        {
+            return model.Contains("flash", StringComparison.OrdinalIgnoreCase);
         }
 
         private static string BuildPrompt(ReceiptOcrRequest request)

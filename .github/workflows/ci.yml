@@ -6,6 +6,9 @@ on:
       - main
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   build-test:
     runs-on: windows-latest
@@ -19,14 +22,28 @@ jobs:
         with:
           dotnet-version: "8.0.x"
 
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: Systemcel.Web/package-lock.json
+
+      - name: Build Systemcel.Web
+        working-directory: Systemcel.Web
+        shell: pwsh
+        run: |
+          npm ci
+          npm run build
+
       - name: Restore
         shell: pwsh
-        run: dotnet restore .\CashTracker.sln --configuration Release
+        run: dotnet restore .\CashTracker.sln /p:Configuration=Release /p:RestoreUseStaticGraphEvaluation=true
 
       - name: Build
         shell: pwsh
-        run: dotnet build .\CashTracker.sln --no-restore --configuration Release
+        run: dotnet build .\CashTracker.sln --no-restore --configuration Release --disable-parallel /p:BuildInParallel=false
 
       - name: Test
         shell: pwsh
-        run: dotnet test .\CashTracker.sln --no-build --configuration Release --logger "console;verbosity=minimal"
+        run: dotnet test .\CashTracker.Tests\CashTracker.Tests.csproj --no-build --configuration Release --logger "console;verbosity=minimal"

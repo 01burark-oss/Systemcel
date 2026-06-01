@@ -1,10 +1,13 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net;
 using System.Text.Json;
+using CashTracker.Core.Models;
+using CashTracker.Core.Services;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -13,31 +16,43 @@ namespace CashTracker.Infrastructure.Services
     public sealed class TelegramBotService
     {
         private readonly HttpClient _http;
-        private readonly string _baseUrl;
+        private readonly TelegramSettings? _settings;
+        private readonly ITelegramMessageFooterProvider? _footerProvider;
+        private readonly string _staticBotToken;
 
-        public TelegramBotService(HttpClient httpClient, string botToken)
+        public TelegramBotService(
+            HttpClient httpClient,
+            string botToken,
+            ITelegramMessageFooterProvider? footerProvider = null)
         {
             _http = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
-            if (string.IsNullOrWhiteSpace(botToken))
-            {
-                _baseUrl = string.Empty;
-                return;
-            }
+            _staticBotToken = botToken?.Trim() ?? string.Empty;
+            _footerProvider = footerProvider;
+        }
 
-            _baseUrl = $"https://api.telegram.org/bot{botToken}";
+        public TelegramBotService(
+            HttpClient httpClient,
+            TelegramSettings settings,
+            ITelegramMessageFooterProvider? footerProvider = null)
+        {
+            _http = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
+            _settings = settings ?? throw new ArgumentNullException(nameof(settings));
+            _staticBotToken = string.Empty;
+            _footerProvider = footerProvider;
         }
 
         public async Task SendTextAsync(string chatId, string text, CancellationToken ct = default)
         {
-            EnsureConfigured();
+            var baseUrl = GetBaseUrl();
             if (string.IsNullOrWhiteSpace(chatId)) throw new ArgumentException("ChatId is required.", nameof(chatId));
             if (string.IsNullOrWhiteSpace(text)) throw new ArgumentException("Text is required.", nameof(text));
 
-            var url = $"{_baseUrl}/sendMessage";
+            var url = $"{baseUrl}/sendMessage";
+            var outgoingText = await BuildOutgoingTextAsync(text, ct);
             using var content = new FormUrlEncodedContent(new Dictionary<string, string>
             {
                 ["chat_id"] = chatId,
-                ["text"] = text
+                ["text"] = outgoingText
             });
 
             using var response = await _http.PostAsync(url, content, ct);
@@ -46,14 +61,33 @@ namespace CashTracker.Infrastructure.Services
                 throw new InvalidOperationException($"Telegram sendMessage failed: {response.StatusCode} - {body}");
         }
 
+        private async Task<string> BuildOutgoingTextAsync(string text, CancellationToken ct)
+        {
+            if (_footerProvider is null)
+                return text;
+
+            try
+            {
+                var footer = await _footerProvider.BuildFooterAsync(ct);
+                if (string.IsNullOrWhiteSpace(footer))
+                    return text;
+
+                return text.TrimEnd() + "\n\n" + footer;
+            }
+            catch
+            {
+                return text;
+            }
+        }
+
         public async Task SendDocumentAsync(string chatId, string filePath, string? caption = null, CancellationToken ct = default)
         {
-            EnsureConfigured();
+            var baseUrl = GetBaseUrl();
             if (string.IsNullOrWhiteSpace(chatId)) throw new ArgumentException("ChatId is required.", nameof(chatId));
             if (string.IsNullOrWhiteSpace(filePath)) throw new ArgumentException("File path is required.", nameof(filePath));
             if (!File.Exists(filePath)) throw new FileNotFoundException("File not found.", filePath);
 
-            var url = $"{_baseUrl}/sendDocument";
+            var url = $"{baseUrl}/sendDocument";
 
             using var form = new MultipartFormDataContent();
             form.Add(new StringContent(chatId), "chat_id");
@@ -111,10 +145,10 @@ namespace CashTracker.Infrastructure.Services
             int timeoutSeconds = 20,
             CancellationToken ct = default)
         {
-            EnsureConfigured();
+            var baseUrl = GetBaseUrl();
 
             var timeout = Math.Clamp(timeoutSeconds, 0, 50);
-            var url = $"{_baseUrl}/getUpdates?timeout={timeout}";
+            var url = $"{baseUrl}/getUpdates?timeout={timeout}";
             if (offset.HasValue)
                 url += $"&offset={offset.Value}";
 
@@ -187,11 +221,11 @@ namespace CashTracker.Infrastructure.Services
 
         public async Task<string> GetFilePathAsync(string fileId, CancellationToken ct = default)
         {
-            EnsureConfigured();
+            var baseUrl = GetBaseUrl();
             if (string.IsNullOrWhiteSpace(fileId))
                 throw new ArgumentException("FileId is required.", nameof(fileId));
 
-            var url = $"{_baseUrl}/getFile?file_id={WebUtility.UrlEncode(fileId)}";
+            var url = $"{baseUrl}/getFile?file_id={WebUtility.UrlEncode(fileId)}";
             using var response = await _http.GetAsync(url, ct);
             var body = await response.Content.ReadAsStringAsync(ct);
             if (!response.IsSuccessStatusCode)
@@ -224,7 +258,7 @@ namespace CashTracker.Infrastructure.Services
             string destinationPath,
             CancellationToken ct = default)
         {
-            EnsureConfigured();
+            var token = GetBotToken();
             if (string.IsNullOrWhiteSpace(filePath))
                 throw new ArgumentException("File path is required.", nameof(filePath));
             if (string.IsNullOrWhiteSpace(destinationPath))
@@ -235,7 +269,7 @@ namespace CashTracker.Infrastructure.Services
                 Directory.CreateDirectory(dir);
 
             var normalizedPath = filePath.TrimStart('/');
-            var url = $"https://api.telegram.org/file/{_baseUrl[( _baseUrl.IndexOf("bot", StringComparison.Ordinal) )..]}/{normalizedPath}";
+            var url = $"https://api.telegram.org/file/bot{token}/{normalizedPath}";
             using var response = await _http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, ct);
             if (!response.IsSuccessStatusCode)
             {
@@ -246,6 +280,57 @@ namespace CashTracker.Infrastructure.Services
             await using var source = await response.Content.ReadAsStreamAsync(ct);
             await using var target = File.Create(destinationPath);
             await source.CopyToAsync(target, ct);
+        }
+
+        public async Task<TelegramBotIdentity> GetMeAsync(CancellationToken ct = default)
+        {
+            var baseUrl = GetBaseUrl();
+            using var response = await _http.GetAsync($"{baseUrl}/getMe", ct);
+            var body = await response.Content.ReadAsStringAsync(ct);
+            if (!response.IsSuccessStatusCode)
+                throw new InvalidOperationException($"Telegram getMe failed: {response.StatusCode} - {body}");
+
+            using var doc = JsonDocument.Parse(body);
+            if (!doc.RootElement.TryGetProperty("ok", out var okNode) ||
+                okNode.ValueKind != JsonValueKind.True)
+            {
+                throw new InvalidOperationException($"Telegram getMe returned ok=false: {body}");
+            }
+
+            if (!doc.RootElement.TryGetProperty("result", out var resultNode) ||
+                resultNode.ValueKind != JsonValueKind.Object)
+            {
+                throw new InvalidOperationException("Telegram getMe result not found.");
+            }
+
+            return new TelegramBotIdentity
+            {
+                Id = TryReadInt64(resultNode, "id", out var id) ? id : 0,
+                Username = ReadOptionalString(resultNode, "username")?.Trim() ?? string.Empty,
+                FirstName = ReadOptionalString(resultNode, "first_name")?.Trim() ?? string.Empty
+            };
+        }
+
+        public async Task SetCommandsAsync(IEnumerable<TelegramBotCommand> commands, CancellationToken ct = default)
+        {
+            var baseUrl = GetBaseUrl();
+            var payload = JsonSerializer.Serialize(new
+            {
+                commands = commands
+                    .Where(x => !string.IsNullOrWhiteSpace(x.Command) && !string.IsNullOrWhiteSpace(x.Description))
+                    .Select(x => new
+                    {
+                        command = x.Command.TrimStart('/').Trim(),
+                        description = x.Description.Trim()
+                    })
+                    .ToArray()
+            });
+
+            using var content = new StringContent(payload, System.Text.Encoding.UTF8, "application/json");
+            using var response = await _http.PostAsync($"{baseUrl}/setMyCommands", content, ct);
+            var body = await response.Content.ReadAsStringAsync(ct);
+            if (!response.IsSuccessStatusCode)
+                throw new InvalidOperationException($"Telegram setMyCommands failed: {response.StatusCode} - {body}");
         }
 
         private static bool TryReadNestedInt64(JsonElement root, string objectName, string propertyName, out long value)
@@ -277,7 +362,7 @@ namespace CashTracker.Infrastructure.Services
                 return false;
 
             string? bestFileId = null;
-            long bestSize = -1;
+            long bestScore = -1;
 
             foreach (var photo in photoNode.EnumerateArray())
             {
@@ -292,16 +377,18 @@ namespace CashTracker.Infrastructure.Services
                 if (photo.TryGetProperty("file_size", out var fileSizeNode) && fileSizeNode.TryGetInt64(out var fileSize))
                     size = fileSize;
 
+                long score = size;
+
                 if (photo.TryGetProperty("width", out var widthNode) && widthNode.TryGetInt32(out var width) &&
                     photo.TryGetProperty("height", out var heightNode) && heightNode.TryGetInt32(out var height))
                 {
-                    size = Math.Max(size, (long)width * height);
+                    score = Math.Max(score, (long)width * height);
                 }
 
-                if (size <= bestSize)
+                if (score <= bestScore)
                     continue;
 
-                bestSize = size;
+                bestScore = score;
                 bestFileId = candidateFileId.Trim();
             }
 
@@ -312,11 +399,38 @@ namespace CashTracker.Infrastructure.Services
             return true;
         }
 
-        private void EnsureConfigured()
+        private string GetBaseUrl()
         {
-            if (string.IsNullOrWhiteSpace(_baseUrl))
-                throw new InvalidOperationException("Telegram bot token is missing. Set Telegram:BotToken in appsettings.json.");
+            var token = GetBotToken();
+            return $"https://api.telegram.org/bot{token}";
         }
+
+        private string GetBotToken()
+        {
+            var token = _settings?.BotToken?.Trim() ?? _staticBotToken;
+            if (string.IsNullOrWhiteSpace(token))
+                throw new InvalidOperationException("Telegram bot token is missing. Set Telegram:BotToken in appsettings.json.");
+
+            return token;
+        }
+
+        private static bool TryReadInt64(JsonElement root, string propertyName, out long value)
+        {
+            value = 0;
+            if (!root.TryGetProperty(propertyName, out var node))
+                return false;
+
+            return node.TryGetInt64(out value);
+        }
+    }
+
+    public sealed record TelegramBotCommand(string Command, string Description);
+
+    public sealed class TelegramBotIdentity
+    {
+        public long Id { get; set; }
+        public string Username { get; set; } = string.Empty;
+        public string FirstName { get; set; } = string.Empty;
     }
 
     public sealed class TelegramUpdate

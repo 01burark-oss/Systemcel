@@ -18,7 +18,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\CashTracker.App\CashTracker.App.csproj" />
     <ProjectReference Include="..\CashTracker.Core\CashTracker.Core.csproj" />
     <ProjectReference Include="..\CashTracker.Infrastructure\CashTracker.Infrastructure.csproj" />
   </ItemGroup>

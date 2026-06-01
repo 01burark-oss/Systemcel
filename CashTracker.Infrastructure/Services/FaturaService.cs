@@ -70,7 +70,7 @@ namespace CashTracker.Infrastructure.Services
             var rows = satirlar.Select(CalculateLine).ToList();
             return Task.FromResult(new FaturaTotals
             {
-                AraToplam = rows.Sum(x => x.Miktar * x.BirimFiyat),
+                AraToplam = CalculateAraToplam(rows),
                 IskontoToplam = rows.Sum(x => x.IskontoTutar),
                 KdvToplam = rows.Sum(x => x.KdvTutar),
                 GenelToplam = rows.Sum(x => x.SatirToplam)
@@ -96,7 +96,7 @@ namespace CashTracker.Infrastructure.Services
                 YerelFaturaNo = await CreateLocalInvoiceNumberAsync(db, activeIsletmeId, request.FaturaTipi, ct),
                 OdemeYontemi = NormalizeOdemeYontemi(request.OdemeYontemi),
                 Aciklama = NormalizeOptional(request.Aciklama),
-                AraToplam = calculated.Sum(x => x.Miktar * x.BirimFiyat),
+                AraToplam = CalculateAraToplam(calculated),
                 IskontoToplam = calculated.Sum(x => x.IskontoTutar),
                 KdvToplam = calculated.Sum(x => x.KdvTutar),
                 GenelToplam = calculated.Sum(x => x.SatirToplam),
@@ -141,7 +141,7 @@ namespace CashTracker.Infrastructure.Services
             fatura.FaturaTipi = NormalizeFaturaTipi(request.FaturaTipi);
             fatura.OdemeYontemi = NormalizeOdemeYontemi(request.OdemeYontemi);
             fatura.Aciklama = NormalizeOptional(request.Aciklama);
-            fatura.AraToplam = calculated.Sum(x => x.Miktar * x.BirimFiyat);
+            fatura.AraToplam = CalculateAraToplam(calculated);
             fatura.IskontoToplam = calculated.Sum(x => x.IskontoTutar);
             fatura.KdvToplam = calculated.Sum(x => x.KdvTutar);
             fatura.GenelToplam = calculated.Sum(x => x.SatirToplam);
@@ -257,12 +257,20 @@ namespace CashTracker.Infrastructure.Services
             if (request.BirimFiyat < 0)
                 throw new ArgumentException("Birim fiyat negatif olamaz.");
 
-            var gross = request.Miktar * request.BirimFiyat;
+            var grossBeforeDiscount = request.Miktar * request.BirimFiyat;
             var discountRate = Math.Clamp(request.IskontoOrani, 0m, 100m);
-            var discount = Math.Round(gross * discountRate / 100m, 2, MidpointRounding.AwayFromZero);
-            var net = Math.Max(0m, gross - discount);
+            var grossDiscount = Math.Round(grossBeforeDiscount * discountRate / 100m, 2, MidpointRounding.AwayFromZero);
+            var grossAfterDiscount = Math.Max(0m, grossBeforeDiscount - grossDiscount);
             var vatRate = Math.Max(0m, request.KdvOrani);
-            var vat = Math.Round(net * vatRate / 100m, 2, MidpointRounding.AwayFromZero);
+            var divisor = 1m + vatRate / 100m;
+            var netBeforeDiscount = divisor <= 0m
+                ? grossBeforeDiscount
+                : Math.Round(grossBeforeDiscount / divisor, 2, MidpointRounding.AwayFromZero);
+            var net = divisor <= 0m
+                ? grossAfterDiscount
+                : Math.Round(grossAfterDiscount / divisor, 2, MidpointRounding.AwayFromZero);
+            var discount = Math.Max(0m, netBeforeDiscount - net);
+            var vat = Math.Max(0m, grossAfterDiscount - net);
 
             return new FaturaSatir
             {
@@ -276,9 +284,14 @@ namespace CashTracker.Infrastructure.Services
                 KdvOrani = vatRate,
                 KdvTutar = vat,
                 SatirNetTutar = net,
-                SatirToplam = net + vat,
+                SatirToplam = grossAfterDiscount,
                 StokEtkilesin = request.StokEtkilesin
             };
+        }
+
+        private static decimal CalculateAraToplam(IEnumerable<FaturaSatir> rows)
+        {
+            return rows.Sum(x => x.SatirNetTutar + x.IskontoTutar);
         }
 
         private static void ValidateRequest(FaturaCreateRequest request)

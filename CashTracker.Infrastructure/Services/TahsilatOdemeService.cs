@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using CashTracker.Core.Entities;
@@ -40,8 +41,13 @@ namespace CashTracker.Infrastructure.Services
             if (fatura == null)
                 throw new InvalidOperationException("Fatura bulunamadi.");
 
-            if (fatura.Durum is not (FaturaDurum.Kesildi or FaturaDurum.KismiOdendi or FaturaDurum.Odendi))
-                throw new InvalidOperationException("Sadece kesilmis faturaya tahsilat/odeme girilebilir.");
+            if (fatura.Durum == FaturaDurum.Iptal)
+                throw new InvalidOperationException("Iptal faturaya tahsilat/odeme girilemez.");
+
+            if (fatura.Durum is FaturaDurum.YerelTaslak or FaturaDurum.PortalTaslak)
+                await IssueDraftInvoiceAsync(db, fatura, activeIsletmeId, ct);
+            else if (fatura.Durum is not (FaturaDurum.Kesildi or FaturaDurum.KismiOdendi or FaturaDurum.Odendi))
+                throw new InvalidOperationException("Fatura durumu tahsilat/odeme icin uygun degil.");
 
             var remaining = fatura.GenelToplam - fatura.OdenenTutar;
             var amount = Math.Min(request.Tutar, remaining);
@@ -104,6 +110,49 @@ namespace CashTracker.Infrastructure.Services
             await db.SaveChangesAsync(ct);
             await tx.CommitAsync(ct);
             return row.Id;
+        }
+
+        private static async Task IssueDraftInvoiceAsync(
+            CashTrackerDbContext db,
+            Fatura fatura,
+            int activeIsletmeId,
+            CancellationToken ct)
+        {
+            var satirlar = await db.FaturaSatirlari
+                .Where(x => x.IsletmeId == activeIsletmeId && x.FaturaId == fatura.Id)
+                .ToListAsync(ct);
+
+            fatura.Durum = FaturaDurum.Kesildi;
+            fatura.KesildiAt = DateTime.Now;
+            fatura.UpdatedAt = DateTime.Now;
+
+            db.CariHareketleri.Add(new CariHareket
+            {
+                IsletmeId = activeIsletmeId,
+                CariKartId = fatura.CariKartId,
+                Tarih = fatura.Tarih,
+                HareketTipi = fatura.FaturaTipi == "Satis" ? "Alacak" : "Borc",
+                Tutar = fatura.GenelToplam,
+                Kaynak = "Fatura",
+                Aciklama = $"Fatura {fatura.YerelFaturaNo}",
+                CreatedAt = DateTime.Now
+            });
+
+            foreach (var line in satirlar.Where(x => x.StokEtkilesin && x.UrunHizmetId.HasValue))
+            {
+                db.StokHareketleri.Add(new StokHareket
+                {
+                    IsletmeId = activeIsletmeId,
+                    UrunHizmetId = line.UrunHizmetId!.Value,
+                    Tarih = fatura.Tarih,
+                    Miktar = fatura.FaturaTipi == "Satis" ? -line.Miktar : line.Miktar,
+                    HareketTipi = fatura.FaturaTipi == "Satis" ? "Cikis" : "Giris",
+                    Kaynak = "Fatura",
+                    Aciklama = $"Fatura stok | {fatura.YerelFaturaNo}"
+                });
+            }
+
+            await db.SaveChangesAsync(ct);
         }
     }
 }

@@ -40,11 +40,11 @@ namespace CashTracker.Infrastructure.Services
 
             var code = GenerateUniqueCode();
             if (code is null)
-                return new TelegramApprovalResult(TelegramApprovalStatus.Failed, "Onay kodu uretilemedi.");
+                return new TelegramApprovalResult(TelegramApprovalStatus.Failed, "Onay kodu üretilemedi.");
 
             var pending = new PendingApproval(request.Title, request.Details, tcs);
             if (!_pending.TryAdd(code, pending))
-                return new TelegramApprovalResult(TelegramApprovalStatus.Failed, "Onay kaydi baslatilamadi.");
+                return new TelegramApprovalResult(TelegramApprovalStatus.Failed, "Onay kaydı başlatılamadı.");
 
             try
             {
@@ -105,13 +105,13 @@ namespace CashTracker.Infrastructure.Services
         {
             var sb = new StringBuilder();
             sb.AppendLine("Onay gerekiyor.");
-            sb.AppendLine($"Islem: {request.Title}");
+            sb.AppendLine($"İşlem: {request.Title}");
             if (!string.IsNullOrWhiteSpace(request.Details))
                 sb.AppendLine(request.Details.Trim());
             sb.AppendLine();
-            sb.AppendLine($"Onaylamak icin: /onay {code}");
-            sb.AppendLine($"Reddetmek icin: /iptal {code}");
-            sb.AppendLine($"Sure: {Math.Max(1, (int)Math.Ceiling(timeout.TotalMinutes))} dk");
+            sb.AppendLine($"Onaylamak için: /onay {code}");
+            sb.AppendLine($"Reddetmek için: /iptal {code}");
+            sb.AppendLine($"Süre: {Math.Max(1, (int)Math.Ceiling(timeout.TotalMinutes))} dk");
             return sb.ToString().Trim();
         }
 

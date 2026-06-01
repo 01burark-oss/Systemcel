@@ -43,10 +43,10 @@ namespace CashTracker.Tests
             var fatura = await db.Faturalar.SingleAsync(x => x.Id == id);
 
             Assert.Equal(FaturaDurum.YerelTaslak, fatura.Durum);
-            Assert.Equal(200, fatura.AraToplam);
-            Assert.Equal(20, fatura.IskontoToplam);
-            Assert.Equal(36, fatura.KdvToplam);
-            Assert.Equal(216, fatura.GenelToplam);
+            Assert.Equal(166.67m, fatura.AraToplam);
+            Assert.Equal(16.67m, fatura.IskontoToplam);
+            Assert.Equal(30m, fatura.KdvToplam);
+            Assert.Equal(180m, fatura.GenelToplam);
             Assert.False(await db.CariHareketleri.AnyAsync());
             Assert.False(await db.StokHareketleri.AnyAsync());
         }
@@ -82,7 +82,7 @@ namespace CashTracker.Tests
 
             Assert.Equal(FaturaDurum.Kesildi, fatura.Durum);
             Assert.Equal("Alacak", cari.HareketTipi);
-            Assert.Equal(165, cari.Tutar);
+            Assert.Equal(150, cari.Tutar);
             Assert.Equal(-3, stok.Miktar);
             Assert.Equal("Cikis", stok.HareketTipi);
         }
@@ -114,7 +114,7 @@ namespace CashTracker.Tests
             await paymentService.CreateAsync(new TahsilatOdemeRequest
             {
                 FaturaId = id,
-                Tutar = 120,
+                Tutar = 100,
                 OdemeYontemi = "Nakit"
             });
 
@@ -122,9 +122,83 @@ namespace CashTracker.Tests
             var fatura = await db.Faturalar.SingleAsync(x => x.Id == id);
 
             Assert.Equal(FaturaDurum.Odendi, fatura.Durum);
-            Assert.Equal(120, fatura.OdenenTutar);
+            Assert.Equal(100, fatura.OdenenTutar);
             Assert.Equal(2, await db.CariHareketleri.CountAsync());
             Assert.Equal("Gelir", (await db.Kasalar.SingleAsync()).Tip);
+        }
+
+        [Fact]
+        public async Task TahsilatOdemeService_PaymentForDraft_IssuesInvoiceAndAddsPayment()
+        {
+            using var fixture = await FaturaFixture.CreateAsync();
+            var faturaService = fixture.CreateFaturaService();
+            var paymentService = new TahsilatOdemeService(fixture.Factory, fixture.Isletme);
+            var id = await faturaService.CreateDraftAsync(new FaturaCreateRequest
+            {
+                CariKartId = fixture.CariId,
+                FaturaTipi = "Satis",
+                Satirlar =
+                [
+                    new FaturaSatirRequest
+                    {
+                        UrunHizmetId = fixture.UrunId,
+                        Aciklama = "Urun",
+                        Miktar = 2,
+                        BirimFiyat = 50,
+                        KdvOrani = 20
+                    }
+                ]
+            });
+
+            await paymentService.CreateAsync(new TahsilatOdemeRequest
+            {
+                FaturaId = id,
+                Tutar = 100,
+                OdemeYontemi = "Nakit"
+            });
+
+            await using var db = fixture.CreateDbContext();
+            var fatura = await db.Faturalar.SingleAsync(x => x.Id == id);
+
+            Assert.Equal(FaturaDurum.Odendi, fatura.Durum);
+            Assert.Equal(100, fatura.OdenenTutar);
+            Assert.Equal(2, await db.CariHareketleri.CountAsync());
+            Assert.Equal(1, await db.StokHareketleri.CountAsync());
+            Assert.Equal("Gelir", (await db.Kasalar.SingleAsync()).Tip);
+        }
+
+        [Fact]
+        public async Task CreateDraftAsync_TreatsUnitPriceAsVatIncluded()
+        {
+            using var fixture = await FaturaFixture.CreateAsync();
+            var service = fixture.CreateFaturaService();
+
+            var id = await service.CreateDraftAsync(new FaturaCreateRequest
+            {
+                CariKartId = fixture.CariId,
+                FaturaTipi = "Satis",
+                Satirlar =
+                [
+                    new FaturaSatirRequest
+                    {
+                        UrunHizmetId = fixture.UrunId,
+                        Aciklama = "KDV dahil urun",
+                        Miktar = 20,
+                        BirimFiyat = 50,
+                        KdvOrani = 20
+                    }
+                ]
+            });
+
+            await using var db = fixture.CreateDbContext();
+            var fatura = await db.Faturalar.SingleAsync(x => x.Id == id);
+            var satir = await db.FaturaSatirlari.SingleAsync(x => x.FaturaId == id);
+
+            Assert.Equal(1000m, fatura.GenelToplam);
+            Assert.Equal(166.67m, fatura.KdvToplam);
+            Assert.Equal(833.33m, fatura.AraToplam);
+            Assert.Equal(1000m, satir.SatirToplam);
+            Assert.Equal(833.33m, satir.SatirNetTutar);
         }
 
         private sealed class FaturaFixture : IDisposable
