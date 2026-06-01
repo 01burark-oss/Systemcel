@@ -124,7 +124,7 @@ const pricingContent: Record<
         price: "199",
         icon: Send,
         recommended: true,
-        features: ["OCR", "GİB e-Arşiv", "Telegram bildirimleri", "50 AI mesajı / ay"]
+        features: ["Akıllı Fiş/Fatura İşleme", "e-Arşiv Fatura Kesme", "Telegram bildirimleri", "50 AI mesajı / ay"]
       },
       {
         title: "İşletme",
