@@ -10123,7 +10123,12 @@ tbody tr.secili {
   }
 
   .welcome-mobile-secondary-link {
+    width: 100%;
     margin-top: 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
     color: rgba(235, 244, 255, 0.86);
     text-decoration: none;
     font-size: clamp(0.95rem, 3.9vw, 1rem);
@@ -15585,7 +15590,12 @@ tbody tr.secili {
 @media (max-width: 760px) {
   .auth-shell--branded {
     min-height: 100dvh;
-    padding: clamp(26px, 7vw, 34px) clamp(18px, 6vw, 26px) 34px;
+    max-height: 100dvh;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+    padding: clamp(26px, 7vw, 34px) clamp(18px, 6vw, 26px) calc(34px + env(safe-area-inset-bottom));
   }
 
   .auth-shell__brand--top {
@@ -15784,8 +15794,24 @@ tbody tr.secili {
   }
 
   .auth-shell--sign-up .auth-account-type button {
+    position: relative;
     min-height: 44px;
+    justify-content: center;
     font-size: 14px;
+  }
+
+  .auth-shell--sign-up .auth-account-type button svg {
+    position: absolute;
+    left: clamp(16px, 7vw, 28px);
+    top: 50%;
+    transform: translateY(-52%);
+  }
+
+  .auth-shell--sign-up .auth-account-type button span {
+    display: block;
+    width: 100%;
+    text-align: center;
+    transform: translateY(-1px);
   }
 
   .auth-shell--sign-up .auth-custom__field {

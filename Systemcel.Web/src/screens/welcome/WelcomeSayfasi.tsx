@@ -168,6 +168,8 @@ export function WelcomeSayfasi() {
   const [scrollNavState, setScrollNavState] = React.useState({ index: 0, total: 0 });
   const pageRef = React.useRef<HTMLElement | null>(null);
   const scrollKilitli = React.useRef(false);
+  const scrollNavIndexRef = React.useRef(0);
+  const scrollNavTimerRef = React.useRef(0);
   const scrollBitisSuresiMs = 760;
   const activePricing = pricingContent[pricingAudience];
   const signedInAppHref = auth.clerkEnabled && auth.isLoaded && auth.isSignedIn ? "/app" : "";
@@ -221,9 +223,12 @@ export function WelcomeSayfasi() {
   function kaydirmaDurumunuGuncelle() {
     const page = pageRef.current;
     if (!page) return;
+    if (scrollKilitli.current) return;
 
     const targets = kaydirmaHedefleri(page);
-    setScrollNavState({ index: aktifBolumIndexi(page, targets), total: targets.length });
+    const index = aktifBolumIndexi(page, targets);
+    scrollNavIndexRef.current = index;
+    setScrollNavState({ index, total: targets.length });
   }
 
   function bolumeGit(direction: -1 | 1) {
@@ -233,10 +238,21 @@ export function WelcomeSayfasi() {
     const targets = kaydirmaHedefleri(page);
     if (targets.length === 0) return;
 
-    const currentIndex = aktifBolumIndexi(page, targets);
+    const currentIndex = scrollKilitli.current ? scrollNavIndexRef.current : aktifBolumIndexi(page, targets);
     const nextIndex = Math.max(0, Math.min(targets.length - 1, currentIndex + direction));
+    if (nextIndex === currentIndex) return;
+
+    scrollKilitli.current = true;
+    scrollNavIndexRef.current = nextIndex;
+    window.clearTimeout(scrollNavTimerRef.current);
     pencereyeKaydir(page, targets[nextIndex], "smooth");
     setScrollNavState({ index: nextIndex, total: targets.length });
+    scrollNavTimerRef.current = window.setTimeout(() => {
+      page.scrollTop = targets[nextIndex].offsetTop;
+      scrollKilitli.current = false;
+      scrollNavIndexRef.current = nextIndex;
+      setScrollNavState({ index: nextIndex, total: targets.length });
+    }, scrollBitisSuresiMs);
   }
 
   function hedefeKaydir(targetId: string, behavior: ScrollBehavior = "smooth") {
@@ -262,6 +278,7 @@ export function WelcomeSayfasi() {
       window.addEventListener("wheel", normalKaydirmayiEngelle, { passive: false });
       scrollPage.addEventListener("touchmove", normalKaydirmayiEngelle, { passive: false });
       return () => {
+        window.clearTimeout(scrollNavTimerRef.current);
         window.removeEventListener("wheel", normalKaydirmayiEngelle);
         scrollPage.removeEventListener("touchmove", normalKaydirmayiEngelle);
       };
@@ -311,6 +328,7 @@ export function WelcomeSayfasi() {
     scrollPage.addEventListener("scroll", kaymaBitinceKilitle, { passive: true });
     return () => {
       window.clearTimeout(snapTimer);
+      window.clearTimeout(scrollNavTimerRef.current);
       window.removeEventListener("wheel", wheelIleKaydir);
       scrollPage.removeEventListener("scroll", kaymaBitinceKilitle);
     };
