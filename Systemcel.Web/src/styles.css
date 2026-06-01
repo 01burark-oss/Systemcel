@@ -10313,18 +10313,30 @@ tbody tr.secili {
   }
 
   .welcome-pricing__tabs button {
+    position: relative;
     min-height: 44px;
-    gap: 6px;
-    padding: 0 8px;
+    gap: 0;
+    padding: 0 10px;
     font-size: clamp(11px, 3vw, 13px);
     line-height: 1;
     white-space: nowrap;
   }
 
   .welcome-pricing__tabs button svg {
+    position: absolute;
+    left: clamp(14px, 7.8vw, 34px);
+    top: 50%;
     width: 19px;
     height: 19px;
     flex: 0 0 auto;
+    transform: translateY(-54%);
+  }
+
+  .welcome-pricing__tabs button span {
+    display: block;
+    width: 100%;
+    text-align: center;
+    transform: translateY(-2px);
   }
 
   .welcome-pricing__heading h2 {

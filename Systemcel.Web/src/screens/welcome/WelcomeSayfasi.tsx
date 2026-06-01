@@ -577,7 +577,7 @@ export function WelcomeSayfasi() {
               onClick={() => setPricingAudience("isletme")}
             >
               <Building2 size={23} />
-              İşletmeler
+              <span>İşletmeler</span>
             </button>
             <button
               type="button"
@@ -587,7 +587,7 @@ export function WelcomeSayfasi() {
               onClick={() => setPricingAudience("muhasebeci")}
             >
               <UserRound size={23} />
-              Muhasebeciler
+              <span>Muhasebeciler</span>
             </button>
           </div>
 
