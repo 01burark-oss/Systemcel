@@ -563,6 +563,11 @@ export function WelcomeSayfasi() {
 
       <section id="fiyatlandirma" className="welcome-pricing" aria-labelledby="welcome-pricing-title">
         <div className="welcome-pricing__inner">
+          <div className="welcome-pricing__heading">
+            <h2 id="welcome-pricing-title">{activePricing.title}</h2>
+            <p>{activePricing.text}</p>
+          </div>
+
           <div className="welcome-pricing__tabs" role="tablist" aria-label="Fiyatlandırma türü">
             <button
               type="button"
@@ -605,11 +610,6 @@ export function WelcomeSayfasi() {
             >
               Yıllık
             </button>
-          </div>
-
-          <div className="welcome-pricing__heading">
-            <h2 id="welcome-pricing-title">{activePricing.title}</h2>
-            <p>{activePricing.text}</p>
           </div>
 
           <div className="welcome-pricing__mobile-selector" role="tablist" aria-label="Plan seçimi">

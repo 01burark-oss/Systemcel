@@ -2083,7 +2083,7 @@ select:disabled {
 
 .welcome-pricing__tabs {
   width: min(548px, 100%);
-  margin: 0 auto clamp(20px, 2.8vh, 30px);
+  margin: clamp(18px, 2.4vh, 26px) auto clamp(14px, 1.9vh, 22px);
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   border: 1px solid rgba(126, 164, 220, 0.42);
@@ -2127,7 +2127,7 @@ select:disabled {
 
 .welcome-pricing__billing {
   width: min(360px, 100%);
-  margin: -10px auto clamp(18px, 2.4vh, 26px);
+  margin: 0 auto clamp(18px, 2.4vh, 26px);
   padding: 4px;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2978,6 +2978,157 @@ select:disabled {
 .react-shell__body > :is(.invoice-page, .payment-page, .reports-page) :is(.invoice-layout, .payment-layout, .reports-layout, .invoice-left, .invoice-side, .payment-left, .payment-side, .reports-left, .reports-side) {
   height: auto;
   overflow: visible;
+}
+
+.mobile-companion {
+  min-height: 100dvh;
+  padding: 22px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #f7fbff;
+  background:
+    radial-gradient(circle at 18% 0, rgba(36, 216, 255, 0.2), transparent 36%),
+    radial-gradient(circle at 88% 18%, rgba(18, 108, 255, 0.18), transparent 36%),
+    linear-gradient(180deg, #061733 0%, #030b1b 100%);
+}
+
+.mobile-companion__panel {
+  width: min(100%, 520px);
+  padding: 24px;
+  display: grid;
+  gap: 18px;
+  border: 1px solid rgba(86, 143, 226, 0.46);
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at 0 0, rgba(35, 169, 234, 0.14), transparent 46%),
+    rgba(8, 28, 64, 0.84);
+  box-shadow:
+    0 26px 80px rgba(0, 0, 0, 0.38),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.mobile-companion__brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.mobile-companion__brand img {
+  width: 58px;
+  height: 58px;
+  border-radius: 14px;
+  box-shadow: 0 16px 34px rgba(18, 102, 255, 0.22);
+}
+
+.mobile-companion__brand div,
+.mobile-companion__features article div {
+  display: grid;
+  gap: 3px;
+}
+
+.mobile-companion__brand strong {
+  color: #ffffff;
+  font-size: 24px;
+  line-height: 1;
+  font-weight: 950;
+}
+
+.mobile-companion__brand span,
+.mobile-companion__workspace span,
+.mobile-companion__features span {
+  color: #aebdd8;
+}
+
+.mobile-companion__badge {
+  width: fit-content;
+  min-height: 34px;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid rgba(36, 216, 255, 0.42);
+  border-radius: 999px;
+  color: #54d8ff;
+  background: rgba(5, 21, 51, 0.72);
+  font-size: 13px;
+  font-weight: 850;
+}
+
+.mobile-companion h1 {
+  margin: 0;
+  color: #ffffff;
+  font-size: clamp(32px, 10vw, 48px);
+  line-height: 1.04;
+  font-weight: 950;
+  letter-spacing: 0;
+}
+
+.mobile-companion p {
+  margin: 0;
+  color: #c1cce0;
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+.mobile-companion__workspace {
+  padding: 14px;
+  display: grid;
+  gap: 4px;
+  border: 1px solid rgba(86, 143, 226, 0.26);
+  border-radius: 14px;
+  background: rgba(4, 15, 36, 0.48);
+}
+
+.mobile-companion__workspace strong {
+  color: #ffffff;
+  font-size: 17px;
+}
+
+.mobile-companion__features {
+  display: grid;
+  gap: 12px;
+}
+
+.mobile-companion__features article {
+  min-height: 86px;
+  padding: 14px;
+  display: grid;
+  grid-template-columns: 42px 1fr;
+  gap: 12px;
+  align-items: center;
+  border: 1px solid rgba(86, 143, 226, 0.28);
+  border-radius: 16px;
+  background: rgba(6, 24, 58, 0.54);
+}
+
+.mobile-companion__features svg {
+  color: #24d8ff;
+}
+
+.mobile-companion__features strong {
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 900;
+}
+
+.mobile-companion__features span {
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.mobile-companion__signout {
+  min-height: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  border: 1px solid rgba(126, 164, 220, 0.32);
+  border-radius: 12px;
+  color: #d9e8ff;
+  background: rgba(4, 15, 36, 0.52);
+  font: inherit;
+  font-weight: 850;
 }
 
 .ai-assistant-trigger {
@@ -13702,11 +13853,41 @@ tbody tr.secili {
   line-height: 1.45;
 }
 
+.auth-custom__result {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid rgba(84, 201, 255, 0.32);
+  border-radius: 12px;
+  background:
+    radial-gradient(circle at 16% 0, rgba(35, 169, 234, 0.22), transparent 44%),
+    rgba(9, 34, 78, 0.72);
+}
+
+.auth-custom__result strong {
+  color: #ffffff;
+  font-size: 19px;
+  line-height: 1.2;
+  font-weight: 900;
+}
+
+.auth-custom__result p {
+  margin: 0;
+  color: #b9c8e6;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
 .auth-custom__submit {
   border: 0;
   color: #ffffff;
   background: linear-gradient(90deg, #1d9bff, #1266ff);
   box-shadow: 0 16px 34px rgba(18, 102, 255, 0.26);
+}
+
+.auth-custom__submit-link,
+.auth-custom__secondary-link {
+  text-decoration: none;
 }
 
 .auth-custom__secondary,

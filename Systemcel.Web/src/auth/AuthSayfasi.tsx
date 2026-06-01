@@ -23,7 +23,7 @@ import { useSystemcelAuth } from "./SystemcelAuthProvider";
 import { AuthStatus } from "./AuthGate";
 
 type AuthMode = "sign-in" | "sign-up";
-type AuthStep = "form" | "verify-sign-in" | "verify-sign-up" | "forgot-request" | "reset-password";
+type AuthStep = "form" | "verify-sign-in" | "verify-sign-up" | "sign-up-complete" | "forgot-request" | "reset-password";
 
 type AuthCopy = {
   eyebrow: string;
@@ -263,6 +263,7 @@ export function AuthSayfasi({ mode }: { mode: AuthMode }) {
   const status = statusCopy[language];
   const legal = legalTexts[language];
   const visual = visualCopy[language];
+  const signUpCompleted = mode === "sign-up" && auth.isSignedIn;
 
   React.useEffect(() => {
     document.documentElement.lang = language;
@@ -299,10 +300,12 @@ export function AuthSayfasi({ mode }: { mode: AuthMode }) {
   }, [languageMenuOpen]);
 
   React.useEffect(() => {
+    if (mode === "sign-up") return;
+
     if (auth.clerkEnabled && auth.isLoaded && auth.isSignedIn) {
       window.location.replace(returnUrl);
     }
-  }, [auth.clerkEnabled, auth.isLoaded, auth.isSignedIn, returnUrl]);
+  }, [auth.clerkEnabled, auth.isLoaded, auth.isSignedIn, mode, returnUrl]);
 
   const setLanguage = (nextLanguage: AuthLanguage) => {
     setLanguageState(nextLanguage);
@@ -459,32 +462,48 @@ export function AuthSayfasi({ mode }: { mode: AuthMode }) {
 
         <section className="auth-shell__card" aria-label={copy.cardTitle}>
           <div className="auth-shell__card-head">
-            <h2>{copy.cardTitle}</h2>
-            <p>{copy.cardText}</p>
+            <h2>{signUpCompleted ? (language === "tr" ? "Hesabınız oluşturuldu" : "Your account is ready") : copy.cardTitle}</h2>
+            <p>
+              {signUpCompleted
+                ? language === "tr"
+                  ? "Tam yönetim paneli masaüstü kullanım için hazırlanıyor; mobilde güvenli okuma ve mesajlaşma akışı sunulacak."
+                  : "The full workspace is designed for desktop; mobile will offer secure reading and messaging flows."
+                : copy.cardText}
+            </p>
           </div>
 
-          <SystemcelAuthForm mode={mode} returnUrl={returnUrl} language={language} accountTypeIntent={accountTypeIntent} />
+          <SystemcelAuthForm
+            mode={mode}
+            returnUrl={returnUrl}
+            language={language}
+            accountTypeIntent={accountTypeIntent}
+            signedIn={auth.isSignedIn}
+          />
 
-          <div className="auth-shell__terms">
-            {copy.legalPrefix}{" "}
-            <button type="button" onClick={() => setLegalModal("terms")}>
-              {legal.terms.linkLabel}
-            </button>
-            ,{" "}
-            <button type="button" onClick={() => setLegalModal("privacy")}>
-              {legal.privacy.linkLabel}
-            </button>{" "}
-            {language === "tr" ? "ve" : "and"}{" "}
-            <button type="button" onClick={() => setLegalModal("kvkk")}>
-              {legal.kvkk.linkLabel}
-            </button>{" "}
-            {copy.legalSuffix}
-          </div>
-          <a className="auth-shell__inline-link auth-shell__switch" href={buildAuthSwitchHref(copy.switchHref, accountTypeIntent, returnUrl)}>
-            {copy.switchText}
-            <span>{copy.switchCta}</span>
-            <ArrowRight size={17} />
-          </a>
+          {!signUpCompleted ? (
+            <>
+              <div className="auth-shell__terms">
+                {copy.legalPrefix}{" "}
+                <button type="button" onClick={() => setLegalModal("terms")}>
+                  {legal.terms.linkLabel}
+                </button>
+                ,{" "}
+                <button type="button" onClick={() => setLegalModal("privacy")}>
+                  {legal.privacy.linkLabel}
+                </button>{" "}
+                {language === "tr" ? "ve" : "and"}{" "}
+                <button type="button" onClick={() => setLegalModal("kvkk")}>
+                  {legal.kvkk.linkLabel}
+                </button>{" "}
+                {copy.legalSuffix}
+              </div>
+              <a className="auth-shell__inline-link auth-shell__switch" href={buildAuthSwitchHref(copy.switchHref, accountTypeIntent, returnUrl)}>
+                {copy.switchText}
+                <span>{copy.switchCta}</span>
+                <ArrowRight size={17} />
+              </a>
+            </>
+          ) : null}
         </section>
       </section>
 
@@ -499,12 +518,14 @@ function SystemcelAuthForm({
   mode,
   returnUrl,
   language,
-  accountTypeIntent
+  accountTypeIntent,
+  signedIn
 }: {
   mode: AuthMode;
   returnUrl: string;
   language: AuthLanguage;
   accountTypeIntent: "Isletme" | "Muhasebeci" | "";
+  signedIn: boolean;
 }) {
   const auth = useSystemcelAuth();
   const copy: Record<string, string> = formCopy[language][mode];
@@ -525,6 +546,7 @@ function SystemcelAuthForm({
   const codeMode = step === "verify-sign-in" || step === "verify-sign-up";
   const forgotRequestMode = step === "forgot-request";
   const resetPasswordMode = step === "reset-password";
+  const signUpCompleteMode = step === "sign-up-complete" || (mode === "sign-up" && signedIn);
   const selectedAccountType = mode === "sign-up" ? accountType : accountTypeIntent;
   const completionReturnUrl = returnUrlForAccountType(returnUrl, selectedAccountType);
 
@@ -546,8 +568,17 @@ function SystemcelAuthForm({
     }
 
     await auth.clerk?.setActive({ session: sessionId });
+
+    if (mode === "sign-up") {
+      setStep("sign-up-complete");
+      setPassword("");
+      setCode("");
+      setBilgi("");
+      return;
+    }
+
     window.location.replace(completionReturnUrl);
-  }, [auth.clerk, completionReturnUrl, language]);
+  }, [auth.clerk, completionReturnUrl, language, mode]);
 
   const sifreSifirlamayaBasla = () => {
     setStep("forgot-request");
@@ -703,10 +734,18 @@ function SystemcelAuthForm({
       if (selectedAccountType)
         redirectUrl.searchParams.set("hesapTipi", selectedAccountType);
       redirectUrl.searchParams.set("returnUrl", completionReturnUrl);
+      const redirectUrlComplete = new URL(redirectPath, window.location.origin);
+      if (selectedAccountType)
+        redirectUrlComplete.searchParams.set("hesapTipi", selectedAccountType);
+      redirectUrlComplete.searchParams.set("returnUrl", completionReturnUrl);
+      if (mode === "sign-up") {
+        redirectUrlComplete.searchParams.set("kayitTamam", "1");
+      }
+
       await resource.authenticateWithRedirect({
         strategy: "oauth_google",
         redirectUrl: redirectUrl.toString(),
-        redirectUrlComplete: completionReturnUrl
+        redirectUrlComplete: mode === "sign-up" ? redirectUrlComplete.toString() : completionReturnUrl
       });
     } catch (error) {
       setHata(readableAuthError(error, language));
@@ -716,7 +755,22 @@ function SystemcelAuthForm({
 
   return (
     <div className="auth-custom">
-      {!forgotRequestMode && !resetPasswordMode ? (
+      {signUpCompleteMode ? (
+        <div className="auth-custom__result">
+          <strong>{language === "tr" ? "Mobil deneyim sınırlı tutuluyor" : "Mobile access is limited"}</strong>
+          <p>
+            {language === "tr"
+              ? "Systemcel'in tam finans paneli masaüstünde kullanılacak. Mobilde veri okuma, bildirim ve muhasebeciyle mesajlaşma gibi daha güvenli bir eşlikçi akış hazırlıyoruz."
+              : "The full Systemcel finance workspace will run on desktop. Mobile will focus on safer companion flows like reading data, notifications and accountant messaging."}
+          </p>
+          <a className="auth-custom__submit auth-custom__submit-link" href="/app">
+            {language === "tr" ? "Mobil erişim ekranına devam et" : "Continue to mobile access"}
+          </a>
+          <a className="auth-custom__secondary auth-custom__secondary-link" href="/">
+            {language === "tr" ? "Tanıtıma dön" : "Back to intro"}
+          </a>
+        </div>
+      ) : !forgotRequestMode && !resetPasswordMode ? (
         <>
           <button className="auth-custom__google" type="button" onClick={handleGoogle} disabled={islemde}>
             <span className="auth-custom__google-icon" aria-hidden="true">
@@ -731,6 +785,7 @@ function SystemcelAuthForm({
         </>
       ) : null}
 
+      {!signUpCompleteMode ? (
       <form className="auth-custom__form" onSubmit={handleSubmit}>
         {forgotRequestMode ? (
           <div className="auth-custom__verify">
@@ -913,6 +968,7 @@ function SystemcelAuthForm({
           </button>
         ) : null}
       </form>
+      ) : null}
     </div>
   );
 }

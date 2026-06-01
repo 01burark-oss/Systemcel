@@ -1,7 +1,9 @@
 import React from "react";
+import { Eye, Lock, LogOut, MessageCircle, Monitor } from "lucide-react";
 import { AuthSayfasi } from "./auth/AuthSayfasi";
 import { RequireAuth } from "./auth/AuthGate";
 import { useSystemcelAuth } from "./auth/SystemcelAuthProvider";
+import systemcelIcon from "./assets/systemcel-icon.png";
 import { HakkimizdaSayfasi } from "./screens/about/HakkimizdaSayfasi";
 import { CariHesaplarSayfasi } from "./screens/cari/CariHesaplarSayfasi";
 import { DashboardSayfasi } from "./screens/dashboard/DashboardSayfasi";
@@ -247,7 +249,33 @@ function restoreScroll(url: URL) {
   });
 }
 
+function useMobileWorkspaceGate() {
+  const [isMobileWorkspace, setIsMobileWorkspace] = React.useState(() => {
+    if (typeof window === "undefined" || !window.matchMedia) {
+      return false;
+    }
+
+    return window.matchMedia("(max-width: 760px), (pointer: coarse)").matches;
+  });
+
+  React.useEffect(() => {
+    if (!window.matchMedia) {
+      return undefined;
+    }
+
+    const media = window.matchMedia("(max-width: 760px), (pointer: coarse)");
+    const update = () => setIsMobileWorkspace(media.matches);
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
+
+  return isMobileWorkspace;
+}
+
 function WorkspaceRoutes({ path }: { path: string }) {
+  const auth = useSystemcelAuth();
+  const mobileWorkspace = useMobileWorkspaceGate();
   const [ustBar, setUstBar] = React.useState<UstBarDurumu | null>(null);
   const [ustBarHata, setUstBarHata] = React.useState("");
   const [ustBarIslemde, setUstBarIslemde] = React.useState(false);
@@ -377,6 +405,25 @@ function WorkspaceRoutes({ path }: { path: string }) {
     />
   ) : null;
 
+  if (mobileWorkspace) {
+    return (
+      <MobileCompanionScreen
+        hesapTipi={ustBar?.hesapTipi ?? ""}
+        islemde={ustBarIslemde}
+        calismaAlani={ustBar?.aktifIsletme ?? ""}
+        onSignOut={() => {
+          const redirectUrl = "/";
+          if (auth.clerk?.signOut) {
+            auth.clerk.signOut({ redirectUrl });
+            return;
+          }
+
+          window.location.href = redirectUrl;
+        }}
+      />
+    );
+  }
+
   return (
     <ReactWorkspaceShell
       baslik={shellUstBaslik}
@@ -472,5 +519,81 @@ function WorkspaceRoutes({ path }: { path: string }) {
         />
       ) : null}
     </ReactWorkspaceShell>
+  );
+}
+
+function MobileCompanionScreen({
+  hesapTipi,
+  calismaAlani,
+  islemde,
+  onSignOut
+}: {
+  hesapTipi: string;
+  calismaAlani: string;
+  islemde: boolean;
+  onSignOut: () => void;
+}) {
+  const isAccountant = hesapTipi === "Muhasebeci";
+  const title = isAccountant ? "Mobil muhasebeci akışı hazırlanıyor" : "Mobil erişim sınırlı";
+  const description = isAccountant
+    ? "Tam müşteri yönetimi masaüstünde kullanılacak. Mobilde müşteri mesajları, bildirimler ve okunabilir özetler için ayrı bir akış sunacağız."
+    : "Tam finans paneli masaüstü kullanım için tasarlandı. Mobilde veri okuma, bildirim ve muhasebeciyle mesajlaşma gibi güvenli eşlikçi özellikler sunulacak.";
+
+  return (
+    <main className="mobile-companion">
+      <section className="mobile-companion__panel" aria-labelledby="mobile-companion-title">
+        <header className="mobile-companion__brand">
+          <img src={systemcelIcon} alt="" />
+          <div>
+            <strong>SYSTEMCEL</strong>
+            <span>Finance Suite</span>
+          </div>
+        </header>
+
+        <div className="mobile-companion__badge">
+          <Lock size={16} />
+          Mobilde tam panel kapalı
+        </div>
+
+        <h1 id="mobile-companion-title">{title}</h1>
+        <p>{description}</p>
+
+        {calismaAlani || islemde ? (
+          <div className="mobile-companion__workspace">
+            <span>Çalışma alanı</span>
+            <strong>{islemde ? "Yükleniyor..." : calismaAlani}</strong>
+          </div>
+        ) : null}
+
+        <div className="mobile-companion__features" aria-label="Mobil akış kapsamı">
+          <article>
+            <Eye size={20} />
+            <div>
+              <strong>Güvenli özet okuma</strong>
+              <span>Gelir, gider, fatura ve bildirimleri işlem yapmadan görüntüleme.</span>
+            </div>
+          </article>
+          <article>
+            <MessageCircle size={20} />
+            <div>
+              <strong>{isAccountant ? "Müşteri mesajları" : "Muhasebeci mesajları"}</strong>
+              <span>Onay, soru ve belge talepleri için ayrı mobil mesajlaşma akışı.</span>
+            </div>
+          </article>
+          <article>
+            <Monitor size={20} />
+            <div>
+              <strong>Masaüstünde tam kullanım</strong>
+              <span>Kayıt, fatura, stok ve tahsilat işlemleri bilgisayardan yapılır.</span>
+            </div>
+          </article>
+        </div>
+
+        <button className="mobile-companion__signout" type="button" onClick={onSignOut}>
+          <LogOut size={18} />
+          Çıkış yap
+        </button>
+      </section>
+    </main>
   );
 }
