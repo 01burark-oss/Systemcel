@@ -75,7 +75,7 @@ const authCopy: Record<AuthLanguage, Record<AuthMode, AuthCopy>> = {
       cardTitle: "Hesabınızı oluşturun",
       cardText: "Finans yönetimine güvenli web hesabınızla başlayın",
       switchText: "Zaten hesabınız var mı?",
-      switchCta: "Giriş yapın",
+      switchCta: "Giriş yap",
       switchHref: "/giris",
       legalPrefix: "Kayıt olarak",
       legalSuffix: "kabul etmiş olursunuz."

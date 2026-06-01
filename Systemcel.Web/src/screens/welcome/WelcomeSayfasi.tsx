@@ -88,6 +88,7 @@ const featureModules = [
 ];
 
 type PricingAudience = "isletme" | "muhasebeci";
+type PricingBilling = "monthly" | "yearly";
 
 const accountantSignupHref = "/kayit?hesapTipi=Muhasebeci&returnUrl=%2Fapp%2Fmuhasebeci";
 
@@ -165,6 +166,7 @@ const pricingContent: Record<
 export function WelcomeSayfasi() {
   const auth = useSystemcelAuth();
   const [pricingAudience, setPricingAudience] = React.useState<PricingAudience>("isletme");
+  const [pricingBilling, setPricingBilling] = React.useState<PricingBilling>("monthly");
   const [mobilePlanIndex, setMobilePlanIndex] = React.useState(1);
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
   const [scrollNavState, setScrollNavState] = React.useState({ index: 0, total: 0 });
@@ -176,6 +178,18 @@ export function WelcomeSayfasi() {
   const businessSignupHref = signedInAppHref || "/kayit?hesapTipi=Isletme";
   const signInHref = signedInAppHref || "/giris";
   const accountantCtaHref = signedInAppHref || accountantSignupHref;
+
+  function planFiyati(plan: PricingPlan) {
+    const monthlyPrice = Number.parseInt(plan.price, 10);
+    if (!Number.isFinite(monthlyPrice) || monthlyPrice === 0) return "0";
+    return pricingBilling === "yearly" ? String(monthlyPrice * 9) : plan.price;
+  }
+
+  const pricingPeriodLabel = pricingBilling === "yearly" ? "TL / yıl" : "TL / ay";
+  const pricingNote =
+    pricingBilling === "yearly"
+      ? "Yıllık planda 12 ay kullanım için 9 ay ödersiniz."
+      : activePricing.note;
 
   function pencereyeKaydir(page: HTMLElement, target: HTMLElement, behavior: ScrollBehavior = "smooth") {
     const top = target.offsetTop;
@@ -574,6 +588,28 @@ export function WelcomeSayfasi() {
             </button>
           </div>
 
+          <div className="welcome-pricing__billing" role="tablist" aria-label="Faturalandırma dönemi">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={pricingBilling === "monthly"}
+              className={pricingBilling === "monthly" ? "active" : ""}
+              onClick={() => setPricingBilling("monthly")}
+            >
+              Aylık
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={pricingBilling === "yearly"}
+              className={pricingBilling === "yearly" ? "active" : ""}
+              onClick={() => setPricingBilling("yearly")}
+            >
+              Yıllık
+              <span>3 ay avantaj</span>
+            </button>
+          </div>
+
           <div className="welcome-pricing__heading">
             <h2 id="welcome-pricing-title">{activePricing.title}</h2>
             <p>{activePricing.text}</p>
@@ -590,7 +626,7 @@ export function WelcomeSayfasi() {
                 onClick={() => setMobilePlanIndex(index)}
               >
                 <span>{plan.title}</span>
-                <strong>{plan.price} TL</strong>
+                <strong>{planFiyati(plan)} TL</strong>
               </button>
             ))}
           </div>
@@ -622,8 +658,8 @@ export function WelcomeSayfasi() {
                   </div>
 
                   <div className="welcome-pricing-card__price">
-                    <strong>{plan.price}</strong>
-                    <span>TL / ay</span>
+                    <strong>{planFiyati(plan)}</strong>
+                    <span>{pricingPeriodLabel}</span>
                   </div>
 
                   <ul>
@@ -648,7 +684,7 @@ export function WelcomeSayfasi() {
 
           <div className="welcome-pricing__note">
             <Info size={22} />
-            <span>{activePricing.note}</span>
+            <span>{pricingNote}</span>
           </div>
         </div>
       </section>
