@@ -10,7 +10,6 @@ import {
   Clock3,
   Cloud,
   CreditCard,
-  Info,
   Landmark,
   Menu,
   Package,
@@ -105,14 +104,12 @@ const pricingContent: Record<
   {
     title: string;
     text: string;
-    note: string;
     plans: PricingPlan[];
   }
 > = {
   isletme: {
     title: "İhtiyacına göre ölçeklenen planlar",
     text: "Küçük ekiplerden büyüyen operasyonlara kadar Systemcel'i bütçene göre başlat.",
-    note: "Bugün ödeme alınmaz. 30 gün sonra Başlangıç planı 199 TL/ay olarak başlar.",
     plans: [
       {
         title: "Ücretsiz",
@@ -138,7 +135,6 @@ const pricingContent: Record<
   muhasebeci: {
     title: "Müşteri portföyüne göre büyüyen planlar",
     text: "Muhasebeciler için müşteri, AI ve dönem yönetimi tek abonelik altında.",
-    note: "20 müşteride Standart fiyatı Pro ile eşitlenir; aynı fiyata Pro önerilir.",
     plans: [
       {
         title: "Ücretsiz",
@@ -185,11 +181,13 @@ export function WelcomeSayfasi() {
     return pricingBilling === "yearly" ? String(monthlyPrice * 9) : plan.price;
   }
 
+  function planNormalYillikFiyati(plan: PricingPlan) {
+    const monthlyPrice = Number.parseInt(plan.price, 10);
+    if (!Number.isFinite(monthlyPrice) || monthlyPrice === 0) return "";
+    return String(monthlyPrice * 12);
+  }
+
   const pricingPeriodLabel = pricingBilling === "yearly" ? "TL / yıl" : "TL / ay";
-  const pricingNote =
-    pricingBilling === "yearly"
-      ? "Yıllık planda 12 ay kullanım için 9 ay ödersiniz."
-      : activePricing.note;
 
   function pencereyeKaydir(page: HTMLElement, target: HTMLElement, behavior: ScrollBehavior = "smooth") {
     const top = target.offsetTop;
@@ -606,7 +604,6 @@ export function WelcomeSayfasi() {
               onClick={() => setPricingBilling("yearly")}
             >
               Yıllık
-              <span>3 ay avantaj</span>
             </button>
           </div>
 
@@ -658,6 +655,9 @@ export function WelcomeSayfasi() {
                   </div>
 
                   <div className="welcome-pricing-card__price">
+                    {pricingBilling === "yearly" && plan.price !== "0" ? (
+                      <em>{planNormalYillikFiyati(plan)} TL</em>
+                    ) : null}
                     <strong>{planFiyati(plan)}</strong>
                     <span>{pricingPeriodLabel}</span>
                   </div>
@@ -682,10 +682,6 @@ export function WelcomeSayfasi() {
             })}
           </div>
 
-          <div className="welcome-pricing__note">
-            <Info size={22} />
-            <span>{pricingNote}</span>
-          </div>
         </div>
       </section>
 

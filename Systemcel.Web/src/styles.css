@@ -2282,6 +2282,15 @@ select:disabled {
   border-bottom: 1px solid rgba(126, 164, 220, 0.22);
 }
 
+.welcome-pricing-card__price em {
+  align-self: center;
+  color: rgba(226, 237, 255, 0.48);
+  font-size: clamp(18px, 1.4vw, 24px);
+  font-style: normal;
+  font-weight: 900;
+  text-decoration: line-through;
+}
+
 .welcome-pricing-card__price strong {
   color: #ffffff;
   font-size: clamp(58px, 7.4vh, 78px);
@@ -2343,31 +2352,6 @@ select:disabled {
   background: linear-gradient(100deg, #20d6ec, #1687ff);
   color: #04132d;
   box-shadow: 0 18px 38px rgba(22, 135, 255, 0.28);
-}
-
-.welcome-pricing__note {
-  min-height: clamp(52px, 6vh, 62px);
-  margin-top: clamp(18px, 2.8vh, 28px);
-  padding: 0 clamp(20px, 2vw, 28px);
-  display: flex;
-  align-items: center;
-  gap: 18px;
-  border: 1px solid rgba(69, 172, 255, 0.46);
-  border-radius: 10px;
-  background: rgba(6, 24, 58, 0.58);
-  color: rgba(245, 249, 255, 0.92);
-  font-size: clamp(16px, 1.28vw, 20px);
-  line-height: 1.32;
-}
-
-.welcome-pricing__note svg {
-  width: 32px;
-  height: 32px;
-  padding: 5px;
-  flex: 0 0 auto;
-  border: 1px solid rgba(103, 178, 255, 0.82);
-  border-radius: 50%;
-  color: #67b2ff;
 }
 
 @media (max-height: 780px) and (min-width: 900px) {
@@ -2437,11 +2421,6 @@ select:disabled {
     min-height: 48px;
   }
 
-  .welcome-pricing__note {
-    min-height: 50px;
-    margin-top: 16px;
-    font-size: 16px;
-  }
 }
 
 .welcome-clients {
@@ -10291,6 +10270,13 @@ tbody tr.secili {
 
   .welcome-pricing-card__price {
     padding: 10px 0;
+    gap: 9px;
+    flex-wrap: wrap;
+  }
+
+  .welcome-pricing-card__price em {
+    width: 100%;
+    font-size: 15px;
   }
 
   .welcome-pricing-card__price strong {
@@ -10320,15 +10306,6 @@ tbody tr.secili {
   .welcome-pricing-card__button {
     min-height: 44px;
     font-size: 15px;
-  }
-
-  .welcome-pricing__note {
-    display: none;
-  }
-
-  .welcome-pricing__note svg {
-    width: 24px;
-    height: 24px;
   }
 
   .welcome-clients {
