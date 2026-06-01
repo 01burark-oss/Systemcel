@@ -10068,8 +10068,17 @@ tbody tr.secili {
 
   .welcome-pricing__tabs button {
     min-height: 44px;
-    gap: 8px;
-    font-size: 13px;
+    gap: 6px;
+    padding: 0 8px;
+    font-size: clamp(11px, 3vw, 13px);
+    line-height: 1;
+    white-space: nowrap;
+  }
+
+  .welcome-pricing__tabs button svg {
+    width: 19px;
+    height: 19px;
+    flex: 0 0 auto;
   }
 
   .welcome-pricing__heading h2 {
