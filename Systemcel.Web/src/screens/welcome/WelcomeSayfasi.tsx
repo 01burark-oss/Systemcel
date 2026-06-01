@@ -389,7 +389,7 @@ export function WelcomeSayfasi() {
               <br />
               araçlarla tek yerden yönet
             </h1>
-            <h1 className="welcome-title-mobile">Nakit akışını AI destekli yönetin.</h1>
+            <h1 className="welcome-title-mobile">Nakit akışını AI destekli araçlarla yönet.</h1>
 
             <p className="welcome-lead welcome-lead-desktop">
               Finansal süreçlerinizi otomatikleştirin, nakit akışınızı görünür kılın, doğru kararları daha hızlı alın.
