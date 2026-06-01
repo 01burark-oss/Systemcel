@@ -7,6 +7,8 @@ import {
   ChevronDown,
   Clock3,
   Cloud,
+  Eye,
+  EyeOff,
   Globe2,
   Loader2,
   Mail,
@@ -511,6 +513,7 @@ function SystemcelAuthForm({
   const [fullName, setFullName] = React.useState("");
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
+  const [passwordVisible, setPasswordVisible] = React.useState(false);
   const [resetPassword, setResetPassword] = React.useState("");
   const [code, setCode] = React.useState("");
   const [accountType, setAccountType] = React.useState<"Isletme" | "Muhasebeci">(() => accountTypeIntent || "Isletme");
@@ -856,15 +859,24 @@ function SystemcelAuthForm({
                 <ShieldCheck size={16} />
                 {copy.password}
               </span>
-              <input
-                id={`${formId}-password`}
-                type="password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                autoComplete={mode === "sign-up" ? "new-password" : "current-password"}
-                minLength={8}
-                required
-              />
+              <div className="auth-custom__password-wrap">
+                <input
+                  id={`${formId}-password`}
+                  type={passwordVisible ? "text" : "password"}
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  autoComplete={mode === "sign-up" ? "new-password" : "current-password"}
+                  minLength={8}
+                  required
+                />
+                <button
+                  type="button"
+                  aria-label={passwordVisible ? "Parolayı gizle" : "Parolayı göster"}
+                  onClick={() => setPasswordVisible((visible) => !visible)}
+                >
+                  {passwordVisible ? <EyeOff size={22} /> : <Eye size={22} />}
+                </button>
+              </div>
             </label>
             {mode === "sign-in" ? (
               <button className="auth-custom__link-button" type="button" onClick={sifreSifirlamayaBasla}>
