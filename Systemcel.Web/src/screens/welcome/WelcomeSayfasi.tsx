@@ -544,7 +544,7 @@ export function WelcomeSayfasi() {
 
           <div className="welcome-features__ai">
             <Sparkles size={27} />
-            <span>ve tüm bunları <strong>yapay zeka asistanıyla</strong> beraber otomatize et</span>
+            <span>ve tüm bunları <strong>yapay zeka asistanın</strong> senin yerine yapsın</span>
           </div>
         </div>
       </section>
