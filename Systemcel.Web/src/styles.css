@@ -661,6 +661,10 @@ select:disabled {
   height: 0;
 }
 
+.welcome-scroll-nav {
+  display: none;
+}
+
 .welcome-page::before {
   content: "";
   position: fixed;
@@ -9740,7 +9744,41 @@ tbody tr.secili {
 
 @media (max-width: 767px) {
   .welcome-page {
+    height: 100dvh;
     min-height: 100dvh;
+    overflow: hidden;
+    overscroll-behavior-y: none;
+    touch-action: none;
+  }
+
+  .welcome-scroll-nav {
+    position: fixed;
+    right: max(14px, env(safe-area-inset-right));
+    bottom: calc(18px + env(safe-area-inset-bottom));
+    z-index: 12;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    pointer-events: none;
+  }
+
+  .welcome-scroll-nav button {
+    width: 46px;
+    height: 46px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(146, 190, 255, 0.4);
+    border-radius: 999px;
+    background: rgba(7, 24, 55, 0.82);
+    color: #eef7ff;
+    box-shadow: 0 14px 34px rgba(2, 9, 22, 0.35), inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+    backdrop-filter: blur(14px);
+    pointer-events: auto;
+  }
+
+  .welcome-scroll-nav button:disabled {
+    opacity: 0.38;
   }
 
   .welcome-nav {

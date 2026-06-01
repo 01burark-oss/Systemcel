@@ -1,6 +1,8 @@
 import React from "react";
 import {
+  ArrowDown,
   ArrowRight,
+  ArrowUp,
   BarChart3,
   Building2,
   Check,
@@ -163,6 +165,7 @@ const pricingContent: Record<
 export function WelcomeSayfasi() {
   const auth = useSystemcelAuth();
   const [pricingAudience, setPricingAudience] = React.useState<PricingAudience>("isletme");
+  const [scrollNavState, setScrollNavState] = React.useState({ index: 0, total: 0 });
   const pageRef = React.useRef<HTMLElement | null>(null);
   const scrollKilitli = React.useRef(false);
   const scrollBitisSuresiMs = 760;
@@ -181,6 +184,47 @@ export function WelcomeSayfasi() {
     }, behavior === "smooth" ? scrollBitisSuresiMs : 0);
   }
 
+  function kaydirmaHedefleri(page: HTMLElement) {
+    return [
+      page.querySelector<HTMLElement>(".welcome-screen--hero"),
+      document.getElementById("urun"),
+      document.getElementById("ozellikler"),
+      document.getElementById("fiyatlandirma")
+    ].filter((item): item is HTMLElement => Boolean(item));
+  }
+
+  function aktifBolumIndexi(page: HTMLElement, targets = kaydirmaHedefleri(page)) {
+    if (targets.length === 0) return 0;
+
+    const currentTop = page.scrollTop;
+    return targets.reduce((bestIndex, target, index) => {
+      const bestDistance = Math.abs(targets[bestIndex].offsetTop - currentTop);
+      const distance = Math.abs(target.offsetTop - currentTop);
+      return distance < bestDistance ? index : bestIndex;
+    }, 0);
+  }
+
+  function kaydirmaDurumunuGuncelle() {
+    const page = pageRef.current;
+    if (!page) return;
+
+    const targets = kaydirmaHedefleri(page);
+    setScrollNavState({ index: aktifBolumIndexi(page, targets), total: targets.length });
+  }
+
+  function bolumeGit(direction: -1 | 1) {
+    const page = pageRef.current;
+    if (!page) return;
+
+    const targets = kaydirmaHedefleri(page);
+    if (targets.length === 0) return;
+
+    const currentIndex = aktifBolumIndexi(page, targets);
+    const nextIndex = Math.max(0, Math.min(targets.length - 1, currentIndex + direction));
+    pencereyeKaydir(page, targets[nextIndex], "smooth");
+    setScrollNavState({ index: nextIndex, total: targets.length });
+  }
+
   function hedefeKaydir(targetId: string, behavior: ScrollBehavior = "smooth") {
     const page = pageRef.current;
     const target = document.getElementById(targetId);
@@ -194,15 +238,20 @@ export function WelcomeSayfasi() {
     if (!page) return;
     const scrollPage = page;
     let snapTimer = 0;
+    const mobileOrTouch = window.matchMedia("(max-width: 767px), (pointer: coarse)").matches;
 
-    const hedefler = () =>
-      [
-        scrollPage.querySelector<HTMLElement>(".welcome-screen--hero"),
-        document.getElementById("urun"),
-        document.getElementById("ozellikler"),
-        document.getElementById("fiyatlandirma")
-      ]
-        .filter((item): item is HTMLElement => Boolean(item));
+    if (mobileOrTouch) {
+      function normalKaydirmayiEngelle(event: WheelEvent | TouchEvent) {
+        event.preventDefault();
+      }
+
+      window.addEventListener("wheel", normalKaydirmayiEngelle, { passive: false });
+      scrollPage.addEventListener("touchmove", normalKaydirmayiEngelle, { passive: false });
+      return () => {
+        window.removeEventListener("wheel", normalKaydirmayiEngelle);
+        scrollPage.removeEventListener("touchmove", normalKaydirmayiEngelle);
+      };
+    }
 
     function wheelIleKaydir(event: WheelEvent) {
       if (Math.abs(event.deltaY) < 18) return;
@@ -210,15 +259,11 @@ export function WelcomeSayfasi() {
       event.preventDefault();
       if (scrollKilitli.current) return;
 
-      const targets = hedefler();
+      const targets = kaydirmaHedefleri(scrollPage);
       if (targets.length === 0) return;
 
       const currentTop = scrollPage.scrollTop;
-      const currentIndex = targets.reduce((bestIndex, target, index) => {
-        const bestDistance = Math.abs(targets[bestIndex].offsetTop - currentTop);
-        const distance = Math.abs(target.offsetTop - currentTop);
-        return distance < bestDistance ? index : bestIndex;
-      }, 0);
+      const currentIndex = aktifBolumIndexi(scrollPage, targets);
 
       const nextIndex = Math.max(0, Math.min(targets.length - 1, currentIndex + (event.deltaY > 0 ? 1 : -1)));
       if (nextIndex === currentIndex && Math.abs(targets[currentIndex].offsetTop - currentTop) < 4) return;
@@ -234,7 +279,7 @@ export function WelcomeSayfasi() {
     function kaymaBitinceKilitle() {
       window.clearTimeout(snapTimer);
       snapTimer = window.setTimeout(() => {
-        const targets = hedefler();
+        const targets = kaydirmaHedefleri(scrollPage);
         if (targets.length === 0) return;
 
         const currentTop = scrollPage.scrollTop;
@@ -254,6 +299,19 @@ export function WelcomeSayfasi() {
       window.clearTimeout(snapTimer);
       window.removeEventListener("wheel", wheelIleKaydir);
       scrollPage.removeEventListener("scroll", kaymaBitinceKilitle);
+    };
+  }, []);
+
+  React.useEffect(() => {
+    const page = pageRef.current;
+    if (!page) return;
+
+    kaydirmaDurumunuGuncelle();
+    page.addEventListener("scroll", kaydirmaDurumunuGuncelle, { passive: true });
+    window.addEventListener("resize", kaydirmaDurumunuGuncelle);
+    return () => {
+      page.removeEventListener("scroll", kaydirmaDurumunuGuncelle);
+      window.removeEventListener("resize", kaydirmaDurumunuGuncelle);
     };
   }, []);
 
@@ -532,6 +590,25 @@ export function WelcomeSayfasi() {
           </div>
         </div>
       </section>
+
+      <div className="welcome-scroll-nav" aria-label="Sayfa bÃ¶lÃ¼m navigasyonu">
+        <button
+          type="button"
+          aria-label="YukarÄ±daki bÃ¶lÃ¼me git"
+          onClick={() => bolumeGit(-1)}
+          disabled={scrollNavState.index <= 0}
+        >
+          <ArrowUp size={20} />
+        </button>
+        <button
+          type="button"
+          aria-label="AÅŸaÄŸÄ±daki bÃ¶lÃ¼me git"
+          onClick={() => bolumeGit(1)}
+          disabled={scrollNavState.total === 0 || scrollNavState.index >= scrollNavState.total - 1}
+        >
+          <ArrowDown size={20} />
+        </button>
+      </div>
     </main>
   );
 }
