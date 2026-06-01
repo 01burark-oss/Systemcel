@@ -165,6 +165,8 @@ const pricingContent: Record<
 export function WelcomeSayfasi() {
   const auth = useSystemcelAuth();
   const [pricingAudience, setPricingAudience] = React.useState<PricingAudience>("isletme");
+  const [mobilePlanIndex, setMobilePlanIndex] = React.useState(1);
+  const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
   const [scrollNavState, setScrollNavState] = React.useState({ index: 0, total: 0 });
   const pageRef = React.useRef<HTMLElement | null>(null);
   const scrollKilitli = React.useRef(false);
@@ -320,6 +322,11 @@ export function WelcomeSayfasi() {
   }, []);
 
   React.useEffect(() => {
+    const recommendedIndex = activePricing.plans.findIndex((plan) => plan.recommended);
+    setMobilePlanIndex(recommendedIndex >= 0 ? recommendedIndex : 0);
+  }, [pricingAudience, activePricing.plans]);
+
+  React.useEffect(() => {
     const targetId = window.location.hash.replace("#", "");
     if (!targetId) return;
 
@@ -333,6 +340,7 @@ export function WelcomeSayfasi() {
 
     event.preventDefault();
     hedefeKaydir(targetId);
+    setMobileMenuOpen(false);
     window.history.replaceState(null, "", `#${targetId}`);
   }
 
@@ -374,11 +382,42 @@ export function WelcomeSayfasi() {
           </div>
 
           <div className="welcome-mobile-actions">
-            <button type="button" className="welcome-mobile-menu" aria-label="Menüyü aç">
+            <button
+              type="button"
+              className="welcome-mobile-menu"
+              aria-label={mobileMenuOpen ? "Menüyü kapat" : "Menüyü aç"}
+              aria-expanded={mobileMenuOpen}
+              aria-controls="welcome-mobile-menu"
+              onClick={() => setMobileMenuOpen((open) => !open)}
+            >
               <Menu size={20} />
             </button>
           </div>
         </header>
+
+        <div
+          id="welcome-mobile-menu"
+          className={mobileMenuOpen ? "welcome-mobile-panel is-open" : "welcome-mobile-panel"}
+          aria-hidden={!mobileMenuOpen}
+        >
+          <nav aria-label="Mobil ürün menüsü">
+            {navItems
+              .filter((item) => item.label !== "Yardım")
+              .map((item) => (
+                <a key={item.href} href={item.href} onClick={(event) => navTiklandi(event, item.targetId)}>
+                  {item.label}
+                </a>
+              ))}
+          </nav>
+          <div className="welcome-mobile-panel__actions">
+            <a href={signInHref} onClick={() => setMobileMenuOpen(false)}>
+              {signedInAppHref ? "Panele git" : "Giriş yap"}
+            </a>
+            <a href="mailto:iletisim@systemcel.com" onClick={() => setMobileMenuOpen(false)}>
+              İletişim
+            </a>
+          </div>
+        </div>
 
         <section className="welcome-hero" aria-labelledby="welcome-title">
           <div className="welcome-copy">
@@ -540,11 +579,34 @@ export function WelcomeSayfasi() {
             <p>{activePricing.text}</p>
           </div>
 
+          <div className="welcome-pricing__mobile-selector" role="tablist" aria-label="Plan seçimi">
+            {activePricing.plans.map((plan, index) => (
+              <button
+                type="button"
+                role="tab"
+                aria-selected={mobilePlanIndex === index}
+                className={mobilePlanIndex === index ? "active" : ""}
+                key={plan.title}
+                onClick={() => setMobilePlanIndex(index)}
+              >
+                <span>{plan.title}</span>
+                <strong>{plan.price} TL</strong>
+              </button>
+            ))}
+          </div>
+
           <div className="welcome-pricing__grid">
-            {activePricing.plans.map((plan) => {
+            {activePricing.plans.map((plan, index) => {
               const Icon = plan.icon;
+              const cardClassName = [
+                "welcome-pricing-card",
+                plan.recommended ? "is-featured" : "",
+                mobilePlanIndex === index ? "is-mobile-active" : ""
+              ]
+                .filter(Boolean)
+                .join(" ");
               return (
-                <article className={plan.recommended ? "welcome-pricing-card is-featured" : "welcome-pricing-card"} key={plan.title}>
+                <article className={cardClassName} key={plan.title}>
                   {plan.recommended ? (
                     <div className="welcome-pricing-card__badge">
                       <Sparkles size={18} />

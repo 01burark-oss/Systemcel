@@ -456,9 +456,6 @@ export function AuthSayfasi({ mode }: { mode: AuthMode }) {
         </div>
 
         <section className="auth-shell__card" aria-label={copy.cardTitle}>
-          <div className="auth-shell__card-icon">
-            <ShieldCheck size={38} />
-          </div>
           <div className="auth-shell__card-head">
             <h2>{copy.cardTitle}</h2>
             <p>{copy.cardText}</p>
@@ -719,7 +716,9 @@ function SystemcelAuthForm({
       {!forgotRequestMode && !resetPasswordMode ? (
         <>
           <button className="auth-custom__google" type="button" onClick={handleGoogle} disabled={islemde}>
-            <span>G</span>
+            <span className="auth-custom__google-icon" aria-hidden="true">
+              <GoogleLogo />
+            </span>
             {copy.google}
           </button>
 
@@ -903,6 +902,29 @@ function SystemcelAuthForm({
         ) : null}
       </form>
     </div>
+  );
+}
+
+function GoogleLogo() {
+  return (
+    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+      <path
+        fill="#4285F4"
+        d="M23.49 12.27c0-.79-.07-1.54-.2-2.27H12v4.51h6.47a5.54 5.54 0 0 1-2.39 3.64v3.02h3.88c2.27-2.09 3.53-5.17 3.53-8.9Z"
+      />
+      <path
+        fill="#34A853"
+        d="M12 24c3.24 0 5.96-1.07 7.95-2.9l-3.88-3.02c-1.08.72-2.46 1.15-4.07 1.15-3.13 0-5.78-2.11-6.73-4.96H1.26v3.11A12 12 0 0 0 12 24Z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M5.27 14.27a7.2 7.2 0 0 1 0-4.54V6.62H1.26a12 12 0 0 0 0 10.76l4.01-3.11Z"
+      />
+      <path
+        fill="#EA4335"
+        d="M12 4.77c1.76 0 3.35.61 4.6 1.8l3.44-3.44A11.56 11.56 0 0 0 12 0 12 12 0 0 0 1.26 6.62l4.01 3.11C6.22 6.88 8.87 4.77 12 4.77Z"
+      />
+    </svg>
   );
 }
 
