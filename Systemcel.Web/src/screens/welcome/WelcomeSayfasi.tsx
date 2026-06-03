@@ -119,14 +119,14 @@ const pricingContent: Record<
       },
       {
         title: "Başlangıç",
-        price: "199",
+        price: "299",
         icon: Send,
         recommended: true,
         features: ["Akıllı Fiş/Fatura İşleme", "e-Arşiv Fatura Kesme", "Telegram bildirimleri", "50 AI mesajı / ay"]
       },
       {
         title: "İşletme",
-        price: "399",
+        price: "599",
         icon: WalletCards,
         features: ["Başlangıç'taki her şey", "Sınırsız AI", "3 kullanıcı"]
       }
