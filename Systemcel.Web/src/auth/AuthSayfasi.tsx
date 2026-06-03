@@ -324,7 +324,7 @@ export function AuthSayfasi({ mode }: { mode: AuthMode }) {
   }
 
   if (!auth.isLoaded) {
-    return <AuthStatus title={status.loadingTitle} text={status.loadingText} />;
+    return null;
   }
 
   if (auth.error || !auth.clerk) {

@@ -11,7 +11,7 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
   }
 
   if (!auth.isLoaded) {
-    return <AuthStatus title="Oturum hazırlanıyor" text="Systemcel hesabın kontrol ediliyor." />;
+    return null;
   }
 
   if (auth.error) {
