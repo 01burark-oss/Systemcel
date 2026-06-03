@@ -13820,6 +13820,7 @@ tbody tr.secili {
   border-radius: 8px;
   color: #b9c8e6;
   background: transparent;
+  transform: translateY(-50%);
 }
 
 .auth-custom__verify {
