@@ -729,23 +729,27 @@ function SystemcelAuthForm({
 
     try {
       const resource = mode === "sign-up" ? auth.clerk.client.signUp : auth.clerk.client.signIn;
-      const redirectPath = mode === "sign-up" ? "/kayit" : "/giris";
-      const redirectUrl = new URL(redirectPath, window.location.origin);
-      if (selectedAccountType)
-        redirectUrl.searchParams.set("hesapTipi", selectedAccountType);
-      redirectUrl.searchParams.set("returnUrl", completionReturnUrl);
-      const redirectUrlComplete = new URL(redirectPath, window.location.origin);
-      if (selectedAccountType)
-        redirectUrlComplete.searchParams.set("hesapTipi", selectedAccountType);
-      redirectUrlComplete.searchParams.set("returnUrl", completionReturnUrl);
-      if (mode === "sign-up") {
-        redirectUrlComplete.searchParams.set("kayitTamam", "1");
-      }
+      const oauthAccountType = selectedAccountType || "Isletme";
+      window.localStorage.setItem(ACCOUNT_TYPE_INTENT_KEY, oauthAccountType);
+
+      const redirectUrl = buildOAuthUrl(mode === "sign-up" ? "/kayit" : "/giris", oauthAccountType, completionReturnUrl);
+      const redirectUrlComplete = buildOAuthUrl("/kayit", oauthAccountType, completionReturnUrl);
+      redirectUrlComplete.searchParams.set("kayitTamam", "1");
+      const signInUrl = buildOAuthUrl("/giris", oauthAccountType, completionReturnUrl);
+      const signUpUrl = buildOAuthUrl("/kayit", oauthAccountType, completionReturnUrl);
+      const completionUrl = returnUrlForAccountType(completionReturnUrl, oauthAccountType);
+      const signUpCompletionUrl = mode === "sign-up" ? redirectUrlComplete.toString() : completionUrl;
 
       await resource.authenticateWithRedirect({
         strategy: "oauth_google",
         redirectUrl: redirectUrl.toString(),
-        redirectUrlComplete: mode === "sign-up" ? redirectUrlComplete.toString() : completionReturnUrl
+        redirectUrlComplete: mode === "sign-up" ? redirectUrlComplete.toString() : completionUrl,
+        signInUrl: signInUrl.toString(),
+        signUpUrl: signUpUrl.toString(),
+        continueSignUpUrl: signUpUrl.toString(),
+        signInFallbackRedirectUrl: completionUrl,
+        signUpFallbackRedirectUrl: signUpCompletionUrl,
+        transferable: true
       });
     } catch (error) {
       setHata(readableAuthError(error, language));
@@ -1125,6 +1129,13 @@ function returnUrlForAccountType(returnUrl: string, accountType: "Isletme" | "Mu
   }
 
   return returnUrl;
+}
+
+function buildOAuthUrl(path: string, accountType: "Isletme" | "Muhasebeci", returnUrl: string) {
+  const url = new URL(path, window.location.origin);
+  url.searchParams.set("hesapTipi", accountType);
+  url.searchParams.set("returnUrl", returnUrlForAccountType(returnUrl, accountType));
+  return url;
 }
 
 function buildAuthSwitchHref(baseHref: string, accountTypeIntent: "Isletme" | "Muhasebeci" | "", returnUrl: string) {

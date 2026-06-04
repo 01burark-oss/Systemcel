@@ -39,6 +39,7 @@ namespace Systemcel.Api.Api
         private readonly PinReminderService? _pinReminderService;
         private readonly ISystemcelYonetimService? _yonetimService;
         private readonly IMuhasebeciPortalService? _muhasebeciPortalService;
+        private readonly IMuhasebeciSohbetMerkeziService? _muhasebeciSohbetMerkeziService;
         private RaporPaketDto? _lastReportPackage;
 
         public ScreenApi(
@@ -61,7 +62,8 @@ namespace Systemcel.Api.Api
             IAppSecurityService? appSecurityService = null,
             PinReminderService? pinReminderService = null,
             ISystemcelYonetimService? yonetimService = null,
-            IMuhasebeciPortalService? muhasebeciPortalService = null)
+            IMuhasebeciPortalService? muhasebeciPortalService = null,
+            IMuhasebeciSohbetMerkeziService? muhasebeciSohbetMerkeziService = null)
         {
             _kasaService = kasaService;
             _summaryService = summaryService;
@@ -83,6 +85,7 @@ namespace Systemcel.Api.Api
             _pinReminderService = pinReminderService;
             _yonetimService = yonetimService;
             _muhasebeciPortalService = muhasebeciPortalService;
+            _muhasebeciSohbetMerkeziService = muhasebeciSohbetMerkeziService;
         }
 
         public void MapApi(WebApplication app)
@@ -1306,6 +1309,34 @@ namespace Systemcel.Api.Api
 
         private async Task<MuhasebeciSohbetBildirimDurumuDto> BuildChatNotificationStatusAsync()
         {
+            if (_muhasebeciSohbetMerkeziService is not null)
+            {
+                try
+                {
+                    var list = await _muhasebeciSohbetMerkeziService.GetSohbetlerAsync();
+                    return new MuhasebeciSohbetBildirimDurumuDto
+                    {
+                        OkunmamisMesajSayisi = list.OkunmamisMesajSayisi,
+                        Sohbetler = list.Sohbetler.Select(x => new MuhasebeciSohbetBildirimDto
+                        {
+                            MuhasebeciIsletmeId = x.MuhasebeciIsletmeId,
+                            MusteriIsletmeId = x.MusteriIsletmeId,
+                            TalepId = x.TalepId,
+                            BaglantiId = x.BaglantiId,
+                            Baslik = x.Baslik,
+                            SonMesaj = x.SonMesaj,
+                            SonMesajAt = x.SonMesajAt ?? DateTime.Now,
+                            OkunmamisMesajSayisi = x.OkunmamisMesajSayisi,
+                            HedefUrl = x.HedefUrl
+                        }).ToList()
+                    };
+                }
+                catch
+                {
+                    return new MuhasebeciSohbetBildirimDurumuDto();
+                }
+            }
+
             if (_muhasebeciPortalService is null)
                 return new MuhasebeciSohbetBildirimDurumuDto();
 

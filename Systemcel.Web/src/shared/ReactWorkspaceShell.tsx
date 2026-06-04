@@ -27,7 +27,7 @@ import {
 import { AuthUserButton } from "../auth/AuthUserButton";
 import systemcelLogo from "../assets/systemcel-logo.png";
 import { AiAssistantPanel } from "./AiAssistantPanel";
-import type { SohbetBildirim, UstBarDurumu } from "./chrome";
+import type { UstBarDurumu } from "./chrome";
 import { jsonOku } from "./json";
 
 interface ReactWorkspaceShellProps {
@@ -50,22 +50,6 @@ interface Bildirim {
   url?: string;
 }
 
-interface MuhasebeciSohbetMesaji {
-  id: number;
-  gonderenAdi: string;
-  benimMesajim: boolean;
-  mesaj: string;
-  createdAt: string;
-}
-
-interface MuhasebeciSohbet {
-  muhasebeciAdi: string;
-  musteriAdi: string;
-  durum: string;
-  bilgiMesaji: string;
-  mesajlar: MuhasebeciSohbetMesaji[];
-}
-
 const anaMenu: Array<{ href: string; label: string; icon: LucideIcon; adminOnly?: boolean }> = [
   { href: "/", label: "Ana Sayfa", icon: Home },
   { href: "/gelir-gider", label: "Gelir / Gider Kayıtları", icon: ArrowDownUp },
@@ -74,6 +58,7 @@ const anaMenu: Array<{ href: string; label: string; icon: LucideIcon; adminOnly?
   { href: "/faturalar", label: "Faturalar", icon: FileText },
   { href: "/tahsilat-odeme", label: "Tahsilat / Ödeme", icon: WalletCards },
   { href: "/raporlar", label: "Raporlar", icon: BarChart3 },
+  { href: "/sohbetler", label: "Sohbetler", icon: MessageCircle },
   { href: "/muhasebeci", label: "Muhasebeci Paneli", icon: BriefcaseBusiness },
   { href: "/muhasebeciler", label: "Muhasebeciler", icon: Search },
   { href: "/yonetim/muhasebeci-basvurulari", label: "Yönetim", icon: ShieldCheck, adminOnly: true },
@@ -85,7 +70,7 @@ function menuForWorkspace(ustBar: UstBarDurumu | null, musteriBaglami: boolean) 
   const visibleMenu = anaMenu.filter((item) => !item.adminOnly || ustBar?.yoneticiMi);
   const muhasebeciCalismaAlani = ustBar?.hesapTipi === "Muhasebeci" && !musteriBaglami;
   if (muhasebeciCalismaAlani) {
-    return visibleMenu.filter((item) => item.href === "/muhasebeci" || item.href === "/muhasebeciler" || item.href === "/ayarlar" || item.adminOnly);
+    return visibleMenu.filter((item) => item.href === "/muhasebeci" || item.href === "/muhasebeciler" || item.href === "/sohbetler" || item.href === "/ayarlar" || item.adminOnly);
   }
 
   if (musteriBaglami) {
@@ -129,18 +114,6 @@ function saatBic(now: Date) {
   });
 }
 
-function mesajSaatBic(value: string) {
-  if (!value)
-    return "";
-
-  return new Date(value).toLocaleString("tr-TR", {
-    day: "2-digit",
-    month: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit"
-  });
-}
-
 function bildirimIkonu(tur: string) {
   switch (tur) {
     case "odeme":
@@ -160,18 +133,13 @@ function yetkiEtiketi(value?: string) {
   return value === "TamIslem" ? "Tam işlem" : "Okuma + rapor";
 }
 
-export function ReactWorkspaceShell({ children, ustBar, baslik, sagAksiyon, onUstBarYenile }: ReactWorkspaceShellProps) {
+export function ReactWorkspaceShell({ children, ustBar, baslik, sagAksiyon }: ReactWorkspaceShellProps) {
   const [now, setNow] = React.useState(() => new Date());
   const [bildirimPaneliAcik, setBildirimPaneliAcik] = React.useState(false);
   const [bildirimler, setBildirimler] = React.useState<Bildirim[]>([]);
   const [bildirimYukleniyor, setBildirimYukleniyor] = React.useState(false);
   const [bildirimHata, setBildirimHata] = React.useState("");
   const [sohbetPaneliAcik, setSohbetPaneliAcik] = React.useState(false);
-  const [aktifSohbetBildirim, setAktifSohbetBildirim] = React.useState<SohbetBildirim | null>(null);
-  const [aktifSohbet, setAktifSohbet] = React.useState<MuhasebeciSohbet | null>(null);
-  const [sohbetMesaji, setSohbetMesaji] = React.useState("");
-  const [sohbetIslemde, setSohbetIslemde] = React.useState(false);
-  const [sohbetHata, setSohbetHata] = React.useState("");
   const [baglamKapatiliyor, setBaglamKapatiliyor] = React.useState(false);
   const rawPath = normalizePath(window.location.pathname);
   const currentPath = rawPath === "/app" ? "/" : rawPath.startsWith("/app/") ? rawPath.slice(4) : rawPath;
@@ -206,58 +174,6 @@ export function ReactWorkspaceShell({ children, ustBar, baslik, sagAksiyon, onUs
       bildirimleriYukle();
     }
   }, [bildirimPaneliAcik, bildirimleriYukle]);
-
-  const sohbetEndpoint = React.useCallback((item: SohbetBildirim) => {
-    const viewerAccountantId = ustBar?.muhasebeciMusteriBaglami ? ustBar.muhasebeciIsletmeId : ustBar?.aktifIsletmeId;
-    if (viewerAccountantId && item.muhasebeciIsletmeId === viewerAccountantId) {
-      if (item.baglantiId || !item.talepId) {
-        return `/api/ekran/muhasebeci/musteriler/${item.musteriIsletmeId}/sohbet`;
-      }
-
-      return `/api/ekran/muhasebeci/talepler/${item.talepId}/sohbet`;
-    }
-
-    return `/api/ekran/muhasebeciler/${item.muhasebeciIsletmeId}/sohbet`;
-  }, [ustBar?.aktifIsletmeId, ustBar?.muhasebeciIsletmeId, ustBar?.muhasebeciMusteriBaglami]);
-
-  const sohbetAc = React.useCallback(async (item: SohbetBildirim) => {
-    setAktifSohbetBildirim(item);
-    setAktifSohbet(null);
-    setSohbetMesaji("");
-    setSohbetHata("");
-    setSohbetIslemde(true);
-    try {
-      const data = await jsonOku<MuhasebeciSohbet>(sohbetEndpoint(item));
-      setAktifSohbet(data);
-      await onUstBarYenile?.();
-    } catch (error) {
-      setSohbetHata(error instanceof Error ? error.message : "Sohbet yüklenemedi.");
-    } finally {
-      setSohbetIslemde(false);
-    }
-  }, [onUstBarYenile, sohbetEndpoint]);
-
-  const sohbetMesajiGonder = React.useCallback(async (event: React.FormEvent) => {
-    event.preventDefault();
-    if (!aktifSohbetBildirim || sohbetMesaji.trim().length === 0)
-      return;
-
-    setSohbetIslemde(true);
-    setSohbetHata("");
-    try {
-      const data = await jsonOku<MuhasebeciSohbet>(sohbetEndpoint(aktifSohbetBildirim), {
-        method: "POST",
-        body: JSON.stringify({ mesaj: sohbetMesaji })
-      });
-      setAktifSohbet(data);
-      setSohbetMesaji("");
-      await onUstBarYenile?.();
-    } catch (error) {
-      setSohbetHata(error instanceof Error ? error.message : "Mesaj gönderilemedi.");
-    } finally {
-      setSohbetIslemde(false);
-    }
-  }, [aktifSohbetBildirim, onUstBarYenile, sohbetEndpoint, sohbetMesaji]);
 
   const musteriBaglaminiKapat = React.useCallback(async () => {
     try {
@@ -375,59 +291,11 @@ export function ReactWorkspaceShell({ children, ustBar, baslik, sagAksiyon, onUs
               {sohbetPaneliAcik && (
                 <div className="react-topbar__chat-panel" role="dialog" aria-label="Sohbetler">
                   <div className="react-topbar__panel-head">
-                    <strong>{aktifSohbetBildirim ? aktifSohbetBildirim.baslik : "Sohbetler"}</strong>
-                    {aktifSohbetBildirim ? (
-                      <button
-                        type="button"
-                        className="topbar-chat-back"
-                        onClick={() => {
-                          setAktifSohbetBildirim(null);
-                          setAktifSohbet(null);
-                          setSohbetMesaji("");
-                          setSohbetHata("");
-                        }}
-                      >
-                        Geri
-                      </button>
-                    ) : sohbetSayisi ? (
-                      <span>{sohbetSayisi}</span>
-                    ) : null}
+                    <strong>Sohbetler</strong>
+                    {sohbetSayisi ? <span>{sohbetSayisi}</span> : null}
                   </div>
 
-                  {aktifSohbetBildirim ? (
-                    <form className="topbar-chat-thread" onSubmit={sohbetMesajiGonder}>
-                      {sohbetHata ? <p className="notification-state notification-state--error">{sohbetHata}</p> : null}
-                      <div className="topbar-chat-thread__messages">
-                        {sohbetIslemde && !aktifSohbet ? (
-                          <p className="notification-state">
-                            <Loader2 size={16} />
-                            Sohbet açılıyor...
-                          </p>
-                        ) : aktifSohbet?.mesajlar.length ? (
-                          aktifSohbet.mesajlar.map((item) => (
-                            <article key={item.id} className={item.benimMesajim ? "mine" : ""}>
-                              <small>{item.gonderenAdi} · {mesajSaatBic(item.createdAt)}</small>
-                              <p>{item.mesaj}</p>
-                            </article>
-                          ))
-                        ) : (
-                          <span className="topbar-chat-empty">Henüz mesaj yok.</span>
-                        )}
-                      </div>
-                      <label>
-                        <textarea
-                          value={sohbetMesaji}
-                          onChange={(event) => setSohbetMesaji(event.target.value)}
-                          placeholder="Bir mesaj yazın..."
-                          rows={2}
-                        />
-                      </label>
-                      <button type="submit" disabled={sohbetIslemde || sohbetMesaji.trim().length === 0}>
-                        {sohbetIslemde ? <Loader2 size={15} className="spin" /> : <Send size={15} />}
-                        <span>Gönder</span>
-                      </button>
-                    </form>
-                  ) : sohbetler.length === 0 ? (
+                  {sohbetler.length === 0 ? (
                     <p className="notification-state">Henüz sohbet yok.</p>
                   ) : (
                     <div className="topbar-chat-list">
@@ -435,7 +303,9 @@ export function ReactWorkspaceShell({ children, ustBar, baslik, sagAksiyon, onUs
                         <button
                           key={`${item.muhasebeciIsletmeId}-${item.musteriIsletmeId}-${item.talepId ?? item.baglantiId ?? 0}`}
                           type="button"
-                          onClick={() => sohbetAc(item).catch(() => undefined)}
+                          onClick={() => {
+                            window.location.href = item.hedefUrl || "/app/sohbetler";
+                          }}
                         >
                           <span>
                             <strong>{item.baslik}</strong>
@@ -446,6 +316,7 @@ export function ReactWorkspaceShell({ children, ustBar, baslik, sagAksiyon, onUs
                       ))}
                     </div>
                   )}
+                  <a className="topbar-chat-center-link" href="/app/sohbetler">Sohbet merkezine git</a>
                 </div>
               )}
             </div>

@@ -476,11 +476,7 @@ namespace CashTracker.Infrastructure.Services
                         SonMesaj = last.Mesaj,
                         SonMesajAt = last.CreatedAt,
                         OkunmamisMesajSayisi = group.Count(x => x.OkunduAt == null && x.GonderenIsletmeId != viewerBusinessId),
-                        HedefUrl = last.MuhasebeciIsletmeId == viewerBusinessId
-                            ? baglantiId.HasValue
-                                ? $"/app/muhasebeci?musteriId={last.MusteriIsletmeId}&sohbet=1"
-                                : $"/app/muhasebeci?talepId={talepId ?? 0}&sohbet=1"
-                            : $"/app/muhasebeciler?muhasebeciId={last.MuhasebeciIsletmeId}&talep=1"
+                        HedefUrl = "/app/sohbetler"
                     };
                 })
                 .OrderByDescending(x => x.SonMesajAt)
@@ -880,7 +876,7 @@ namespace CashTracker.Infrastructure.Services
                 MuhasebeciAdi = DisplayName(accountant?.Ad, "Muhasebeci"),
                 MusteriAdi = DisplayName(customer?.Ad, "Müşteri"),
                 Durum = conversation.Durum,
-                BilgiMesaji = "Telefon, e-posta, web adresi ve sosyal medya bilgileri ödeme akışı tamamlanana kadar Systemcel sohbetinde paylaşılmaz.",
+                BilgiMesaji = "Telefon, e-posta, web adresi ve sosyal medya bilgileri Systemcel dışına taşınmadan sohbet içinde tutulur.",
                 Mesajlar = messages.Select(x => new MuhasebeciSohbetMesajiDto
                 {
                     Id = x.Id,
@@ -1094,7 +1090,7 @@ namespace CashTracker.Infrastructure.Services
                 throw new InvalidOperationException("Mesaj en fazla 1000 karakter olabilir.");
 
             if (ContainsDirectContactInfo(normalized))
-                throw new InvalidOperationException("Telefon, e-posta, web adresi veya sosyal medya bilgisi ödeme tamamlanmadan paylaşılamaz. Lütfen iletişimi Systemcel sohbeti üzerinden sürdürün.");
+                throw new InvalidOperationException("Telefon, e-posta, web adresi veya sosyal medya bilgisi paylaşılamaz. Lütfen iletişimi Systemcel sohbeti üzerinden sürdürün.");
 
             return normalized;
         }

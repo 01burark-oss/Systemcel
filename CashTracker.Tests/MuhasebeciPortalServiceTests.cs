@@ -126,7 +126,7 @@ namespace CashTracker.Tests
             var temizDurum = await fixture.Portal.GetConversationNotificationStatusAsync();
 
             Assert.Equal(1, durum.OkunmamisMesajSayisi);
-            Assert.Contains(durum.Sohbetler, x => x.MusteriIsletmeId == ids.CustomerId && x.HedefUrl.Contains("sohbet=1"));
+            Assert.Contains(durum.Sohbetler, x => x.MusteriIsletmeId == ids.CustomerId && x.HedefUrl.Contains("/app/sohbetler"));
             Assert.Equal(0, temizDurum.OkunmamisMesajSayisi);
             Assert.Contains(temizDurum.Sohbetler, x => x.MusteriIsletmeId == ids.CustomerId && x.OkunmamisMesajSayisi == 0);
         }

@@ -336,14 +336,77 @@ CREATE TABLE IF NOT EXISTS MuhasebeciMusteriTalebi (
             db.Database.ExecuteSqlRaw(@"
 CREATE TABLE IF NOT EXISTS MuhasebeciSohbetMesaji (
     Id INTEGER PRIMARY KEY AUTOINCREMENT,
+    SohbetId INTEGER,
     MuhasebeciIsletmeId INTEGER NOT NULL,
     MusteriIsletmeId INTEGER NOT NULL,
     GonderenIsletmeId INTEGER NOT NULL,
     TalepId INTEGER,
     BaglantiId INTEGER,
+    MesajTipi TEXT NOT NULL DEFAULT 'Metin',
+    ClientMessageId TEXT NOT NULL DEFAULT '',
     Mesaj TEXT NOT NULL DEFAULT '',
     OkunduAt TEXT,
     CreatedAt TEXT NOT NULL
+);");
+
+            db.Database.ExecuteSqlRaw(@"
+CREATE TABLE IF NOT EXISTS MuhasebeciSohbet (
+    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+    MuhasebeciIsletmeId INTEGER NOT NULL,
+    MusteriIsletmeId INTEGER NOT NULL,
+    TalepId INTEGER,
+    BaglantiId INTEGER,
+    Konu TEXT NOT NULL DEFAULT '',
+    Durum TEXT NOT NULL DEFAULT 'Aktif',
+    SonMesajAt TEXT,
+    CreatedAt TEXT NOT NULL,
+    UpdatedAt TEXT NOT NULL
+);");
+
+            db.Database.ExecuteSqlRaw(@"
+CREATE TABLE IF NOT EXISTS MuhasebeciSohbetEki (
+    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+    SohbetId INTEGER NOT NULL,
+    MesajId INTEGER,
+    YukleyenIsletmeId INTEGER NOT NULL,
+    EkTipi TEXT NOT NULL DEFAULT 'Dosya',
+    DosyaAdi TEXT NOT NULL DEFAULT '',
+    IcerikTipi TEXT NOT NULL DEFAULT '',
+    DosyaYolu TEXT NOT NULL DEFAULT '',
+    Boyut INTEGER NOT NULL DEFAULT 0,
+    VeriTipi TEXT NOT NULL DEFAULT '',
+    Baslik TEXT NOT NULL DEFAULT '',
+    OzetJson TEXT NOT NULL DEFAULT '',
+    CreatedAt TEXT NOT NULL
+);");
+
+            db.Database.ExecuteSqlRaw(@"
+CREATE TABLE IF NOT EXISTS MuhasebeciSohbetKatilimciDurumu (
+    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+    SohbetId INTEGER NOT NULL,
+    IsletmeId INTEGER NOT NULL,
+    Arsivlendi INTEGER NOT NULL DEFAULT 0,
+    ArsivlendiAt TEXT,
+    SonOkumaAt TEXT,
+    CreatedAt TEXT NOT NULL,
+    UpdatedAt TEXT NOT NULL
+);");
+
+            db.Database.ExecuteSqlRaw(@"
+CREATE TABLE IF NOT EXISTS MuhasebeciSohbetVeriIstegi (
+    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+    SohbetId INTEGER NOT NULL,
+    IsteyenIsletmeId INTEGER NOT NULL,
+    HedefIsletmeId INTEGER NOT NULL,
+    VeriTipi TEXT NOT NULL DEFAULT 'GelirGiderOzeti',
+    AralikKodu TEXT NOT NULL DEFAULT 'last30',
+    Baslangic TEXT NOT NULL,
+    Bitis TEXT NOT NULL,
+    Durum TEXT NOT NULL DEFAULT 'Beklemede',
+    SonucEkId INTEGER,
+    Mesaj TEXT NOT NULL DEFAULT '',
+    CreatedAt TEXT NOT NULL,
+    UpdatedAt TEXT NOT NULL
 );");
 
             db.Database.ExecuteSqlRaw(@"
@@ -495,6 +558,15 @@ WHERE UpdatedAt = '1970-01-01 00:00:00' OR TRIM(UpdatedAt) = '';");
 
             if (!ColumnExists(conn, "MuhasebeciSohbetMesaji", "OkunduAt"))
                 db.Database.ExecuteSqlRaw("ALTER TABLE MuhasebeciSohbetMesaji ADD COLUMN OkunduAt TEXT");
+
+            if (!ColumnExists(conn, "MuhasebeciSohbetMesaji", "SohbetId"))
+                db.Database.ExecuteSqlRaw("ALTER TABLE MuhasebeciSohbetMesaji ADD COLUMN SohbetId INTEGER");
+
+            if (!ColumnExists(conn, "MuhasebeciSohbetMesaji", "MesajTipi"))
+                db.Database.ExecuteSqlRaw("ALTER TABLE MuhasebeciSohbetMesaji ADD COLUMN MesajTipi TEXT NOT NULL DEFAULT 'Metin'");
+
+            if (!ColumnExists(conn, "MuhasebeciSohbetMesaji", "ClientMessageId"))
+                db.Database.ExecuteSqlRaw("ALTER TABLE MuhasebeciSohbetMesaji ADD COLUMN ClientMessageId TEXT NOT NULL DEFAULT ''");
         }
 
         private static partial void EnsureIndexes(CashTrackerDbContext db)
@@ -533,12 +605,33 @@ WHERE UpdatedAt = '1970-01-01 00:00:00' OR TRIM(UpdatedAt) = '';");
             db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS IX_MuhasebeciMusteriTalebi_Durum ON MuhasebeciMusteriTalebi(Durum);");
             db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS IX_MuhasebeciMusteriTalebi_DavetKodu ON MuhasebeciMusteriTalebi(DavetKodu);");
             db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS IX_MuhasebeciMusteriTalebi_MuhasebeciIsletmeId_MusteriIsletmeId_Durum ON MuhasebeciMusteriTalebi(MuhasebeciIsletmeId, MusteriIsletmeId, Durum);");
+            db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS IX_MuhasebeciSohbet_MuhasebeciIsletmeId ON MuhasebeciSohbet(MuhasebeciIsletmeId);");
+            db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS IX_MuhasebeciSohbet_MusteriIsletmeId ON MuhasebeciSohbet(MusteriIsletmeId);");
+            db.Database.ExecuteSqlRaw("CREATE UNIQUE INDEX IF NOT EXISTS IX_MuhasebeciSohbet_MuhasebeciIsletmeId_MusteriIsletmeId ON MuhasebeciSohbet(MuhasebeciIsletmeId, MusteriIsletmeId);");
+            db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS IX_MuhasebeciSohbet_TalepId ON MuhasebeciSohbet(TalepId);");
+            db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS IX_MuhasebeciSohbet_BaglantiId ON MuhasebeciSohbet(BaglantiId);");
+            db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS IX_MuhasebeciSohbet_SonMesajAt ON MuhasebeciSohbet(SonMesajAt);");
+            db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS IX_MuhasebeciSohbetMesaji_SohbetId ON MuhasebeciSohbetMesaji(SohbetId);");
             db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS IX_MuhasebeciSohbetMesaji_MuhasebeciIsletmeId ON MuhasebeciSohbetMesaji(MuhasebeciIsletmeId);");
             db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS IX_MuhasebeciSohbetMesaji_MusteriIsletmeId ON MuhasebeciSohbetMesaji(MusteriIsletmeId);");
             db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS IX_MuhasebeciSohbetMesaji_TalepId ON MuhasebeciSohbetMesaji(TalepId);");
             db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS IX_MuhasebeciSohbetMesaji_BaglantiId ON MuhasebeciSohbetMesaji(BaglantiId);");
             db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS IX_MuhasebeciSohbetMesaji_OkunduAt ON MuhasebeciSohbetMesaji(OkunduAt);");
+            db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS IX_MuhasebeciSohbetMesaji_SohbetId_ClientMessageId ON MuhasebeciSohbetMesaji(SohbetId, ClientMessageId);");
+            db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS IX_MuhasebeciSohbetMesaji_SohbetId_Id ON MuhasebeciSohbetMesaji(SohbetId, Id);");
             db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS IX_MuhasebeciSohbetMesaji_MuhasebeciIsletmeId_MusteriIsletmeId_CreatedAt ON MuhasebeciSohbetMesaji(MuhasebeciIsletmeId, MusteriIsletmeId, CreatedAt);");
+            db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS IX_MuhasebeciSohbetEki_SohbetId ON MuhasebeciSohbetEki(SohbetId);");
+            db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS IX_MuhasebeciSohbetEki_MesajId ON MuhasebeciSohbetEki(MesajId);");
+            db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS IX_MuhasebeciSohbetEki_YukleyenIsletmeId ON MuhasebeciSohbetEki(YukleyenIsletmeId);");
+            db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS IX_MuhasebeciSohbetEki_EkTipi ON MuhasebeciSohbetEki(EkTipi);");
+            db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS IX_MuhasebeciSohbetKatilimciDurumu_SohbetId ON MuhasebeciSohbetKatilimciDurumu(SohbetId);");
+            db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS IX_MuhasebeciSohbetKatilimciDurumu_IsletmeId ON MuhasebeciSohbetKatilimciDurumu(IsletmeId);");
+            db.Database.ExecuteSqlRaw("CREATE UNIQUE INDEX IF NOT EXISTS IX_MuhasebeciSohbetKatilimciDurumu_SohbetId_IsletmeId ON MuhasebeciSohbetKatilimciDurumu(SohbetId, IsletmeId);");
+            db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS IX_MuhasebeciSohbetKatilimciDurumu_Arsivlendi ON MuhasebeciSohbetKatilimciDurumu(Arsivlendi);");
+            db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS IX_MuhasebeciSohbetVeriIstegi_SohbetId ON MuhasebeciSohbetVeriIstegi(SohbetId);");
+            db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS IX_MuhasebeciSohbetVeriIstegi_IsteyenIsletmeId ON MuhasebeciSohbetVeriIstegi(IsteyenIsletmeId);");
+            db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS IX_MuhasebeciSohbetVeriIstegi_HedefIsletmeId ON MuhasebeciSohbetVeriIstegi(HedefIsletmeId);");
+            db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS IX_MuhasebeciSohbetVeriIstegi_Durum ON MuhasebeciSohbetVeriIstegi(Durum);");
             db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS IX_Abonelik_IsletmeId ON Abonelik(IsletmeId);");
             db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS IX_Abonelik_IsletmeId_Durum ON Abonelik(IsletmeId, Durum);");
             db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS IX_Abonelik_PlanKodu ON Abonelik(PlanKodu);");

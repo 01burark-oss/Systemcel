@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
 using Systemcel.Api;
 using Systemcel.Api.Api;
+using Systemcel.Api.Hubs;
 using Systemcel.Api.Import;
 using Systemcel.Api.Services;
 
@@ -28,7 +29,9 @@ var receiptOcrSettings = builder.Configuration.GetSection("ReceiptOcr").Get<Rece
 builder.Services.AddSingleton(databasePaths);
 builder.Services.AddSingleton(databaseOptions);
 builder.Services.AddSingleton(new AppRuntimeOptions { AppDataPath = appDataPath });
+builder.Services.AddSingleton(new MuhasebeciSohbetStorageOptions { AppDataPath = appDataPath });
 builder.Services.AddClerkAuthentication(clerkAuthenticationOptions);
+builder.Services.AddSignalR();
 
 builder.Services.AddDbContextFactory<CashTrackerDbContext>(options =>
 {
@@ -55,6 +58,7 @@ builder.Services.AddSingleton<ITahsilatOdemeService, TahsilatOdemeService>();
 builder.Services.AddSingleton<IOnMuhasebeReportService, OnMuhasebeReportService>();
 builder.Services.AddSingleton<ISubscriptionEntitlementService, SubscriptionEntitlementService>();
 builder.Services.AddSingleton<IMuhasebeciPortalService, MuhasebeciPortalService>();
+builder.Services.AddSingleton<IMuhasebeciSohbetMerkeziService, MuhasebeciSohbetMerkeziService>();
 builder.Services.AddSingleton<ISystemcelYonetimService, SystemcelYonetimService>();
 builder.Services.AddSingleton<IAccountantApplicationNotifier>(sp =>
 {
@@ -190,7 +194,11 @@ app.MapSubscriptionApi();
 app.MapDesktopImportApi();
 app.MapAiAssistantApi();
 app.MapMuhasebeciApi();
+app.MapSohbetMerkeziApi();
 app.MapYonetimApi();
+var sohbetHub = app.MapHub<MuhasebeciSohbetHub>("/hubs/muhasebeci-sohbet");
+if (clerkAuthenticationOptions.Enabled)
+    sohbetHub.RequireAuthorization();
 app.Services.GetRequiredService<ScreenApi>().MapApi(app);
 app.Services.GetRequiredService<TelegramPollingService>().Start();
 MapReactStaticFiles(app);

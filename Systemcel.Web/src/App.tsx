@@ -15,6 +15,7 @@ import { MuhasebeciPanelSayfasi } from "./screens/muhasebeci/MuhasebeciPanelSayf
 import { MuhasebecilerSayfasi } from "./screens/muhasebeciler/MuhasebecilerSayfasi";
 import { PinKilitSayfasi } from "./screens/pin/PinKilitSayfasi";
 import { RaporlarSayfasi } from "./screens/raporlar/RaporlarSayfasi";
+import { SohbetlerSayfasi } from "./screens/sohbetler/SohbetlerSayfasi";
 import { AyarlarSayfasi } from "./screens/ayarlar/AyarlarSayfasi";
 import { TahsilatOdemeSayfasi } from "./screens/tahsilat-odeme/TahsilatOdemeSayfasi";
 import { UrunStokSayfasi } from "./screens/urun-stok/UrunStokSayfasi";
@@ -374,7 +375,7 @@ function WorkspaceRoutes({ path }: { path: string }) {
 
   const muhasebeciCalismaAlani = ustBar?.hesapTipi === "Muhasebeci" && !ustBar.muhasebeciMusteriBaglami;
   const yonetimRoute = path === "/yonetim" || path.startsWith("/yonetim/");
-  const muhasebeciCalismaAlaniRoute = path === "/muhasebeci" || path === "/muhasebeciler" || path === "/ayarlar";
+  const muhasebeciCalismaAlaniRoute = path === "/muhasebeci" || path === "/muhasebeciler" || path === "/sohbetler" || path === "/ayarlar";
   const routePath = muhasebeciCalismaAlani && !yonetimRoute && !muhasebeciCalismaAlaniRoute ? "/muhasebeci" : path === "/yonetim" ? "/yonetim/muhasebeci-basvurulari" : path;
 
   const shellBaslik =
@@ -390,6 +391,8 @@ function WorkspaceRoutes({ path }: { path: string }) {
               ? "Muhasebeci Başvuruları"
             : routePath === "/muhasebeciler"
               ? "Muhasebeciler"
+              : routePath === "/sohbetler"
+                ? "Sohbetler"
               : routePath === "/gib-portal"
             ? "GİB Portal Ayarları"
             : routePath === "/ayarlar"
@@ -404,6 +407,10 @@ function WorkspaceRoutes({ path }: { path: string }) {
       onChange={isletmeDegistir}
     />
   ) : null;
+
+  if (mobileWorkspace && routePath === "/sohbetler") {
+    return <SohbetlerSayfasi ustBar={ustBar} onUstBarYenile={ustBarYukle} />;
+  }
 
   if (mobileWorkspace) {
     return (
@@ -481,6 +488,8 @@ function WorkspaceRoutes({ path }: { path: string }) {
         <MuhasebeciBasvurulariSayfasi onUstBarYenile={ustBarYukle} />
       ) : routePath === "/muhasebeciler" ? (
         <MuhasebecilerSayfasi ustBar={ustBar} onUstBarYenile={ustBarYukle} />
+      ) : routePath === "/sohbetler" ? (
+        <SohbetlerSayfasi ustBar={ustBar} onUstBarYenile={ustBarYukle} />
       ) : routePath === "/gib-portal" ? (
         <GibPortalSayfasi
           ustBar={ustBar}

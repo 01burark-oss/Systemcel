@@ -14,7 +14,11 @@ namespace CashTracker.Infrastructure.Persistence
         public DbSet<MuhasebeciMusteri> MuhasebeciMusterileri => Set<MuhasebeciMusteri>();
         public DbSet<MuhasebeciProfil> MuhasebeciProfilleri => Set<MuhasebeciProfil>();
         public DbSet<MuhasebeciMusteriTalebi> MuhasebeciMusteriTalepleri => Set<MuhasebeciMusteriTalebi>();
+        public DbSet<MuhasebeciSohbet> MuhasebeciSohbetleri => Set<MuhasebeciSohbet>();
         public DbSet<MuhasebeciSohbetMesaji> MuhasebeciSohbetMesajlari => Set<MuhasebeciSohbetMesaji>();
+        public DbSet<MuhasebeciSohbetEki> MuhasebeciSohbetEkleri => Set<MuhasebeciSohbetEki>();
+        public DbSet<MuhasebeciSohbetKatilimciDurumu> MuhasebeciSohbetKatilimciDurumlari => Set<MuhasebeciSohbetKatilimciDurumu>();
+        public DbSet<MuhasebeciSohbetVeriIstegi> MuhasebeciSohbetVeriIstekleri => Set<MuhasebeciSohbetVeriIstegi>();
         public DbSet<Abonelik> Abonelikler => Set<Abonelik>();
         public DbSet<IsletmeDeneme> IsletmeDenemeleri => Set<IsletmeDeneme>();
         public DbSet<IsletmeEntitlement> IsletmeEntitlementlari => Set<IsletmeEntitlement>();
@@ -140,17 +144,77 @@ namespace CashTracker.Infrastructure.Persistence
                 e.HasIndex(x => new { x.MuhasebeciIsletmeId, x.MusteriIsletmeId, x.Durum });
             });
 
+            modelBuilder.Entity<MuhasebeciSohbet>(e =>
+            {
+                e.ToTable("MuhasebeciSohbet");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Konu).IsRequired();
+                e.Property(x => x.Durum).IsRequired();
+                e.HasIndex(x => x.MuhasebeciIsletmeId);
+                e.HasIndex(x => x.MusteriIsletmeId);
+                e.HasIndex(x => x.TalepId);
+                e.HasIndex(x => x.BaglantiId);
+                e.HasIndex(x => x.SonMesajAt);
+                e.HasIndex(x => new { x.MuhasebeciIsletmeId, x.MusteriIsletmeId }).IsUnique();
+            });
+
             modelBuilder.Entity<MuhasebeciSohbetMesaji>(e =>
             {
                 e.ToTable("MuhasebeciSohbetMesaji");
                 e.HasKey(x => x.Id);
+                e.Property(x => x.MesajTipi).IsRequired();
+                e.Property(x => x.ClientMessageId).IsRequired();
                 e.Property(x => x.Mesaj).IsRequired();
+                e.HasIndex(x => x.SohbetId);
                 e.HasIndex(x => x.MuhasebeciIsletmeId);
                 e.HasIndex(x => x.MusteriIsletmeId);
                 e.HasIndex(x => x.TalepId);
                 e.HasIndex(x => x.BaglantiId);
                 e.HasIndex(x => x.OkunduAt);
+                e.HasIndex(x => new { x.SohbetId, x.ClientMessageId });
+                e.HasIndex(x => new { x.SohbetId, x.Id });
                 e.HasIndex(x => new { x.MuhasebeciIsletmeId, x.MusteriIsletmeId, x.CreatedAt });
+            });
+
+            modelBuilder.Entity<MuhasebeciSohbetEki>(e =>
+            {
+                e.ToTable("MuhasebeciSohbetEki");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.EkTipi).IsRequired();
+                e.Property(x => x.DosyaAdi).IsRequired();
+                e.Property(x => x.IcerikTipi).IsRequired();
+                e.Property(x => x.DosyaYolu).IsRequired();
+                e.Property(x => x.VeriTipi).IsRequired();
+                e.Property(x => x.Baslik).IsRequired();
+                e.Property(x => x.OzetJson).IsRequired();
+                e.HasIndex(x => x.SohbetId);
+                e.HasIndex(x => x.MesajId);
+                e.HasIndex(x => x.YukleyenIsletmeId);
+                e.HasIndex(x => x.EkTipi);
+            });
+
+            modelBuilder.Entity<MuhasebeciSohbetKatilimciDurumu>(e =>
+            {
+                e.ToTable("MuhasebeciSohbetKatilimciDurumu");
+                e.HasKey(x => x.Id);
+                e.HasIndex(x => x.SohbetId);
+                e.HasIndex(x => x.IsletmeId);
+                e.HasIndex(x => new { x.SohbetId, x.IsletmeId }).IsUnique();
+                e.HasIndex(x => x.Arsivlendi);
+            });
+
+            modelBuilder.Entity<MuhasebeciSohbetVeriIstegi>(e =>
+            {
+                e.ToTable("MuhasebeciSohbetVeriIstegi");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.VeriTipi).IsRequired();
+                e.Property(x => x.AralikKodu).IsRequired();
+                e.Property(x => x.Durum).IsRequired();
+                e.Property(x => x.Mesaj).IsRequired();
+                e.HasIndex(x => x.SohbetId);
+                e.HasIndex(x => x.IsteyenIsletmeId);
+                e.HasIndex(x => x.HedefIsletmeId);
+                e.HasIndex(x => x.Durum);
             });
 
             modelBuilder.Entity<Abonelik>(e =>

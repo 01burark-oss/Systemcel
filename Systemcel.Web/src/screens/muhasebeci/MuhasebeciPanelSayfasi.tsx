@@ -75,22 +75,6 @@ interface MuhasebeciTalep {
   createdAt: string;
 }
 
-interface MuhasebeciSohbetMesaji {
-  id: number;
-  gonderenAdi: string;
-  benimMesajim: boolean;
-  mesaj: string;
-  createdAt: string;
-}
-
-interface MuhasebeciSohbet {
-  muhasebeciAdi: string;
-  musteriAdi: string;
-  durum: string;
-  bilgiMesaji: string;
-  mesajlar: MuhasebeciSohbetMesaji[];
-}
-
 type SohbetHedefi =
   | { tur: "talep"; id: number; baslik: string }
   | { tur: "musteri"; id: number; baslik: string };
@@ -149,9 +133,6 @@ export function MuhasebeciPanelSayfasi({ onUstBarYenile }: MuhasebeciPanelSayfas
   const [sonDavet, setSonDavet] = React.useState<MuhasebeciTalep | null>(null);
   const [talepYetkileri, setTalepYetkileri] = React.useState<Record<number, YetkiSeviyesi>>({});
   const [profilResmiYukleniyor, setProfilResmiYukleniyor] = React.useState(false);
-  const [sohbetHedefi, setSohbetHedefi] = React.useState<SohbetHedefi | null>(null);
-  const [sohbet, setSohbet] = React.useState<MuhasebeciSohbet | null>(null);
-  const [sohbetMesaji, setSohbetMesaji] = React.useState("");
   const [sohbetIslemde, setSohbetIslemde] = React.useState(false);
   const konumDatalistId = React.useId();
   const konumSecenekleri = React.useMemo(() => buildKonumSecenekleri(), []);
@@ -270,49 +251,17 @@ export function MuhasebeciPanelSayfasi({ onUstBarYenile }: MuhasebeciPanelSayfas
     });
   }
 
-  function sohbetEndpoint(hedef: SohbetHedefi) {
-    return hedef.tur === "talep"
-      ? `/api/ekran/muhasebeci/talepler/${hedef.id}/sohbet`
-      : `/api/ekran/muhasebeci/musteriler/${hedef.id}/sohbet`;
-  }
-
-  async function sohbetYukle(hedef: SohbetHedefi) {
-    setSohbetIslemde(true);
-    setHata("");
-    try {
-      const data = await jsonOku<MuhasebeciSohbet>(sohbetEndpoint(hedef));
-      setSohbet(data);
-      onUstBarYenile?.();
-    } catch (error) {
-      setHata(error instanceof Error ? error.message : "Sohbet yüklenemedi.");
-      setSohbet(null);
-    } finally {
-      setSohbetIslemde(false);
-    }
-  }
-
   async function sohbetAc(hedef: SohbetHedefi) {
-    setSohbetHedefi(hedef);
-    setSohbetMesaji("");
-    await sohbetYukle(hedef);
-  }
-
-  async function sohbetMesajiGonder(event: React.FormEvent) {
-    event.preventDefault();
-    if (!sohbetHedefi)
-      return;
-
     setSohbetIslemde(true);
     setHata("");
     try {
-      const data = await jsonOku<MuhasebeciSohbet>(sohbetEndpoint(sohbetHedefi), {
-        method: "POST",
-        body: JSON.stringify({ mesaj: sohbetMesaji })
-      });
-      setSohbet(data);
-      setSohbetMesaji("");
+      const endpoint = hedef.tur === "talep"
+        ? `/api/ekran/sohbetler/talepler/${hedef.id}`
+        : `/api/ekran/sohbetler/musteriler/${hedef.id}`;
+      const result = await jsonOku<{ sohbetId: number }>(endpoint);
+      window.location.href = `/app/sohbetler?sohbetId=${result.sohbetId}`;
     } catch (error) {
-      setHata(error instanceof Error ? error.message : "Mesaj gönderilemedi.");
+      setHata(error instanceof Error ? error.message : "Sohbet açılamadı.");
     } finally {
       setSohbetIslemde(false);
     }
@@ -634,63 +583,6 @@ export function MuhasebeciPanelSayfasi({ onUstBarYenile }: MuhasebeciPanelSayfas
         </section>
       ) : null}
 
-      {sohbetHedefi ? (
-        <div className="accountant-modal" role="dialog" aria-modal="true" aria-labelledby="accountant-panel-chat-title">
-          <form className="accountant-modal__panel accountant-chat" onSubmit={sohbetMesajiGonder}>
-            <button
-              type="button"
-              className="accountant-modal__close"
-              onClick={() => {
-                setSohbetHedefi(null);
-                setSohbet(null);
-                setSohbetMesaji("");
-              }}
-              aria-label="Kapat"
-            >
-              <X size={18} />
-            </button>
-            <header>
-              <span className="accountant-card__icon">
-                <MessageCircle size={20} />
-              </span>
-              <div>
-                <p>Uygulama içi sohbet</p>
-                <h2 id="accountant-panel-chat-title">{sohbet?.musteriAdi || sohbetHedefi.baslik}</h2>
-              </div>
-            </header>
-            <p className="accountant-chat__notice">
-              {sohbet?.bilgiMesaji || "Telefon, e-posta ve web adresi paylaşmadan Systemcel üzerinden konuşun."}
-            </p>
-            <div className="accountant-chat__messages">
-              {sohbetIslemde && !sohbet ? (
-                <span className="accountant-chat__empty">Sohbet yükleniyor...</span>
-              ) : sohbet?.mesajlar.length ? (
-                sohbet.mesajlar.map((item) => (
-                  <article key={item.id} className={item.benimMesajim ? "mine" : ""}>
-                    <small>{item.gonderenAdi} · {saatBic(item.createdAt)}</small>
-                    <p>{item.mesaj}</p>
-                  </article>
-                ))
-              ) : (
-                <span className="accountant-chat__empty">Henüz mesaj yok. İlk mesajı Systemcel içinde gönderin.</span>
-              )}
-            </div>
-            <label className="accountant-modal__field">
-              <span>Mesaj</span>
-              <textarea
-                value={sohbetMesaji}
-                onChange={(event) => setSohbetMesaji(event.target.value)}
-                rows={3}
-                placeholder="Bir mesaj yazın..."
-              />
-            </label>
-            <button type="submit" className="accountant-modal__primary" disabled={sohbetIslemde || sohbetMesaji.trim().length === 0}>
-              {sohbetIslemde ? <Loader2 size={16} className="spin" /> : <Send size={16} />}
-              <span>Mesaj gönder</span>
-            </button>
-          </form>
-        </div>
-      ) : null}
     </main>
   );
 }
@@ -780,17 +672,5 @@ function tarihBic(value: string) {
     day: "2-digit",
     month: "2-digit",
     year: "numeric"
-  });
-}
-
-function saatBic(value: string) {
-  if (!value)
-    return "-";
-
-  return new Date(value).toLocaleString("tr-TR", {
-    day: "2-digit",
-    month: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit"
   });
 }

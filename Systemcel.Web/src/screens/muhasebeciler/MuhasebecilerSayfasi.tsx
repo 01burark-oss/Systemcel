@@ -57,22 +57,6 @@ interface MuhasebeciTalep {
   yetkiSeviyesi: YetkiSeviyesi;
 }
 
-interface MuhasebeciSohbetMesaji {
-  id: number;
-  gonderenAdi: string;
-  benimMesajim: boolean;
-  mesaj: string;
-  createdAt: string;
-}
-
-interface MuhasebeciSohbet {
-  muhasebeciAdi: string;
-  musteriAdi: string;
-  durum: string;
-  bilgiMesaji: string;
-  mesajlar: MuhasebeciSohbetMesaji[];
-}
-
 interface MuhasebecilerSayfasiProps {
   publicMode?: boolean;
   ustBar?: UstBarDurumu | null;
@@ -96,9 +80,6 @@ export function MuhasebecilerSayfasi({ publicMode = false, ustBar, onUstBarYenil
   const [davetKodu, setDavetKodu] = React.useState(urlDavetKodu);
   const [davetYetki, setDavetYetki] = React.useState<YetkiSeviyesi>("OkumaRapor");
   const [davetIslemde, setDavetIslemde] = React.useState(false);
-  const [sohbetProfil, setSohbetProfil] = React.useState<MuhasebeciProfil | null>(null);
-  const [sohbet, setSohbet] = React.useState<MuhasebeciSohbet | null>(null);
-  const [sohbetMesaji, setSohbetMesaji] = React.useState("");
   const [sohbetIslemde, setSohbetIslemde] = React.useState(false);
   const [konumFiltresi, setKonumFiltresi] = React.useState("");
   const [uzmanlikFiltresi, setUzmanlikFiltresi] = React.useState("");
@@ -196,8 +177,7 @@ export function MuhasebecilerSayfasi({ publicMode = false, ustBar, onUstBarYenil
       setSeciliProfil(null);
       setTalepMesaji("");
       await yukle();
-      setSohbetProfil(profil);
-      await sohbetYukle(profil);
+      await sohbetAc(profil);
     } catch (error) {
       setHata(error instanceof Error ? error.message : "Talep gönderilemedi.");
     } finally {
@@ -205,43 +185,14 @@ export function MuhasebecilerSayfasi({ publicMode = false, ustBar, onUstBarYenil
     }
   }
 
-  async function sohbetYukle(profil: MuhasebeciProfil) {
-    setSohbetIslemde(true);
-    setHata("");
-    try {
-      const data = await jsonOku<MuhasebeciSohbet>(`/api/ekran/muhasebeciler/${profil.muhasebeciIsletmeId}/sohbet`);
-      setSohbet(data);
-      onUstBarYenile?.();
-    } catch (error) {
-      setHata(error instanceof Error ? error.message : "Sohbet yüklenemedi.");
-      setSohbet(null);
-    } finally {
-      setSohbetIslemde(false);
-    }
-  }
-
   async function sohbetAc(profil: MuhasebeciProfil) {
-    setSohbetProfil(profil);
-    setSohbetMesaji("");
-    await sohbetYukle(profil);
-  }
-
-  async function sohbetMesajiGonder(event: React.FormEvent) {
-    event.preventDefault();
-    if (!sohbetProfil)
-      return;
-
     setSohbetIslemde(true);
     setHata("");
     try {
-      const data = await jsonOku<MuhasebeciSohbet>(`/api/ekran/muhasebeciler/${sohbetProfil.muhasebeciIsletmeId}/sohbet`, {
-        method: "POST",
-        body: JSON.stringify({ mesaj: sohbetMesaji })
-      });
-      setSohbet(data);
-      setSohbetMesaji("");
+      const result = await jsonOku<{ sohbetId: number }>(`/api/ekran/sohbetler/muhasebeciler/${profil.muhasebeciIsletmeId}`);
+      window.location.href = `/app/sohbetler?sohbetId=${result.sohbetId}`;
     } catch (error) {
-      setHata(error instanceof Error ? error.message : "Mesaj gönderilemedi.");
+      setHata(error instanceof Error ? error.message : "Sohbet açılamadı.");
     } finally {
       setSohbetIslemde(false);
     }
@@ -604,63 +555,6 @@ export function MuhasebecilerSayfasi({ publicMode = false, ustBar, onUstBarYenil
         </div>
       ) : null}
 
-      {sohbetProfil && !saltOkunur ? (
-        <div className="accountant-modal" role="dialog" aria-modal="true" aria-labelledby="accountant-chat-title">
-          <form className="accountant-modal__panel accountant-chat" onSubmit={sohbetMesajiGonder}>
-            <button
-              type="button"
-              className="accountant-modal__close"
-              onClick={() => {
-                setSohbetProfil(null);
-                setSohbet(null);
-                setSohbetMesaji("");
-              }}
-              aria-label="Kapat"
-            >
-              <X size={18} />
-            </button>
-            <header>
-              <span className="accountant-card__icon">
-                <MessageCircle size={20} />
-              </span>
-              <div>
-                <p>Uygulama içi sohbet</p>
-                <h2 id="accountant-chat-title">{sohbet?.muhasebeciAdi || sohbetProfil.unvan}</h2>
-              </div>
-            </header>
-            <p className="accountant-chat__notice">
-              {sohbet?.bilgiMesaji || "Telefon, e-posta ve web adresi paylaşmadan Systemcel üzerinden konuşun."}
-            </p>
-            <div className="accountant-chat__messages">
-              {sohbetIslemde && !sohbet ? (
-                <span className="accountant-chat__empty">Sohbet yükleniyor...</span>
-              ) : sohbet?.mesajlar.length ? (
-                sohbet.mesajlar.map((item) => (
-                  <article key={item.id} className={item.benimMesajim ? "mine" : ""}>
-                    <small>{item.gonderenAdi} · {saatBic(item.createdAt)}</small>
-                    <p>{item.mesaj}</p>
-                  </article>
-                ))
-              ) : (
-                <span className="accountant-chat__empty">Henüz mesaj yok. İlk mesajı Systemcel içinde gönderin.</span>
-              )}
-            </div>
-            <label className="accountant-modal__field">
-              <span>Mesaj</span>
-              <textarea
-                value={sohbetMesaji}
-                onChange={(event) => setSohbetMesaji(event.target.value)}
-                rows={3}
-                placeholder="Bir mesaj yazın..."
-              />
-            </label>
-            <button type="submit" className="accountant-modal__primary" disabled={sohbetIslemde || sohbetMesaji.trim().length === 0}>
-              {sohbetIslemde ? <Loader2 size={16} className="spin" /> : <Send size={16} />}
-              <span>Mesaj gönder</span>
-            </button>
-          </form>
-        </div>
-      ) : null}
     </main>
   );
 
@@ -759,18 +653,6 @@ function profilDurumu(profil: MuhasebeciProfil) {
   if (profil.talepVar)
     return "Talep var";
   return "";
-}
-
-function saatBic(value: string) {
-  if (!value)
-    return "-";
-
-  return new Date(value).toLocaleString("tr-TR", {
-    day: "2-digit",
-    month: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit"
-  });
 }
 
 function appMarketplaceHref(davetKodu: string, muhasebeciIsletmeId?: number) {
