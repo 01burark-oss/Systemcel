@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using CashTracker.Core.Entities;
 using CashTracker.Core.Models;
@@ -19,6 +21,7 @@ namespace CashTracker.Infrastructure.Services
         private readonly IDbContextFactory<CashTrackerDbContext> _dbFactory;
         private readonly ICurrentUserContext _currentUserContext;
         private readonly IAccountantApplicationNotifier? _accountantApplicationNotifier;
+        private static readonly ConcurrentDictionary<string, SemaphoreSlim> ProvisioningLocks = new(StringComparer.Ordinal);
 
         public IsletmeService(IDbContextFactory<CashTrackerDbContext> dbFactory)
             : this(dbFactory, AnonymousCurrentUserContext.Instance)
@@ -492,6 +495,7 @@ namespace CashTracker.Infrastructure.Services
             if (identity == null)
                 return null;
 
+            using var _ = await AcquireProvisioningLockAsync($"user:{identity.ProviderUserId}");
             var now = DateTime.Now;
             var user = await db.Kullanicilar.FirstOrDefaultAsync(x =>
                 x.AuthProvider == AuthProvider &&
@@ -512,7 +516,20 @@ namespace CashTracker.Infrastructure.Services
                     UpdatedAt = now
                 };
                 db.Kullanicilar.Add(user);
-                await db.SaveChangesAsync();
+                try
+                {
+                    await db.SaveChangesAsync();
+                }
+                catch (DbUpdateException)
+                {
+                    db.ChangeTracker.Clear();
+                    user = await db.Kullanicilar.FirstOrDefaultAsync(x =>
+                        x.AuthProvider == AuthProvider &&
+                        x.AuthProviderUserId == identity.ProviderUserId);
+                    if (user == null)
+                        throw;
+                }
+
                 return user;
             }
 
@@ -548,6 +565,7 @@ namespace CashTracker.Infrastructure.Services
 
         private async Task<Isletme> EnsureUserActiveIsletmeAsync(CashTrackerDbContext db, Kullanici user)
         {
+            using var _ = await AcquireProvisioningLockAsync($"business:{user.Id}");
             await AdoptLegacyBusinessesForFirstUserAsync(db, user);
 
             var businessIds = await GetActiveMembershipBusinessIdsAsync(db, user.Id);
@@ -567,7 +585,19 @@ namespace CashTracker.Infrastructure.Services
                 };
 
                 db.Isletmeler.Add(created);
-                await db.SaveChangesAsync();
+                try
+                {
+                    await db.SaveChangesAsync();
+                }
+                catch (DbUpdateException)
+                {
+                    db.ChangeTracker.Clear();
+                    businessIds = await GetActiveMembershipBusinessIdsAsync(db, user.Id);
+                    if (businessIds.Count > 0)
+                        return await LoadUserActiveBusinessAsync(db, user.Id, businessIds);
+
+                    throw;
+                }
 
                 db.IsletmeUyelikleri.Add(new IsletmeUyelik
                 {
@@ -580,30 +610,26 @@ namespace CashTracker.Infrastructure.Services
                     CreatedAt = DateTime.Now,
                     UpdatedAt = DateTime.Now
                 });
-                await db.SaveChangesAsync();
+                try
+                {
+                    await db.SaveChangesAsync();
+                }
+                catch (DbUpdateException)
+                {
+                    db.ChangeTracker.Clear();
+                    businessIds = await GetActiveMembershipBusinessIdsAsync(db, user.Id);
+                    if (businessIds.Count > 0)
+                        return await LoadUserActiveBusinessAsync(db, user.Id, businessIds);
+
+                    throw;
+                }
+
                 await SetUserActiveBusinessAsync(db, user.Id, created.Id);
                 created.IsAktif = true;
                 return created;
             }
 
-            var activeId = await GetUserActiveBusinessIdAsync(db, user.Id);
-            Isletme? active = null;
-            if (activeId.HasValue && businessIds.Contains(activeId.Value))
-                active = await db.Isletmeler.FirstOrDefaultAsync(x => x.Id == activeId.Value);
-
-            if (active == null)
-            {
-                active = await db.Isletmeler
-                    .Where(x => businessIds.Contains(x.Id))
-                    .OrderByDescending(x => x.IsAktif)
-                    .ThenBy(x => x.Id)
-                    .FirstAsync();
-
-                await SetUserActiveBusinessAsync(db, user.Id, active.Id);
-            }
-
-            active.IsAktif = true;
-            return active;
+            return await LoadUserActiveBusinessAsync(db, user.Id, businessIds);
         }
 
         private static async Task<Isletme> EnsureLegacyActiveIsletmeAsync(CashTrackerDbContext db)
@@ -700,7 +726,24 @@ namespace CashTracker.Infrastructure.Services
                 return;
             }
 
-            await db.SaveChangesAsync();
+            try
+            {
+                await db.SaveChangesAsync();
+            }
+            catch (DbUpdateException)
+            {
+                db.ChangeTracker.Clear();
+                setting = await db.AppSettings.FirstOrDefaultAsync(x => x.Key == key);
+                if (setting == null)
+                    throw;
+
+                if (!string.Equals(setting.Value, businessId.ToString(), StringComparison.Ordinal))
+                {
+                    setting.Value = businessId.ToString();
+                    setting.UpdatedAt = DateTime.Now;
+                    await db.SaveChangesAsync();
+                }
+            }
         }
 
         private static string BuildUserActiveBusinessKey(int userId)
@@ -744,7 +787,17 @@ namespace CashTracker.Infrastructure.Services
                 });
             }
 
-            await db.SaveChangesAsync();
+            try
+            {
+                await db.SaveChangesAsync();
+            }
+            catch (DbUpdateException)
+            {
+                db.ChangeTracker.Clear();
+                if (!await db.IsletmeUyelikleri.AnyAsync(x => x.KullaniciId == user.Id && x.Durum == "Aktif"))
+                    throw;
+            }
+
             var active = legacyBusinesses.FirstOrDefault(x => x.IsAktif) ?? legacyBusinesses[0];
             await SetUserActiveBusinessAsync(db, user.Id, active.Id);
         }
@@ -790,6 +843,7 @@ namespace CashTracker.Infrastructure.Services
 
         private static async Task EnsureDefaultKalemlerAsync(CashTrackerDbContext db, int isletmeId)
         {
+            using var _ = await AcquireProvisioningLockAsync($"categories:{isletmeId}");
             var gelirVar = await db.KalemTanimlari.AnyAsync(x => x.IsletmeId == isletmeId && x.Tip == "Gelir");
             var existingExpenseCategories = await db.KalemTanimlari
                 .Where(x => x.IsletmeId == isletmeId && x.Tip == "Gider")
@@ -815,6 +869,7 @@ namespace CashTracker.Infrastructure.Services
                 if (existingExpenseSet.Contains(category))
                     continue;
 
+                existingExpenseSet.Add(category);
                 db.KalemTanimlari.Add(new KalemTanimi
                 {
                     IsletmeId = isletmeId,
@@ -826,7 +881,86 @@ namespace CashTracker.Infrastructure.Services
             }
 
             if (changed)
-                await db.SaveChangesAsync();
+            {
+                try
+                {
+                    await db.SaveChangesAsync();
+                }
+                catch (DbUpdateException)
+                {
+                    db.ChangeTracker.Clear();
+                    if (!await HasRequiredDefaultKalemlerAsync(db, isletmeId))
+                        throw;
+                }
+            }
+        }
+
+        private static async Task<Isletme> LoadUserActiveBusinessAsync(
+            CashTrackerDbContext db,
+            int userId,
+            List<int> businessIds)
+        {
+            var activeId = await GetUserActiveBusinessIdAsync(db, userId);
+            Isletme? active = null;
+            if (activeId.HasValue && businessIds.Contains(activeId.Value))
+                active = await db.Isletmeler.FirstOrDefaultAsync(x => x.Id == activeId.Value);
+
+            if (active == null)
+            {
+                active = await db.Isletmeler
+                    .Where(x => businessIds.Contains(x.Id))
+                    .OrderByDescending(x => x.IsAktif)
+                    .ThenBy(x => x.Id)
+                    .FirstAsync();
+
+                await SetUserActiveBusinessAsync(db, userId, active.Id);
+            }
+
+            active.IsAktif = true;
+            return active;
+        }
+
+        private static async Task<bool> HasRequiredDefaultKalemlerAsync(CashTrackerDbContext db, int isletmeId)
+        {
+            var rows = await db.KalemTanimlari
+                .AsNoTracking()
+                .Where(x => x.IsletmeId == isletmeId)
+                .Select(x => new { x.Tip, x.Ad })
+                .ToListAsync();
+            var hasIncome = rows.Any(x => x.Tip == "Gelir");
+            var expenseSet = rows
+                .Where(x => x.Tip == "Gider")
+                .Select(x => x.Ad)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            return hasIncome && DefaultKalemCatalog.DefaultExpenseCategories.All(expenseSet.Contains);
+        }
+
+        private static async Task<IDisposable> AcquireProvisioningLockAsync(string key)
+        {
+            var semaphore = ProvisioningLocks.GetOrAdd(key, _ => new SemaphoreSlim(1, 1));
+            await semaphore.WaitAsync();
+            return new ProvisioningLockLease(semaphore);
+        }
+
+        private sealed class ProvisioningLockLease : IDisposable
+        {
+            private readonly SemaphoreSlim _semaphore;
+            private bool _disposed;
+
+            public ProvisioningLockLease(SemaphoreSlim semaphore)
+            {
+                _semaphore = semaphore;
+            }
+
+            public void Dispose()
+            {
+                if (_disposed)
+                    return;
+
+                _disposed = true;
+                _semaphore.Release();
+            }
         }
 
         private static string NormalizeSetupText(string? value, string fallback)

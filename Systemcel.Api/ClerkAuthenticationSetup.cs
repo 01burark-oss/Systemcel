@@ -19,9 +19,13 @@ internal static class ClerkAuthenticationSetup
         options.Audience = FirstNonEmpty(
             Environment.GetEnvironmentVariable("SYSTEMCEL_CLERK_AUDIENCE"),
             options.Audience) ?? string.Empty;
-        options.AuthorizedParties = FirstNonEmpty(
-            Environment.GetEnvironmentVariable("SYSTEMCEL_CLERK_AUTHORIZED_PARTIES"),
-            options.AuthorizedParties) ?? string.Empty;
+        options.AuthorizedParties = CombineCsv(
+            FirstNonEmpty(
+                Environment.GetEnvironmentVariable("SYSTEMCEL_CLERK_AUTHORIZED_PARTIES"),
+                options.AuthorizedParties),
+            FirstNonEmpty(
+                Environment.GetEnvironmentVariable("SYSTEMCEL_ALLOWED_ORIGINS"),
+                configuration["Systemcel:AllowedOrigins"]));
         options.PublishableKey = FirstNonEmpty(
             Environment.GetEnvironmentVariable("SYSTEMCEL_CLERK_PUBLISHABLE_KEY"),
             options.PublishableKey) ?? string.Empty;
@@ -78,8 +82,20 @@ internal static class ClerkAuthenticationSetup
                     },
                     OnTokenValidated = context =>
                     {
-                        ValidateAuthorizedParty(context.Principal, authorizedParties);
-                        ValidateOrganizationStatus(context.Principal, clerkOptions.RejectPendingOrganizationStatus);
+                        var authorizedPartyError = ValidateAuthorizedParty(context.Principal, authorizedParties);
+                        if (!string.IsNullOrWhiteSpace(authorizedPartyError))
+                        {
+                            context.Fail(authorizedPartyError);
+                            return Task.CompletedTask;
+                        }
+
+                        var organizationError = ValidateOrganizationStatus(context.Principal, clerkOptions.RejectPendingOrganizationStatus);
+                        if (!string.IsNullOrWhiteSpace(organizationError))
+                        {
+                            context.Fail(organizationError);
+                            return Task.CompletedTask;
+                        }
+
                         return Task.CompletedTask;
                     }
                 };
@@ -88,30 +104,35 @@ internal static class ClerkAuthenticationSetup
         services.AddAuthorization();
     }
 
-    private static void ValidateAuthorizedParty(System.Security.Claims.ClaimsPrincipal? principal, string[] allowed)
+    private static string ValidateAuthorizedParty(System.Security.Claims.ClaimsPrincipal? principal, string[] allowed)
     {
         if (allowed.Length == 0)
-            return;
+            return string.Empty;
 
         var azp = principal?.FindFirst("azp")?.Value;
         if (string.IsNullOrWhiteSpace(azp) || allowed.Contains(azp, StringComparer.OrdinalIgnoreCase))
-            return;
+            return string.Empty;
 
-        throw new SecurityTokenValidationException("Clerk azp claim izin verilen origin listesinde degil.");
+        if (allowed.Any(x => OriginMatches(azp, x)))
+        {
+            return string.Empty;
+        }
+
+        return "Clerk azp claim izin verilen origin listesinde degil.";
     }
 
-    private static void ValidateOrganizationStatus(
+    private static string ValidateOrganizationStatus(
         System.Security.Claims.ClaimsPrincipal? principal,
         bool rejectPending)
     {
         if (!rejectPending)
-            return;
+            return string.Empty;
 
         var status = principal?.FindFirst("sts")?.Value;
         if (!string.Equals(status, "pending", StringComparison.OrdinalIgnoreCase))
-            return;
+            return string.Empty;
 
-        throw new SecurityTokenValidationException("Clerk organizasyon durumu pending.");
+        return "Clerk organizasyon durumu pending.";
     }
 
     private static string NormalizeAuthority(string authority)
@@ -119,6 +140,58 @@ internal static class ClerkAuthenticationSetup
         return string.IsNullOrWhiteSpace(authority)
             ? string.Empty
             : authority.Trim().TrimEnd('/');
+    }
+
+    private static string NormalizeOrigin(string origin)
+    {
+        var trimmed = origin.Trim().TrimEnd('/');
+        if (string.IsNullOrWhiteSpace(trimmed))
+            return string.Empty;
+
+        if (!Uri.TryCreate(trimmed, UriKind.Absolute, out var uri))
+            return trimmed.ToLowerInvariant();
+
+        var builder = new UriBuilder(uri.Scheme.ToLowerInvariant(), uri.Host.ToLowerInvariant());
+        if (!uri.IsDefaultPort)
+            builder.Port = uri.Port;
+
+        return builder.Uri.GetLeftPart(UriPartial.Authority).TrimEnd('/');
+    }
+
+    private static bool OriginMatches(string azp, string allowed)
+    {
+        var normalizedAzp = NormalizeOrigin(azp);
+        var normalizedAllowed = NormalizeOrigin(allowed);
+        if (string.IsNullOrWhiteSpace(normalizedAzp) || string.IsNullOrWhiteSpace(normalizedAllowed))
+            return false;
+
+        if (string.Equals(normalizedAzp, normalizedAllowed, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        if (!Uri.TryCreate(normalizedAzp, UriKind.Absolute, out var azpUri))
+            return false;
+
+        if (!Uri.TryCreate(normalizedAllowed, UriKind.Absolute, out var allowedUri))
+            return string.Equals(azpUri.Host, normalizedAllowed, StringComparison.OrdinalIgnoreCase);
+
+        return IsWebScheme(azpUri.Scheme) &&
+            IsWebScheme(allowedUri.Scheme) &&
+            string.Equals(azpUri.Host, allowedUri.Host, StringComparison.OrdinalIgnoreCase) &&
+            EffectivePort(azpUri) == EffectivePort(allowedUri);
+    }
+
+    private static bool IsWebScheme(string scheme)
+    {
+        return string.Equals(scheme, "http", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(scheme, "https", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static int EffectivePort(Uri uri)
+    {
+        if (!uri.IsDefaultPort)
+            return uri.Port;
+
+        return string.Equals(uri.Scheme, "https", StringComparison.OrdinalIgnoreCase) ? 443 : 80;
     }
 
     private static bool ReadBool(string? value, bool fallback)
@@ -140,5 +213,15 @@ internal static class ClerkAuthenticationSetup
         }
 
         return null;
+    }
+
+    private static string CombineCsv(params string?[] values)
+    {
+        return string.Join(
+            ",",
+            values
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .SelectMany(x => x!.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                .Distinct(StringComparer.OrdinalIgnoreCase));
     }
 }

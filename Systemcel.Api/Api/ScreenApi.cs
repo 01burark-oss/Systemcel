@@ -1265,7 +1265,7 @@ namespace Systemcel.Api.Api
             var activeBusiness = await _isletmeService!.GetActiveAsync();
             var access = await _isletmeService.GetActiveAccessAsync();
             var businesses = await _isletmeService!.GetAllAsync();
-            var notifications = await BuildNotificationsAsync();
+            var notifications = await BuildNotificationsSafelyAsync();
             var chatStatus = await BuildChatNotificationStatusAsync();
             var accountant = access.MuhasebeciIsletmeId.HasValue
                 ? await _isletmeService.GetByIdAsync(access.MuhasebeciIsletmeId.Value)
@@ -1294,6 +1294,18 @@ namespace Systemcel.Api.Api
                     })
                     .ToList()
             };
+        }
+
+        private async Task<List<BildirimDto>> BuildNotificationsSafelyAsync()
+        {
+            try
+            {
+                return await BuildNotificationsAsync();
+            }
+            catch
+            {
+                return new List<BildirimDto>();
+            }
         }
 
         private async Task<IResult?> RejectReadOnlyAccountantContextAsync()
