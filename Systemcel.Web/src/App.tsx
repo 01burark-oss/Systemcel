@@ -1,5 +1,5 @@
 import React from "react";
-import { Eye, Lock, LogOut, MessageCircle, Monitor } from "lucide-react";
+import { Eye, Lock, LogOut, MessageCircle, Monitor, Search } from "lucide-react";
 import { AuthSayfasi } from "./auth/AuthSayfasi";
 import { RequireAuth } from "./auth/AuthGate";
 import { useSystemcelAuth } from "./auth/SystemcelAuthProvider";
@@ -412,12 +412,17 @@ function WorkspaceRoutes({ path }: { path: string }) {
     return <SohbetlerSayfasi ustBar={ustBar} onUstBarYenile={ustBarYukle} />;
   }
 
+  if (mobileWorkspace && routePath === "/muhasebeciler") {
+    return <MuhasebecilerSayfasi ustBar={ustBar} onUstBarYenile={ustBarYukle} />;
+  }
+
   if (mobileWorkspace) {
     return (
       <MobileCompanionScreen
         hesapTipi={ustBar?.hesapTipi ?? ""}
         islemde={ustBarIslemde}
         calismaAlani={ustBar?.aktifIsletme ?? ""}
+        sohbetSayisi={ustBar?.sohbet?.okunmamisMesajSayisi ?? 0}
         onSignOut={() => {
           const redirectUrl = "/";
           if (auth.clerk?.signOut) {
@@ -535,11 +540,13 @@ function MobileCompanionScreen({
   hesapTipi,
   calismaAlani,
   islemde,
+  sohbetSayisi,
   onSignOut
 }: {
   hesapTipi: string;
   calismaAlani: string;
   islemde: boolean;
+  sohbetSayisi: number;
   onSignOut: () => void;
 }) {
   const isAccountant = hesapTipi === "Muhasebeci";
@@ -596,6 +603,18 @@ function MobileCompanionScreen({
               <span>Kayıt, fatura, stok ve tahsilat işlemleri bilgisayardan yapılır.</span>
             </div>
           </article>
+        </div>
+
+        <div className="mobile-companion__actions" aria-label="Mobil erişim">
+          <a href="/app/sohbetler">
+            <MessageCircle size={18} />
+            <span>Sohbetler</span>
+            {sohbetSayisi > 0 ? <i>{sohbetSayisi > 9 ? "9+" : sohbetSayisi}</i> : null}
+          </a>
+          <a href="/app/muhasebeciler">
+            <Search size={18} />
+            <span>Muhasebeci pazaryeri</span>
+          </a>
         </div>
 
         <button className="mobile-companion__signout" type="button" onClick={onSignOut}>

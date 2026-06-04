@@ -17371,3 +17371,392 @@ tbody tr.secili {
     bottom: 140px;
   }
 }
+
+/* Mobile accountant/chat access refinements */
+.mobile-companion__actions {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.mobile-companion__actions a {
+  min-height: 48px;
+  padding: 0 14px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid rgba(82, 145, 232, 0.42);
+  border-radius: 8px;
+  background: rgba(7, 31, 73, 0.84);
+  color: #f7fbff;
+  font-weight: 900;
+  text-decoration: none;
+}
+
+.mobile-companion__actions a:first-child {
+  border-color: rgba(33, 147, 255, 0.68);
+  background: linear-gradient(135deg, rgba(31, 147, 255, 0.28), rgba(15, 103, 240, 0.18));
+}
+
+.mobile-companion__actions i {
+  min-width: 24px;
+  height: 24px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: #ef4444;
+  color: #ffffff;
+  font-size: 12px;
+  font-style: normal;
+  line-height: 24px;
+  text-align: center;
+}
+
+.chat-center-page {
+  background:
+    radial-gradient(760px 360px at 78% 6%, rgba(31, 147, 255, 0.2), transparent 66%),
+    linear-gradient(180deg, #03122e 0%, #061a3f 46%, #04142f 100%);
+  color: #f5f8ff;
+}
+
+.chat-center {
+  border-color: rgba(74, 139, 222, 0.42);
+  background: rgba(4, 18, 43, 0.9);
+  box-shadow: 0 28px 70px rgba(0, 7, 24, 0.28);
+}
+
+.chat-center__sidebar {
+  border-right-color: rgba(74, 139, 222, 0.34);
+  background: rgba(5, 22, 54, 0.94);
+}
+
+.chat-center__sidebar header,
+.chat-thread__header,
+.chat-thread__composer {
+  border-color: rgba(74, 139, 222, 0.34);
+  background: rgba(4, 18, 43, 0.96);
+}
+
+.chat-center__sidebar h2,
+.chat-thread__header strong {
+  color: #ffffff;
+}
+
+.chat-center__archive-toggle,
+.chat-center__list small,
+.chat-center__list em,
+.chat-thread__header label,
+.chat-thread__header small,
+.chat-center__empty,
+.chat-center__state,
+.chat-thread__tools label {
+  color: #aebfda;
+}
+
+.chat-center__list button {
+  border-radius: 8px;
+  color: #eef6ff;
+}
+
+.chat-center__list button.active,
+.chat-center__list button:hover {
+  border-color: rgba(41, 128, 225, 0.62);
+  background: rgba(10, 44, 91, 0.78);
+}
+
+.chat-center__list strong {
+  color: #ffffff;
+}
+
+.chat-center__thread {
+  background:
+    linear-gradient(rgba(8, 29, 68, 0.64), rgba(8, 29, 68, 0.64)),
+    radial-gradient(circle at 50% 8%, rgba(36, 117, 235, 0.12), transparent 38%);
+}
+
+.chat-thread__messages {
+  background:
+    linear-gradient(90deg, rgba(111, 162, 229, 0.06) 1px, transparent 1px) 0 0 / 64px 64px,
+    linear-gradient(rgba(111, 162, 229, 0.05) 1px, transparent 1px) 0 0 / 64px 64px;
+}
+
+.chat-bubble {
+  border-color: rgba(74, 139, 222, 0.34);
+  background: rgba(7, 28, 66, 0.9);
+  color: #f5f8ff;
+  box-shadow: 0 16px 34px rgba(0, 7, 24, 0.22);
+}
+
+.chat-bubble.mine {
+  border-color: rgba(31, 147, 255, 0.48);
+  background: linear-gradient(135deg, #1f93ff 0%, #0f67f0 100%);
+  color: #ffffff;
+}
+
+.chat-bubble__attachments a,
+.chat-data-card {
+  border: 1px solid rgba(111, 162, 229, 0.22);
+  background: rgba(5, 22, 54, 0.68);
+}
+
+.chat-data-card {
+  color: #eaf2ff;
+}
+
+.chat-center__error {
+  border: 1px solid rgba(248, 113, 113, 0.34);
+  background: rgba(127, 29, 29, 0.58);
+  color: #fecaca;
+}
+
+.chat-thread__bottom-button,
+.chat-thread__typing,
+.chat-center__sidebar button,
+.chat-thread__header button,
+.chat-thread__tools button,
+.chat-thread__input button {
+  background: linear-gradient(135deg, #1f93ff 0%, #0f67f0 100%);
+  color: #ffffff;
+}
+
+.chat-thread__header input,
+.chat-thread__tools select,
+.chat-thread__tools input,
+.chat-thread__input textarea {
+  border-color: rgba(75, 135, 212, 0.42);
+  background: rgba(7, 28, 66, 0.86);
+  color: #ffffff;
+}
+
+.chat-thread__input textarea::placeholder {
+  color: #91a7c7;
+}
+
+@media (max-width: 820px) {
+  .accountant-marketplace {
+    min-height: 100dvh;
+    padding: 16px 12px 22px;
+    gap: 14px;
+    overflow-x: hidden;
+    background:
+      radial-gradient(640px 260px at 82% 0%, rgba(31, 147, 255, 0.22), transparent 68%),
+      linear-gradient(180deg, #03122e 0%, #061a3f 48%, #04142f 100%);
+  }
+
+  .accountant-marketplace--public {
+    width: 100%;
+    padding: 16px 12px 26px;
+  }
+
+  .accountant-marketplace--public::before {
+    display: none;
+  }
+
+  .accountant-marketplace__hero {
+    min-height: 0;
+    display: grid;
+    gap: 14px;
+    padding: 6px 2px 2px;
+  }
+
+  .accountant-marketplace__hero h1 {
+    margin-top: 8px;
+    font-size: 31px;
+    line-height: 1.05;
+  }
+
+  .accountant-marketplace__hero p {
+    margin-top: 10px;
+    font-size: 14px;
+  }
+
+  .accountant-primary-link {
+    width: 100%;
+    min-width: 0;
+    min-height: 48px;
+  }
+
+  .accountant-toolbar--invite form,
+  .accountant-marketplace__body,
+  .accountant-results__bar,
+  .accountant-results__bar > div,
+  .accountant-card-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .accountant-filter-panel {
+    padding: 12px;
+    gap: 10px;
+    border-color: rgba(74, 139, 222, 0.36);
+    background: rgba(5, 22, 54, 0.84);
+  }
+
+  .accountant-filter-panel h2 {
+    margin-bottom: 0;
+  }
+
+  .accountant-filter-search {
+    grid-template-columns: minmax(0, 1fr) 44px;
+    gap: 8px;
+  }
+
+  .accountant-filter-search label,
+  .accountant-filter-search button,
+  .accountant-filter-panel button {
+    min-height: 42px;
+  }
+
+  .accountant-filter-search button span {
+    display: none;
+  }
+
+  .accountant-filter-field {
+    min-height: 52px;
+    padding: 9px 11px;
+  }
+
+  .accountant-filter-panel button {
+    margin-top: 0;
+  }
+
+  .accountant-results {
+    gap: 10px;
+  }
+
+  .accountant-results__bar {
+    min-height: auto;
+    display: grid;
+    gap: 10px;
+  }
+
+  .accountant-results__bar > div {
+    display: grid;
+    gap: 8px;
+  }
+
+  .accountant-results__bar label,
+  .accountant-results__bar button {
+    width: 100%;
+    min-height: 42px;
+  }
+
+  .accountant-results__bar button {
+    display: none;
+  }
+
+  .accountant-card-grid {
+    gap: 12px;
+  }
+
+  .accountant-card {
+    min-height: 0;
+    padding: 14px;
+    gap: 12px;
+  }
+
+  .accountant-card header {
+    grid-template-columns: 52px minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .accountant-status {
+    grid-column: 1 / -1;
+    width: fit-content;
+    min-height: 28px;
+  }
+
+  .accountant-card__icon {
+    width: 52px;
+    height: 52px;
+  }
+
+  .accountant-card h2 {
+    font-size: 16px;
+  }
+
+  .accountant-card__highlights {
+    grid-template-columns: 1fr;
+  }
+
+  .accountant-card__highlights > span {
+    min-height: 58px;
+  }
+
+  .accountant-card__summary {
+    min-height: 0;
+    font-size: 14px;
+  }
+
+  .accountant-card__meta span {
+    font-size: 13px;
+  }
+
+  .accountant-card__action {
+    min-height: 46px;
+  }
+
+  .accountant-modal {
+    align-items: end;
+    padding: 10px;
+  }
+
+  .accountant-modal__panel {
+    width: 100%;
+    max-height: calc(100dvh - 20px);
+    overflow: auto;
+    border-radius: 8px;
+  }
+
+  .accountant-public-nav {
+    padding: 12px;
+    gap: 12px;
+  }
+
+  .accountant-public-nav div {
+    gap: 10px;
+  }
+
+  .chat-center-page {
+    min-height: 100dvh;
+    padding: 0;
+  }
+
+  .chat-center {
+    height: 100dvh;
+    min-height: 100dvh;
+    border-radius: 0;
+  }
+
+  .chat-center__sidebar,
+  .chat-center__thread {
+    height: 100dvh;
+    background: rgba(5, 22, 54, 0.96);
+  }
+
+  .chat-center__sidebar header,
+  .chat-thread__header {
+    padding: 12px;
+  }
+
+  .chat-thread__messages {
+    padding: 12px;
+  }
+
+  .chat-bubble {
+    max-width: 88%;
+  }
+
+  .chat-thread__composer {
+    padding-bottom: max(0px, env(safe-area-inset-bottom));
+  }
+
+  .chat-thread__tools {
+    gap: 6px;
+  }
+
+  .chat-thread__tools select,
+  .chat-thread__tools input {
+    max-width: 140px;
+  }
+}

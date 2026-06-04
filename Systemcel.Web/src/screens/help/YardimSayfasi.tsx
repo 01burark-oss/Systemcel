@@ -257,6 +257,16 @@ export function YardimSayfasi() {
   const [activeId, setActiveId] = React.useState(getActiveTopicId);
   const [activeSubsectionId, setActiveSubsectionId] = React.useState(() => window.location.hash.replace("#", ""));
 
+  const helpLinkeGit = React.useCallback((event: React.MouseEvent<HTMLAnchorElement>, targetId: string) => {
+    event.preventDefault();
+    const nextTopicId = topicIds.find((id) => targetId === id || targetId.startsWith(`${id}-`)) ?? "sss";
+    const nextSubsectionId = targetId === nextTopicId ? `${nextTopicId}-0` : targetId;
+    setActiveId(nextTopicId);
+    setActiveSubsectionId(nextSubsectionId);
+    window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}#${targetId}`);
+    document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, []);
+
   React.useEffect(() => {
     document.title = "Systemcel Yardım | Destek Merkezi";
 
@@ -342,7 +352,7 @@ export function YardimSayfasi() {
 
               return (
                 <div className={`help-sidebar__group ${isActive ? "is-active" : ""}`} key={topic.href}>
-                  <a href={topic.href} aria-current={isActive ? "true" : undefined}>
+                  <a href={topic.href} onClick={(event) => helpLinkeGit(event, id)} aria-current={isActive ? "true" : undefined}>
                     {topic.title}
                   </a>
                   {isActive ? (
@@ -351,6 +361,7 @@ export function YardimSayfasi() {
                         <a
                           className={activeSubsectionId === `${id}-${index}` ? "is-active" : undefined}
                           href={`#${id}-${index}`}
+                          onClick={(event) => helpLinkeGit(event, `${id}-${index}`)}
                           key={`${id}-${subsection.title}`}
                           aria-current={activeSubsectionId === `${id}-${index}` ? "location" : undefined}
                         >
