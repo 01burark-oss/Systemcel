@@ -6,13 +6,16 @@ import {
   Download,
   FileUp,
   Loader2,
+  Lock,
   MessageCircle,
+  Mic,
   Paperclip,
   RefreshCw,
   Send,
   Share2,
   Signal,
   SignalZero,
+  Trash2,
   X
 } from "lucide-react";
 import * as signalR from "@microsoft/signalr";
@@ -80,6 +83,7 @@ interface MesajSayfasi {
 }
 
 interface SohbetlerSayfasiProps {
+  mobileMode?: boolean;
   ustBar: UstBarDurumu | null;
   onUstBarYenile?: () => unknown | Promise<unknown>;
 }
@@ -88,7 +92,7 @@ type RealtimeState = "connecting" | "connected" | "fallback";
 
 const PAGE_SIZE = 50;
 
-export function SohbetlerSayfasi({ ustBar, onUstBarYenile }: SohbetlerSayfasiProps) {
+export function SohbetlerSayfasi({ mobileMode = false, ustBar, onUstBarYenile }: SohbetlerSayfasiProps) {
   const initialId = React.useMemo(() => {
     const raw = new URLSearchParams(window.location.search).get("sohbetId");
     const parsed = raw ? Number(raw) : 0;
@@ -106,7 +110,6 @@ export function SohbetlerSayfasi({ ustBar, onUstBarYenile }: SohbetlerSayfasiPro
   const [eskiYukleniyor, setEskiYukleniyor] = React.useState(false);
   const [hata, setHata] = React.useState("");
   const [metin, setMetin] = React.useState("");
-  const [konu, setKonu] = React.useState("");
   const [baglanti, setBaglanti] = React.useState<signalR.HubConnection | null>(null);
   const [realtime, setRealtime] = React.useState<RealtimeState>("connecting");
   const [karsiTarafYaziyor, setKarsiTarafYaziyor] = React.useState(false);
@@ -118,11 +121,25 @@ export function SohbetlerSayfasi({ ustBar, onUstBarYenile }: SohbetlerSayfasiPro
   const [ozelBitis, setOzelBitis] = React.useState(() => new Date().toISOString().slice(0, 10));
   const [veriIslemde, setVeriIslemde] = React.useState(false);
   const [dosyaIslemde, setDosyaIslemde] = React.useState(false);
+  const [sesKaydi, setSesKaydi] = React.useState(false);
+  const [sesKaydiKilitli, setSesKaydiKilitli] = React.useState(false);
+  const [sesKaydiSuresi, setSesKaydiSuresi] = React.useState(0);
   const messagesRef = React.useRef<HTMLDivElement | null>(null);
   const fileRef = React.useRef<HTMLInputElement | null>(null);
   const typingStopRef = React.useRef<number | null>(null);
   const selectedRef = React.useRef(aktifSohbetId);
   const messagesAtBottomRef = React.useRef(true);
+  const onUstBarYenileRef = React.useRef(onUstBarYenile);
+  const listeYuklemeRef = React.useRef<Promise<void> | null>(null);
+  const mesajYuklemeRef = React.useRef<Map<number, Promise<void>>>(new Map());
+  const mediaRecorderRef = React.useRef<MediaRecorder | null>(null);
+  const mediaStreamRef = React.useRef<MediaStream | null>(null);
+  const audioChunksRef = React.useRef<Blob[]>([]);
+  const audioActionRef = React.useRef<"send" | "cancel">("send");
+  const audioStartYRef = React.useRef(0);
+  const audioLockedRef = React.useRef(false);
+  const audioHoldingRef = React.useRef(false);
+  const audioTimerRef = React.useRef<number | null>(null);
 
   const viewerAccountantId = ustBar?.muhasebeciMusteriBaglami ? ustBar.muhasebeciIsletmeId : ustBar?.aktifIsletmeId;
   const viewerIsAccountant = Boolean(aktifSohbet && viewerAccountantId && aktifSohbet.muhasebeciIsletmeId === viewerAccountantId);
@@ -136,45 +153,74 @@ export function SohbetlerSayfasi({ ustBar, onUstBarYenile }: SohbetlerSayfasiPro
     selectedRef.current = aktifSohbetId;
   }, [aktifSohbetId]);
 
+  React.useEffect(() => {
+    onUstBarYenileRef.current = onUstBarYenile;
+  }, [onUstBarYenile]);
+
+  React.useEffect(() => () => {
+    if (audioTimerRef.current)
+      window.clearInterval(audioTimerRef.current);
+    mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
+  }, []);
+
   const listeYukle = React.useCallback(async () => {
-    const data = await jsonOku<SohbetListe>(`/api/ekran/sohbetler?includeArchived=${includeArchived ? "true" : "false"}`);
-    setListe(data);
-    setListeYukleniyor(false);
-    if (!aktifSohbetId && data.sohbetler.length > 0) {
-      setAktifSohbetId(data.sohbetler[0].id);
-    }
-    if (aktifSohbetId) {
-      const found = data.sohbetler.find((item) => item.id === aktifSohbetId);
-      if (found) {
-        setAktifSohbet(found);
-        setKonu(found.konu || "");
+    if (listeYuklemeRef.current)
+      return listeYuklemeRef.current;
+
+    const request = (async () => {
+      const data = await jsonOku<SohbetListe>(`/api/ekran/sohbetler?includeArchived=${includeArchived ? "true" : "false"}`);
+      const selectedId = selectedRef.current;
+      setListe(data);
+      setListeYukleniyor(false);
+      if (!mobileMode && !selectedId && data.sohbetler.length > 0) {
+        setAktifSohbetId(data.sohbetler[0].id);
       }
-    }
-    await onUstBarYenile?.();
-  }, [aktifSohbetId, includeArchived, onUstBarYenile]);
+      if (selectedId) {
+        const found = data.sohbetler.find((item) => item.id === selectedId);
+        if (found) {
+          setAktifSohbet(found);
+        }
+      }
+      await onUstBarYenileRef.current?.();
+    })().finally(() => {
+      listeYuklemeRef.current = null;
+    });
+    listeYuklemeRef.current = request;
+    return request;
+  }, [includeArchived, mobileMode]);
 
   const mesajlariYukle = React.useCallback(async (sohbetId: number) => {
     if (!sohbetId)
       return;
+    const ongoing = mesajYuklemeRef.current.get(sohbetId);
+    if (ongoing)
+      return ongoing;
 
-    setMesajYukleniyor(true);
-    setHata("");
-    try {
-      const data = await jsonOku<MesajSayfasi>(`/api/ekran/sohbetler/${sohbetId}/mesajlar?limit=${PAGE_SIZE}`);
-      setAktifSohbet(data.sohbet);
-      setKonu(data.sohbet?.konu || "");
-      setMesajlar(data.mesajlar);
-      setHasMore(data.hasMore);
-      setNextBeforeId(data.nextBeforeId ?? null);
-      setYeniMesajSayisi(0);
-      requestAnimationFrame(() => scrollToBottom("instant"));
-      await onUstBarYenile?.();
-    } catch (error) {
-      setHata(error instanceof Error ? error.message : "Sohbet yüklenemedi.");
-    } finally {
-      setMesajYukleniyor(false);
-    }
-  }, [onUstBarYenile]);
+    const request = (async () => {
+      setMesajYukleniyor(true);
+      setHata("");
+      try {
+        const data = await jsonOku<MesajSayfasi>(`/api/ekran/sohbetler/${sohbetId}/mesajlar?limit=${PAGE_SIZE}`);
+        if (selectedRef.current !== sohbetId)
+          return;
+        setAktifSohbet(data.sohbet);
+        setMesajlar(data.mesajlar);
+        setHasMore(data.hasMore);
+        setNextBeforeId(data.nextBeforeId ?? null);
+        setYeniMesajSayisi(0);
+        requestAnimationFrame(() => scrollToBottom("instant"));
+        await onUstBarYenileRef.current?.();
+      } catch (error) {
+        setHata(error instanceof Error ? error.message : "Sohbet yüklenemedi.");
+      } finally {
+        setMesajYukleniyor(false);
+      }
+    })().finally(() => {
+      mesajYuklemeRef.current.delete(sohbetId);
+    });
+    mesajYuklemeRef.current.set(sohbetId, request);
+    return request;
+  }, []);
 
   React.useEffect(() => {
     setListeYukleniyor(true);
@@ -190,8 +236,13 @@ export function SohbetlerSayfasi({ ustBar, onUstBarYenile }: SohbetlerSayfasiPro
       url.searchParams.set("sohbetId", String(aktifSohbetId));
       window.history.replaceState(null, "", `${url.pathname}${url.search}`);
       mesajlariYukle(aktifSohbetId).catch(() => undefined);
+    } else if (mobileMode) {
+      setAktifSohbet(null);
+      const url = new URL(window.location.href);
+      url.searchParams.delete("sohbetId");
+      window.history.replaceState(null, "", `${url.pathname}${url.search}`);
     }
-  }, [aktifSohbetId, mesajlariYukle]);
+  }, [aktifSohbetId, mesajlariYukle, mobileMode]);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -221,6 +272,8 @@ export function SohbetlerSayfasi({ ustBar, onUstBarYenile }: SohbetlerSayfasiPro
       }
     });
     connection.on("ConversationUpdated", () => {
+      if (selectedRef.current)
+        mesajlariYukle(selectedRef.current).catch(() => undefined);
       listeYukle().catch(() => undefined);
     });
     connection.on("MessageRead", () => {
@@ -354,22 +407,6 @@ export function SohbetlerSayfasi({ ustBar, onUstBarYenile }: SohbetlerSayfasiPro
     }
   }
 
-  async function konuKaydet() {
-    if (!aktifSohbetId || !konu.trim())
-      return;
-
-    try {
-      const updated = await jsonOku<SohbetOzet>(`/api/ekran/sohbetler/${aktifSohbetId}/konu`, {
-        method: "PUT",
-        body: JSON.stringify({ konu })
-      });
-      setAktifSohbet(updated);
-      await listeYukle();
-    } catch (error) {
-      setHata(error instanceof Error ? error.message : "Konu güncellenemedi.");
-    }
-  }
-
   async function arsivle() {
     if (!aktifSohbetId || !aktifSohbet)
       return;
@@ -407,6 +444,94 @@ export function SohbetlerSayfasi({ ustBar, onUstBarYenile }: SohbetlerSayfasiPro
       setDosyaIslemde(false);
       if (fileRef.current)
         fileRef.current.value = "";
+    }
+  }
+
+  async function sesKaydiniBaslat(event: React.PointerEvent<HTMLButtonElement>) {
+    if (!aktifSohbetId || sesKaydi || dosyaIslemde)
+      return;
+
+    event.currentTarget.setPointerCapture(event.pointerId);
+    audioStartYRef.current = event.clientY;
+    audioLockedRef.current = false;
+    audioHoldingRef.current = true;
+    audioActionRef.current = "send";
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const preferredType = ["audio/webm;codecs=opus", "audio/webm", "audio/ogg;codecs=opus"].find((type) => MediaRecorder.isTypeSupported(type));
+      const recorder = preferredType ? new MediaRecorder(stream, { mimeType: preferredType }) : new MediaRecorder(stream);
+      mediaStreamRef.current = stream;
+      mediaRecorderRef.current = recorder;
+      audioChunksRef.current = [];
+      recorder.ondataavailable = (data) => {
+        if (data.data.size > 0)
+          audioChunksRef.current.push(data.data);
+      };
+      recorder.onstop = () => sesKaydiniTamamla(recorder.mimeType).catch(() => undefined);
+      recorder.start(250);
+      setSesKaydi(true);
+      setSesKaydiSuresi(0);
+      audioTimerRef.current = window.setInterval(() => setSesKaydiSuresi((current) => current + 1), 1_000);
+      if (!audioHoldingRef.current)
+        recorder.stop();
+    } catch {
+      setHata("Ses kaydı için mikrofon izni gerekiyor.");
+    }
+  }
+
+  function sesKaydiHareket(event: React.PointerEvent<HTMLButtonElement>) {
+    if (!sesKaydi || audioLockedRef.current)
+      return;
+    if (audioStartYRef.current - event.clientY > 72) {
+      audioLockedRef.current = true;
+      setSesKaydiKilitli(true);
+    }
+  }
+
+  function sesKaydiBirak() {
+    audioHoldingRef.current = false;
+    if (!sesKaydi || audioLockedRef.current)
+      return;
+    sesKaydiniDurdur("send");
+  }
+
+  function sesKaydiniDurdur(action: "send" | "cancel") {
+    const recorder = mediaRecorderRef.current;
+    if (!recorder || recorder.state === "inactive")
+      return;
+    audioActionRef.current = action;
+    recorder.stop();
+  }
+
+  async function sesKaydiniTamamla(mimeType: string) {
+    if (audioTimerRef.current)
+      window.clearInterval(audioTimerRef.current);
+    audioTimerRef.current = null;
+    mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
+    mediaStreamRef.current = null;
+    mediaRecorderRef.current = null;
+    setSesKaydi(false);
+    setSesKaydiKilitli(false);
+    audioLockedRef.current = false;
+    audioHoldingRef.current = false;
+
+    if (audioActionRef.current === "cancel" || audioChunksRef.current.length === 0)
+      return;
+
+    const normalizedType = mimeType || "audio/webm";
+    const extension = normalizedType.includes("ogg") ? "ogg" : normalizedType.includes("mp4") ? "m4a" : "webm";
+    const form = new FormData();
+    form.append("files", new Blob(audioChunksRef.current, { type: normalizedType }), `ses-kaydi-${Date.now()}.${extension}`);
+    setDosyaIslemde(true);
+    try {
+      await jsonOku<SohbetEki[]>(`/api/ekran/sohbetler/${aktifSohbetId}/ekler`, { method: "POST", body: form });
+      await mesajlariYukle(aktifSohbetId);
+      await listeYukle();
+    } catch (error) {
+      setHata(error instanceof Error ? error.message : "Ses kaydı gönderilemedi.");
+    } finally {
+      setDosyaIslemde(false);
+      audioChunksRef.current = [];
     }
   }
 
@@ -542,7 +667,6 @@ export function SohbetlerSayfasi({ ustBar, onUstBarYenile }: SohbetlerSayfasiPro
               >
                 <span>
                   <strong>{item.baslik}</strong>
-                  <small>{item.konu || "Sohbet"}</small>
                   <em>{item.sonMesaj || "Henüz mesaj yok."}</em>
                 </span>
                 {item.okunmamisMesajSayisi > 0 ? <i>{item.okunmamisMesajSayisi > 9 ? "9+" : item.okunmamisMesajSayisi}</i> : null}
@@ -566,13 +690,9 @@ export function SohbetlerSayfasi({ ustBar, onUstBarYenile }: SohbetlerSayfasiPro
                 </button>
                 <div>
                   <strong>{aktifSohbet?.baslik}</strong>
-                  <label>
-                    <span>Konu</span>
-                    <input value={konu} onChange={(event) => setKonu(event.target.value)} onBlur={konuKaydet} maxLength={120} />
-                  </label>
-                  <small>
+                  <small className={`chat-thread__connection chat-thread__connection--${realtime}`}>
                     {realtime === "connected" ? <Signal size={14} /> : <SignalZero size={14} />}
-                    {realtime === "connected" ? "Canlı" : "Bağlantı geri gelene kadar kısa polling çalışıyor"}
+                    {realtime === "connected" ? "Mesajlar anlık güncelleniyor" : realtime === "connecting" ? "Bağlantı kuruluyor" : "Bağlantı zayıf, mesajlar yenileniyor"}
                   </small>
                 </div>
                 <button type="button" onClick={arsivle}>
@@ -602,6 +722,11 @@ export function SohbetlerSayfasi({ ustBar, onUstBarYenile }: SohbetlerSayfasiPro
                       <div className="chat-bubble__attachments">
                         {item.ekler.map((ek) => ek.ekTipi === "VeriKarti" ? (
                           <DataCard key={ek.id} attachment={ek} />
+                        ) : ek.icerikTipi.startsWith("audio/") ? (
+                          <div key={ek.id} className="chat-voice-message">
+                            <Mic size={15} />
+                            <audio controls preload="metadata" src={ek.indirUrl} />
+                          </div>
                         ) : (
                           <a key={ek.id} href={ek.indirUrl} target="_blank" rel="noreferrer">
                             {ek.ekTipi === "RaporPaketi" ? <Share2 size={15} /> : <Download size={15} />}
@@ -625,7 +750,7 @@ export function SohbetlerSayfasi({ ustBar, onUstBarYenile }: SohbetlerSayfasiPro
 
               <form className="chat-thread__composer" onSubmit={mesajGonder}>
                 <div className="chat-thread__tools">
-                  <input ref={fileRef} type="file" multiple hidden onChange={dosyaSecildi} accept=".pdf,.xml,.html,.htm,.xlsx,.csv,.zip,.png,.jpg,.jpeg,.webp" />
+                  <input ref={fileRef} type="file" multiple hidden onChange={dosyaSecildi} accept=".pdf,.xml,.html,.htm,.xlsx,.csv,.zip,.png,.jpg,.jpeg,.webp,.webm,.ogg,.m4a,.mp3,.wav" />
                   <button type="button" onClick={() => fileRef.current?.click()} disabled={dosyaIslemde}>
                     {dosyaIslemde ? <Loader2 size={16} className="spin" /> : <Paperclip size={16} />}
                     <span>Dosya</span>
@@ -652,6 +777,20 @@ export function SohbetlerSayfasi({ ustBar, onUstBarYenile }: SohbetlerSayfasiPro
                     <span>{dataActionLabel}</span>
                   </button>
                 </div>
+                {sesKaydi ? (
+                  <div className={`chat-voice-recorder ${sesKaydiKilitli ? "locked" : ""}`}>
+                    <span className="chat-voice-recorder__pulse" />
+                    <strong>{sesSuresi(sesKaydiSuresi)}</strong>
+                    <span>{sesKaydiKilitli ? "Kayıt kilitlendi" : "Kilitlemek için yukarı kaydır"}</span>
+                    <Lock size={16} />
+                    {sesKaydiKilitli ? (
+                      <div>
+                        <button type="button" onClick={() => sesKaydiniDurdur("cancel")} aria-label="Ses kaydını sil"><Trash2 size={17} /><span>Sil</span></button>
+                        <button type="button" onClick={() => sesKaydiniDurdur("send")} aria-label="Ses kaydını gönder"><Send size={17} /><span>Gönder</span></button>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
                 <label className="chat-thread__input">
                   <textarea
                     value={metin}
@@ -665,9 +804,29 @@ export function SohbetlerSayfasi({ ustBar, onUstBarYenile }: SohbetlerSayfasiPro
                     placeholder="Bir mesaj yazın..."
                     rows={2}
                   />
-                  <button type="submit" disabled={!metin.trim()}>
-                    <Send size={17} />
-                  </button>
+                  {metin.trim() ? (
+                    <button type="submit">
+                      <Send size={17} />
+                      <span>Gönder</span>
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="chat-thread__mic"
+                      disabled={sesKaydi || dosyaIslemde}
+                      onPointerDown={sesKaydiniBaslat}
+                      onPointerMove={sesKaydiHareket}
+                      onPointerUp={sesKaydiBirak}
+                      onPointerCancel={() => {
+                        audioHoldingRef.current = false;
+                        sesKaydiniDurdur("cancel");
+                      }}
+                      aria-label="Basılı tutarak ses kaydı gönder"
+                    >
+                      <Mic size={18} />
+                      <span>Basılı tut</span>
+                    </button>
+                  )}
                 </label>
               </form>
             </>
@@ -711,4 +870,10 @@ function tarihSaat(value: string) {
 function para(value: unknown) {
   const numeric = typeof value === "number" ? value : Number(value ?? 0);
   return numeric.toLocaleString("tr-TR", { style: "currency", currency: "TRY" });
+}
+
+function sesSuresi(totalSeconds: number) {
+  const minutes = Math.floor(totalSeconds / 60).toString().padStart(2, "0");
+  const seconds = (totalSeconds % 60).toString().padStart(2, "0");
+  return `${minutes}:${seconds}`;
 }

@@ -411,7 +411,7 @@ function WorkspaceRoutes({ path }: { path: string }) {
   if (mobileWorkspace && routePath === "/sohbetler") {
     return (
       <MobileWorkspaceView active="sohbetler">
-        <SohbetlerSayfasi ustBar={ustBar} onUstBarYenile={ustBarYukle} />
+        <SohbetlerSayfasi mobileMode ustBar={ustBar} onUstBarYenile={ustBarYukle} />
       </MobileWorkspaceView>
     );
   }
@@ -419,7 +419,7 @@ function WorkspaceRoutes({ path }: { path: string }) {
   if (mobileWorkspace && routePath === "/muhasebeciler") {
     return (
       <MobileWorkspaceView active="muhasebeciler">
-        <MuhasebecilerSayfasi ustBar={ustBar} onUstBarYenile={ustBarYukle} />
+        <MuhasebecilerSayfasi mobileMode ustBar={ustBar} onUstBarYenile={ustBarYukle} />
       </MobileWorkspaceView>
     );
   }
@@ -638,17 +638,17 @@ function MobileWorkspaceView({
 }) {
   return (
     <div className={`mobile-workspace-view mobile-workspace-view--${active}`}>
+      <div className="mobile-workspace-view__content">{children}</div>
       <nav className="mobile-workspace-nav" aria-label="Mobil çalışma alanı">
-        <a className={active === "sohbetler" ? "active" : ""} href="/app/sohbetler">
+        <a className={active === "sohbetler" ? "active" : ""} href="/app/sohbetler" aria-label="Sohbetler">
           <MessageCircle size={18} />
           <span>Sohbetler</span>
         </a>
-        <a className={active === "muhasebeciler" ? "active" : ""} href="/app/muhasebeciler">
+        <a className={active === "muhasebeciler" ? "active" : ""} href="/app/muhasebeciler" aria-label="Muhasebeciler">
           <Search size={18} />
           <span>Muhasebeciler</span>
         </a>
       </nav>
-      <div className="mobile-workspace-view__content">{children}</div>
     </div>
   );
 }

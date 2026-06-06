@@ -25,7 +25,8 @@ namespace CashTracker.Infrastructure.Services
         private const int MaxAttachmentsPerMessage = 5;
         private static readonly HashSet<string> AllowedExtensions = new(StringComparer.OrdinalIgnoreCase)
         {
-            ".pdf", ".xml", ".html", ".htm", ".xlsx", ".csv", ".zip", ".png", ".jpg", ".jpeg", ".webp"
+            ".pdf", ".xml", ".html", ".htm", ".xlsx", ".csv", ".zip", ".png", ".jpg", ".jpeg", ".webp",
+            ".webm", ".ogg", ".m4a", ".mp3", ".wav"
         };
 
         private readonly IDbContextFactory<CashTrackerDbContext> _dbFactory;
@@ -601,6 +602,21 @@ namespace CashTracker.Infrastructure.Services
                 OzetJson = package.SummaryJson,
                 CreatedAt = DateTime.Now
             });
+            db.MuhasebeciSohbetEkleri.Add(new MuhasebeciSohbetEki
+            {
+                SohbetId = sohbet.Id,
+                MesajId = message.Id,
+                YukleyenIsletmeId = senderBusinessId,
+                EkTipi = MuhasebeciSohbetEkTipleri.RaporPaketi,
+                DosyaAdi = Path.GetFileName(package.PdfPath),
+                IcerikTipi = "application/pdf",
+                DosyaYolu = package.PdfPath,
+                Boyut = File.Exists(package.PdfPath) ? new FileInfo(package.PdfPath).Length : 0,
+                VeriTipi = dataType,
+                Baslik = $"{package.Title} harcama detaylari PDF",
+                OzetJson = package.SummaryJson,
+                CreatedAt = DateTime.Now
+            });
             await db.SaveChangesAsync(ct);
             return message;
         }
@@ -634,18 +650,21 @@ namespace CashTracker.Infrastructure.Services
             Directory.CreateDirectory(directory);
             var csvPath = Path.Combine(directory, "gelir-gider.csv");
             var htmlPath = Path.Combine(directory, "ozet.html");
+            var pdfPath = Path.Combine(directory, "harcama-detaylari.pdf");
             var zipPath = Path.Combine(directory, "rapor-paketi.zip");
             await File.WriteAllTextAsync(csvPath, BuildCsv(records), Encoding.UTF8, ct);
             await File.WriteAllTextAsync(htmlPath, BuildHtml(title, summary), Encoding.UTF8, ct);
+            await File.WriteAllBytesAsync(pdfPath, BuildExpenseDetailsPdf(title, business?.Ad ?? "Isletme", records), ct);
             if (File.Exists(zipPath))
                 File.Delete(zipPath);
             using (var archive = ZipFile.Open(zipPath, ZipArchiveMode.Create))
             {
                 archive.CreateEntryFromFile(csvPath, Path.GetFileName(csvPath));
                 archive.CreateEntryFromFile(htmlPath, Path.GetFileName(htmlPath));
+                archive.CreateEntryFromFile(pdfPath, Path.GetFileName(pdfPath));
             }
 
-            return new DataPackage(title, JsonSerializer.Serialize(summary), zipPath);
+            return new DataPackage(title, JsonSerializer.Serialize(summary), zipPath, pdfPath);
         }
 
         private async Task<List<MuhasebeciSohbetOzetDto>> BuildConversationSummariesAsync(CashTrackerDbContext db, IEnumerable<MuhasebeciSohbet> conversations, int viewerBusinessId, CancellationToken ct)
@@ -933,7 +952,7 @@ namespace CashTracker.Infrastructure.Services
             var fileName = Path.GetFileName(upload.DosyaAdi ?? string.Empty);
             var extension = Path.GetExtension(fileName);
             if (string.IsNullOrWhiteSpace(fileName) || !AllowedExtensions.Contains(extension))
-                throw new InvalidOperationException("PDF, XML, HTML, XLSX, CSV, ZIP veya gorsel dosya yukleyin.");
+                throw new InvalidOperationException("PDF, XML, HTML, XLSX, CSV, ZIP, gorsel veya ses dosyasi yukleyin.");
         }
 
         private static string NormalizeContentType(string contentType, string extension)
@@ -951,6 +970,11 @@ namespace CashTracker.Infrastructure.Services
                 ".png" => "image/png",
                 ".jpg" or ".jpeg" => "image/jpeg",
                 ".webp" => "image/webp",
+                ".webm" => "audio/webm",
+                ".ogg" => "audio/ogg",
+                ".m4a" => "audio/mp4",
+                ".mp3" => "audio/mpeg",
+                ".wav" => "audio/wav",
                 _ => "application/octet-stream"
             };
         }
@@ -994,12 +1018,96 @@ namespace CashTracker.Infrastructure.Services
 """;
         }
 
+        private static byte[] BuildExpenseDetailsPdf(string title, string businessName, IEnumerable<Kasa> records)
+        {
+            var expenses = records
+                .Where(x => string.Equals(x.Tip, "Gider", StringComparison.OrdinalIgnoreCase) || string.Equals(x.Tip, "Cikis", StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            var lines = new List<string>
+            {
+                "SYSTEMCEL HARCAMA DETAYLARI",
+                title,
+                $"Isletme: {businessName}",
+                $"Toplam gider: {expenses.Sum(x => x.Tutar).ToString("N2", CultureInfo.GetCultureInfo("tr-TR"))} TL",
+                $"Kayit sayisi: {expenses.Count}",
+                ""
+            };
+            lines.AddRange(expenses.Select(x =>
+                $"{x.Tarih:dd.MM.yyyy} | {x.Tutar.ToString("N2", CultureInfo.GetCultureInfo("tr-TR"))} TL | {x.OdemeYontemi} | {x.Kalem ?? x.GiderTuru ?? "-"} | {x.Aciklama ?? "-"}"));
+            if (expenses.Count == 0)
+                lines.Add("Secilen donemde harcama kaydi bulunmuyor.");
+
+            return BuildSimplePdf(lines);
+        }
+
+        private static byte[] BuildSimplePdf(IReadOnlyList<string> lines)
+        {
+            const int linesPerPage = 44;
+            var pages = lines.Chunk(linesPerPage).ToList();
+            var objects = new List<string>();
+            var pageObjectIds = new List<int>();
+            var contentObjectIds = new List<int>();
+            var fontObjectId = 3;
+            var nextObjectId = 4;
+            foreach (var _ in pages)
+            {
+                pageObjectIds.Add(nextObjectId++);
+                contentObjectIds.Add(nextObjectId++);
+            }
+
+            objects.Add("<< /Type /Catalog /Pages 2 0 R >>");
+            objects.Add($"<< /Type /Pages /Kids [{string.Join(" ", pageObjectIds.Select(x => $"{x} 0 R"))}] /Count {pages.Count} >>");
+            objects.Add("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>");
+            for (var index = 0; index < pages.Count; index++)
+            {
+                objects.Add($"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 {fontObjectId} 0 R >> >> /Contents {contentObjectIds[index]} 0 R >>");
+                var content = new StringBuilder("BT\n/F1 9 Tf\n42 800 Td\n");
+                foreach (var line in pages[index])
+                    content.Append('(').Append(PdfEscape(ToPdfAscii(line))).Append(") Tj\n0 -17 Td\n");
+                content.Append("ET");
+                var stream = content.ToString();
+                objects.Add($"<< /Length {Encoding.ASCII.GetByteCount(stream)} >>\nstream\n{stream}\nendstream");
+            }
+
+            using var output = new MemoryStream();
+            using var writer = new StreamWriter(output, Encoding.ASCII, 1024, leaveOpen: true) { NewLine = "\n" };
+            writer.WriteLine("%PDF-1.4");
+            writer.Flush();
+            var offsets = new List<long> { 0 };
+            for (var index = 0; index < objects.Count; index++)
+            {
+                offsets.Add(output.Position);
+                writer.WriteLine($"{index + 1} 0 obj");
+                writer.WriteLine(objects[index]);
+                writer.WriteLine("endobj");
+                writer.Flush();
+            }
+            var xref = output.Position;
+            writer.WriteLine($"xref\n0 {objects.Count + 1}");
+            writer.WriteLine("0000000000 65535 f ");
+            foreach (var offset in offsets.Skip(1))
+                writer.WriteLine($"{offset:0000000000} 00000 n ");
+            writer.WriteLine($"trailer\n<< /Size {objects.Count + 1} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF");
+            writer.Flush();
+            return output.ToArray();
+        }
+
+        private static string ToPdfAscii(string value)
+        {
+            var normalized = value.Normalize(NormalizationForm.FormD);
+            return new string(normalized.Where(x => x <= 127 && CharUnicodeInfo.GetUnicodeCategory(x) != UnicodeCategory.NonSpacingMark).ToArray())
+                .Replace("\r", " ", StringComparison.Ordinal)
+                .Replace("\n", " ", StringComparison.Ordinal);
+        }
+
+        private static string PdfEscape(string value) => value.Replace("\\", "\\\\", StringComparison.Ordinal).Replace("(", "\\(", StringComparison.Ordinal).Replace(")", "\\)", StringComparison.Ordinal);
+
         private static string DisplayName(string? value, string fallback)
         {
             return string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
         }
 
-        private sealed record DataPackage(string Title, string SummaryJson, string ZipPath);
+        private sealed record DataPackage(string Title, string SummaryJson, string ZipPath, string PdfPath);
 
         private static readonly Regex EmailRegex = new(
             @"[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,}",

@@ -58,12 +58,15 @@ interface MuhasebeciTalep {
 }
 
 interface MuhasebecilerSayfasiProps {
+  mobileMode?: boolean;
   publicMode?: boolean;
   ustBar?: UstBarDurumu | null;
   onUstBarYenile?: () => unknown | Promise<unknown>;
 }
 
-export function MuhasebecilerSayfasi({ publicMode = false, ustBar, onUstBarYenile }: MuhasebecilerSayfasiProps) {
+type MobilFiltre = "konum" | "uzmanlik" | "musteriTipi";
+
+export function MuhasebecilerSayfasi({ mobileMode = false, publicMode = false, ustBar, onUstBarYenile }: MuhasebecilerSayfasiProps) {
   const auth = useSystemcelAuth();
   const urlDavetKodu = React.useMemo(() => new URLSearchParams(window.location.search).get("davet") ?? "", []);
   const [arama, setArama] = React.useState("");
@@ -85,6 +88,7 @@ export function MuhasebecilerSayfasi({ publicMode = false, ustBar, onUstBarYenil
   const [uzmanlikFiltresi, setUzmanlikFiltresi] = React.useState("");
   const [musteriTipiFiltresi, setMusteriTipiFiltresi] = React.useState("");
   const [siralama, setSiralama] = React.useState("onerilen");
+  const [aktifMobilFiltre, setAktifMobilFiltre] = React.useState<MobilFiltre | null>(null);
   const urlHedefMuhasebeciId = React.useMemo(() => {
     const params = new URLSearchParams(window.location.search);
     const raw = params.get("muhasebeciId") ?? params.get("muhasebeci");
@@ -328,8 +332,39 @@ export function MuhasebecilerSayfasi({ publicMode = false, ustBar, onUstBarYenil
       {mesaj ? <p className="accountant-feedback accountant-feedback--success">{mesaj}</p> : null}
       {hata ? <p className="accountant-feedback accountant-feedback--error">{hata}</p> : null}
 
+      {mobileMode ? (
+        <section className="accountant-mobile-filters" aria-label="Muhasebeci filtreleri">
+          <form className="accountant-filter-search" onSubmit={(event) => { event.preventDefault(); setAktifArama(arama); }}>
+            <label>
+              <Search size={18} />
+              <input value={arama} onChange={(event) => setArama(event.target.value)} placeholder="Muhasebeci ara" />
+            </label>
+            <button type="submit">
+              <Search size={16} />
+              <span>Ara</span>
+            </button>
+          </form>
+          <div className="accountant-mobile-filter-tabs">
+            <MobileFilterTab active={aktifMobilFiltre === "konum"} icon={<MapPin size={18} />} label="Konum" onClick={() => setAktifMobilFiltre(aktifMobilFiltre === "konum" ? null : "konum")} />
+            <MobileFilterTab active={aktifMobilFiltre === "uzmanlik"} icon={<BriefcaseBusiness size={18} />} label="Uzmanlık" onClick={() => setAktifMobilFiltre(aktifMobilFiltre === "uzmanlik" ? null : "uzmanlik")} />
+            <MobileFilterTab active={aktifMobilFiltre === "musteriTipi"} icon={<UsersRound size={18} />} label="Müşteri tipi" onClick={() => setAktifMobilFiltre(aktifMobilFiltre === "musteriTipi" ? null : "musteriTipi")} />
+          </div>
+          {aktifMobilFiltre ? (
+            <div className="accountant-mobile-filter-detail">
+              {aktifMobilFiltre === "konum" ? <FilterField label="Konum" value={konumFiltresi} onChange={setKonumFiltresi} options={konumSecenekleri} placeholder="Tüm konumlar" /> : null}
+              {aktifMobilFiltre === "uzmanlik" ? <FilterField label="Uzmanlık alanı" value={uzmanlikFiltresi} onChange={setUzmanlikFiltresi} options={uzmanlikSecenekleri} placeholder="Tüm uzmanlıklar" /> : null}
+              {aktifMobilFiltre === "musteriTipi" ? <FilterField label="Müşteri tipi" value={musteriTipiFiltresi} onChange={setMusteriTipiFiltresi} options={musteriTipiSecenekleri} placeholder="Tüm müşteri tipleri" /> : null}
+              <button type="button" className="accountant-filter-clear" onClick={filtreleriSifirla} disabled={!filtreVar}>
+                <RotateCcw size={16} />
+                <span>Filtreleri sıfırla</span>
+              </button>
+            </div>
+          ) : null}
+        </section>
+      ) : null}
+
       <section className="accountant-marketplace__body">
-        <aside className="accountant-filter-panel" aria-label="Filtreler">
+        {!mobileMode ? <aside className="accountant-filter-panel" aria-label="Filtreler">
           <h2>
             <SlidersHorizontal size={18} />
             Filtreler
@@ -352,7 +387,7 @@ export function MuhasebecilerSayfasi({ publicMode = false, ustBar, onUstBarYenil
             <span>Filtreleri sıfırla</span>
           </button>
           <button type="button" onClick={() => setAktifArama(arama)}>Filtreleri uygula</button>
-        </aside>
+        </aside> : null}
 
         <section className="accountant-results" aria-label="Muhasebeci sonuçları">
           <header className="accountant-results__bar">
@@ -629,6 +664,25 @@ function FilterField({
       </select>
       <ChevronDown size={16} />
     </label>
+  );
+}
+
+function MobileFilterTab({
+  active,
+  icon,
+  label,
+  onClick
+}: {
+  active: boolean;
+  icon: React.ReactNode;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button type="button" className={active ? "active" : ""} onClick={onClick} aria-expanded={active}>
+      {icon}
+      <span>{label}</span>
+    </button>
   );
 }
 
