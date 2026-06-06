@@ -1,5 +1,5 @@
 import React from "react";
-import { Eye, Lock, LogOut, MessageCircle, Monitor, Search } from "lucide-react";
+import { LogOut, MessageCircle, Monitor, Search } from "lucide-react";
 import { AuthSayfasi } from "./auth/AuthSayfasi";
 import { RequireAuth } from "./auth/AuthGate";
 import { useSystemcelAuth } from "./auth/SystemcelAuthProvider";
@@ -409,11 +409,19 @@ function WorkspaceRoutes({ path }: { path: string }) {
   ) : null;
 
   if (mobileWorkspace && routePath === "/sohbetler") {
-    return <SohbetlerSayfasi ustBar={ustBar} onUstBarYenile={ustBarYukle} />;
+    return (
+      <MobileWorkspaceView active="sohbetler">
+        <SohbetlerSayfasi ustBar={ustBar} onUstBarYenile={ustBarYukle} />
+      </MobileWorkspaceView>
+    );
   }
 
   if (mobileWorkspace && routePath === "/muhasebeciler") {
-    return <MuhasebecilerSayfasi ustBar={ustBar} onUstBarYenile={ustBarYukle} />;
+    return (
+      <MobileWorkspaceView active="muhasebeciler">
+        <MuhasebecilerSayfasi ustBar={ustBar} onUstBarYenile={ustBarYukle} />
+      </MobileWorkspaceView>
+    );
   }
 
   if (mobileWorkspace) {
@@ -550,10 +558,10 @@ function MobileCompanionScreen({
   onSignOut: () => void;
 }) {
   const isAccountant = hesapTipi === "Muhasebeci";
-  const title = isAccountant ? "Mobil muhasebeci akışı hazırlanıyor" : "Mobil erişim sınırlı";
+  const title = isAccountant ? "Mobil muhasebeci merkezi" : "Mobil çalışma alanı";
   const description = isAccountant
-    ? "Tam müşteri yönetimi masaüstünde kullanılacak. Mobilde müşteri mesajları, bildirimler ve okunabilir özetler için ayrı bir akış sunacağız."
-    : "Tam finans paneli masaüstü kullanım için tasarlandı. Mobilde veri okuma, bildirim ve muhasebeciyle mesajlaşma gibi güvenli eşlikçi özellikler sunulacak.";
+    ? "Müşteri sohbetlerini yönetin ve pazaryerindeki işletme taleplerini görüntüleyin."
+    : "Muhasebecinizle konuşun veya ihtiyaçlarınıza uygun muhasebecileri karşılaştırın.";
 
   return (
     <main className="mobile-companion">
@@ -566,44 +574,8 @@ function MobileCompanionScreen({
           </div>
         </header>
 
-        <div className="mobile-companion__badge">
-          <Lock size={16} />
-          Mobilde tam panel kapalı
-        </div>
-
         <h1 id="mobile-companion-title">{title}</h1>
         <p>{description}</p>
-
-        {calismaAlani || islemde ? (
-          <div className="mobile-companion__workspace">
-            <span>Çalışma alanı</span>
-            <strong>{islemde ? "Yükleniyor..." : calismaAlani}</strong>
-          </div>
-        ) : null}
-
-        <div className="mobile-companion__features" aria-label="Mobil akış kapsamı">
-          <article>
-            <Eye size={20} />
-            <div>
-              <strong>Güvenli özet okuma</strong>
-              <span>Gelir, gider, fatura ve bildirimleri işlem yapmadan görüntüleme.</span>
-            </div>
-          </article>
-          <article>
-            <MessageCircle size={20} />
-            <div>
-              <strong>{isAccountant ? "Müşteri mesajları" : "Muhasebeci mesajları"}</strong>
-              <span>Onay, soru ve belge talepleri için ayrı mobil mesajlaşma akışı.</span>
-            </div>
-          </article>
-          <article>
-            <Monitor size={20} />
-            <div>
-              <strong>Masaüstünde tam kullanım</strong>
-              <span>Kayıt, fatura, stok ve tahsilat işlemleri bilgisayardan yapılır.</span>
-            </div>
-          </article>
-        </div>
 
         <div className="mobile-companion__actions" aria-label="Mobil erişim">
           <a href="/app/sohbetler">
@@ -617,11 +589,66 @@ function MobileCompanionScreen({
           </a>
         </div>
 
+        {calismaAlani || islemde ? (
+          <div className="mobile-companion__workspace">
+            <span>Çalışma alanı</span>
+            <strong>{islemde ? "Yükleniyor..." : calismaAlani}</strong>
+          </div>
+        ) : null}
+
+        <div className="mobile-companion__features" aria-label="Mobil erişim kapsamı">
+          <article>
+            <MessageCircle size={20} />
+            <div>
+              <strong>{isAccountant ? "Müşteri sohbetleri" : "Muhasebeci sohbetleri"}</strong>
+              <span>Mesaj, belge ve veri taleplerini mobilde takip edin.</span>
+            </div>
+          </article>
+          <article>
+            <Search size={20} />
+            <div>
+              <strong>Muhasebeci pazaryeri</strong>
+              <span>Profilleri karşılaştırın, talep gönderin ve bağlantılarınızı yönetin.</span>
+            </div>
+          </article>
+          <article>
+            <Monitor size={20} />
+            <div>
+              <strong>Masaüstünde tam kullanım</strong>
+              <span>Kayıt, fatura, stok ve tahsilat işlemleri bilgisayardan yapılır.</span>
+            </div>
+          </article>
+        </div>
+
         <button className="mobile-companion__signout" type="button" onClick={onSignOut}>
           <LogOut size={18} />
           Çıkış yap
         </button>
       </section>
     </main>
+  );
+}
+
+function MobileWorkspaceView({
+  active,
+  children
+}: {
+  active: "sohbetler" | "muhasebeciler";
+  children: React.ReactNode;
+}) {
+  return (
+    <div className={`mobile-workspace-view mobile-workspace-view--${active}`}>
+      <nav className="mobile-workspace-nav" aria-label="Mobil çalışma alanı">
+        <a className={active === "sohbetler" ? "active" : ""} href="/app/sohbetler">
+          <MessageCircle size={18} />
+          <span>Sohbetler</span>
+        </a>
+        <a className={active === "muhasebeciler" ? "active" : ""} href="/app/muhasebeciler">
+          <Search size={18} />
+          <span>Muhasebeciler</span>
+        </a>
+      </nav>
+      <div className="mobile-workspace-view__content">{children}</div>
+    </div>
   );
 }
