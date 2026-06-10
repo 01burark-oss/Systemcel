@@ -144,7 +144,7 @@ The repo must not track local or generated artifacts:
 - `.env`, `.env.*`, except `.env.example`
 - local databases and WAL files
 - `node_modules`, `dist`, `bin`, `obj`
-- temp folders such as `tmp`, `outputs`, `.codex-tmp`, `.runlogs`
+- temp folders such as `tmp`, `outputs`, `.runlogs`
 - release binaries and archives such as `.exe`, `.zip`, `.sha256`
 
 Run these checks before committing:
@@ -152,5 +152,5 @@ Run these checks before committing:
 ```powershell
 git status --short
 git ls-files | Select-String -Pattern '\.env\.local|\.db$|\.exe$|node_modules|\\dist\\|^tmp/|^outputs/'
-git check-ignore -v Systemcel.Web/.env.local tmp outputs .codex-tmp Systemcel.Web/dist Systemcel.Web/node_modules sample.db sample.exe
+git check-ignore -v Systemcel.Web/.env.local tmp outputs Systemcel.Web/dist Systemcel.Web/node_modules sample.db sample.exe
 ```

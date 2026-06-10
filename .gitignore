@@ -29,8 +29,6 @@ telegram-setup.json
 *.log
 
 # Local tooling and caches
-.codex-tmp/
-.codex/
 .runlogs/
 .playwright-mcp/
 .dotnet/
