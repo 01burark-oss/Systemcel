@@ -7,6 +7,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using CashTracker.Core.Entities;
 using CashTracker.Core.Models;
+using CashTracker.Core.Services;
 using CashTracker.Infrastructure.Services;
 using CashTracker.Tests.Support;
 using Xunit;
@@ -55,11 +56,11 @@ namespace CashTracker.Tests
 
             var text = handler.GetLastFormFieldValue("/sendMessage", "text");
             Assert.False(string.IsNullOrWhiteSpace(text));
-            Assert.Contains("Isletme: Demo Isletme", text!);
-            Assert.Contains("Odeme Yontemleri:", text!);
+            Assert.Contains("İşletme: Demo Isletme", text!);
+            Assert.Contains("Ödeme Yöntemleri:", text!);
             Assert.Contains("- Nakit:", text!);
-            Assert.Contains("- Kredi Karti:", text!);
-            Assert.Contains("- Online Odeme:", text!);
+            Assert.Contains("- Kredi Kartı:", text!);
+            Assert.Contains("- Online Ödeme:", text!);
             Assert.Contains("- Havale:", text!);
             Assert.Contains("Gelir Kalemleri:", text!);
             Assert.Contains("Gider Kalemleri:", text!);
@@ -94,7 +95,7 @@ namespace CashTracker.Tests
             var text = handler.GetLastFormFieldValue("/sendMessage", "text");
             Assert.False(string.IsNullOrWhiteSpace(text));
             Assert.Contains("Kaydedildi. Id:", text!);
-            Assert.Contains("Isletme: Demo Isletme", text!);
+            Assert.Contains("İşletme: Demo Isletme", text!);
             Assert.Contains("Tip: Gelir", text!);
             Assert.Contains("Kalem: Genel Gelir", text!);
 
@@ -126,7 +127,63 @@ namespace CashTracker.Tests
 
             var text = handler.GetLastFormFieldValue("/sendMessage", "text");
             Assert.Equal("0000", security.Pin);
-            Assert.Contains("PIN degisimi Telegram uzerinden kapatildi.", text!);
+            Assert.Contains("PIN değişimi Telegram üzerinden kapatıldı.", text!);
+        }
+
+        [Fact]
+        public async Task ProcessUpdateAsync_StartWithPairingCode_CompletesPairingBeforeTargetChatCheck()
+        {
+            var pairing = new FakeTelegramPairingService();
+            var (_, handler, service, _, _, _) = BuildService(
+                new FakeKasaService(),
+                new FakeKalemTanimiService(),
+                new FakeSummaryService(),
+                new FakeIsletmeService(),
+                configureSettings: settings =>
+                {
+                    settings.ChatId = string.Empty;
+                    settings.AllowedUserIds = string.Empty;
+                },
+                pairingService: pairing);
+
+            await service.ProcessUpdateAsync(new TelegramUpdate
+            {
+                UpdateId = 4,
+                ChatId = 987654,
+                UserId = 456,
+                Text = "/start SC-123456"
+            });
+
+            Assert.Equal("SC-123456", pairing.LastCode);
+            Assert.Equal(987654, pairing.LastChatId);
+            Assert.Equal(456, pairing.LastUserId);
+            Assert.Equal("pairing-ok", handler.GetLastFormFieldValue("/sendMessage", "text"));
+        }
+
+        [Fact]
+        public async Task ProcessUpdateAsync_UnpairedStartWithoutCode_AsksForAppCode()
+        {
+            var (_, handler, service, _, _, _) = BuildService(
+                new FakeKasaService(),
+                new FakeKalemTanimiService(),
+                new FakeSummaryService(),
+                new FakeIsletmeService(),
+                configureSettings: settings =>
+                {
+                    settings.ChatId = string.Empty;
+                    settings.AllowedUserIds = string.Empty;
+                });
+
+            await service.ProcessUpdateAsync(new TelegramUpdate
+            {
+                UpdateId = 5,
+                ChatId = 987654,
+                UserId = 456,
+                Text = "/start"
+            });
+
+            var text = handler.GetLastFormFieldValue("/sendMessage", "text");
+            Assert.Contains("Ayarlar > Telegram", text!);
         }
 
         [Fact]
@@ -169,8 +226,8 @@ namespace CashTracker.Tests
             });
 
             var prompt = handler.GetLastFormFieldValue("/sendMessage", "text");
-            Assert.Contains("Urun icin gider kalemi sec: Deterjan", prompt!);
-            Assert.Contains("Kalemler genel gider gruplari olmali", prompt!);
+            Assert.Contains("Ürün için gider kalemi seç: Deterjan", prompt!);
+            Assert.Contains("Kalemler genel gider grupları olmalı", prompt!);
 
             await service.ProcessUpdateAsync(new TelegramUpdate
             {
@@ -181,8 +238,8 @@ namespace CashTracker.Tests
             });
 
             var summaryText = handler.GetLastFormFieldValue("/sendMessage", "text");
-            Assert.Contains("Fis ozeti", summaryText!);
-            Assert.Contains("Odeme: KrediKarti", summaryText!);
+            Assert.Contains("Fiş özeti", summaryText!);
+            Assert.Contains("Ödeme: KrediKarti", summaryText!);
 
             await service.ProcessUpdateAsync(new TelegramUpdate
             {
@@ -195,7 +252,7 @@ namespace CashTracker.Tests
             Assert.Equal(2, kasa.Rows.Count);
             Assert.Contains(kasa.Rows, x => x.Kalem == "Mutfak Giderleri" && x.Tutar == 40m);
             Assert.Contains(kasa.Rows, x => x.Kalem == "Temizlik Giderleri" && x.Tutar == 20m);
-            Assert.All(kasa.Rows, x => Assert.Equal("OCR Fis | Migros", x.Aciklama));
+            Assert.All(kasa.Rows, x => Assert.Equal("OCR Fiş | Migros", x.Aciklama));
             Assert.All(kasa.Rows, x => Assert.DoesNotContain("Sut", x.Aciklama));
             Assert.All(kasa.Rows, x => Assert.DoesNotContain("Deterjan", x.Aciklama));
         }
@@ -235,7 +292,7 @@ namespace CashTracker.Tests
             var prompt = handler.GetLastFormFieldValue("/sendMessage", "text");
             Assert.Contains("Mutfak Giderleri", prompt!);
             Assert.Contains("Personel Giderleri", prompt!);
-            Assert.Contains("Kalemler genel gider gruplari olmali", prompt!);
+            Assert.Contains("Kalemler genel gider grupları olmalı", prompt!);
         }
 
         [Fact]
@@ -265,8 +322,8 @@ namespace CashTracker.Tests
             });
 
             var text = handler.GetLastFormFieldValue("/sendMessage", "text");
-            Assert.Contains("Fis OCR islenemedi.", text!);
-            Assert.Contains("Gemini kota veya hiz limiti asildi.", text!);
+            Assert.Contains("Fiş OCR işlenemedi.", text!);
+            Assert.Contains("Gemini kota veya hız limiti aşıldı.", text!);
         }
 
         [Fact]
@@ -314,7 +371,7 @@ namespace CashTracker.Tests
             });
 
             var confirmText = handler.GetLastFormFieldValue("/sendMessage", "text");
-            Assert.Contains("'Sarf Giderleri' adli gider kalemi olusturayim mi?", confirmText!);
+            Assert.Contains("'Sarf Giderleri' adlı gider kalemi oluşturayım mı?", confirmText!);
 
             await service.ProcessUpdateAsync(new TelegramUpdate
             {
@@ -372,7 +429,7 @@ namespace CashTracker.Tests
             });
 
             var datePrompt = handler.GetLastFormFieldValue("/sendMessage", "text");
-            Assert.Contains("Fis tarihi eksik", datePrompt!);
+            Assert.Contains("Fiş tarihi eksik", datePrompt!);
 
             await service.ProcessUpdateAsync(new TelegramUpdate
             {
@@ -383,7 +440,7 @@ namespace CashTracker.Tests
             });
 
             var paymentPrompt = handler.GetLastFormFieldValue("/sendMessage", "text");
-            Assert.Contains("Odeme yontemi eksik", paymentPrompt!);
+            Assert.Contains("Ödeme yöntemi eksik", paymentPrompt!);
 
             await service.ProcessUpdateAsync(new TelegramUpdate
             {
@@ -394,8 +451,8 @@ namespace CashTracker.Tests
             });
 
             var finalSummary = handler.GetLastFormFieldValue("/sendMessage", "text");
-            Assert.Contains("Fis ozeti", finalSummary!);
-            Assert.Contains("Odeme: Havale", finalSummary!);
+            Assert.Contains("Fiş özeti", finalSummary!);
+            Assert.Contains("Ödeme: Havale", finalSummary!);
         }
 
         [Fact]
@@ -444,7 +501,7 @@ namespace CashTracker.Tests
             });
 
             var text = handler.GetLastFormFieldValue("/sendMessage", "text");
-            Assert.Contains("Devam eden bir fis oturumu var", text!);
+            Assert.Contains("Devam eden bir fiş oturumu var", text!);
         }
 
         [Fact]
@@ -471,8 +528,8 @@ namespace CashTracker.Tests
             });
 
             var summary = handler.GetLastFormFieldValue("/sendMessage", "text");
-            Assert.Contains("Stok hareketi ozeti", summary!);
-            Assert.Contains("Urun: Kola", summary!);
+            Assert.Contains("Stok hareketi özeti", summary!);
+            Assert.Contains("Ürün: Kola", summary!);
             Assert.Empty(stock.Requests);
 
             await service.ProcessUpdateAsync(new TelegramUpdate
@@ -522,8 +579,8 @@ namespace CashTracker.Tests
             });
 
             var text = handler.GetLastFormFieldValue("/sendMessage", "text");
-            Assert.Contains("Stok hareketi ozeti", text!);
-            Assert.Contains("Urun: Biskuvit", text!);
+            Assert.Contains("Stok hareketi özeti", text!);
+            Assert.Contains("Ürün: Biskuvit", text!);
             Assert.Null(ocr.LastRequest);
             Assert.False(string.IsNullOrWhiteSpace(barcode.LastImagePath));
             Assert.Empty(stock.Requests);
@@ -547,7 +604,7 @@ namespace CashTracker.Tests
             });
 
             var text = handler.GetLastFormFieldValue("/sendMessage", "text");
-            Assert.Contains("Barkod okunamadi", text!);
+            Assert.Contains("Barkod okunamadı", text!);
             Assert.NotNull(stockSessionStore.LastSaved);
             Assert.Equal(StockSessionStep.AwaitBarcode, stockSessionStore.LastSaved!.Step);
             Assert.Equal(50m, stockSessionStore.LastSaved.PendingQuantity);
@@ -567,7 +624,7 @@ namespace CashTracker.Tests
                 Text = "/stok 8692222222222 +5"
             });
 
-            Assert.Contains("Bu barkod kayitli degil", handler.GetLastFormFieldValue("/sendMessage", "text")!);
+            Assert.Contains("Bu barkod kayıtlı değil", handler.GetLastFormFieldValue("/sendMessage", "text")!);
 
             foreach (var (updateId, answer) in new[]
                      {
@@ -589,7 +646,7 @@ namespace CashTracker.Tests
             }
 
             var summary = handler.GetLastFormFieldValue("/sendMessage", "text");
-            Assert.Contains("Yeni urun: Yeni Urun", summary!);
+            Assert.Contains("Yeni ürün: Yeni Urun", summary!);
             Assert.Empty(products.Rows);
             Assert.Empty(stock.Requests);
 
@@ -663,7 +720,7 @@ namespace CashTracker.Tests
             });
 
             var summary = handler.GetLastFormFieldValue("/sendMessage", "text");
-            Assert.Contains("eksiye dusurecek", summary!);
+            Assert.Contains("eksiye düşürecek", summary!);
 
             await service.ProcessUpdateAsync(new TelegramUpdate
             {
@@ -678,7 +735,7 @@ namespace CashTracker.Tests
 
             var result = handler.GetLastFormFieldValue("/sendMessage", "text");
             Assert.Contains("Mevcut stok: -1", result!);
-            Assert.Contains("eksiye dustu", result!);
+            Assert.Contains("eksiye düştü", result!);
         }
 
         private static (TelegramBotService Bot, RecordingHttpMessageHandler Handler, TelegramCommandService Service, FakeAppSecurityService Security, FakeReceiptOcrService Ocr, FakeTelegramReceiptSessionStore SessionStore) BuildService(
@@ -686,7 +743,9 @@ namespace CashTracker.Tests
             FakeKalemTanimiService kalem,
             FakeSummaryService summary,
             FakeIsletmeService isletme,
-            Func<HttpRequestMessage, string, HttpResponseMessage>? responder = null)
+            Func<HttpRequestMessage, string, HttpResponseMessage>? responder = null,
+            Action<TelegramSettings>? configureSettings = null,
+            ITelegramPairingService? pairingService = null)
         {
             var handler = new RecordingHttpMessageHandler(responder);
             var http = new HttpClient(handler);
@@ -698,6 +757,7 @@ namespace CashTracker.Tests
                 EnableCommands = true,
                 AllowedUserIds = "42"
             };
+            configureSettings?.Invoke(settings);
 
             var backup = new BackupReportService(
                 bot,
@@ -739,7 +799,8 @@ namespace CashTracker.Tests
                 products,
                 stock,
                 barcode,
-                stockSessionStore);
+                stockSessionStore,
+                pairingService);
 
             return (bot, handler, service, security, ocr, sessionStore);
         }
@@ -835,6 +896,36 @@ namespace CashTracker.Tests
 
                 return RecordingHttpMessageHandler.OkJson("{\"ok\":true,\"result\":{}}");
             };
+        }
+
+        private sealed class FakeTelegramPairingService : ITelegramPairingService
+        {
+            public string LastCode { get; private set; } = string.Empty;
+            public long LastChatId { get; private set; }
+            public long? LastUserId { get; private set; }
+
+            public TelegramPairingCode EnsureActiveCode()
+            {
+                return new TelegramPairingCode("SC-123456", DateTime.UtcNow, DateTime.UtcNow.AddMinutes(10));
+            }
+
+            public TelegramPairingCode RenewCode()
+            {
+                return EnsureActiveCode();
+            }
+
+            public bool TryCompletePairing(string code, long chatId, long? userId, out string message)
+            {
+                LastCode = code;
+                LastChatId = chatId;
+                LastUserId = userId;
+                message = "pairing-ok";
+                return string.Equals(code, "SC-123456", StringComparison.OrdinalIgnoreCase);
+            }
+
+            public void ClearPairing()
+            {
+            }
         }
     }
 }

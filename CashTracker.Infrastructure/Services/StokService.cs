@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -28,10 +29,27 @@ namespace CashTracker.Infrastructure.Services
             var activeIsletmeId = await _isletmeService.GetActiveIdAsync();
             await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
-            return await db.StokHareketleri
+            var amounts = await db.StokHareketleri
                 .AsNoTracking()
                 .Where(x => x.IsletmeId == activeIsletmeId && x.UrunHizmetId == urunHizmetId)
-                .SumAsync(x => x.Miktar, ct);
+                .Select(x => x.Miktar)
+                .ToListAsync(ct);
+
+            return amounts.Sum();
+        }
+
+        public async Task<List<StokHareket>> GetRecentMovementsAsync(int limit = 20, CancellationToken ct = default)
+        {
+            var activeIsletmeId = await _isletmeService.GetActiveIdAsync();
+            await using var db = await _dbFactory.CreateDbContextAsync(ct);
+
+            return await db.StokHareketleri
+                .AsNoTracking()
+                .Where(x => x.IsletmeId == activeIsletmeId)
+                .OrderByDescending(x => x.Tarih)
+                .ThenByDescending(x => x.Id)
+                .Take(Math.Clamp(limit, 1, 100))
+                .ToListAsync(ct);
         }
 
         public async Task<StokHareketResult> CreateMovementAsync(
@@ -72,15 +90,16 @@ namespace CashTracker.Infrastructure.Services
             db.StokHareketleri.Add(movement);
             await db.SaveChangesAsync(ct);
 
-            var current = await db.StokHareketleri
+            var amounts = await db.StokHareketleri
                 .AsNoTracking()
                 .Where(x => x.IsletmeId == activeIsletmeId && x.UrunHizmetId == request.UrunHizmetId)
-                .SumAsync(x => x.Miktar, ct);
+                .Select(x => x.Miktar)
+                .ToListAsync(ct);
 
             return new StokHareketResult
             {
                 Hareket = movement,
-                MevcutStok = current
+                MevcutStok = amounts.Sum()
             };
         }
     }

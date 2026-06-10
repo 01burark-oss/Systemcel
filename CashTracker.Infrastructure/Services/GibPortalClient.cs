@@ -28,13 +28,13 @@ namespace CashTracker.Infrastructure.Services
             CancellationToken ct = default)
         {
             if (string.IsNullOrWhiteSpace(kullaniciKodu) || string.IsNullOrWhiteSpace(sifre))
-                return GibPortalResult.Fail("GIB kullanici kodu ve sifre gerekli.");
+                return GibPortalResult.Fail("GİB kullanıcı kodu ve şifre gerekli.");
 
             try
             {
                 var token = await LoginAsync(kullaniciKodu, sifre, testModu, ct);
                 await LogoutAsync(token, testModu, ct);
-                return GibPortalResult.Ok("GIB Portal girisi dogrulandi.");
+                return GibPortalResult.Ok("GİB Portal girişi doğrulandı.");
             }
             catch (Exception ex)
             {
@@ -50,10 +50,10 @@ namespace CashTracker.Infrastructure.Services
             CancellationToken ct = default)
         {
             if (fatura.Fatura.Id <= 0)
-                return Task.FromResult(GibPortalResult.Fail("Fatura bulunamadi."));
+                return Task.FromResult(GibPortalResult.Fail("Fatura bulunamadı."));
 
             if (fatura.Fatura.FaturaTipi != "Satis")
-                return Task.FromResult(GibPortalResult.Fail("GIB e-Arsiv Portal'a V1'de sadece satis faturasi taslagi gonderilir."));
+                return Task.FromResult(GibPortalResult.Fail("GİB e-Arşiv Portal'a V1'de sadece satış faturası taslağı gönderilir."));
 
             return CreateDraftCoreAsync(fatura, kullaniciKodu, sifre, testModu, ct);
         }
@@ -66,7 +66,7 @@ namespace CashTracker.Infrastructure.Services
             CancellationToken ct = default)
         {
             if (string.IsNullOrWhiteSpace(uuid))
-                return Task.FromResult(GibPortalResult.Fail("Portal UUID bulunamadi."));
+                return Task.FromResult(GibPortalResult.Fail("Portal UUID bulunamadı."));
 
             return StartSmsVerificationCoreAsync(uuid, kullaniciKodu, sifre, testModu, ct);
         }
@@ -111,10 +111,10 @@ namespace CashTracker.Infrastructure.Services
 
                 var message = ExtractMessage(response);
                 if (IsSuccessMessage(message))
-                    return GibPortalResult.Ok("GIB Portal taslagi olusturuldu.", uuid);
+                    return GibPortalResult.Ok("GİB Portal taslağı oluşturuldu.", uuid);
 
                 return GibPortalResult.Fail(string.IsNullOrWhiteSpace(message)
-                    ? "GIB Portal taslak gonderimi basarisiz."
+                    ? "GİB Portal taslak gönderimi başarısız."
                     : message);
             }
             catch (Exception ex)
@@ -148,7 +148,7 @@ namespace CashTracker.Infrastructure.Services
                     ct);
                 var phone = ExtractDataProperty(phoneResponse, "telefon");
                 if (string.IsNullOrWhiteSpace(phone))
-                    return GibPortalResult.Fail("GIB Portal kayitli telefon numarasi donmedi.");
+                    return GibPortalResult.Fail("GİB Portal kayıtlı telefon numarası dönmedi.");
 
                 using var smsResponse = await DispatchAsync(
                     testModu,
@@ -166,7 +166,7 @@ namespace CashTracker.Infrastructure.Services
                 if (string.IsNullOrWhiteSpace(operationId))
                     return GibPortalResult.Fail(ExtractMessage(smsResponse));
 
-                return GibPortalResult.Ok("SMS kodu GIB Portal'daki kayitli telefona gonderildi.", uuid, operationId: operationId);
+                return GibPortalResult.Ok("SMS kodu GİB Portal'daki kayıtlı telefona gönderildi.", uuid, operationId: operationId);
             }
             catch (Exception ex)
             {
@@ -215,10 +215,10 @@ namespace CashTracker.Infrastructure.Services
 
                 var result = ExtractDataProperty(response, "sonuc");
                 if (string.Equals(result, "1", StringComparison.Ordinal))
-                    return GibPortalResult.Ok("GIB Portal SMS onayi tamamlandi.", uuid);
+                    return GibPortalResult.Ok("GİB Portal SMS onayı tamamlandı.", uuid);
 
                 var message = ExtractMessage(response);
-                return GibPortalResult.Fail(string.IsNullOrWhiteSpace(message) ? "GIB Portal SMS onayi basarisiz." : message);
+                return GibPortalResult.Fail(string.IsNullOrWhiteSpace(message) ? "GİB Portal SMS onayı başarısız." : message);
             }
             catch (Exception ex)
             {
@@ -247,18 +247,18 @@ namespace CashTracker.Infrastructure.Services
             using var response = await _httpClient.PostAsync(GetLoginUri(testModu), content, ct);
             var body = await response.Content.ReadAsStringAsync(ct);
             if (!response.IsSuccessStatusCode)
-                throw new InvalidOperationException($"GIB login basarisiz: {(int)response.StatusCode}");
+                throw new InvalidOperationException($"GİB login başarısız: {(int)response.StatusCode}");
 
             using var json = JsonDocument.Parse(body);
             if (json.RootElement.TryGetProperty("error", out var error) && error.ValueKind != JsonValueKind.Null)
                 throw new InvalidOperationException(ExtractText(error));
 
             if (!json.RootElement.TryGetProperty("token", out var tokenElement))
-                throw new InvalidOperationException("GIB login token donmedi.");
+                throw new InvalidOperationException("GİB login token dönmedi.");
 
             var token = tokenElement.GetString();
             if (string.IsNullOrWhiteSpace(token))
-                throw new InvalidOperationException("GIB login token bos dondu.");
+                throw new InvalidOperationException("GİB login token boş döndü.");
 
             return token;
         }
@@ -307,7 +307,7 @@ namespace CashTracker.Infrastructure.Services
             using var response = await _httpClient.PostAsync(GetDispatchUri(testModu), content, ct);
             var body = await response.Content.ReadAsStringAsync(ct);
             if (!response.IsSuccessStatusCode)
-                throw new InvalidOperationException($"GIB dispatch basarisiz: {(int)response.StatusCode}");
+                throw new InvalidOperationException($"GİB dispatch başarısız: {(int)response.StatusCode}");
 
             return JsonDocument.Parse(body);
         }
@@ -315,9 +315,9 @@ namespace CashTracker.Infrastructure.Services
         private static Dictionary<string, object?> BuildInvoicePayload(FaturaDetail detail, string uuid)
         {
             var fatura = detail.Fatura;
-            var cari = detail.Cari ?? throw new InvalidOperationException("Fatura carisi bulunamadi.");
+            var cari = detail.Cari ?? throw new InvalidOperationException("Fatura carisi bulunamadı.");
             if (string.IsNullOrWhiteSpace(cari.VergiNoTc))
-                throw new InvalidOperationException("GIB taslak icin cari Vergi/TC no gerekli.");
+                throw new InvalidOperationException("GİB taslak için cari Vergi/TC no gerekli.");
 
             var (firstName, lastName) = SplitName(cari.Unvan);
             var rows = new List<Dictionary<string, object?>>();
@@ -516,7 +516,7 @@ namespace CashTracker.Infrastructure.Services
 
         private static string Sanitize(string value)
         {
-            return string.IsNullOrWhiteSpace(value) ? "GIB Portal baglantisi basarisiz." : value.Trim();
+            return string.IsNullOrWhiteSpace(value) ? "GİB Portal bağlantısı başarısız." : value.Trim();
         }
 
         private static readonly JsonSerializerOptions JsonOptions = new()

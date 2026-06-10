@@ -6,13 +6,17 @@ namespace CashTracker.Core.Models
     public sealed class TelegramSettings
     {
         public string BotToken { get; set; } = "";
+        public string BotUsername { get; set; } = "";
         public string ChatId { get; set; } = "";
         public bool EnableCommands { get; set; } = true;
         public string AllowedUserIds { get; set; } = "";
         public int PollTimeoutSeconds { get; set; } = 20;
 
+        public bool HasBotToken =>
+            !string.IsNullOrWhiteSpace(BotToken);
+
         public bool IsEnabled =>
-            !string.IsNullOrWhiteSpace(BotToken) &&
+            HasBotToken &&
             !string.IsNullOrWhiteSpace(ChatId);
 
         public bool IsTargetChat(long chatId)

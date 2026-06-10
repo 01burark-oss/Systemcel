@@ -16,6 +16,7 @@ namespace CashTracker.Infrastructure.Services
         private readonly CancellationTokenSource _cts = new();
         private Task? _loopTask;
         private long? _offset;
+        private string _commandsConfiguredForToken = string.Empty;
 
         public TelegramPollingService(
             TelegramSettings settings,
@@ -29,7 +30,6 @@ namespace CashTracker.Infrastructure.Services
 
         public void Start()
         {
-            if (!_settings.IsEnabled || !_settings.EnableCommands) return;
             if (_loopTask != null) return;
 
             _loopTask = Task.Run(() => RunAsync(_cts.Token));
@@ -41,6 +41,16 @@ namespace CashTracker.Infrastructure.Services
             {
                 try
                 {
+                    if (!_settings.HasBotToken || !_settings.EnableCommands)
+                    {
+                        _offset = null;
+                        _commandsConfiguredForToken = string.Empty;
+                        await Task.Delay(TimeSpan.FromSeconds(5), ct);
+                        continue;
+                    }
+
+                    await EnsureCommandMenuAsync(ct);
+
                     var updates = await _telegram.GetUpdatesAsync(
                         _offset,
                         _settings.GetSafePollTimeoutSeconds(),
@@ -61,6 +71,30 @@ namespace CashTracker.Infrastructure.Services
                     Debug.WriteLine($"TelegramPollingService error: {ex}");
                     await Task.Delay(TimeSpan.FromSeconds(3), ct);
                 }
+            }
+        }
+
+        public void NotifySettingsChanged()
+        {
+            _offset = null;
+            _commandsConfiguredForToken = string.Empty;
+            Start();
+        }
+
+        private async Task EnsureCommandMenuAsync(CancellationToken ct)
+        {
+            var token = _settings.BotToken.Trim();
+            if (string.IsNullOrWhiteSpace(token) || string.Equals(_commandsConfiguredForToken, token, StringComparison.Ordinal))
+                return;
+
+            try
+            {
+                await _telegram.SetCommandsAsync(TelegramCommandCatalog.BotMenu, ct);
+                _commandsConfiguredForToken = token;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"TelegramPollingService command menu error: {ex}");
             }
         }
 

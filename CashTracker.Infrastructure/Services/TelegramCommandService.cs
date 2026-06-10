@@ -31,6 +31,7 @@ namespace CashTracker.Infrastructure.Services
         private readonly IStokService _stokService;
         private readonly IBarcodeReaderService _barcodeReaderService;
         private readonly ITelegramStockSessionStore _stockSessionStore;
+        private readonly ITelegramPairingService? _telegramPairingService;
 
         public TelegramCommandService(
             TelegramBotService telegram,
@@ -48,7 +49,8 @@ namespace CashTracker.Infrastructure.Services
             IUrunHizmetService urunHizmetService,
             IStokService stokService,
             IBarcodeReaderService barcodeReaderService,
-            ITelegramStockSessionStore stockSessionStore)
+            ITelegramStockSessionStore stockSessionStore,
+            ITelegramPairingService? telegramPairingService = null)
         {
             _telegram = telegram;
             _settings = settings;
@@ -66,19 +68,37 @@ namespace CashTracker.Infrastructure.Services
             _stokService = stokService;
             _barcodeReaderService = barcodeReaderService;
             _stockSessionStore = stockSessionStore;
+            _telegramPairingService = telegramPairingService;
         }
 
         public async Task ProcessUpdateAsync(TelegramUpdate update, CancellationToken ct = default)
         {
-            if (!_settings.IsEnabled || !_settings.EnableCommands)
+            if (!_settings.HasBotToken || !_settings.EnableCommands)
                 return;
 
-            if (!_settings.IsTargetChat(update.ChatId))
+            var text = (update.Text ?? string.Empty).Trim();
+            if (TryHandlePairingStart(update, text, out var pairingMessage))
+            {
+                await _telegram.SendTextAsync(ToChatId(update.ChatId), pairingMessage, ct);
                 return;
+            }
+
+            if (!_settings.IsTargetChat(update.ChatId))
+            {
+                if (text.StartsWith("/start", StringComparison.OrdinalIgnoreCase))
+                {
+                    await _telegram.SendTextAsync(
+                        ToChatId(update.ChatId),
+                        "Systemcel bağlantısı için uygulamadaki Ayarlar > Telegram ekranından yeni bağlantı kodu al.",
+                        ct);
+                }
+
+                return;
+            }
 
             if (!_settings.IsAllowedUser(update.UserId))
             {
-                await _telegram.SendTextAsync(ToChatId(update.ChatId), "Bu kullanici yetkili degil.", ct);
+                await _telegram.SendTextAsync(ToChatId(update.ChatId), "Bu kullanıcı yetkili değil.", ct);
                 return;
             }
 
@@ -87,7 +107,6 @@ namespace CashTracker.Infrastructure.Services
 
             var chatId = update.ChatId;
             var userId = update.UserId.Value;
-            var text = (update.Text ?? string.Empty).Trim();
             var receiptSession = await _receiptSessionStore.GetAsync(chatId, userId, ct);
             var stockSession = await _stockSessionStore.GetAsync(chatId, userId, ct);
 
@@ -97,7 +116,7 @@ namespace CashTracker.Infrastructure.Services
                 {
                     await _telegram.SendTextAsync(
                         ToChatId(chatId),
-                        "Devam eden bir stok oturumu var. Once onu tamamla veya `iptal` yaz.",
+                        "Devam eden bir stok oturumu var. Önce onu tamamla veya `iptal` yaz.",
                         ct);
                     return;
                 }
@@ -108,7 +127,7 @@ namespace CashTracker.Infrastructure.Services
                     {
                         await _telegram.SendTextAsync(
                             ToChatId(chatId),
-                            "Devam eden bir fis oturumu var. Once onu tamamla veya `iptal` yaz.",
+                            "Devam eden bir fiş oturumu var. Önce onu tamamla veya `iptal` yaz.",
                             ct);
                         return;
                     }
@@ -121,7 +140,7 @@ namespace CashTracker.Infrastructure.Services
                 {
                     await _telegram.SendTextAsync(
                         ToChatId(chatId),
-                        "Devam eden bir fis oturumu var. Once onu tamamla veya `iptal` yaz.",
+                        "Devam eden bir fiş oturumu var. Önce onu tamamla veya `iptal` yaz.",
                         ct);
                     return;
                 }
@@ -180,6 +199,7 @@ namespace CashTracker.Infrastructure.Services
                     case "/start":
                     case "/help":
                     case "/yardim":
+                    case "/komutlar":
                     case "/yardım":
                         await SendHelpAsync(chatId, ct);
                         break;
@@ -189,7 +209,7 @@ namespace CashTracker.Infrastructure.Services
                     case "/bugün":
                     {
                         var businessName = await GetActiveBusinessNameAsync();
-                        await _backupReport.SendDailyReportAsync(DateTime.Today, $"Telegram komutu | Isletme: {businessName}");
+                        await _backupReport.SendDailyReportAsync(DateTime.Today, $"Telegram komutu | İşletme: {businessName}");
                         break;
                     }
                     case "/summary":
@@ -207,8 +227,8 @@ namespace CashTracker.Infrastructure.Services
                     case "/yedek":
                     {
                         var businessName = await GetActiveBusinessNameAsync();
-                        await _telegram.SendTextAsync(ToChatId(chatId), $"Yedek aliniyor, lutfen bekleyin.\nIsletme: {businessName}", ct);
-                        await _backupReport.SendBackupAsync($"Telegram komutu | Isletme: {businessName}");
+                        await _telegram.SendTextAsync(ToChatId(chatId), $"Yedek alınıyor, lütfen bekleyin.\nİşletme: {businessName}", ct);
+                        await _backupReport.SendBackupAsync($"Telegram komutu | İşletme: {businessName}");
                         break;
                     }
                     case "/add":
@@ -229,7 +249,7 @@ namespace CashTracker.Infrastructure.Services
                         {
                             await _telegram.SendTextAsync(
                                 ToChatId(chatId),
-                                "Devam eden bir fis oturumu var. Once onu tamamla veya `iptal` yaz.",
+                                "Devam eden bir fiş oturumu var. Önce onu tamamla veya `iptal` yaz.",
                                 ct);
                             break;
                         }
@@ -256,7 +276,7 @@ namespace CashTracker.Infrastructure.Services
                     default:
                         await _telegram.SendTextAsync(
                             ToChatId(chatId),
-                            "Bilinmeyen komut. Komutlari gormek icin /yardim yaz.",
+                            "Bilinmeyen komut. Komutları görmek için /yardim yaz.",
                             ct);
                         break;
                 }
@@ -266,9 +286,31 @@ namespace CashTracker.Infrastructure.Services
                 Debug.WriteLine($"TelegramCommandService command error: {ex}");
                 await _telegram.SendTextAsync(
                     ToChatId(chatId),
-                    "Komut islenirken bir hata olustu. Lutfen tekrar deneyin.",
+                    "Komut işlenirken bir hata oluştu. Lütfen tekrar deneyin.",
                     ct);
             }
+        }
+
+        private bool TryHandlePairingStart(TelegramUpdate update, string text, out string message)
+        {
+            message = string.Empty;
+            if (_telegramPairingService is null ||
+                string.IsNullOrWhiteSpace(text) ||
+                !TryParseCommand(text, out var command, out var args) ||
+                command != "/start" ||
+                args.Length == 0)
+            {
+                return false;
+            }
+
+            var code = args[0]?.Trim() ?? string.Empty;
+            if (_telegramPairingService.TryCompletePairing(code, update.ChatId, update.UserId, out message))
+                return true;
+
+            message = string.IsNullOrWhiteSpace(message)
+                ? "Eşleştirme kodu geçersiz veya süresi doldu."
+                : message;
+            return true;
         }
 
         private async Task StartReceiptSessionAsync(TelegramUpdate update, CancellationToken ct)
@@ -277,14 +319,14 @@ namespace CashTracker.Infrastructure.Services
             {
                 await _telegram.SendTextAsync(
                     ToChatId(update.ChatId),
-                    "Fis OCR ayarlari eksik. ReceiptOcr:ApiKey ayarini gir.",
+                    "Fiş OCR ayarları eksik. ReceiptOcr:ApiKey ayarını gir.",
                     ct);
                 return;
             }
 
             if (string.IsNullOrWhiteSpace(update.PhotoFileId) || !update.UserId.HasValue)
             {
-                await _telegram.SendTextAsync(ToChatId(update.ChatId), "Fis fotografi okunamadi.", ct);
+                await _telegram.SendTextAsync(ToChatId(update.ChatId), "Fiş fotoğrafı okunamadı.", ct);
                 return;
             }
 
@@ -315,7 +357,7 @@ namespace CashTracker.Infrastructure.Services
                     SafeDeleteFile(tempFilePath);
                     await _telegram.SendTextAsync(
                         ToChatId(update.ChatId),
-                        "Fis okunamadi veya kaydedilebilir urun bulunamadi.",
+                        "Fiş okunamadı veya kaydedilebilir ürün bulunamadı.",
                         ct);
                     return;
                 }
@@ -323,7 +365,7 @@ namespace CashTracker.Infrastructure.Services
                 await _receiptSessionStore.SaveAsync(session, ct);
                 await _telegram.SendTextAsync(
                     ToChatId(update.ChatId),
-                    "Fis okundu. Eksik alanlari birlikte tamamlayalim.",
+                    "Fiş okundu. Eksik alanları birlikte tamamlayalım.",
                     ct);
                 await AdvanceReceiptSessionAsync(session, ct);
             }
@@ -334,7 +376,7 @@ namespace CashTracker.Infrastructure.Services
                 Debug.WriteLine($"TelegramCommandService receipt OCR error: {ex}");
                 await _telegram.SendTextAsync(
                     ToChatId(update.ChatId),
-                    $"Fis OCR islenemedi. {GetReceiptOcrFailureHint(ex)}",
+                    $"Fiş OCR işlenemedi. {GetReceiptOcrFailureHint(ex)}",
                     ct);
             }
         }
@@ -416,7 +458,7 @@ namespace CashTracker.Infrastructure.Services
                     break;
 
                 default:
-                    await _telegram.SendTextAsync(ToChatId(session.ChatId), "Beklenmeyen fis oturumu durumu.", ct);
+                    await _telegram.SendTextAsync(ToChatId(session.ChatId), "Beklenmeyen fiş oturumu durumu.", ct);
                     break;
             }
         }
@@ -458,7 +500,7 @@ namespace CashTracker.Infrastructure.Services
                 {
                     await _telegram.SendTextAsync(
                         ToChatId(session.ChatId),
-                        "Yeni kalem adi bos olamaz. Ornek: yeni: Mutfak Giderleri",
+                        "Yeni kalem adı boş olamaz. Örnek: yeni: Mutfak Giderleri",
                         ct);
                     await PromptForCurrentItemAsync(session, ct);
                     return;
@@ -470,7 +512,7 @@ namespace CashTracker.Infrastructure.Services
                 await _receiptSessionStore.SaveAsync(session, ct);
                 await _telegram.SendTextAsync(
                     ToChatId(session.ChatId),
-                    $"'{proposedName}' adli gider kalemi olusturayim mi? Evet/Hayir",
+                    $"'{proposedName}' adlı gider kalemi oluşturayım mı? Evet/Hayır",
                     ct);
                 return;
             }
@@ -497,7 +539,7 @@ namespace CashTracker.Infrastructure.Services
 
             await _telegram.SendTextAsync(
                 ToChatId(session.ChatId),
-                "Kalem secimi anlasilmadi. Sira numarasi, genel gider kalem adi, `yeni: <ad>` veya `atla` kullan.",
+                "Kalem seçimi anlaşılmadı. Sıra numarası, genel gider kalem adı, `yeni: <ad>` veya `atla` kullan.",
                 ct);
             await PromptForCurrentItemAsync(session, ct);
         }
@@ -533,7 +575,7 @@ namespace CashTracker.Infrastructure.Services
 
             await _telegram.SendTextAsync(
                 ToChatId(session.ChatId),
-                "Lutfen `Evet` veya `Hayir` cevabi ver.",
+                "Lütfen `Evet` veya `Hayır` cevabı ver.",
                 ct);
         }
 
@@ -554,7 +596,7 @@ namespace CashTracker.Infrastructure.Services
             {
                 await _telegram.SendTextAsync(
                     ToChatId(session.ChatId),
-                    "Tarih anlasilmadi. Ornek: 2026-03-29 veya 29.03.2026. Gecmek icin `atla` yaz.",
+                    "Tarih anlaşılmadı. Örnek: 2026-03-29 veya 29.03.2026. Geçmek için `atla` yaz.",
                     ct);
                 return;
             }
@@ -581,7 +623,7 @@ namespace CashTracker.Infrastructure.Services
             {
                 await _telegram.SendTextAsync(
                     ToChatId(session.ChatId),
-                    "Odeme yontemi anlasilmadi. Nakit, KrediKarti, OnlineOdeme veya Havale yaz. Gecmek icin `atla` yaz.",
+                    "Ödeme yöntemi anlaşılmadı. Nakit, KrediKarti, OnlineOdeme veya Havale yaz. Geçmek için `atla` yaz.",
                     ct);
                 return;
             }
@@ -601,7 +643,7 @@ namespace CashTracker.Infrastructure.Services
             {
                 await _telegram.SendTextAsync(
                     ToChatId(session.ChatId),
-                    "Kayitlari olusturmak icin `onayla`, vazgecmek icin `iptal` yaz.",
+                    "Kayıtları oluşturmak için `onayla`, vazgeçmek için `iptal` yaz.",
                     ct);
                 return;
             }
@@ -618,8 +660,8 @@ namespace CashTracker.Infrastructure.Services
                 .ToArray();
 
             var response = new StringBuilder();
-            response.AppendLine($"Kaydedildi. {ids.Count} gider kaydi olusturuldu.");
-            response.AppendLine($"Isletme: {businessName}");
+            response.AppendLine($"Kaydedildi. {ids.Count} gider kaydı oluşturuldu.");
+            response.AppendLine($"İşletme: {businessName}");
             foreach (var line in grouped)
                 response.AppendLine(line);
 
@@ -651,8 +693,8 @@ namespace CashTracker.Infrastructure.Services
         private static string BuildReceiptDescription(string? merchant)
         {
             return string.IsNullOrWhiteSpace(merchant)
-                ? "OCR Fis"
-                : $"OCR Fis | {merchant.Trim()}";
+                ? "OCR Fiş"
+                : $"OCR Fiş | {merchant.Trim()}";
         }
 
         private async Task AdvanceReceiptSessionAsync(
@@ -675,7 +717,7 @@ namespace CashTracker.Infrastructure.Services
                 await _receiptSessionStore.SaveAsync(session, ct);
                 await _telegram.SendTextAsync(
                     ToChatId(session.ChatId),
-                    "Fis tarihi eksik. Tarihi `yyyy-MM-dd` veya `dd.MM.yyyy` olarak gonder. Gecmek icin `atla` yaz.",
+                    "Fiş tarihi eksik. Tarihi `yyyy-MM-dd` veya `dd.MM.yyyy` olarak gönder. Geçmek için `atla` yaz.",
                     ct);
                 return;
             }
@@ -686,7 +728,7 @@ namespace CashTracker.Infrastructure.Services
                 await _receiptSessionStore.SaveAsync(session, ct);
                 await _telegram.SendTextAsync(
                     ToChatId(session.ChatId),
-                    "Odeme yontemi eksik. Nakit, KrediKarti, OnlineOdeme veya Havale yaz. Gecmek icin `atla` yaz.",
+                    "Ödeme yöntemi eksik. Nakit, KrediKarti, OnlineOdeme veya Havale yaz. Geçmek için `atla` yaz.",
                     ct);
                 return;
             }
@@ -709,20 +751,20 @@ namespace CashTracker.Infrastructure.Services
             var item = session.Items[itemIndex];
             var categories = await GetExpenseCategoryNamesAsync();
             var sb = new StringBuilder();
-            sb.AppendLine($"Urun icin gider kalemi sec: {item.RawName}");
+            sb.AppendLine($"Ürün için gider kalemi seç: {item.RawName}");
             sb.AppendLine($"Tutar: {item.Amount:n2}");
             if (!string.IsNullOrWhiteSpace(item.CandidateKalem))
-                sb.AppendLine($"AI onerisi: {item.CandidateKalem}");
+                sb.AppendLine($"AI önerisi: {item.CandidateKalem}");
             sb.AppendLine();
-            sb.AppendLine("Kalemler genel gider gruplari olmali. Ornek: Mutfak Giderleri, Personel Giderleri.");
+            sb.AppendLine("Kalemler genel gider grupları olmalı. Örnek: Mutfak Giderleri, Personel Giderleri.");
             sb.AppendLine();
             sb.AppendLine("Kalemler:");
             for (var i = 0; i < categories.Count; i++)
                 sb.AppendLine($"{i + 1}. {categories[i]}");
             sb.AppendLine();
             sb.AppendLine("Cevap:");
-            sb.AppendLine("- sira numarasi");
-            sb.AppendLine("- genel gider kalem adi");
+            sb.AppendLine("- sıra numarası");
+            sb.AppendLine("- genel gider kalem adı");
             sb.AppendLine("- yeni: <kalem>");
             sb.AppendLine("- atla");
             sb.AppendLine("- iptal");
@@ -745,19 +787,19 @@ namespace CashTracker.Infrastructure.Services
                 .ToList();
 
             var sb = new StringBuilder();
-            sb.AppendLine("Fis ozeti");
-            sb.AppendLine($"Isletme: {session.BusinessName}");
-            sb.AppendLine($"Magaza: {merchant}");
+            sb.AppendLine("Fiş özeti");
+            sb.AppendLine($"İşletme: {session.BusinessName}");
+            sb.AppendLine($"Mağaza: {merchant}");
             sb.AppendLine($"Tarih: {(session.ReceiptDate.HasValue ? session.ReceiptDate.Value.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture) : "-")}");
-            sb.AppendLine($"Odeme: {session.PaymentMethod}");
+            sb.AppendLine($"Ödeme: {session.PaymentMethod}");
             if (session.ReceiptTotal.HasValue)
-                sb.AppendLine($"Fis Toplami: {session.ReceiptTotal.Value:n2}");
+                sb.AppendLine($"Fiş Toplamı: {session.ReceiptTotal.Value:n2}");
             sb.AppendLine();
             sb.AppendLine("Kalemler:");
             foreach (var row in grouped)
                 sb.AppendLine($"- {row.Kalem}: {row.Toplam:n2} | {row.Urunler}");
             sb.AppendLine();
-            sb.AppendLine("Kaydetmek icin `onayla`, vazgecmek icin `iptal` yaz.");
+            sb.AppendLine("Kaydetmek için `onayla`, vazgeçmek için `iptal` yaz.");
 
             await _telegram.SendTextAsync(ToChatId(session.ChatId), sb.ToString().Trim(), ct);
         }
@@ -765,7 +807,7 @@ namespace CashTracker.Infrastructure.Services
         private async Task CancelReceiptSessionAsync(long chatId, long userId, CancellationToken ct)
         {
             await _receiptSessionStore.DeleteAsync(chatId, userId, ct);
-            await _telegram.SendTextAsync(ToChatId(chatId), "Fis oturumu iptal edildi.", ct);
+            await _telegram.SendTextAsync(ToChatId(chatId), "Fiş oturumu iptal edildi.", ct);
         }
 
         private static bool TryParseStockCaption(string? caption, out string[] args)
@@ -800,7 +842,7 @@ namespace CashTracker.Infrastructure.Services
 
             if (string.IsNullOrWhiteSpace(update.PhotoFileId))
             {
-                await _telegram.SendTextAsync(ToChatId(update.ChatId), "Barkod fotografi okunamadi.", ct);
+                await _telegram.SendTextAsync(ToChatId(update.ChatId), "Barkod fotoğrafı okunamadı.", ct);
                 return;
             }
 
@@ -817,7 +859,7 @@ namespace CashTracker.Infrastructure.Services
                     await StartStockBarcodeAwaitSessionAsync(
                         update,
                         quantity,
-                        "Barkod okunamadi. Lutfen barkod numarasini elle yaz veya `iptal` yaz.",
+                        "Barkod okunamadı. Lütfen barkod numarasını elle yaz veya `iptal` yaz.",
                         ct);
                     return;
                 }
@@ -830,7 +872,7 @@ namespace CashTracker.Infrastructure.Services
                 Debug.WriteLine($"TelegramCommandService stock photo error: {ex}");
                 await _telegram.SendTextAsync(
                     ToChatId(update.ChatId),
-                    "Stok barkod fotografi islenemedi. Fotograf net degilse barkodu elle /stok <barkod> <miktar> seklinde gonder.",
+                    "Stok barkod fotoğrafı işlenemedi. Fotoğraf net değilse barkodu elle /stok <barkod> <miktar> şeklinde gönder.",
                     ct);
             }
             finally
@@ -852,7 +894,7 @@ namespace CashTracker.Infrastructure.Services
                 await StartStockBarcodeAwaitSessionAsync(
                     update,
                     quantityOnly,
-                    "Stok hareketi icin barkodu yaz. Ornek: 8690000000000",
+                    "Stok hareketi için barkodu yaz. Örnek: 8690000000000",
                     ct);
                 return;
             }
@@ -957,7 +999,7 @@ namespace CashTracker.Infrastructure.Services
                 await _stockSessionStore.SaveAsync(session, ct);
                 await _telegram.SendTextAsync(
                     ToChatId(session.ChatId),
-                    "Barkod bos olamaz. Barkod numarasini yaz veya `iptal` yaz.",
+                    "Barkod boş olamaz. Barkod numarasını yaz veya `iptal` yaz.",
                     ct);
                 return;
             }
@@ -970,7 +1012,7 @@ namespace CashTracker.Infrastructure.Services
                 await _stockSessionStore.SaveAsync(session, ct);
                 await _telegram.SendTextAsync(
                     ToChatId(session.ChatId),
-                    $"Bu barkod kayitli degil: {barcode}\nUrun olusturalim. Urun adini yaz veya `iptal` yaz.",
+                    $"Bu barkod kayıtlı değil: {barcode}\nÜrün oluşturalım. Ürün adını yaz veya `iptal` yaz.",
                     ct);
                 return;
             }
@@ -995,7 +1037,7 @@ namespace CashTracker.Infrastructure.Services
             var name = input.Trim();
             if (string.IsNullOrWhiteSpace(name))
             {
-                await _telegram.SendTextAsync(ToChatId(session.ChatId), "Urun adi bos olamaz. Urun adini yaz.", ct);
+                await _telegram.SendTextAsync(ToChatId(session.ChatId), "Ürün adı boş olamaz. Ürün adını yaz.", ct);
                 return;
             }
 
@@ -1004,7 +1046,7 @@ namespace CashTracker.Infrastructure.Services
             await _stockSessionStore.SaveAsync(session, ct);
             await _telegram.SendTextAsync(
                 ToChatId(session.ChatId),
-                "Birim yaz. Ornek: Adet, Kg, Litre. Varsayilan Adet icin `atla` yaz.",
+                "Birim yaz. Örnek: Adet, Kg, Litre. Varsayılan Adet için `atla` yaz.",
                 ct);
         }
 
@@ -1021,7 +1063,7 @@ namespace CashTracker.Infrastructure.Services
             await _stockSessionStore.SaveAsync(session, ct);
             await _telegram.SendTextAsync(
                 ToChatId(session.ChatId),
-                "KDV oranini yaz. Ornek: 20. Varsayilan 20 icin `atla` yaz.",
+                "KDV oranını yaz. Örnek: 20. Varsayılan 20 için `atla` yaz.",
                 ct);
         }
 
@@ -1036,7 +1078,7 @@ namespace CashTracker.Infrastructure.Services
             }
             else if (!TryParseNonNegativeDecimal(input, out var vatRate))
             {
-                await _telegram.SendTextAsync(ToChatId(session.ChatId), "KDV orani sayisal olmali. Ornek: 20 veya `atla`.", ct);
+                await _telegram.SendTextAsync(ToChatId(session.ChatId), "KDV oranı sayısal olmalı. Örnek: 20 veya `atla`.", ct);
                 return;
             }
             else
@@ -1048,7 +1090,7 @@ namespace CashTracker.Infrastructure.Services
             await _stockSessionStore.SaveAsync(session, ct);
             await _telegram.SendTextAsync(
                 ToChatId(session.ChatId),
-                "Alis fiyatini yaz. Bilmiyorsan `atla` yaz.",
+                "Alış fiyatını yaz. Bilmiyorsan `atla` yaz.",
                 ct);
         }
 
@@ -1063,7 +1105,7 @@ namespace CashTracker.Infrastructure.Services
             }
             else if (!TryParseNonNegativeDecimal(input, out var purchasePrice))
             {
-                await _telegram.SendTextAsync(ToChatId(session.ChatId), "Alis fiyati sayisal olmali. Ornek: 125,50 veya `atla`.", ct);
+                await _telegram.SendTextAsync(ToChatId(session.ChatId), "Alış fiyatı sayısal olmalı. Örnek: 125,50 veya `atla`.", ct);
                 return;
             }
             else
@@ -1075,7 +1117,7 @@ namespace CashTracker.Infrastructure.Services
             await _stockSessionStore.SaveAsync(session, ct);
             await _telegram.SendTextAsync(
                 ToChatId(session.ChatId),
-                "Satis fiyatini yaz. Bilmiyorsan `atla` yaz.",
+                "Satış fiyatını yaz. Bilmiyorsan `atla` yaz.",
                 ct);
         }
 
@@ -1090,7 +1132,7 @@ namespace CashTracker.Infrastructure.Services
             }
             else if (!TryParseNonNegativeDecimal(input, out var salePrice))
             {
-                await _telegram.SendTextAsync(ToChatId(session.ChatId), "Satis fiyati sayisal olmali. Ornek: 150 veya `atla`.", ct);
+                await _telegram.SendTextAsync(ToChatId(session.ChatId), "Satış fiyatı sayısal olmalı. Örnek: 150 veya `atla`.", ct);
                 return;
             }
             else
@@ -1102,7 +1144,7 @@ namespace CashTracker.Infrastructure.Services
             await _stockSessionStore.SaveAsync(session, ct);
             await _telegram.SendTextAsync(
                 ToChatId(session.ChatId),
-                "Kritik stok miktarini yaz. Yoksa `atla` yaz.",
+                "Kritik stok miktarını yaz. Yoksa `atla` yaz.",
                 ct);
         }
 
@@ -1117,7 +1159,7 @@ namespace CashTracker.Infrastructure.Services
             }
             else if (!TryParseNonNegativeDecimal(input, out var criticalStock))
             {
-                await _telegram.SendTextAsync(ToChatId(session.ChatId), "Kritik stok sayisal olmali. Ornek: 10 veya `atla`.", ct);
+                await _telegram.SendTextAsync(ToChatId(session.ChatId), "Kritik stok sayısal olmalı. Örnek: 10 veya `atla`.", ct);
                 return;
             }
             else
@@ -1140,7 +1182,7 @@ namespace CashTracker.Infrastructure.Services
             {
                 await _telegram.SendTextAsync(
                     ToChatId(session.ChatId),
-                    "Stok hareketini kaydetmek icin `onayla`, vazgecmek icin `iptal` yaz.",
+                    "Stok hareketini kaydetmek için `onayla`, vazgeçmek için `iptal` yaz.",
                     ct);
                 return;
             }
@@ -1151,7 +1193,7 @@ namespace CashTracker.Infrastructure.Services
                 await _stockSessionStore.DeleteAsync(session.ChatId, session.UserId, ct);
                 await _telegram.SendTextAsync(
                     ToChatId(session.ChatId),
-                    "Urun bulunamadi veya olusturulamadi. Stok hareketi kaydedilmedi.",
+                    "Ürün bulunamadı veya oluşturulamadı. Stok hareketi kaydedilmedi.",
                     ct);
                 return;
             }
@@ -1170,13 +1212,13 @@ namespace CashTracker.Infrastructure.Services
             var businessName = await GetActiveBusinessNameAsync();
             var sb = new StringBuilder();
             sb.AppendLine("Stok hareketi kaydedildi.");
-            sb.AppendLine($"Isletme: {businessName}");
-            sb.AppendLine($"Urun: {product.Ad}");
+            sb.AppendLine($"İşletme: {businessName}");
+            sb.AppendLine($"Ürün: {product.Ad}");
             sb.AppendLine($"Barkod: {session.Barcode}");
             sb.AppendLine($"Miktar: {FormatSignedQuantity(session.PendingQuantity)}");
             sb.AppendLine($"Mevcut stok: {result.MevcutStok:n2} {product.Birim}");
             if (result.IsNegative)
-                sb.AppendLine("Uyari: Mevcut stok eksiye dustu.");
+                sb.AppendLine("Uyarı: Mevcut stok eksiye düştü.");
 
             await _telegram.SendTextAsync(ToChatId(session.ChatId), sb.ToString().Trim(), ct);
         }
@@ -1227,25 +1269,25 @@ namespace CashTracker.Infrastructure.Services
             var businessName = await GetActiveBusinessNameAsync();
 
             var sb = new StringBuilder();
-            sb.AppendLine("Stok hareketi ozeti");
-            sb.AppendLine($"Isletme: {businessName}");
-            sb.AppendLine(isExistingProduct ? $"Urun: {productName}" : $"Yeni urun: {productName}");
+            sb.AppendLine("Stok hareketi özeti");
+            sb.AppendLine($"İşletme: {businessName}");
+            sb.AppendLine(isExistingProduct ? $"Ürün: {productName}" : $"Yeni ürün: {productName}");
             sb.AppendLine($"Barkod: {session.Barcode}");
-            sb.AppendLine($"Miktar: {FormatSignedQuantity(session.PendingQuantity)} ({(session.PendingQuantity > 0 ? "Giris" : "Cikis")})");
+            sb.AppendLine($"Miktar: {FormatSignedQuantity(session.PendingQuantity)} ({(session.PendingQuantity > 0 ? "Giriş" : "Çıkış")})");
             sb.AppendLine($"Mevcut stok: {currentStock:n2} {unit} -> {nextStock:n2} {unit}");
             if (!isExistingProduct)
             {
                 sb.AppendLine($"Birim: {session.Unit}");
                 sb.AppendLine($"KDV: %{session.VatRate:n2}");
-                sb.AppendLine($"Alis/Satis: {session.PurchasePrice:n2} / {session.SalePrice:n2}");
+                sb.AppendLine($"Alış/Satış: {session.PurchasePrice:n2} / {session.SalePrice:n2}");
                 sb.AppendLine($"Kritik stok: {session.CriticalStock:n2}");
             }
 
             if (nextStock < 0)
-                sb.AppendLine("Uyari: Bu islem stogu eksiye dusurecek. V1'de engellenmez, sadece uyarilir.");
+                sb.AppendLine("Uyarı: Bu işlem stoğu eksiye düşürecek. V1'de engellenmez, sadece uyarılır.");
 
             sb.AppendLine();
-            sb.AppendLine("Kaydetmek icin `onayla`, vazgecmek icin `iptal` yaz.");
+            sb.AppendLine("Kaydetmek için `onayla`, vazgeçmek için `iptal` yaz.");
 
             await _telegram.SendTextAsync(ToChatId(session.ChatId), sb.ToString().Trim(), ct);
         }
@@ -1289,7 +1331,7 @@ namespace CashTracker.Infrastructure.Services
 
         private static string GetStockUsage()
         {
-            return "Kullanim:\n/stok <barkod> +10\n/stok <barkod> -3\nBarkod fotografi icin caption: /stok +50";
+            return "Kullanım:\n/stok <barkod> +10\n/stok <barkod> -3\nBarkod fotoğrafı için açıklama: /stok +50";
         }
 
         private static string BuildTempStockFilePath(string telegramFilePath)
@@ -1335,32 +1377,7 @@ namespace CashTracker.Infrastructure.Services
 
         private async Task SendHelpAsync(long chatId, CancellationToken ct)
         {
-            var help =
-                "Komutlar:\n" +
-                "/yardim - Komut listesi\n" +
-                "/bugun - Bugunun raporu\n" +
-                "/ozet [gun] - Son N gun ozeti (varsayilan 30)\n" +
-                "/rapor [gun] - Insan okunur TXT rapor (varsayilan 30)\n" +
-                "/yedek - Veritabani yedegi gonder\n" +
-                "/ekle gelir <tutar> [kalem] [aciklama]\n" +
-                "/ekle gider <tutar> <kalem> [aciklama]\n" +
-                "/gelir <tutar> [kalem] [aciklama]\n" +
-                "/gider <tutar> <kalem> [aciklama]\n" +
-                "/stok <barkod> +10 veya /stok <barkod> -3\n" +
-                "/onay <kod> - Silme onayini verir\n" +
-                "/iptal <kod> - Silme onayini reddeder\n" +
-                "\n" +
-                "Fis OCR:\n" +
-                "- Bota fis fotografi gonder\n" +
-                "- Eksik eslemelerde sira numarasi, genel gider kalem adi, `yeni: <ad>`, `atla` veya `iptal` kullan\n" +
-                "- Kalemler genel olmali: Mutfak Giderleri, Personel Giderleri gibi\n" +
-                "- Son adimda `onayla` ile kaydet\n" +
-                "\n" +
-                "Stok:\n" +
-                "- Barkod fotografi gonderirken caption olarak `/stok +50` veya `/stok -3` yaz\n" +
-                "- Barkod okunamazsa bot barkodu elle ister\n" +
-                "- Bilinmeyen barkodda urun bilgilerini sorar, son adimda `onayla` ile kaydeder";
-
+            var help = TelegramCommandCatalog.BuildHelpText(await GetActiveBusinessNameAsync());
             await _telegram.SendTextAsync(ToChatId(chatId), help, ct);
         }
 
@@ -1370,7 +1387,7 @@ namespace CashTracker.Infrastructure.Services
             {
                 await _telegram.SendTextAsync(
                     ToChatId(chatId),
-                    approve ? "Kullanim: /onay <kod>" : "Kullanim: /iptal <kod>",
+                    approve ? "Kullanım: /onay <kod>" : "Kullanım: /iptal <kod>",
                     ct);
                 return;
             }
@@ -1380,7 +1397,7 @@ namespace CashTracker.Infrastructure.Services
             {
                 await _telegram.SendTextAsync(
                     ToChatId(chatId),
-                    "Onay kodu bos olamaz.",
+                    "Onay kodu boş olamaz.",
                     ct);
                 return;
             }
@@ -1389,12 +1406,12 @@ namespace CashTracker.Infrastructure.Services
             {
                 await _telegram.SendTextAsync(
                     ToChatId(chatId),
-                    "Kod bulunamadi veya suresi doldu.",
+                    "Kod bulunamadı veya süresi doldu.",
                     ct);
                 return;
             }
 
-            var resultText = approve ? "Onaylandi" : "Reddedildi";
+            var resultText = approve ? "Onaylandı" : "Reddedildi";
             var titleText = string.IsNullOrWhiteSpace(title) ? string.Empty : $" | {title}";
             await _telegram.SendTextAsync(ToChatId(chatId), $"{resultText}{titleText}", ct);
         }
@@ -1406,7 +1423,7 @@ namespace CashTracker.Infrastructure.Services
             {
                 if (!int.TryParse(args[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsedDays))
                 {
-                    await _telegram.SendTextAsync(ToChatId(chatId), "Kullanim: /ozet [gun]", ct);
+                    await _telegram.SendTextAsync(ToChatId(chatId), "Kullanım: /ozet [gün]", ct);
                     return;
                 }
 
@@ -1420,12 +1437,12 @@ namespace CashTracker.Infrastructure.Services
             var businessName = await GetActiveBusinessNameAsync();
 
             var sb = new StringBuilder();
-            sb.AppendLine($"Ozet ({from:yyyy-MM-dd} - {to:yyyy-MM-dd})");
-            sb.AppendLine($"Isletme: {businessName}");
+            sb.AppendLine($"Özet ({from:yyyy-MM-dd} - {to:yyyy-MM-dd})");
+            sb.AppendLine($"İşletme: {businessName}");
             sb.AppendLine($"Gelir: {summary.IncomeTotal:n2}");
             sb.AppendLine($"Gider: {summary.ExpenseTotal:n2}");
             sb.AppendLine($"Net: {summary.Net:n2}");
-            sb.AppendLine($"Islem: {summary.IncomeCount + summary.ExpenseCount} (Gelir {summary.IncomeCount}, Gider {summary.ExpenseCount})");
+            sb.AppendLine($"İşlem: {summary.IncomeCount + summary.ExpenseCount} (Gelir {summary.IncomeCount}, Gider {summary.ExpenseCount})");
             AppendOdemeYontemiBreakdown(sb, records);
             AppendKalemBreakdown(sb, records, "Gelir");
             AppendKalemBreakdown(sb, records, "Gider");
@@ -1437,7 +1454,7 @@ namespace CashTracker.Infrastructure.Services
         {
             await _telegram.SendTextAsync(
                 ToChatId(chatId),
-                "PIN degisimi Telegram uzerinden kapatildi. Lutfen uygulama icindeki Ayarlar ekranini kullanin.",
+                "PIN değişimi Telegram üzerinden kapatıldı. Lütfen uygulama içindeki Ayarlar ekranını kullanın.",
                 ct);
         }
 
@@ -1448,7 +1465,7 @@ namespace CashTracker.Infrastructure.Services
             {
                 if (!int.TryParse(args[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsedDays))
                 {
-                    await _telegram.SendTextAsync(ToChatId(chatId), "Kullanim: /rapor [gun]", ct);
+                    await _telegram.SendTextAsync(ToChatId(chatId), "Kullanım: /rapor [gün]", ct);
                     return;
                 }
 
@@ -1463,20 +1480,20 @@ namespace CashTracker.Infrastructure.Services
 
             var sb = new StringBuilder();
             sb.AppendLine("CashTracker Rapor");
-            sb.AppendLine($"Aralik: {from:yyyy-MM-dd} - {to:yyyy-MM-dd}");
-            sb.AppendLine($"Isletme: {businessName}");
+            sb.AppendLine($"Aralık: {from:yyyy-MM-dd} - {to:yyyy-MM-dd}");
+            sb.AppendLine($"İşletme: {businessName}");
             sb.AppendLine();
             sb.AppendLine($"Gelir Toplam: {summary.IncomeTotal:n2}");
             sb.AppendLine($"Gider Toplam: {summary.ExpenseTotal:n2}");
             sb.AppendLine($"Net: {summary.Net:n2}");
-            sb.AppendLine($"Islem Sayisi: {summary.IncomeCount + summary.ExpenseCount}");
+            sb.AppendLine($"İşlem Sayısı: {summary.IncomeCount + summary.ExpenseCount}");
             AppendOdemeYontemiBreakdown(sb, records);
             sb.AppendLine();
             sb.AppendLine("Hareketler:");
 
             if (records.Count == 0)
             {
-                sb.AppendLine("- Bu aralikta hareket yok.");
+                sb.AppendLine("- Bu aralıkta hareket yok.");
             }
             else
             {
@@ -1499,7 +1516,7 @@ namespace CashTracker.Infrastructure.Services
 
             try
             {
-                var caption = $"Rapor ({from:yyyy-MM-dd} - {to:yyyy-MM-dd}) | Isletme: {businessName}";
+                var caption = $"Rapor ({from:yyyy-MM-dd} - {to:yyyy-MM-dd}) | İşletme: {businessName}";
                 await _telegram.SendDocumentAsync(ToChatId(chatId), reportPath, caption, ct);
             }
             finally
@@ -1512,7 +1529,7 @@ namespace CashTracker.Infrastructure.Services
         {
             if (args.Length < 2)
             {
-                await _telegram.SendTextAsync(ToChatId(chatId), "Kullanim: /ekle gelir|gider <tutar> [kalem] [aciklama]", ct);
+                await _telegram.SendTextAsync(ToChatId(chatId), "Kullanım: /ekle gelir|gider <tutar> [kalem] [açıklama]", ct);
                 return;
             }
 
@@ -1531,15 +1548,15 @@ namespace CashTracker.Infrastructure.Services
             if (args.Length < 1)
             {
                 if (tip == "Gider")
-                    await _telegram.SendTextAsync(ToChatId(chatId), "Kullanim: /gider <tutar> <kalem> [aciklama]", ct);
+                    await _telegram.SendTextAsync(ToChatId(chatId), "Kullanım: /gider <tutar> <kalem> [açıklama]", ct);
                 else
-                    await _telegram.SendTextAsync(ToChatId(chatId), "Kullanim: /gelir <tutar> [kalem] [aciklama]", ct);
+                    await _telegram.SendTextAsync(ToChatId(chatId), "Kullanım: /gelir <tutar> [kalem] [açıklama]", ct);
                 return;
             }
 
             if (!TryParseAmount(args[0], out var amount) || amount <= 0)
             {
-                await _telegram.SendTextAsync(ToChatId(chatId), "Tutar sayisal ve sifirdan buyuk olmali.", ct);
+                await _telegram.SendTextAsync(ToChatId(chatId), "Tutar sayısal ve sıfırdan büyük olmalı.", ct);
                 return;
             }
 
@@ -1549,7 +1566,7 @@ namespace CashTracker.Infrastructure.Services
 
             if (tip == "Gider" && string.IsNullOrWhiteSpace(kalemParse.Kalem))
             {
-                await _telegram.SendTextAsync(ToChatId(chatId), "Gider icin kalem zorunlu. Ornek: /gider 150 market", ct);
+                await _telegram.SendTextAsync(ToChatId(chatId), "Gider için kalem zorunlu. Örnek: /gider 150 market", ct);
                 return;
             }
 
@@ -1571,7 +1588,7 @@ namespace CashTracker.Infrastructure.Services
 
             await _telegram.SendTextAsync(
                 ToChatId(chatId),
-                $"Kaydedildi. Id: {id}\nIsletme: {businessName}\nTip: {tip}\nKalem: {kalemText}\nTutar: {amount:n2}",
+                $"Kaydedildi. Id: {id}\nİşletme: {businessName}\nTip: {tip}\nKalem: {kalemText}\nTutar: {amount:n2}",
                 ct);
         }
 
@@ -1680,12 +1697,12 @@ namespace CashTracker.Infrastructure.Services
             sb.AppendLine($"{tip} Kalemleri:");
             if (kalemRows.Count == 0)
             {
-                sb.AppendLine("- Kayit yok.");
+                sb.AppendLine("- Kayıt yok.");
                 return;
             }
 
             foreach (var row in kalemRows)
-                sb.AppendLine($"- {row.Kalem}: {row.Toplam:n2} ({row.Count} islem)");
+                sb.AppendLine($"- {row.Kalem}: {row.Toplam:n2} ({row.Count} işlem)");
         }
 
         private static void AppendOdemeYontemiBreakdown(StringBuilder sb, IReadOnlyCollection<Kasa> records)
@@ -1702,7 +1719,7 @@ namespace CashTracker.Infrastructure.Services
                     StringComparer.OrdinalIgnoreCase);
 
             sb.AppendLine();
-            sb.AppendLine("Odeme Yontemleri:");
+            sb.AppendLine("Ödeme Yöntemleri:");
             foreach (var method in new[] { "Nakit", "KrediKarti", "OnlineOdeme", "Havale" })
             {
                 var income = byMethod.TryGetValue(method, out var values) ? values.Income : 0m;
@@ -1842,8 +1859,8 @@ namespace CashTracker.Infrastructure.Services
         {
             return method switch
             {
-                "KrediKarti" => "Kredi Karti",
-                "OnlineOdeme" => "Online Odeme",
+                "KrediKarti" => "Kredi Kartı",
+                "OnlineOdeme" => "Online Ödeme",
                 _ => method
             };
         }
@@ -1991,62 +2008,75 @@ namespace CashTracker.Infrastructure.Services
         {
             var message = FlattenExceptionMessages(ex);
             if (string.IsNullOrWhiteSpace(message))
-                return "Fotograf net degilse tekrar deneyin.";
+                return "Fotoğraf net değilse tekrar deneyin.";
 
             if (message.Contains("Telegram getFile", StringComparison.OrdinalIgnoreCase) ||
                 message.Contains("Telegram file download", StringComparison.OrdinalIgnoreCase) ||
                 message.Contains("Telegram file_path", StringComparison.OrdinalIgnoreCase))
             {
-                return "Telegram fotograf indirme asamasinda hata oldu.";
+                return "Telegram fotoğraf indirme aşamasında hata oldu.";
             }
 
+            if (message.Contains("DeepSeek API anahtari eksik", StringComparison.OrdinalIgnoreCase))
+                return "OCR/AI ayarlari eksik.";
+
             if (message.Contains("Receipt OCR ayarlari eksik", StringComparison.OrdinalIgnoreCase))
-                return "OCR ayarlari eksik.";
+                return "OCR ayarları eksik.";
 
             if (message.Contains("Gemini OCR failed", StringComparison.OrdinalIgnoreCase))
             {
                 if (message.Contains("429", StringComparison.OrdinalIgnoreCase))
-                    return "Gemini kota veya hiz limiti asildi.";
+                    return "Gemini kota veya hız limiti aşıldı.";
 
                 if (message.Contains("401", StringComparison.OrdinalIgnoreCase) ||
                     message.Contains("403", StringComparison.OrdinalIgnoreCase))
                 {
-                    return "Gemini API erisimi reddedildi.";
+                    return "Gemini API erişimi reddedildi.";
                 }
 
                 if (message.Contains("400", StringComparison.OrdinalIgnoreCase))
-                    return "Gemini fotograf istegini reddetti.";
+                    return "Gemini fotoğraf isteğini reddetti.";
 
                 if (message.Contains("500", StringComparison.OrdinalIgnoreCase) ||
                     message.Contains("503", StringComparison.OrdinalIgnoreCase))
                 {
-                    return "Gemini su anda gecici olarak yanit vermiyor.";
+                    return "Gemini şu anda geçici olarak yanıt vermiyor.";
                 }
 
-                return "Gemini OCR istegi basarisiz oldu.";
+                return "Gemini OCR isteği başarısız oldu.";
             }
+
+            if (message.Contains("OCR.space", StringComparison.OrdinalIgnoreCase))
+                return message.Contains("1 MB", StringComparison.OrdinalIgnoreCase)
+                    ? "Fiş fotoğrafı OCR.space ücretsiz limitini aşıyor. Fotoğrafı biraz daha düşük çözünürlükte tekrar gönderin."
+                    : "OCR.space fiş metnini okuyamadı.";
+
+            if (message.Contains("DeepSeek yaniti basarisiz", StringComparison.OrdinalIgnoreCase) ||
+                message.Contains("DeepSeek bos yanit", StringComparison.OrdinalIgnoreCase) ||
+                message.Contains("DeepSeek OCR JSON", StringComparison.OrdinalIgnoreCase))
+                return "DeepSeek fis siniflandirmasi yapamadi.";
 
             if (message.Contains("Gemini OCR yaniti bos", StringComparison.OrdinalIgnoreCase) ||
                 message.Contains("Gemini OCR JSON", StringComparison.OrdinalIgnoreCase) ||
                 message.Contains("JSON object icermiyor", StringComparison.OrdinalIgnoreCase))
             {
-                return "Gemini gecerli bir OCR yaniti dondurmedi.";
+                return "Gemini geçerli bir OCR yanıtı döndürmedi.";
             }
 
             if (message.Contains("sqlite", StringComparison.OrdinalIgnoreCase) ||
                 message.Contains("database", StringComparison.OrdinalIgnoreCase) ||
                 message.Contains("dbupdate", StringComparison.OrdinalIgnoreCase))
             {
-                return "OCR oturumu veritabanina kaydedilemedi.";
+                return "OCR oturumu veritabanına kaydedilemedi.";
             }
 
             if (message.Contains("Receipt image is required.", StringComparison.OrdinalIgnoreCase))
-                return "Telegram fotograf verisi okunamadi.";
+                return "Telegram fotoğraf verisi okunamadı.";
 
             if (message.Contains("CashTracker gecici klasoru", StringComparison.OrdinalIgnoreCase))
-                return "Uygulamanin gecici klasorune yazilamadi.";
+                return "Uygulamanın geçici klasörüne yazılamadı.";
 
-            return "Fotograf net degilse tekrar deneyin.";
+            return "Fotoğraf net değilse tekrar deneyin.";
         }
 
         private static string FlattenExceptionMessages(Exception ex)

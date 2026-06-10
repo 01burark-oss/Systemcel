@@ -7,17 +7,22 @@ namespace CashTracker.Core.Models
         public string Provider { get; set; } = "Gemini";
         public string ApiKey { get; set; } = string.Empty;
         public string Model { get; set; } = "gemini-2.5-flash";
+        public string FallbackModel { get; set; } = "gemini-2.5-pro";
+        public string Language { get; set; } = "tur";
         public int SessionTimeoutMinutes { get; set; } = 30;
         public string EffectiveProvider => string.IsNullOrWhiteSpace(_licenseProvider) ? Provider : _licenseProvider;
         public string EffectiveApiKey => string.IsNullOrWhiteSpace(_licenseApiKey) ? ApiKey : _licenseApiKey;
         public string EffectiveModel => string.IsNullOrWhiteSpace(_licenseModel) ? Model : _licenseModel;
+        public string EffectiveFallbackModel => string.IsNullOrWhiteSpace(FallbackModel) ? string.Empty : FallbackModel.Trim();
+        public string EffectiveLanguage => string.IsNullOrWhiteSpace(Language) ? "tur" : Language.Trim();
 
         private string _licenseProvider = string.Empty;
         private string _licenseApiKey = string.Empty;
         private string _licenseModel = string.Empty;
 
         public bool IsConfigured =>
-            string.Equals(EffectiveProvider, "Gemini", StringComparison.OrdinalIgnoreCase) &&
+            (string.Equals(EffectiveProvider, "Gemini", StringComparison.OrdinalIgnoreCase) ||
+             string.Equals(EffectiveProvider, "OcrSpace", StringComparison.OrdinalIgnoreCase)) &&
             !string.IsNullOrWhiteSpace(EffectiveApiKey);
 
         public TimeSpan GetSessionTimeout()

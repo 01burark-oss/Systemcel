@@ -51,7 +51,7 @@ namespace CashTracker.Infrastructure.Services
         {
             ArgumentNullException.ThrowIfNull(request);
             if (string.IsNullOrWhiteSpace(request.KullaniciKodu))
-                throw new ArgumentException("GIB kullanici kodu bos olamaz.", nameof(request));
+                throw new ArgumentException("GİB kullanıcı kodu boş olamaz.", nameof(request));
 
             var activeIsletmeId = await _isletmeService.GetActiveIdAsync();
             await using var db = await _dbFactory.CreateDbContextAsync(ct);
@@ -82,7 +82,7 @@ namespace CashTracker.Infrastructure.Services
         {
             var settings = await LoadSettingsWithSecretAsync(ct);
             if (settings == null)
-                return GibPortalResult.Fail("GIB Portal ayarlari eksik.");
+                return GibPortalResult.Fail("GİB Portal ayarları eksik.");
 
             var result = await _client.TestLoginAsync(settings.KullaniciKodu, settings.Sifre, settings.TestModu, ct);
             await LogAsync(null, "TestConnection", result, ct);
@@ -93,11 +93,11 @@ namespace CashTracker.Infrastructure.Services
         {
             var settings = await LoadSettingsWithSecretAsync(ct);
             if (settings == null)
-                return GibPortalResult.Fail("GIB Portal ayarlari eksik veya sifre cozumlenemedi.");
+                return GibPortalResult.Fail("GİB Portal ayarları eksik veya şifre çözümlenemedi.");
 
             var detail = await _faturaService.GetDetailAsync(faturaId, ct);
             if (detail == null)
-                return GibPortalResult.Fail("Fatura bulunamadi.");
+                return GibPortalResult.Fail("Fatura bulunamadı.");
 
             var result = await _client.CreateDraftAsync(detail, settings.KullaniciKodu, settings.Sifre, settings.TestModu, ct);
             if (result.Success)
@@ -111,14 +111,14 @@ namespace CashTracker.Infrastructure.Services
         {
             var settings = await LoadSettingsWithSecretAsync(ct);
             if (settings == null)
-                return GibPortalResult.Fail("GIB Portal ayarlari eksik veya sifre cozumlenemedi.");
+                return GibPortalResult.Fail("GİB Portal ayarları eksik veya şifre çözümlenemedi.");
 
             var detail = await _faturaService.GetDetailAsync(faturaId, ct);
             if (detail == null)
-                return GibPortalResult.Fail("Fatura bulunamadi.");
+                return GibPortalResult.Fail("Fatura bulunamadı.");
 
             if (string.IsNullOrWhiteSpace(detail.Fatura.PortalUuid))
-                return GibPortalResult.Fail("Once GIB Portal taslagi olusturulmali.");
+                return GibPortalResult.Fail("Önce GİB Portal taslağı oluşturulmalı.");
 
             var result = await _client.StartSmsVerificationAsync(
                 detail.Fatura.PortalUuid,
@@ -134,14 +134,14 @@ namespace CashTracker.Infrastructure.Services
         {
             var settings = await LoadSettingsWithSecretAsync(ct);
             if (settings == null)
-                return GibPortalResult.Fail("GIB Portal ayarlari eksik veya sifre cozumlenemedi.");
+                return GibPortalResult.Fail("GİB Portal ayarları eksik veya şifre çözümlenemedi.");
 
             var detail = await _faturaService.GetDetailAsync(faturaId, ct);
             if (detail == null)
-                return GibPortalResult.Fail("Fatura bulunamadi.");
+                return GibPortalResult.Fail("Fatura bulunamadı.");
 
             if (string.IsNullOrWhiteSpace(detail.Fatura.PortalUuid))
-                return GibPortalResult.Fail("Portal UUID bulunamadi.");
+                return GibPortalResult.Fail("Portal UUID bulunamadı.");
 
             var result = await _client.CompleteSmsVerificationAsync(
                 detail.Fatura.PortalUuid,

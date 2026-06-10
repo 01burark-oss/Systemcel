@@ -2,10 +2,17 @@
 **/bin/
 **/obj/
 /artifacts/
+*.exe
+*.zip
+*.sha256
 
 # Local secrets
 .env
+.env.*
 **/.env
+**/.env.*
+!.env.example
+!**/.env.example
 
 # Local app/runtime data
 *.db
@@ -22,15 +29,30 @@ telegram-setup.json
 *.log
 
 # Local tooling and caches
+.codex-tmp/
 .codex/
+.runlogs/
+.playwright-mcp/
 .dotnet/
+.dotnet-tools/
+.dotnet-home/
+.run-appdata/
 .local/
 .appdata/
 .localappdata/
 .nuget-packages/
 .nuget-http-cache/
 .npm-cache/
+**/.npm-cache/
+**/node_modules/
+**/dist/
+**/TestResults/
+**/coverage/
+*.tsbuildinfo
 .tmp/
+tmp/
+outputs/
+archive/
 --configfile
 Microsoft/
 NuGet/
@@ -39,4 +61,10 @@ NuGet/
 app-build.txt
 test-output.txt
 tests-build.txt
+run-output.txt
+restore-app-diag.txt
+build-app-diag*.txt
+gettfm-*-diag.txt
+plan.md
 *.pdf
+/*.png
