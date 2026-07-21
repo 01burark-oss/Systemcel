@@ -18,7 +18,9 @@ namespace CashTracker.Infrastructure.Services
             {
                 [PlanKodlari.IsletmeUcretsiz] = 0,
                 [PlanKodlari.IsletmeBaslangic] = 10,
-                [PlanKodlari.IsletmeIsletme] = 20
+                [PlanKodlari.IsletmeBuyume] = 20,
+                [PlanKodlari.IsletmeIsletme] = 20,
+                [PlanKodlari.IsletmeKurumsal] = 30
             };
 
         private static readonly IReadOnlyDictionary<string, int> MuhasebeciPlanSirasi =
@@ -66,7 +68,9 @@ namespace CashTracker.Infrastructure.Services
                     kendiUcretliPlani.DonemBaslangicAt,
                     kendiUcretliPlani.DonemBitisAt,
                     sponsorMuhasebeciIsletmeId: null,
-                    paraBirimi: kendiUcretliPlani.ParaBirimi);
+                    paraBirimi: kendiUcretliPlani.ParaBirimi,
+                    faturalamaDonemi: kendiUcretliPlani.FaturalamaDonemi,
+                    donemTutari: kendiUcretliPlani.DonemTutari);
             }
 
             var denemeler = await db.IsletmeDenemeleri
@@ -83,11 +87,12 @@ namespace CashTracker.Infrastructure.Services
             {
                 return BuildIsletmeStatus(
                     isletmeId,
-                    PlanKodlari.IsletmeBaslangic,
+                    aktifDeneme.PlanKodu,
                     EntitlementKaynaklari.IsletmeDenemesi,
                     aktifDeneme.BaslangicAt,
                     aktifDeneme.BitisAt,
-                    sponsorMuhasebeciIsletmeId: null);
+                    sponsorMuhasebeciIsletmeId: null,
+                    faturalamaDonemi: aktifDeneme.FaturalamaDonemi);
             }
 
             var sponsor = await FindActiveSponsorAsync(db, isletmeId, current, ct);
@@ -146,6 +151,12 @@ namespace CashTracker.Infrastructure.Services
             var aylikTutar = StringEquals(planKodu, PlanKodlari.MuhasebeciStandart)
                 ? standartAylikTutar
                 : GetPlanDefinition(planKodu).AylikTutar;
+            var faturalamaDonemi = string.Equals(aktifPlan?.FaturalamaDonemi, "Yillik", StringComparison.OrdinalIgnoreCase) ? "Yillik" : "Aylik";
+            var donemTutari = aktifPlan?.DonemTutari > 0
+                ? aktifPlan.DonemTutari
+                : StringEquals(faturalamaDonemi, "Yillik")
+                    ? GetPlanDefinition(planKodu).YillikTutar
+                    : aylikTutar;
 
             return BuildMuhasebeciStatus(
                 muhasebeciIsletmeId,
@@ -157,7 +168,53 @@ namespace CashTracker.Infrastructure.Services
                 SubscriptionPlanCatalog.ShouldRecommendMuhasebeciPro(aktifMusteriSayisi)
                     && !StringEquals(planKodu, PlanKodlari.MuhasebeciPro),
                 aylikTutar,
+                faturalamaDonemi,
+                donemTutari,
                 paraBirimi);
+        }
+
+        public async Task<SubscriptionEntitlementStatus> StartIsletmeTrialAsync(
+            int isletmeId,
+            string planKodu,
+            string faturalamaDonemi,
+            DateTime? now = null,
+            CancellationToken ct = default)
+        {
+            var current = now ?? DateTime.Now;
+            var plan = GetPlanDefinition(planKodu);
+            var normalizedBilling = StringEquals(faturalamaDonemi, "Yillik") ? "Yillik" : "Aylik";
+            if (!StringEquals(plan.HesapTipi, HesapTipleri.Isletme) ||
+                StringEquals(plan.Kod, PlanKodlari.IsletmeUcretsiz) ||
+                StringEquals(plan.Kod, PlanKodlari.IsletmeIsletme))
+                throw new InvalidOperationException("Deneme icin gecerli bir isletme plani secin.");
+
+            await using var db = await _dbFactory.CreateDbContextAsync(ct);
+            if (await db.IsletmeDenemeleri.AnyAsync(x => x.IsletmeId == isletmeId, ct))
+                throw new InvalidOperationException("Bu isletme daha once ucretsiz deneme kullandi.");
+
+            var trial = new IsletmeDeneme
+            {
+                IsletmeId = isletmeId,
+                PlanKodu = plan.Kod,
+                FaturalamaDonemi = normalizedBilling,
+                Durum = "Aktif",
+                BaslangicAt = current,
+                BitisAt = current.AddDays(30),
+                OdemeYontemiEklendi = false,
+                CreatedAt = current,
+                UpdatedAt = current
+            };
+            db.IsletmeDenemeleri.Add(trial);
+            await db.SaveChangesAsync(ct);
+
+            return BuildIsletmeStatus(
+                isletmeId,
+                plan.Kod,
+                EntitlementKaynaklari.IsletmeDenemesi,
+                trial.BaslangicAt,
+                trial.BitisAt,
+                sponsorMuhasebeciIsletmeId: null,
+                faturalamaDonemi: normalizedBilling);
         }
 
         private static async Task<MuhasebeciMusteri?> FindActiveSponsorAsync(
@@ -206,7 +263,9 @@ namespace CashTracker.Infrastructure.Services
             DateTime gecerliBaslangicAt,
             DateTime? gecerliBitisAt,
             int? sponsorMuhasebeciIsletmeId,
-            string paraBirimi = "TRY")
+            string paraBirimi = "TRY",
+            string faturalamaDonemi = "Aylik",
+            decimal donemTutari = 0)
         {
             var plan = GetPlanDefinition(planKodu);
             var paidBusinessFeatures = !StringEquals(plan.Kod, PlanKodlari.IsletmeUcretsiz);
@@ -219,6 +278,9 @@ namespace CashTracker.Infrastructure.Services
                 PlanAdi = plan.Ad,
                 Kaynak = kaynak,
                 AylikTutar = plan.AylikTutar,
+                YillikTutar = plan.YillikTutar,
+                FaturalamaDonemi = faturalamaDonemi,
+                DonemTutari = donemTutari > 0 ? donemTutari : StringEquals(faturalamaDonemi, "Yillik") ? plan.YillikTutar : plan.AylikTutar,
                 ParaBirimi = paraBirimi,
                 OcrAktif = paidBusinessFeatures,
                 GibAktif = paidBusinessFeatures,
@@ -226,7 +288,15 @@ namespace CashTracker.Infrastructure.Services
                 AiAktif = paidBusinessFeatures,
                 AiMesajLimiti = plan.AiMesajLimiti,
                 KullaniciLimiti = plan.KullaniciLimiti,
+                FaturaLimiti = plan.FaturaLimiti,
                 MusteriLimiti = plan.MusteriLimiti,
+                BankaMutabakatiAktif = plan.BankaMutabakatiAktif,
+                StokRaporAktif = plan.StokRaporAktif,
+                MuhasebeciErisimiAktif = plan.MuhasebeciErisimiAktif,
+                CokluSubeAktif = plan.CokluSubeAktif,
+                CokluParaBirimiAktif = plan.CokluParaBirimiAktif,
+                ApiErisimiAktif = plan.ApiErisimiAktif,
+                OncelikliDestekAktif = plan.OncelikliDestekAktif,
                 SponsorMuhasebeciIsletmeId = sponsorMuhasebeciIsletmeId,
                 GecerliBaslangicAt = gecerliBaslangicAt,
                 GecerliBitisAt = gecerliBitisAt
@@ -242,6 +312,8 @@ namespace CashTracker.Infrastructure.Services
             decimal standartAylikTutar,
             bool proOnerilir,
             decimal aylikTutar,
+            string faturalamaDonemi,
+            decimal donemTutari,
             string paraBirimi)
         {
             var plan = GetPlanDefinition(planKodu);
@@ -258,6 +330,9 @@ namespace CashTracker.Infrastructure.Services
                     ? EntitlementKaynaklari.Ucretsiz
                     : EntitlementKaynaklari.KendiAboneligi,
                 AylikTutar = aylikTutar,
+                YillikTutar = plan.YillikTutar,
+                FaturalamaDonemi = faturalamaDonemi,
+                DonemTutari = donemTutari,
                 ParaBirimi = paraBirimi,
                 AiAktif = aiAktif,
                 AiMesajLimiti = plan.AiMesajLimiti,
@@ -286,7 +361,6 @@ namespace CashTracker.Infrastructure.Services
         private static bool IsActiveTrial(IsletmeDeneme deneme, DateTime current)
         {
             return IsActiveStatus(deneme.Durum)
-                && deneme.OdemeYontemiEklendi
                 && deneme.BaslangicAt <= current
                 && deneme.BitisAt >= current;
         }

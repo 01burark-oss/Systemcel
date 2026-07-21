@@ -16,5 +16,12 @@ namespace CashTracker.Core.Services
             int muhasebeciIsletmeId,
             DateTime? now = null,
             CancellationToken ct = default);
+
+        Task<SubscriptionEntitlementStatus> StartIsletmeTrialAsync(
+            int isletmeId,
+            string planKodu,
+            string faturalamaDonemi,
+            DateTime? now = null,
+            CancellationToken ct = default);
     }
 }

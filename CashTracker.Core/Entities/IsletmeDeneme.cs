@@ -7,6 +7,7 @@ namespace CashTracker.Core.Entities
         public int Id { get; set; }
         public int IsletmeId { get; set; }
         public string PlanKodu { get; set; } = "isletme_baslangic";
+        public string FaturalamaDonemi { get; set; } = "Aylik";
         public string Durum { get; set; } = "Aktif";
         public DateTime BaslangicAt { get; set; } = DateTime.Now;
         public DateTime BitisAt { get; set; } = DateTime.Now.AddMonths(1);
