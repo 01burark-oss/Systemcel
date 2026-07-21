@@ -4,7 +4,6 @@ import { AuthSayfasi } from "./auth/AuthSayfasi";
 import { RequireAuth } from "./auth/AuthGate";
 import { useSystemcelAuth } from "./auth/SystemcelAuthProvider";
 import systemcelIcon from "./assets/systemcel-icon.png";
-import { HakkimizdaSayfasi } from "./screens/about/HakkimizdaSayfasi";
 import { CariHesaplarSayfasi } from "./screens/cari/CariHesaplarSayfasi";
 import { DashboardSayfasi } from "./screens/dashboard/DashboardSayfasi";
 import { FaturalarSayfasi } from "./screens/faturalar/FaturalarSayfasi";
@@ -90,7 +89,7 @@ export function App() {
   }
 
   if (path === "/hakkimizda" || decodeURI(path) === "/hakkımızda") {
-    return <HakkimizdaSayfasi />;
+    return <PublicContentPage kind="about" />;
   }
 
   if (path === "/blog") {

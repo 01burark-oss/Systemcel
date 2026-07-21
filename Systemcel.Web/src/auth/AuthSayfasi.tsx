@@ -17,7 +17,6 @@ import {
   User,
   X
 } from "lucide-react";
-import systemcelIcon from "../assets/systemcel-icon.png";
 import { legalTexts, type AuthLanguage, type LegalTextKey } from "./legalTexts";
 import { useSystemcelAuth } from "./SystemcelAuthProvider";
 import { AuthStatus } from "./AuthGate";
@@ -341,12 +340,10 @@ export function AuthSayfasi({ mode }: { mode: AuthMode }) {
   return (
     <main className={`auth-shell auth-shell--branded auth-shell--${mode}`}>
       <a className="auth-shell__brand auth-shell__brand--top" href="/" aria-label="Systemcel">
-        <span className="auth-shell__brand-mark">
-          <img src={systemcelIcon} alt="" />
-        </span>
+        <span className="auth-shell__brand-mark" aria-hidden="true"><i /><i /><i /><i /></span>
         <span className="auth-shell__brand-copy">
-          <strong>SYSTEMCEL</strong>
-          <small>Finance Suite</small>
+          <strong>systemcel</strong>
+          <small>B2B FİNANS PLATFORMU</small>
         </span>
       </a>
 

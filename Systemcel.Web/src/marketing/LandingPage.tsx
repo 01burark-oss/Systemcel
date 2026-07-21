@@ -102,11 +102,11 @@ const copy = {
     trial: "30 gün ücretsiz dene", tour: "Canlı tur", noCard: "Kredi kartsız", setup: "5 dk kurulum", cancel: "İstediğin an iptal",
     section1: "Defter seni değil, sen defteri yönet.", section1Text: "Kasa, cari hesap, stok ve faturalar tek akışta birleşir. Tekrarlayan işleri azaltır, karar vermen gereken noktaları görünür kılarız.",
     section2: "Defterine soru sor, yanıtını al.", section2Text: "Systemcel AI, işletme verilerine göre gelir, gider, stok, cari, tahsilat ve rapor sorularına kısa ve uygulanabilir yanıtlar hazırlar.",
-    section3: "Muhasebecin bir tık uzağında.", section3Business: "Konum, uzmanlık ve müşteri tipine göre yayınlanan muhasebeci profillerini karşılaştır; talep gönder ve aynı çalışma alanında iletişim kur.",
+    section3: "Muhasebecin bir tık uzağında.", section3Business: "İhtiyacını ve uzmanlık alanlarını belirt; Systemcel, muhasebecileri uzmanlık alanlarının örtüşmesine göre şeffaf bir eşleşme skoru ile sıralar.",
     section3Accountant: "Profilini oluştur, uzmanlığını göster, işletmelerden gelen talepleri yönet ve müşterilerinle güvenli biçimde çalış.",
     forBusiness: "İşletmeler için", forAccountant: "Muhasebeciler için", findAccountant: "Muhasebecini bul", joinMarketplace: "Pazaryerine katıl",
     pricingTitle: "Şeffaf fiyat, sürpriz yok.", monthly: "Aylık", yearly: "Yıllık", discount: "-%20", popular: "Popüler", perMonth: "/ay", billedYearly: "yıllık ödemede", yearlyTotal: "Yıllık toplam", planCta: "30 gün ücretsiz dene",
-    finalTitle: "İlk hücreni bugün doldur.", sales: "Satışla görüş", footerText: "Ön muhasebe, yapay zekâ ve muhasebeci pazaryeri — işletmenin finansal çalışma alanı.",
+    finalTitle: "İlk hücreni bugün doldur.", sales: "Satış ekibimizle görüş", footerText: "Ön muhasebe, yapay zekâ ve muhasebeci pazaryeri — işletmenin finansal çalışma alanı.",
     product: "Ürün", company: "Şirket", legal: "Yasal", about: "Hakkımızda", careers: "Kariyer", blog: "Blog", contact: "İletişim", privacy: "Gizlilik", terms: "Kullanım Şartları", cookies: "Çerezler",
     tourTitle: "Systemcel canlı tur", tourText: "Gelir-gider kaydı, cari ve stok takibi, fatura akışı, AI asistanı ve muhasebeci bağlantısı tek çalışma alanında buluşur.", tourAction: "Hesabını oluştur", close: "Kapat",
   },
@@ -119,7 +119,7 @@ const copy = {
     trial: "Try free for 30 days", tour: "Live tour", noCard: "No credit card", setup: "5-minute setup", cancel: "Cancel anytime",
     section1: "You run the books — not the other way around.", section1Text: "Cash, accounts, inventory and invoices come together in one flow. Reduce repetitive work and make decisions visible.",
     section2: "Ask your books and get an answer.", section2Text: "Systemcel AI prepares concise, actionable answers about income, expenses, inventory, accounts, collections and reports.",
-    section3: "Your accountant is one click away.", section3Business: "Compare published accountant profiles by location, expertise and client type, send a request and communicate in one workspace.",
+    section3: "Your accountant is one click away.", section3Business: "Share your needs and areas of expertise; Systemcel ranks accountants with a transparent score based on expertise overlap.",
     section3Accountant: "Create your profile, showcase your expertise, manage business requests and work securely with your clients.",
     forBusiness: "For businesses", forAccountant: "For accountants", findAccountant: "Find an accountant", joinMarketplace: "Join marketplace",
     pricingTitle: "Transparent pricing. No surprises.", monthly: "Monthly", yearly: "Yearly", discount: "-20%", popular: "Popular", perMonth: "/mo", billedYearly: "with annual billing", yearlyTotal: "Annual total", planCta: "Try free for 30 days",
@@ -318,7 +318,7 @@ export function LandingPage() {
                 <button type="button" className={marketSide === "business" ? "active" : ""} onClick={() => setMarketSide("business")}>{t.forBusiness}</button>
                 <button type="button" className={marketSide === "accountant" ? "active" : ""} onClick={() => setMarketSide("accountant")}>{t.forAccountant}</button>
               </div>
-              <div className="marketing-market-profile" key={marketSide}><div><Users size={28} /></div><span>{marketSide === "business" ? (language === "tr" ? "Konum · Uzmanlık · Müşteri tipi" : "Location · Expertise · Client type") : (language === "tr" ? "Profil · Talepler · Müşteri alanı" : "Profile · Requests · Client workspace")}</span><strong>{marketSide === "business" ? t.findAccountant : t.joinMarketplace}</strong></div>
+              {marketSide === "business" ? <div className="marketing-market-profile marketing-market-profile--match" key={marketSide}><div className="marketing-market-profile__avatar">AD</div><div className="marketing-market-profile__copy"><strong>Ayşe Demirtaş</strong><span>{language === "tr" ? "SMMM · 12 yıl · E-ticaret · KDV" : "CPA · 12 years · E-commerce · VAT"}</span></div><b>%97 {language === "tr" ? "eşleşme" : "match"}</b></div> : <div className="marketing-market-profile" key={marketSide}><div><Users size={28} /></div><span>{language === "tr" ? "Profil · Talepler · Müşteri alanı" : "Profile · Requests · Client workspace"}</span><strong>{t.joinMarketplace}</strong></div>}
               <a className="marketing-button marketing-button--ink" href={marketSide === "business" ? "/muhasebeciler" : "/kayit?hesapTipi=Muhasebeci&returnUrl=%2Fapp%2Fmuhasebeci"}>{marketSide === "business" ? t.findAccountant : t.joinMarketplace}<ArrowRight size={17} /></a>
             </div>
           </div>
@@ -331,8 +331,8 @@ export function LandingPage() {
                 <button type="button" className={pricingAudience === "business" ? "active" : ""} aria-pressed={pricingAudience === "business"} onClick={() => setPricingAudience("business")}><Building2 size={17} />{language === "tr" ? "İşletmeler" : "Businesses"}</button>
                 <button type="button" className={pricingAudience === "accountant" ? "active" : ""} aria-pressed={pricingAudience === "accountant"} onClick={() => setPricingAudience("accountant")}><Users size={17} />{language === "tr" ? "Muhasebeciler" : "Accountants"}</button>
               </div>
-              <div className="marketing-billing"><span>{t.monthly}</span><button type="button" aria-label={language === "tr" ? "Faturalama dönemini değiştir" : "Change billing period"} aria-pressed={billing === "Yillik"} onClick={() => setBilling((value) => value === "Aylik" ? "Yillik" : "Aylik")}><i className={billing === "Yillik" ? "yearly" : ""} /></button><span>{t.yearly} <b>{pricingAudience === "business" ? t.discount : (language === "tr" ? "-%16" : "-16%")}</b></span></div>
             </div>
+            <div className="marketing-pricing__billing"><div className="marketing-billing"><span>{t.monthly}</span><button type="button" aria-label={language === "tr" ? "Faturalama dönemini değiştir" : "Change billing period"} aria-pressed={billing === "Yillik"} onClick={() => setBilling((value) => value === "Aylik" ? "Yillik" : "Aylik")}><i className={billing === "Yillik" ? "yearly" : ""} /></button><span>{t.yearly} <b>{pricingAudience === "business" ? t.discount : (language === "tr" ? "-%16" : "-16%")}</b></span></div></div>
             <div className="marketing-plan-grid" key={`${pricingAudience}-${billing}`}>{pricingAudience === "business" ? plans.map((plan) => <PlanCard key={plan.kod} plan={plan} billing={billing} language={language} popular={plan.kod === "isletme_buyume"} href={trialHref(plan.kod)} />) : accountantPlans.map((plan) => <AccountantPlanCard key={plan.kod} plan={plan} billing={billing} language={language} popular={plan.kod === "muhasebeci_standart"} href={accountantHref(plan.kod)} />)}</div>
           </div>
         </section>
@@ -350,7 +350,7 @@ export function LandingPage() {
 function BrandMark() { return <span className="marketing-brand-mark" aria-hidden="true"><i /><i /><i /><i /></span>; }
 
 function HeroLedger() {
-  return <div className="marketing-hero-board"><div className="marketing-hero-board__head"><span>NAKİT AKIŞI — 2026</span><b>CANLI</b></div><div className="marketing-hero-board__numbers"><div><small>GELİR</small><strong>₺842.300</strong></div><div><small>GİDER</small><strong>₺517.940</strong></div></div><div className="marketing-chart"><i /><i /><i /><b /></div><div className="marketing-float marketing-float--ai">✦ 3 faturanın vadesi bu hafta doluyor</div><div className="marketing-float marketing-float--bank"><Landmark size={17} /><span><strong>Banka hareketi eşleşti</strong><small>İncelemeye hazır</small></span></div></div>;
+  return <div className="marketing-hero-board"><div className="marketing-hero-board__head"><span>NAKİT AKIŞI — 2026</span><b>CANLI</b></div><div className="marketing-hero-board__numbers"><div><small>GELİR</small><strong>₺842.300</strong></div><div><small>GİDER</small><strong>₺517.940</strong></div></div><div className="marketing-chart" aria-hidden="true"><svg viewBox="0 0 560 150" preserveAspectRatio="none"><defs><linearGradient id="marketing-cashflow-area" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#c8ff00" stopOpacity=".32" /><stop offset="1" stopColor="#c8ff00" stopOpacity="0" /></linearGradient></defs><path className="marketing-chart__area" d="M0 124 C44 120 73 99 112 103 C157 108 177 76 222 78 C269 81 288 49 332 56 C380 64 401 34 450 40 C493 45 522 20 560 20 L560 150 L0 150 Z" /><path className="marketing-chart__line" pathLength="1" d="M0 124 C44 120 73 99 112 103 C157 108 177 76 222 78 C269 81 288 49 332 56 C380 64 401 34 450 40 C493 45 522 20 560 20" /><circle cx="560" cy="20" r="5" /></svg></div><div className="marketing-float marketing-float--ai">✦ 3 faturanın vadesi bu hafta doluyor</div><div className="marketing-float marketing-float--bank"><Landmark size={17} /><span><strong>Banka hareketi eşleşti</strong><small>İncelemeye hazır</small></span></div></div>;
 }
 
 function Trust({ icon, title, text }: { icon: React.ReactNode; title: string; text: string }) { return <article>{icon}<div><strong>{title}</strong><span>{text}</span></div></article>; }
