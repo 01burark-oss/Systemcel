@@ -61,7 +61,8 @@ namespace CashTracker.Tests
             Assert.True(actual.GibAktif);
             Assert.True(actual.TelegramAktif);
             Assert.True(actual.AiAktif);
-            Assert.Equal(50, actual.AiMesajLimiti);
+            Assert.Equal(100, actual.AiMesajLimiti);
+            Assert.Equal(50, actual.FaturaLimiti);
             Assert.Equal(Now.AddDays(20), actual.GecerliBitisAt);
             Assert.Null(actual.SponsorMuhasebeciIsletmeId);
             await AssertNoPersistedEntitlementAsync(fixture);
@@ -83,7 +84,7 @@ namespace CashTracker.Tests
             Assert.Equal(EntitlementKaynaklari.MuhasebeciProSponsor, actual.Kaynak);
             Assert.Equal(2, actual.SponsorMuhasebeciIsletmeId);
             Assert.True(actual.AiAktif);
-            Assert.Equal(50, actual.AiMesajLimiti);
+            Assert.Equal(100, actual.AiMesajLimiti);
             await AssertNoPersistedEntitlementAsync(fixture);
         }
 
@@ -93,7 +94,7 @@ namespace CashTracker.Tests
             using var fixture = await SubscriptionFixture.CreateAsync();
             await fixture.SeedAsync(db =>
             {
-                db.IsletmeDenemeleri.Add(CreateDeneme(1, odemeYontemiEklendi: false));
+                db.IsletmeDenemeleri.Add(CreateDeneme(1, durum: "Iptal", odemeYontemiEklendi: false));
                 db.MuhasebeciMusterileri.Add(CreateMuhasebeciMusteri(2, 1));
                 db.Abonelikler.Add(CreateAbonelik(
                     2,
@@ -168,7 +169,10 @@ namespace CashTracker.Tests
             using var fixture = await SubscriptionFixture.CreateAsync();
             await fixture.SeedAsync(db =>
             {
-                db.Abonelikler.Add(CreateAbonelik(1, HesapTipleri.Muhasebeci, PlanKodlari.MuhasebeciPro));
+                var abonelik = CreateAbonelik(1, HesapTipleri.Muhasebeci, PlanKodlari.MuhasebeciPro);
+                abonelik.FaturalamaDonemi = "Yillik";
+                abonelik.DonemTutari = 12085.92m;
+                db.Abonelikler.Add(abonelik);
                 db.MuhasebeciMusterileri.Add(CreateMuhasebeciMusteri(1, 10));
             });
 
@@ -176,12 +180,49 @@ namespace CashTracker.Tests
 
             Assert.Equal(PlanKodlari.MuhasebeciPro, actual.PlanKodu);
             Assert.Equal(1199, actual.AylikTutar);
+            Assert.Equal(12085.92m, actual.YillikTutar);
+            Assert.Equal("Yillik", actual.FaturalamaDonemi);
+            Assert.Equal(12085.92m, actual.DonemTutari);
             Assert.True(actual.AiSinirsiz);
             Assert.True(actual.MusteriSinirsiz);
             Assert.True(actual.OneCikmaAktif);
             Assert.True(actual.DonemOtomasyonuAktif);
             Assert.True(actual.MusteriSaglikSkoruAktif);
             Assert.False(actual.MuhasebeciProOnerilir);
+        }
+
+        [Fact]
+        public async Task IsletmeDenemesi_KrediKartsizOtuzGunSecilenPlaniAcar()
+        {
+            using var fixture = await SubscriptionFixture.CreateAsync();
+
+            var actual = await fixture.Service.StartIsletmeTrialAsync(
+                1,
+                PlanKodlari.IsletmeBuyume,
+                "Yillik",
+                Now);
+
+            Assert.Equal(PlanKodlari.IsletmeBuyume, actual.PlanKodu);
+            Assert.Equal(EntitlementKaynaklari.IsletmeDenemesi, actual.Kaynak);
+            Assert.Equal("Yillik", actual.FaturalamaDonemi);
+            Assert.Equal(9504, actual.DonemTutari);
+            Assert.Equal(Now.AddDays(30), actual.GecerliBitisAt);
+            Assert.True(actual.BankaMutabakatiAktif);
+            Assert.True(actual.AiSinirsiz);
+
+            await using var db = fixture.CreateDbContext();
+            var trial = await db.IsletmeDenemeleri.SingleAsync();
+            Assert.False(trial.OdemeYontemiEklendi);
+        }
+
+        [Fact]
+        public async Task IsletmeDenemesi_IkinciKezBaslatilamaz()
+        {
+            using var fixture = await SubscriptionFixture.CreateAsync();
+            await fixture.Service.StartIsletmeTrialAsync(1, PlanKodlari.IsletmeBaslangic, "Aylik", Now);
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                fixture.Service.StartIsletmeTrialAsync(1, PlanKodlari.IsletmeKurumsal, "Aylik", Now));
         }
 
         private static Abonelik CreateAbonelik(
@@ -209,13 +250,13 @@ namespace CashTracker.Tests
             };
         }
 
-        private static IsletmeDeneme CreateDeneme(int isletmeId, bool odemeYontemiEklendi = true)
+        private static IsletmeDeneme CreateDeneme(int isletmeId, string durum = "Aktif", bool odemeYontemiEklendi = true)
         {
             return new IsletmeDeneme
             {
                 IsletmeId = isletmeId,
                 PlanKodu = PlanKodlari.IsletmeBaslangic,
-                Durum = "Aktif",
+                Durum = durum,
                 BaslangicAt = Now.AddDays(-10),
                 BitisAt = Now.AddDays(20),
                 OdemeYontemiEklendi = odemeYontemiEklendi,

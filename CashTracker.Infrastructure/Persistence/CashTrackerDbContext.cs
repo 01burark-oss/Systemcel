@@ -225,6 +225,8 @@ namespace CashTracker.Infrastructure.Persistence
                 e.Property(x => x.PlanKodu).IsRequired();
                 e.Property(x => x.Durum).IsRequired();
                 e.Property(x => x.AylikTutar).HasColumnType("NUMERIC");
+                e.Property(x => x.FaturalamaDonemi).IsRequired();
+                e.Property(x => x.DonemTutari).HasColumnType("NUMERIC");
                 e.Property(x => x.ParaBirimi).IsRequired();
                 e.Property(x => x.OdemeSaglayici).IsRequired();
                 e.Property(x => x.SaglayiciMusteriId).IsRequired();
@@ -240,6 +242,7 @@ namespace CashTracker.Infrastructure.Persistence
                 e.ToTable("IsletmeDeneme");
                 e.HasKey(x => x.Id);
                 e.Property(x => x.PlanKodu).IsRequired();
+                e.Property(x => x.FaturalamaDonemi).IsRequired();
                 e.Property(x => x.Durum).IsRequired();
                 e.Property(x => x.OdemeSaglayici).IsRequired();
                 e.Property(x => x.SaglayiciMusteriId).IsRequired();

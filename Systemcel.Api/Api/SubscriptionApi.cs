@@ -2,6 +2,7 @@ using CashTracker.Core.Models;
 using CashTracker.Core.Services;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using System.Linq;
 
 namespace Systemcel.Api.Api;
 
@@ -9,6 +10,41 @@ internal static class SubscriptionApi
 {
     public static void MapSubscriptionApi(this WebApplication app)
     {
+        app.MapGet("/api/public/planlar", () =>
+        {
+            var plans = SubscriptionPlanCatalog.Plans
+                .Where(x => x.Kod is PlanKodlari.IsletmeBaslangic
+                    or PlanKodlari.IsletmeBuyume
+                    or PlanKodlari.IsletmeKurumsal
+                    or PlanKodlari.MuhasebeciUcretsiz
+                    or PlanKodlari.MuhasebeciStandart
+                    or PlanKodlari.MuhasebeciPro)
+                .Select(x => new
+                {
+                    kod = x.Kod,
+                    ad = x.Ad,
+                    hesapTipi = x.HesapTipi,
+                    aylikTutar = x.AylikTutar,
+                    yillikTutar = x.YillikTutar > 0 ? x.YillikTutar : (decimal?)null,
+                    yillikEfektifAylikTutar = x.YillikTutar > 0 ? x.YillikTutar / 12 : (decimal?)null,
+                    paraBirimi = "TRY",
+                    aiMesajLimiti = x.AiMesajLimiti,
+                    kullaniciLimiti = x.KullaniciLimiti,
+                    musteriLimiti = x.MusteriLimiti,
+                    faturaLimiti = x.FaturaLimiti,
+                    bankaMutabakatiAktif = x.BankaMutabakatiAktif,
+                    stokRaporAktif = x.StokRaporAktif,
+                    muhasebeciErisimiAktif = x.MuhasebeciErisimiAktif,
+                    cokluSubeAktif = x.CokluSubeAktif,
+                    cokluParaBirimiAktif = x.CokluParaBirimiAktif,
+                    apiErisimiAktif = x.ApiErisimiAktif,
+                    oncelikliDestekAktif = x.OncelikliDestekAktif,
+                    denemeGunSayisi = 30
+                });
+
+            return Results.Ok(plans);
+        }).AllowAnonymous();
+
         var endpoint = app.MapGet(
             "/api/abonelik/durum",
             async (
@@ -33,9 +69,39 @@ internal static class SubscriptionApi
                 return Results.Ok(status);
             });
 
+        var startTrialEndpoint = app.MapPost(
+            "/api/abonelik/deneme/baslat",
+            async (
+                DenemeBaslatRequest request,
+                IIsletmeService isletmeService,
+                ISubscriptionEntitlementService entitlementService,
+                CancellationToken ct) =>
+            {
+                try
+                {
+                    var target = await isletmeService.GetActiveAsync();
+                    if (!string.Equals(target.TenantTipi, HesapTipleri.Isletme, StringComparison.OrdinalIgnoreCase))
+                        return Results.BadRequest(new { mesaj = "Ucretsiz deneme yalnizca isletme hesaplari icindir." });
+
+                    var status = await entitlementService.StartIsletmeTrialAsync(
+                        target.Id,
+                        request.PlanKodu,
+                        request.FaturalamaDonemi,
+                        ct: ct);
+                    return Results.Ok(status);
+                }
+                catch (InvalidOperationException ex)
+                {
+                    return Results.BadRequest(new { mesaj = ex.Message });
+                }
+            });
+
         var clerkOptions = app.Services.GetRequiredService<ClerkAuthenticationOptions>();
         if (clerkOptions.Enabled)
+        {
             endpoint.RequireAuthorization();
+            startTrialEndpoint.RequireAuthorization();
+        }
     }
 
     private static string NormalizeHesapTipi(string? requested, string? tenantTipi)
@@ -46,4 +112,6 @@ internal static class SubscriptionApi
 
         return HesapTipleri.Isletme;
     }
+
+    internal sealed record DenemeBaslatRequest(string PlanKodu, string FaturalamaDonemi);
 }

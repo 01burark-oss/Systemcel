@@ -20,6 +20,7 @@ import { AyarlarSayfasi } from "./screens/ayarlar/AyarlarSayfasi";
 import { TahsilatOdemeSayfasi } from "./screens/tahsilat-odeme/TahsilatOdemeSayfasi";
 import { UrunStokSayfasi } from "./screens/urun-stok/UrunStokSayfasi";
 import { WelcomeSayfasi } from "./screens/welcome/WelcomeSayfasi";
+import { PublicContentPage } from "./marketing/PublicContentPage";
 import { MuhasebeciBasvurulariSayfasi } from "./screens/yonetim/MuhasebeciBasvurulariSayfasi";
 import { BusinessSelector } from "./shared/BusinessSelector";
 import type { UstBarDurumu } from "./shared/chrome";
@@ -90,6 +91,34 @@ export function App() {
 
   if (path === "/hakkimizda" || decodeURI(path) === "/hakkımızda") {
     return <HakkimizdaSayfasi />;
+  }
+
+  if (path === "/blog") {
+    return <PublicContentPage kind="blog" />;
+  }
+
+  if (path === "/kariyer") {
+    return <PublicContentPage kind="careers" />;
+  }
+
+  if (path === "/iletisim" || decodeURI(path) === "/iletişim") {
+    return <PublicContentPage kind="contact" />;
+  }
+
+  if (path === "/kvkk") {
+    return <PublicContentPage kind="kvkk" />;
+  }
+
+  if (path === "/gizlilik") {
+    return <PublicContentPage kind="privacy" />;
+  }
+
+  if (path === "/kullanim-sartlari" || decodeURI(path) === "/kullanım-şartları") {
+    return <PublicContentPage kind="terms" />;
+  }
+
+  if (path === "/cerezler" || decodeURI(path) === "/çerezler") {
+    return <PublicContentPage kind="cookies" />;
   }
 
   return (
@@ -222,6 +251,16 @@ function isClientRoute(pathname: string) {
     decoded === "/yardÄ±m" ||
     decoded === "/hakkimizda" ||
     decoded === "/hakkÄ±mÄ±zda" ||
+    decoded === "/blog" ||
+    decoded === "/kariyer" ||
+    decoded === "/iletisim" ||
+    decoded === "/iletişim" ||
+    decoded === "/kvkk" ||
+    decoded === "/gizlilik" ||
+    decoded === "/kullanim-sartlari" ||
+    decoded === "/kullanım-şartları" ||
+    decoded === "/cerezler" ||
+    decoded === "/çerezler" ||
     decoded === "/telegram" ||
     decoded === "/kilit-ekrani"
   );
@@ -283,6 +322,7 @@ function WorkspaceRoutes({ path }: { path: string }) {
   const [yenileAnahtari, setYenileAnahtari] = React.useState(0);
   const [kolayKurulum, setKolayKurulum] = React.useState<KolayKurulumEkran | null>(null);
   const [kurulumGizlendi, setKurulumGizlendi] = React.useState(false);
+  const trialAttemptedRef = React.useRef(false);
 
   const ustBarYukle = React.useCallback(async () => {
     setUstBarHata("");
@@ -295,6 +335,32 @@ function WorkspaceRoutes({ path }: { path: string }) {
     const data = await jsonOku<KolayKurulumEkran>("/api/ekran/kolay-kurulum");
     setKolayKurulum(data);
     return data;
+  }, []);
+
+  React.useEffect(() => {
+    if (trialAttemptedRef.current)
+      return;
+
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("trial") !== "1")
+      return;
+
+    const planKodu = params.get("plan") ?? "isletme_buyume";
+    const faturalamaDonemi = params.get("billing") === "Yillik" ? "Yillik" : "Aylik";
+    trialAttemptedRef.current = true;
+
+    jsonOku("/api/abonelik/deneme/baslat", {
+      method: "POST",
+      body: JSON.stringify({ planKodu, faturalamaDonemi })
+    }).catch((error: Error) => {
+      setUstBarHata(error.message);
+    }).finally(() => {
+      const next = new URL(window.location.href);
+      next.searchParams.delete("trial");
+      next.searchParams.delete("plan");
+      next.searchParams.delete("billing");
+      window.history.replaceState(null, "", `${next.pathname}${next.search}${next.hash}`);
+    });
   }, []);
 
   React.useEffect(() => {

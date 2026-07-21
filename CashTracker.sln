@@ -11,6 +11,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CashTracker.Tests", "CashTr
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Systemcel.Api", "Systemcel.Api\Systemcel.Api.csproj", "{1EABCE3E-8FA5-480D-BDC4-066E05ED3E8A}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Systemcel.DesktopImportTool", "tools\Systemcel.DesktopImportTool\Systemcel.DesktopImportTool.csproj", "{45EA88E2-122E-4F53-8E5A-E2E7C538F26E}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -33,6 +35,10 @@ Global
 		{1EABCE3E-8FA5-480D-BDC4-066E05ED3E8A}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{1EABCE3E-8FA5-480D-BDC4-066E05ED3E8A}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{1EABCE3E-8FA5-480D-BDC4-066E05ED3E8A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{45EA88E2-122E-4F53-8E5A-E2E7C538F26E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{45EA88E2-122E-4F53-8E5A-E2E7C538F26E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{45EA88E2-122E-4F53-8E5A-E2E7C538F26E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{45EA88E2-122E-4F53-8E5A-E2E7C538F26E}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
