@@ -262,8 +262,8 @@
   .marketing-section-number { top: -4px; font-size: 70px; }
   .marketing-section-copy h2, .marketing-pricing h2, .marketing-final-cta h2 { font-size: 39px; }
   .marketing-ai-card { min-height: 320px; padding: 22px; }
-  .marketing-pricing__billing { position: sticky; top: 104px; z-index: 15; margin-top: 18px; padding: 10px 0; border-top: 1px solid var(--mk-line-soft); border-bottom: 1px solid var(--mk-line-soft); background: rgba(235,232,220,.94); box-shadow: 0 12px 24px -24px rgba(11,11,9,.48); backdrop-filter: blur(12px); }
-  .marketing-pricing__billing .marketing-billing { margin-top: 0; }
+  .marketing-pricing__billing { width: fit-content; position: sticky; top: 104px; z-index: 15; margin: 18px auto 0; padding: 8px 14px; border: 1px solid var(--mk-line); border-radius: 999px; background: rgba(245,243,234,.96); box-shadow: 0 16px 30px -22px rgba(11,11,9,.44); backdrop-filter: blur(12px); }
+  .marketing-pricing__billing .marketing-billing { margin-top: 0; gap: 10px; white-space: nowrap; }
   .marketing-plan-grid { margin-top: 32px; }
   .marketing-plan-grid { grid-template-columns: 1fr; gap: 16px; }
   .marketing-plan--popular { transform: none; }

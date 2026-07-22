@@ -4,6 +4,7 @@ import { App } from "./App";
 import { SystemcelAuthProvider } from "./auth/SystemcelAuthProvider";
 import { ThemeProvider } from "./theme/ThemeProvider";
 import "./styles.css";
+import "./app-theme.css";
 
 createRoot(document.getElementById("root")!).render(
   <React.StrictMode>

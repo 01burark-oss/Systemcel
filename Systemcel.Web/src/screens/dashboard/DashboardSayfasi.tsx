@@ -14,7 +14,7 @@ import { preventNativeDrag } from "../../shared/noDrag";
 import { odemeIkonu, paraBic, paraDegerBic } from "./helpers";
 import type { DashboardEkran, NetTrendNokta, OdemeDagilim, OzetKart } from "./types";
 
-const ODEME_RENKLERI = ["#dbe9ff", "#78a8d7", "#4f7eae", "#2c4b75"];
+const ODEME_RENKLERI = ["#c8ff00", "#11110f", "#a6a493", "#dedbcc"];
 
 function yuzdeBic(orani: number) {
   return `${Math.round(orani)}%`;

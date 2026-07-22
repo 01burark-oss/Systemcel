@@ -1,6 +1,5 @@
 import React from "react";
 import { ArrowRight, ShieldCheck } from "lucide-react";
-import systemcelIcon from "../assets/systemcel-icon.png";
 import { useSystemcelAuth } from "./SystemcelAuthProvider";
 
 export function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -61,11 +60,14 @@ export function AuthStatus({
     <main className="auth-shell">
       <section className="auth-shell__panel auth-shell__panel--compact">
         <a className="auth-shell__brand" href="/" aria-label="Systemcel">
-          <span className="auth-shell__brand-mark">
-            <img src={systemcelIcon} alt="" />
+          <span className="auth-shell__brand-mark auth-shell__brand-mark--tiles" aria-hidden="true">
+            <i />
+            <i />
+            <i />
+            <i />
           </span>
           <span className="auth-shell__brand-copy">
-            <strong>SYSTEMCEL</strong>
+            <strong>systemcel</strong>
             <small>Finance Suite</small>
           </span>
         </a>

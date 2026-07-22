@@ -1,0 +1,2148 @@
+/*
+ * Screen-level migration layer.
+ * Loaded after the legacy stylesheet so every application route shares the
+ * landing page's paper / ink / lime system without carrying old blue skins.
+ */
+
+:root[data-theme="light"] {
+  --sc-ink: #0b0b09;
+  --sc-paper: #fbfaf5;
+  --sc-cream: #f2f0e7;
+  --sc-cream-deep: #e9e6da;
+  --sc-muted: #737268;
+  --sc-line: rgba(11, 11, 9, .14);
+  --sc-line-strong: rgba(11, 11, 9, .28);
+  --sc-lime: #c8ff00;
+  --sc-danger: #b83b39;
+  --sc-danger-soft: #f8e3df;
+  --sc-success: #516d00;
+  --sc-shadow: 0 26px 58px -46px rgba(11, 11, 9, .68);
+}
+
+:root[data-theme="light"] :is(button, a, input, select, textarea):focus-visible {
+  outline: 2px solid var(--sc-ink);
+  outline-offset: 2px;
+}
+
+:root[data-theme="light"] :is(button, input, select, textarea):disabled {
+  cursor: not-allowed;
+  opacity: .55;
+}
+
+:root[data-theme="light"] :is(
+  .sayfa,
+  .cari-page,
+  .stock-page,
+  .invoice-page,
+  .payment-page,
+  .reports-page,
+  .settings-page,
+  .accountant-panel,
+  .accountant-marketplace,
+  .admin-page,
+  .chat-center-page
+) {
+  color: var(--sc-ink);
+  background-color: var(--sc-cream);
+  background-image:
+    linear-gradient(rgba(11, 11, 9, .045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(11, 11, 9, .045) 1px, transparent 1px);
+  background-size: 44px 44px;
+}
+
+:root[data-theme="light"] :is(
+  .kart,
+  .cari-hero,
+  .cari-card,
+  .stock-stat,
+  .stock-card,
+  .invoice-stat,
+  .invoice-card,
+  .payment-stat,
+  .payment-card,
+  .reports-card,
+  .settings-card,
+  .accountant-card,
+  .accountant-section,
+  .accountant-metrics article,
+  .accountant-panel__empty,
+  .admin-page__stats div,
+  .admin-table-wrap
+) {
+  color: var(--sc-ink);
+  border-color: var(--sc-line);
+  background: rgba(251, 250, 245, .97);
+  box-shadow: var(--sc-shadow);
+}
+
+:root[data-theme="light"] :is(
+  .kart,
+  .cari-card,
+  .stock-card,
+  .invoice-card,
+  .payment-card,
+  .reports-card,
+  .settings-card,
+  .accountant-card,
+  .accountant-section
+) {
+  border-radius: 18px;
+}
+
+:root[data-theme="light"] :is(
+  .kart-baslik h1,
+  .form-baslik h2,
+  .cari-hero h1,
+  .stock-titlebar h1
+) {
+  color: var(--sc-ink);
+  font-family: Georgia, "Times New Roman", serif;
+  font-weight: 400;
+  letter-spacing: -.045em;
+}
+
+:root[data-theme="light"] :is(
+  .kart-baslik p,
+  .cari-hero p,
+  .stock-titlebar p,
+  .stock-stat p,
+  .invoice-stat p,
+  .payment-stat p,
+  .reports-card__header p
+) {
+  color: var(--sc-muted);
+}
+
+/* Gelir / gider */
+:root[data-theme="light"] .sayfa {
+  height: auto;
+  min-height: 100%;
+  padding: clamp(16px, 2.5vw, 30px);
+  grid-template-columns: minmax(0, 1.35fr) minmax(340px, .72fr);
+  gap: 16px;
+}
+
+:root[data-theme="light"] .kart-baslik {
+  padding: 22px 22px 16px;
+  grid-template-columns: minmax(220px, 1fr) minmax(210px, 300px);
+}
+
+:root[data-theme="light"] .kart-baslik h1,
+:root[data-theme="light"] .form-baslik h2 {
+  font-size: clamp(25px, 2.6vw, 34px);
+}
+
+:root[data-theme="light"] .arama-kutusu,
+:root[data-theme="light"] :is(.input-ikonlu, .tutar-alani),
+:root[data-theme="light"] :is(.satir select, .stok-alani input, .stok-alani select, .satir textarea) {
+  color: var(--sc-ink);
+  border-color: var(--sc-line);
+  background: #fffef9;
+}
+
+:root[data-theme="light"] .arama-kutusu:focus-within,
+:root[data-theme="light"] :is(.input-ikonlu, .tutar-alani):focus-within,
+:root[data-theme="light"] :is(.satir select, .stok-alani input, .stok-alani select, .satir textarea):focus {
+  border-color: var(--sc-ink);
+  box-shadow: 0 0 0 3px rgba(200, 255, 0, .35);
+}
+
+:root[data-theme="light"] .tablo-kapsayici {
+  margin: 0 20px 20px;
+  border-color: var(--sc-line);
+  border-radius: 12px;
+  background: var(--sc-paper);
+  overscroll-behavior-inline: contain;
+}
+
+:root[data-theme="light"] .tablo-kapsayici :is(th, td) {
+  border-bottom-color: var(--sc-line);
+}
+
+:root[data-theme="light"] .tablo-kapsayici th {
+  color: var(--sc-muted);
+  background: var(--sc-cream-deep);
+}
+
+:root[data-theme="light"] .tablo-kapsayici tbody tr { background: var(--sc-paper); }
+:root[data-theme="light"] .tablo-kapsayici tbody tr:nth-child(even) { background: #f6f4ec; }
+:root[data-theme="light"] .tablo-kapsayici tbody tr:hover,
+:root[data-theme="light"] .tablo-kapsayici tbody tr.secili { background: rgba(200, 255, 0, .12); }
+
+:root[data-theme="light"] .form-karti {
+  padding: 22px;
+  overflow: visible;
+}
+
+:root[data-theme="light"] .form-alani {
+  overflow: visible;
+}
+
+:root[data-theme="light"] .satir > span,
+:root[data-theme="light"] .kontrol,
+:root[data-theme="light"] .tutar-alani strong {
+  color: var(--sc-ink);
+}
+
+:root[data-theme="light"] :is(.segmented, .odeme-grid) button {
+  min-height: 42px;
+  color: var(--sc-ink);
+  border-color: var(--sc-line);
+  border-radius: 999px;
+  background: transparent;
+}
+
+:root[data-theme="light"] :is(.segmented, .odeme-grid) button.aktif {
+  color: var(--sc-ink);
+  border-color: var(--sc-lime);
+  background: var(--sc-lime);
+}
+
+:root[data-theme="light"] .aksiyonlar button {
+  min-height: 44px;
+  color: var(--sc-ink);
+  border-color: var(--sc-line);
+  border-radius: 999px;
+  background: transparent;
+}
+
+:root[data-theme="light"] .aksiyonlar .birincil {
+  color: var(--sc-ink);
+  border-color: var(--sc-lime);
+  background: var(--sc-lime);
+}
+
+/* Cari hesaplar */
+:root[data-theme="light"] .cari-page {
+  height: auto;
+  min-height: 100%;
+  padding: clamp(16px, 2.4vw, 28px);
+  overflow: visible;
+}
+
+:root[data-theme="light"] .cari-hero {
+  padding: 0 2px;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+:root[data-theme="light"] .cari-layout {
+  grid-template-columns: minmax(0, 1.15fr) minmax(350px, .85fr);
+  gap: 16px;
+}
+
+:root[data-theme="light"] .cari-card {
+  overflow: hidden;
+}
+
+:root[data-theme="light"] .cari-card__header {
+  border-bottom-color: var(--sc-line);
+}
+
+:root[data-theme="light"] .cari-card__header h2,
+:root[data-theme="light"] .cari-field,
+:root[data-theme="light"] .cari-check {
+  color: var(--sc-ink);
+}
+
+:root[data-theme="light"] :is(.cari-form-grid, .cari-movement-form) :is(input, select, textarea),
+:root[data-theme="light"] .cari-input-icon {
+  min-height: 42px;
+  color: var(--sc-ink);
+  border-color: var(--sc-line);
+  background: #fffef9;
+}
+
+:root[data-theme="light"] .cari-table-wrap {
+  border-color: var(--sc-line);
+  background: var(--sc-paper);
+}
+
+:root[data-theme="light"] .cari-table th {
+  color: var(--sc-muted);
+  background: var(--sc-cream-deep);
+}
+
+:root[data-theme="light"] .cari-table td { color: var(--sc-ink); }
+:root[data-theme="light"] .cari-table tbody tr { background: var(--sc-paper); }
+:root[data-theme="light"] .cari-table tbody tr:hover,
+:root[data-theme="light"] .cari-table tbody tr.secili { background: rgba(200, 255, 0, .12); }
+
+:root[data-theme="light"] .cari-btn {
+  min-height: 42px;
+  color: var(--sc-ink);
+  border-color: var(--sc-line);
+  border-radius: 999px;
+  background: transparent;
+}
+
+:root[data-theme="light"] .cari-btn--primary {
+  color: var(--sc-ink);
+  border-color: var(--sc-lime);
+  background: var(--sc-lime);
+}
+
+:root[data-theme="light"] .cari-btn--danger {
+  color: var(--sc-danger);
+  border-color: rgba(184, 59, 57, .25);
+  background: var(--sc-danger-soft);
+}
+
+/* Stok */
+:root[data-theme="light"] .stock-page {
+  height: auto;
+  min-height: 100%;
+  padding: clamp(16px, 2.4vw, 28px);
+  gap: 16px;
+  overflow: visible;
+}
+
+:root[data-theme="light"] .stock-titlebar h1 {
+  font-size: clamp(34px, 4vw, 52px);
+}
+
+:root[data-theme="light"] .stock-stats {
+  gap: 12px;
+}
+
+:root[data-theme="light"] .stock-stat {
+  min-height: 104px;
+  padding: 18px;
+  gap: 13px;
+  border-radius: 16px;
+}
+
+:root[data-theme="light"] .stock-stat__icon {
+  width: 48px;
+  height: 48px;
+  flex-basis: 48px;
+  color: var(--sc-ink) !important;
+  background: var(--sc-lime) !important;
+}
+
+:root[data-theme="light"] .stock-stat:nth-child(even) .stock-stat__icon {
+  color: var(--sc-paper) !important;
+  background: var(--sc-ink) !important;
+}
+
+:root[data-theme="light"] .stock-stat small { color: var(--sc-muted); }
+:root[data-theme="light"] .stock-stat strong { color: var(--sc-ink); }
+
+:root[data-theme="light"] .stock-layout {
+  grid-template-columns: minmax(0, 1.18fr) minmax(360px, .82fr);
+  gap: 16px;
+  overflow: visible;
+}
+
+:root[data-theme="light"] .stock-card--list { min-height: 500px; }
+
+:root[data-theme="light"] .stock-card__header strong {
+  color: var(--sc-ink);
+  background: var(--sc-lime);
+}
+
+:root[data-theme="light"] :is(.stock-list-tools select, .stock-search, .stock-field input, .stock-field select, .stock-input-icon) {
+  min-width: 0;
+  color: var(--sc-ink);
+  border-color: var(--sc-line);
+  background: #fffef9;
+}
+
+:root[data-theme="light"] .stock-table-wrap {
+  overflow-x: auto;
+  border-color: var(--sc-line);
+  background: var(--sc-paper);
+}
+
+:root[data-theme="light"] .stock-table {
+  min-width: 860px;
+  table-layout: auto;
+}
+
+:root[data-theme="light"] .stock-table--history { min-width: 680px; }
+
+:root[data-theme="light"] .stock-table th {
+  color: var(--sc-muted);
+  background: var(--sc-cream-deep);
+}
+
+:root[data-theme="light"] .stock-table td { color: var(--sc-ink); }
+:root[data-theme="light"] .stock-table tbody tr { background: var(--sc-paper); }
+:root[data-theme="light"] .stock-table tbody tr:hover,
+:root[data-theme="light"] .stock-table tbody tr.secili { background: rgba(200, 255, 0, .12); }
+
+:root[data-theme="light"] .stock-type { color: var(--sc-ink); }
+:root[data-theme="light"] .stock-type.service { color: #6a4c00; }
+
+:root[data-theme="light"] .stock-pill.active {
+  color: #344600;
+  background: rgba(200, 255, 0, .25);
+}
+
+:root[data-theme="light"] .stock-actions {
+  gap: 8px;
+}
+
+:root[data-theme="light"] .stock-btn {
+  min-height: 42px;
+  color: var(--sc-ink);
+  border-color: var(--sc-line);
+  border-radius: 999px;
+  background: transparent;
+}
+
+:root[data-theme="light"] :is(.stock-btn--primary, .stock-btn--barcode) {
+  color: var(--sc-ink);
+  border-color: var(--sc-lime);
+  background: var(--sc-lime);
+}
+
+:root[data-theme="light"] .stock-modal__card {
+  color: var(--sc-ink);
+  border-color: var(--sc-line);
+  border-radius: 18px;
+  background: var(--sc-paper);
+}
+
+:root[data-theme="light"] .stock-modal__card h2 { color: var(--sc-ink); }
+:root[data-theme="light"] .stock-modal__card p,
+:root[data-theme="light"] .stock-modal__card small { color: var(--sc-muted); }
+
+/* Faturalar ve tahsilat / ödeme */
+:root[data-theme="light"] :is(.invoice-page, .payment-page) {
+  height: auto;
+  min-height: 100%;
+  padding: clamp(15px, 2.2vw, 26px);
+  overflow: visible;
+  font-size: 14px;
+}
+
+:root[data-theme="light"] :is(.invoice-layout, .payment-layout) {
+  height: auto;
+  grid-template-columns: minmax(0, 1.35fr) minmax(380px, .8fr);
+  gap: 16px;
+  overflow: visible;
+}
+
+:root[data-theme="light"] :is(.invoice-left, .payment-left, .invoice-side, .payment-side) {
+  height: auto;
+  overflow: visible;
+}
+
+:root[data-theme="light"] :is(.invoice-stats, .payment-stats) {
+  height: auto;
+  gap: 12px;
+}
+
+:root[data-theme="light"] :is(.invoice-stat, .payment-stat) {
+  height: auto;
+  min-height: 104px;
+  padding: 17px;
+  border-radius: 16px;
+}
+
+:root[data-theme="light"] :is(.invoice-stat__icon, .payment-stat__icon) {
+  width: 48px;
+  height: 48px;
+  color: var(--sc-ink) !important;
+  background: var(--sc-lime) !important;
+  box-shadow: none;
+}
+
+:root[data-theme="light"] :is(.invoice-stat, .payment-stat):nth-child(even) :is(.invoice-stat__icon, .payment-stat__icon) {
+  color: var(--sc-paper) !important;
+  background: var(--sc-ink) !important;
+}
+
+:root[data-theme="light"] :is(.invoice-stat, .payment-stat) strong { color: var(--sc-ink); }
+
+:root[data-theme="light"] :is(.invoice-card--list, .payment-card--list) {
+  min-height: 520px;
+  padding: 15px;
+}
+
+:root[data-theme="light"] :is(.invoice-form-card, .payment-form-card) {
+  height: auto;
+  padding: 18px;
+  overflow: visible;
+}
+
+:root[data-theme="light"] :is(.invoice-card__header, .payment-card__header) {
+  margin-bottom: 13px;
+  padding-bottom: 12px;
+  border-bottom-color: var(--sc-line);
+}
+
+:root[data-theme="light"] :is(.invoice-card__header h2, .payment-card__header h2) {
+  color: var(--sc-ink);
+  font-size: 19px;
+}
+
+:root[data-theme="light"] :is(.invoice-list-tools, .payment-list-tools) {
+  grid-template-columns: minmax(190px, 1fr) 120px minmax(180px, 220px) auto;
+  gap: 8px;
+}
+
+:root[data-theme="light"] :is(
+  .invoice-search,
+  .invoice-date-range,
+  .invoice-field input,
+  .invoice-field select,
+  .payment-search,
+  .payment-date-range,
+  .payment-field input,
+  .payment-field select,
+  .payment-field textarea
+) {
+  min-height: 42px;
+  color: var(--sc-ink);
+  border-color: var(--sc-line);
+  border-radius: 10px;
+  background: #fffef9;
+}
+
+:root[data-theme="light"] :is(.invoice-side, .payment-side) :is(.invoice-field input, .invoice-field select, .payment-field input, .payment-field select) {
+  min-height: 42px;
+  padding: 0 11px;
+  font-size: 14px;
+}
+
+:root[data-theme="light"] .payment-side .payment-field textarea {
+  min-height: 70px;
+  padding: 9px 11px;
+  font-size: 14px;
+}
+
+:root[data-theme="light"] :is(.invoice-field span, .invoice-check, .payment-field span, .payment-check) {
+  color: var(--sc-ink);
+  font-size: 13px;
+}
+
+:root[data-theme="light"] :is(.invoice-form-grid, .payment-form-grid) { gap: 10px; }
+
+:root[data-theme="light"] :is(.invoice-form-section, .payment-form-section) { margin-top: 12px; }
+
+:root[data-theme="light"] :is(.invoice-form-section h3, .payment-form-section h3) {
+  margin-bottom: 8px;
+  color: var(--sc-ink);
+  font-size: 13px;
+}
+
+:root[data-theme="light"] :is(.invoice-form-section h3, .payment-form-section h3) i { background: var(--sc-lime); }
+
+:root[data-theme="light"] :is(.invoice-table-wrap, .payment-table-wrap) {
+  overflow-x: auto;
+  overflow-y: auto;
+  border-color: var(--sc-line);
+  background: var(--sc-paper);
+}
+
+:root[data-theme="light"] :is(.invoice-table, .payment-table) {
+  min-width: 900px;
+  table-layout: auto;
+}
+
+:root[data-theme="light"] :is(.invoice-table, .payment-table) th {
+  color: var(--sc-muted);
+  background: var(--sc-cream-deep);
+}
+
+:root[data-theme="light"] :is(.invoice-table, .payment-table) td { color: var(--sc-ink); }
+:root[data-theme="light"] :is(.invoice-table, .payment-table) tbody tr { background: var(--sc-paper); }
+:root[data-theme="light"] :is(.invoice-table, .payment-table) tbody tr:hover,
+:root[data-theme="light"] :is(.invoice-table, .payment-table) tbody tr.secili { background: rgba(200, 255, 0, .12); }
+
+:root[data-theme="light"] :is(.invoice-filter-panel, .payment-filter-panel) button,
+:root[data-theme="light"] :is(.invoice-btn, .payment-btn) {
+  min-height: 42px;
+  color: var(--sc-ink);
+  border-color: var(--sc-line);
+  border-radius: 999px;
+  background: transparent;
+}
+
+:root[data-theme="light"] :is(.invoice-btn--primary, .payment-btn--primary) {
+  color: var(--sc-ink);
+  border-color: var(--sc-lime);
+  background: var(--sc-lime);
+}
+
+:root[data-theme="light"] :is(.invoice-btn--success, .payment-btn--success) {
+  color: #344600;
+  border-color: rgba(81, 109, 0, .28);
+  background: rgba(200, 255, 0, .18);
+}
+
+:root[data-theme="light"] :is(.invoice-btn--danger, .payment-btn--danger) {
+  color: var(--sc-danger);
+  border-color: rgba(184, 59, 57, .25);
+  background: var(--sc-danger-soft);
+}
+
+:root[data-theme="light"] :is(.invoice-filter-panel, .payment-filter-panel) button.active,
+:root[data-theme="light"] :is(.invoice-btn--filter, .payment-btn--filter).active {
+  color: var(--sc-ink);
+  border-color: var(--sc-lime);
+  background: var(--sc-lime);
+}
+
+:root[data-theme="light"] :is(.invoice-type, .payment-type, .invoice-pill, .payment-pill) {
+  border-radius: 999px;
+}
+
+:root[data-theme="light"] .invoice-sms-modal {
+  color: var(--sc-ink);
+  border-color: var(--sc-line);
+  border-radius: 18px;
+  background: var(--sc-paper);
+}
+
+/* Raporlar */
+:root[data-theme="light"] .reports-page {
+  height: auto;
+  min-height: 100%;
+  padding: clamp(15px, 2.2vw, 26px);
+  overflow: visible;
+}
+
+:root[data-theme="light"] .reports-layout {
+  height: auto;
+  grid-template-columns: minmax(0, 1.25fr) minmax(360px, .75fr);
+  gap: 16px;
+  overflow: visible;
+}
+
+:root[data-theme="light"] :is(.reports-left, .reports-side, .reports-print-card) {
+  height: auto;
+  overflow: visible;
+}
+
+:root[data-theme="light"] .reports-card { padding: 20px; }
+
+:root[data-theme="light"] .reports-card__header h2 {
+  color: var(--sc-ink);
+  font-size: 22px;
+}
+
+:root[data-theme="light"] .reports-eyebrow { color: #526c00; }
+
+:root[data-theme="light"] .reports-icon-btn {
+  color: var(--sc-ink);
+  border-color: var(--sc-line);
+  background: var(--sc-paper);
+}
+
+:root[data-theme="light"] .reports-form-grid--package {
+  grid-template-columns: 170px minmax(0, 1fr) auto;
+}
+
+:root[data-theme="light"] .reports-field span,
+:root[data-theme="light"] .reports-selection h3 { color: var(--sc-ink); }
+
+:root[data-theme="light"] .reports-field :is(input, select, textarea) {
+  min-height: 42px;
+  color: var(--sc-ink);
+  border-color: var(--sc-line);
+  border-radius: 10px;
+  background: #fffef9;
+}
+
+:root[data-theme="light"] .reports-selection button {
+  min-height: 38px;
+  color: var(--sc-ink);
+  border-color: var(--sc-line);
+  border-radius: 999px;
+  background: transparent;
+}
+
+:root[data-theme="light"] .reports-selection button.selected {
+  color: var(--sc-ink);
+  border-color: var(--sc-lime);
+  background: var(--sc-lime);
+}
+
+:root[data-theme="light"] .reports-selection button.selected svg { color: var(--sc-ink); }
+
+:root[data-theme="light"] .reports-btn {
+  min-height: 42px;
+  color: var(--sc-ink);
+  border-color: var(--sc-line);
+  border-radius: 999px;
+  background: transparent;
+}
+
+:root[data-theme="light"] .reports-btn--primary {
+  color: var(--sc-ink);
+  border-color: var(--sc-lime);
+  background: var(--sc-lime);
+}
+
+:root[data-theme="light"] .reports-btn--success {
+  color: #344600;
+  background: rgba(200, 255, 0, .18);
+}
+
+:root[data-theme="light"] .reports-preview-box {
+  color: var(--sc-ink);
+  border-color: var(--sc-line-strong);
+  background: var(--sc-cream);
+}
+
+:root[data-theme="light"] .reports-preview-box strong { color: var(--sc-ink); }
+:root[data-theme="light"] .reports-preview-box span { color: var(--sc-muted); }
+
+@media (max-width: 1500px) {
+  :root[data-theme="light"] :is(.invoice-layout, .payment-layout, .reports-layout) {
+    grid-template-columns: 1fr;
+  }
+
+  :root[data-theme="light"] :is(.invoice-side, .payment-side) {
+    display: block;
+  }
+}
+
+@media (max-width: 1280px) {
+  :root[data-theme="light"] :is(.cari-layout, .stock-layout) {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 1100px) {
+  :root[data-theme="light"] .sayfa {
+    grid-template-columns: 1fr;
+  }
+
+  :root[data-theme="light"] :is(.invoice-list-tools, .payment-list-tools) {
+    grid-template-columns: minmax(0, 1fr) minmax(150px, .45fr);
+  }
+
+  :root[data-theme="light"] :is(.invoice-list-tools, .payment-list-tools) > :is(.invoice-date-range, .payment-date-range) {
+    grid-column: 1 / -1;
+  }
+
+  :root[data-theme="light"] :is(.invoice-list-tools, .payment-list-tools) > :is(.invoice-btn--primary, .payment-btn--primary) {
+    grid-column: auto;
+    justify-self: stretch;
+  }
+
+  :root[data-theme="light"] .reports-form-grid--package {
+    grid-template-columns: 170px minmax(0, 1fr);
+  }
+
+  :root[data-theme="light"] .reports-form-grid--package > .reports-btn {
+    grid-column: 2;
+    justify-self: start;
+  }
+}
+
+@media (max-width: 760px) {
+  :root[data-theme="light"] :is(.sayfa, .cari-page, .stock-page, .invoice-page, .payment-page, .reports-page) {
+    padding: 14px;
+  }
+
+  :root[data-theme="light"] .kart-baslik {
+    grid-template-columns: 1fr;
+    padding: 20px 18px 14px;
+  }
+
+  :root[data-theme="light"] .form-karti { padding: 18px; }
+  :root[data-theme="light"] .satir { grid-template-columns: 1fr; gap: 7px; }
+  :root[data-theme="light"] .odeme-grid { grid-template-columns: 1fr; }
+  :root[data-theme="light"] .aksiyonlar { display: grid; grid-template-columns: 1fr; }
+  :root[data-theme="light"] .aksiyonlar button { width: 100%; }
+
+  :root[data-theme="light"] :is(.cari-hero, .stock-titlebar) {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  :root[data-theme="light"] :is(.cari-hero__actions, .stock-titlebar__actions) {
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr);
+  }
+
+  :root[data-theme="light"] :is(.stock-stats, .invoice-stats, .payment-stats) {
+    grid-template-columns: 1fr;
+  }
+
+  :root[data-theme="light"] :is(.stock-form-grid, .invoice-form-grid, .payment-form-grid, .payment-form-grid--three) {
+    grid-template-columns: 1fr;
+  }
+
+  :root[data-theme="light"] :is(.stock-field--grow, .invoice-field--full, .payment-field--full, .payment-field--wide) {
+    grid-column: auto;
+  }
+
+  :root[data-theme="light"] :is(.stock-actions, .invoice-actions, .payment-actions) {
+    grid-template-columns: 1fr;
+  }
+
+  :root[data-theme="light"] .payment-actions .payment-btn--danger { grid-column: auto; }
+
+  :root[data-theme="light"] :is(.stock-list-tools, .invoice-list-tools, .payment-list-tools) {
+    grid-template-columns: 1fr;
+  }
+
+  :root[data-theme="light"] :is(.invoice-list-tools, .payment-list-tools) > :is(.invoice-date-range, .payment-date-range, .invoice-btn--primary, .payment-btn--primary) {
+    grid-column: auto;
+    width: 100%;
+  }
+
+  :root[data-theme="light"] .reports-form-grid--package,
+  :root[data-theme="light"] .reports-print-form {
+    grid-template-columns: 1fr;
+  }
+
+  :root[data-theme="light"] .reports-form-grid--package > .reports-btn { grid-column: auto; }
+
+  :root[data-theme="light"] :is(.reports-actions, .reports-print-actions) {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  :root[data-theme="light"] :is(.reports-actions, .reports-print-actions) .reports-btn {
+    width: 100%;
+  }
+}
+
+/* Ayarlar */
+:root[data-theme="light"] .settings-page {
+  height: auto;
+  min-height: 100%;
+  padding: clamp(15px, 2.2vw, 26px);
+  overflow: visible;
+}
+
+:root[data-theme="light"] .settings-grid {
+  grid-template-columns: minmax(420px, .9fr) minmax(0, 1.1fr);
+  gap: 16px;
+}
+
+:root[data-theme="light"] .settings-card {
+  padding: 22px;
+}
+
+:root[data-theme="light"] .settings-card__header h2 {
+  color: var(--sc-ink);
+  font-size: 23px;
+}
+
+:root[data-theme="light"] .settings-card__header p { color: var(--sc-muted); }
+
+:root[data-theme="light"] :is(.settings-section-row, .settings-block) {
+  border-color: var(--sc-line);
+  background: var(--sc-cream);
+}
+
+:root[data-theme="light"] .settings-section-row {
+  grid-template-columns: 28px minmax(105px, 135px) minmax(120px, 1fr) auto;
+}
+
+:root[data-theme="light"] :is(.settings-row-icon, .settings-section-row strong, .settings-block__title, .settings-block__title strong, .settings-field span, .settings-block--new h3) {
+  color: var(--sc-ink);
+}
+
+:root[data-theme="light"] :is(.settings-section-row select, .settings-block input, .settings-add-category input, .settings-field select, .settings-search input) {
+  color: var(--sc-ink);
+  border-color: var(--sc-line);
+  border-radius: 10px;
+  background: #fffef9;
+}
+
+:root[data-theme="light"] .settings-btn {
+  min-height: 42px;
+  color: var(--sc-ink);
+  border-color: var(--sc-line);
+  border-radius: 999px;
+  background: transparent;
+  box-shadow: none;
+}
+
+:root[data-theme="light"] .settings-btn--navy {
+  color: var(--sc-paper);
+  border-color: var(--sc-ink);
+  background: var(--sc-ink);
+}
+
+:root[data-theme="light"] .settings-btn--green {
+  color: var(--sc-ink);
+  border-color: var(--sc-lime);
+  background: var(--sc-lime);
+}
+
+:root[data-theme="light"] .settings-btn--danger {
+  color: var(--sc-danger);
+  border-color: rgba(184, 59, 57, .24);
+  background: var(--sc-danger-soft);
+}
+
+:root[data-theme="light"] .settings-status-pill.active,
+:root[data-theme="light"] .settings-success {
+  color: #344600;
+  border-color: rgba(81, 109, 0, .22);
+  background: rgba(200, 255, 0, .18);
+}
+
+:root[data-theme="light"] .settings-info {
+  color: #4e5500;
+  border-color: rgba(81, 109, 0, .22);
+  background: rgba(200, 255, 0, .1);
+}
+
+:root[data-theme="light"] .settings-list {
+  border-color: var(--sc-line);
+  background: var(--sc-paper);
+}
+
+:root[data-theme="light"] .settings-list__row {
+  color: var(--sc-ink);
+  border-bottom-color: var(--sc-line);
+  background: var(--sc-paper);
+}
+
+:root[data-theme="light"] .settings-list__row:hover,
+:root[data-theme="light"] .settings-list__row.selected {
+  color: var(--sc-ink);
+  background: rgba(200, 255, 0, .16);
+}
+
+:root[data-theme="light"] .settings-list__row svg { color: var(--sc-ink); }
+
+:root[data-theme="light"] .settings-tabs {
+  border-color: var(--sc-line);
+  border-radius: 999px;
+  background: var(--sc-cream-deep);
+  box-shadow: none;
+}
+
+:root[data-theme="light"] .settings-tabs button {
+  color: var(--sc-muted);
+  border-radius: 999px;
+}
+
+:root[data-theme="light"] .settings-tabs button.active {
+  color: var(--sc-ink);
+  border-color: var(--sc-lime);
+  background: var(--sc-lime);
+  box-shadow: none;
+}
+
+:root[data-theme="light"] .settings-footer { color: var(--sc-muted); }
+
+/* Telegram */
+:root[data-theme="light"] .telegram-page {
+  color: var(--sc-ink);
+  background: transparent;
+}
+
+:root[data-theme="light"] .telegram-breadcrumb,
+:root[data-theme="light"] .telegram-header p,
+:root[data-theme="light"] .telegram-manual p,
+:root[data-theme="light"] .telegram-qr-panel p,
+:root[data-theme="light"] .telegram-after-card p,
+:root[data-theme="light"] .telegram-after-action small {
+  color: var(--sc-muted);
+}
+
+:root[data-theme="light"] .telegram-title-row h2,
+:root[data-theme="light"] :is(.telegram-manual, .telegram-qr-panel, .telegram-steps-card, .telegram-after-card) h3,
+:root[data-theme="light"] .telegram-after-action strong,
+:root[data-theme="light"] .telegram-connected-hero strong {
+  color: var(--sc-ink);
+}
+
+:root[data-theme="light"] .telegram-card {
+  color: var(--sc-ink);
+  border-color: var(--sc-line);
+  border-radius: 18px;
+  background: var(--sc-paper);
+  box-shadow: var(--sc-shadow);
+}
+
+:root[data-theme="light"] .telegram-status.connected,
+:root[data-theme="light"] .telegram-connected-hero__icon,
+:root[data-theme="light"] .telegram-hero-icon {
+  color: var(--sc-ink);
+  background: var(--sc-lime);
+}
+
+:root[data-theme="light"] .telegram-btn {
+  min-height: 44px;
+  color: var(--sc-ink);
+  border-color: var(--sc-line);
+  border-radius: 999px;
+  background: transparent;
+}
+
+:root[data-theme="light"] .telegram-btn--primary {
+  color: var(--sc-ink);
+  border-color: var(--sc-lime);
+  background: var(--sc-lime);
+}
+
+:root[data-theme="light"] :is(.telegram-code-box, .telegram-link-field input, .telegram-manual, .telegram-connected-meta div) {
+  color: var(--sc-ink);
+  border-color: var(--sc-line);
+  background: var(--sc-cream);
+}
+
+:root[data-theme="light"] .telegram-qr-frame {
+  color: var(--sc-ink);
+  border-color: var(--sc-line-strong);
+  background: #fffef9;
+}
+
+:root[data-theme="light"] .telegram-steps-card li span {
+  color: var(--sc-ink);
+  background: var(--sc-lime);
+}
+
+:root[data-theme="light"] .telegram-after-action {
+  color: var(--sc-ink);
+  border-color: var(--sc-line);
+  border-radius: 14px;
+  background: var(--sc-cream);
+}
+
+:root[data-theme="light"] .telegram-after-action:hover {
+  border-color: var(--sc-ink);
+  background: #fffef9;
+}
+
+/* Muhasebeci paneli ve pazaryeri */
+:root[data-theme="light"] :is(.accountant-panel, .accountant-marketplace) {
+  min-height: 100%;
+  padding: clamp(15px, 2.2vw, 26px);
+  gap: 16px;
+}
+
+:root[data-theme="light"] :is(.accountant-marketplace__hero, .accountant-panel__hero) h1,
+:root[data-theme="light"] .accountant-panel__empty h1 {
+  color: var(--sc-ink);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(31px, 3.5vw, 46px);
+  font-weight: 400;
+  letter-spacing: -.045em;
+}
+
+:root[data-theme="light"] :is(.accountant-marketplace__hero, .accountant-panel__hero) p,
+:root[data-theme="light"] .accountant-panel__empty p,
+:root[data-theme="light"] .accountant-card__summary,
+:root[data-theme="light"] .accountant-card__meta span,
+:root[data-theme="light"] .accountant-empty-row {
+  color: var(--sc-muted);
+}
+
+:root[data-theme="light"] .accountant-eyebrow {
+  color: #506a00;
+  font-family: Consolas, "Courier New", monospace;
+  letter-spacing: .08em;
+}
+
+:root[data-theme="light"] :is(.accountant-primary-link, .accountant-card__action, .accountant-section > button, .accountant-table button, .accountant-invite-strip a, .accountant-modal__primary) {
+  min-height: 42px;
+  color: var(--sc-ink);
+  border-color: var(--sc-lime);
+  border-radius: 999px;
+  background: var(--sc-lime);
+}
+
+:root[data-theme="light"] .accountant-invite-strip,
+:root[data-theme="light"] .accountant-pro-note,
+:root[data-theme="light"] .accountant-chat__notice {
+  color: #465800;
+  border-color: rgba(81, 109, 0, .22);
+  border-radius: 14px;
+  background: rgba(200, 255, 0, .12);
+}
+
+:root[data-theme="light"] :is(.accountant-toolbar, .accountant-filter-panel, .accountant-mobile-filters, .accountant-results__bar) {
+  color: var(--sc-ink);
+  border-color: var(--sc-line);
+  border-radius: 16px;
+  background: var(--sc-paper);
+  box-shadow: var(--sc-shadow);
+}
+
+:root[data-theme="light"] :is(
+  .accountant-toolbar input,
+  .accountant-toolbar select,
+  .accountant-toolbar textarea,
+  .accountant-form-grid input,
+  .accountant-form-grid select,
+  .accountant-form-grid textarea,
+  .accountant-section__field textarea,
+  .accountant-request-list select,
+  .accountant-modal__field textarea,
+  .accountant-invite-box input,
+  .accountant-filter-field select,
+  .accountant-filter-search label,
+  .accountant-results__bar select
+) {
+  color: var(--sc-ink);
+  border-color: var(--sc-line);
+  border-radius: 10px;
+  background: #fffef9;
+}
+
+:root[data-theme="light"] :is(.accountant-toolbar button, .accountant-filter-search button, .accountant-filter-panel > button:last-child) {
+  min-height: 42px;
+  color: var(--sc-paper);
+  border-color: var(--sc-ink);
+  border-radius: 999px;
+  background: var(--sc-ink);
+}
+
+:root[data-theme="light"] .accountant-marketplace__body {
+  grid-template-columns: minmax(230px, 270px) minmax(0, 1fr);
+  gap: 16px;
+}
+
+:root[data-theme="light"] .accountant-card-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
+  gap: 12px;
+}
+
+:root[data-theme="light"] .accountant-card {
+  padding: 17px;
+  gap: 13px;
+}
+
+:root[data-theme="light"] .accountant-card--pro {
+  border-color: var(--sc-line-strong);
+  box-shadow: var(--sc-shadow);
+}
+
+:root[data-theme="light"] .accountant-card h2,
+:root[data-theme="light"] .accountant-section h2,
+:root[data-theme="light"] .accountant-metrics strong,
+:root[data-theme="light"] .accountant-table td,
+:root[data-theme="light"] .accountant-invite-box span:first-child {
+  color: var(--sc-ink);
+}
+
+:root[data-theme="light"] .accountant-card__icon {
+  color: var(--sc-ink);
+  background: var(--sc-lime);
+}
+
+:root[data-theme="light"] .accountant-card__highlights > span {
+  color: var(--sc-ink);
+  border-color: var(--sc-line);
+  background: var(--sc-cream);
+}
+
+:root[data-theme="light"] .accountant-card__highlights small { color: var(--sc-muted); }
+:root[data-theme="light"] .accountant-card__highlights strong { color: var(--sc-ink); }
+
+:root[data-theme="light"] :is(.accountant-status, .accountant-count) {
+  color: var(--sc-ink);
+  background: var(--sc-cream-deep);
+}
+
+:root[data-theme="light"] .accountant-permission {
+  border-color: var(--sc-line);
+  border-radius: 999px;
+  background: var(--sc-cream-deep);
+}
+
+:root[data-theme="light"] .accountant-permission button {
+  color: var(--sc-muted);
+  border-radius: 999px;
+}
+
+:root[data-theme="light"] .accountant-permission button.active {
+  color: var(--sc-ink);
+  border-color: var(--sc-lime);
+  background: var(--sc-lime);
+}
+
+:root[data-theme="light"] .accountant-panel__grid {
+  grid-template-columns: minmax(0, 1.2fr) minmax(300px, .8fr);
+  gap: 12px;
+}
+
+:root[data-theme="light"] .accountant-request-list article,
+:root[data-theme="light"] .accountant-invite-box {
+  border-color: var(--sc-line);
+  border-radius: 12px;
+  background: var(--sc-cream);
+}
+
+:root[data-theme="light"] .accountant-table-wrap {
+  border-color: var(--sc-line);
+  border-radius: 12px;
+}
+
+:root[data-theme="light"] .accountant-table {
+  color: var(--sc-ink);
+  background: var(--sc-paper);
+}
+
+:root[data-theme="light"] .accountant-table th {
+  color: var(--sc-muted);
+  background: var(--sc-cream-deep);
+}
+
+:root[data-theme="light"] .accountant-modal {
+  background: rgba(11, 11, 9, .48);
+}
+
+:root[data-theme="light"] .accountant-modal__panel {
+  color: var(--sc-ink);
+  border-color: var(--sc-line);
+  border-radius: 18px;
+  background: var(--sc-paper);
+}
+
+:root[data-theme="light"] .accountant-modal__panel header h2 { color: var(--sc-ink); }
+
+:root[data-theme="light"] .accountant-modal__close {
+  color: var(--sc-ink);
+  border-color: var(--sc-line);
+  border-radius: 50%;
+  background: var(--sc-cream);
+}
+
+/* Sohbet */
+:root[data-theme="light"] .chat-center-page {
+  min-height: calc(100dvh - 78px);
+  padding: 16px;
+  color: var(--sc-ink);
+}
+
+:root[data-theme="light"] .chat-center {
+  width: min(100%, 1500px);
+  height: min(800px, calc(100dvh - 110px));
+  min-height: 600px;
+  margin: 0 auto;
+  grid-template-columns: minmax(270px, 340px) minmax(0, 1fr);
+  border-color: var(--sc-line);
+  border-radius: 18px;
+  background: var(--sc-paper);
+  box-shadow: var(--sc-shadow);
+}
+
+:root[data-theme="light"] .chat-center__sidebar {
+  color: var(--sc-ink);
+  border-right-color: var(--sc-line);
+  background: var(--sc-cream-deep);
+}
+
+:root[data-theme="light"] :is(.chat-center__sidebar header, .chat-thread__header, .chat-thread__composer) {
+  border-color: var(--sc-line);
+  background: var(--sc-paper);
+}
+
+:root[data-theme="light"] :is(.chat-center__sidebar h2, .chat-thread__header strong, .chat-center__list strong) {
+  color: var(--sc-ink);
+}
+
+:root[data-theme="light"] :is(.chat-center__archive-toggle, .chat-center__list small, .chat-center__list em, .chat-thread__header label, .chat-thread__header small, .chat-center__empty, .chat-center__state, .chat-thread__tools label) {
+  color: var(--sc-muted);
+}
+
+:root[data-theme="light"] .chat-center__list button {
+  color: var(--sc-ink);
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: transparent;
+}
+
+:root[data-theme="light"] .chat-center__list button:hover {
+  border-color: var(--sc-line);
+  background: var(--sc-paper);
+}
+
+:root[data-theme="light"] .chat-center__list button.active {
+  color: var(--sc-paper);
+  border-color: var(--sc-ink);
+  background: var(--sc-ink);
+}
+
+:root[data-theme="light"] .chat-center__list button.active :is(strong, small, em) {
+  color: inherit;
+}
+
+:root[data-theme="light"] .chat-center__list i {
+  color: var(--sc-ink);
+  background: var(--sc-lime);
+}
+
+:root[data-theme="light"] .chat-center__thread {
+  background-color: var(--sc-cream);
+  background-image:
+    linear-gradient(rgba(11, 11, 9, .04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(11, 11, 9, .04) 1px, transparent 1px);
+  background-size: 44px 44px;
+}
+
+:root[data-theme="light"] .chat-thread__messages {
+  background: transparent;
+}
+
+:root[data-theme="light"] .chat-bubble {
+  color: var(--sc-ink);
+  border-color: var(--sc-line);
+  border-radius: 16px 16px 16px 5px;
+  background: var(--sc-paper);
+  box-shadow: 0 12px 28px -24px rgba(11, 11, 9, .55);
+}
+
+:root[data-theme="light"] .chat-bubble.mine {
+  color: var(--sc-paper);
+  border-color: var(--sc-ink);
+  border-radius: 16px 16px 5px 16px;
+  background: var(--sc-ink);
+}
+
+:root[data-theme="light"] .chat-bubble.mine small,
+:root[data-theme="light"] .chat-bubble.mine em { color: rgba(251, 250, 245, .65); }
+
+:root[data-theme="light"] :is(.chat-bubble__attachments a, .chat-data-card) {
+  color: inherit;
+  border-color: var(--sc-line);
+  background: rgba(233, 230, 218, .5);
+}
+
+:root[data-theme="light"] .chat-bubble.mine :is(.chat-bubble__attachments a, .chat-data-card) {
+  border-color: rgba(251, 250, 245, .18);
+  background: rgba(251, 250, 245, .08);
+}
+
+:root[data-theme="light"] :is(.chat-center__sidebar button, .chat-thread__header button, .chat-thread__tools button, .chat-thread__input button, .chat-thread__bottom-button) {
+  color: var(--sc-ink);
+  border-color: var(--sc-lime);
+  border-radius: 999px;
+  background: var(--sc-lime);
+}
+
+:root[data-theme="light"] :is(.chat-thread__header input, .chat-thread__tools select, .chat-thread__tools input, .chat-thread__input textarea) {
+  color: var(--sc-ink);
+  border-color: var(--sc-line);
+  border-radius: 10px;
+  background: #fffef9;
+}
+
+:root[data-theme="light"] .chat-thread__input textarea::placeholder { color: #8d8b80; }
+
+:root[data-theme="light"] .chat-thread__typing {
+  color: var(--sc-ink);
+  background: var(--sc-lime);
+}
+
+:root[data-theme="light"] .chat-thread__connection--connected { color: #526c00 !important; }
+
+/* Yönetim */
+:root[data-theme="light"] .admin-page {
+  height: auto;
+  min-height: 100%;
+  overflow: visible;
+}
+
+:root[data-theme="light"] .admin-page__stats strong,
+:root[data-theme="light"] .admin-table td strong { color: var(--sc-ink); }
+
+:root[data-theme="light"] .admin-page__stats span,
+:root[data-theme="light"] .admin-table td span { color: var(--sc-muted); }
+
+:root[data-theme="light"] .admin-page__actions :is(select, button) {
+  color: var(--sc-ink);
+  border-color: var(--sc-line);
+  border-radius: 999px;
+  background: var(--sc-paper);
+}
+
+:root[data-theme="light"] .admin-state {
+  color: var(--sc-muted);
+  border-color: var(--sc-line-strong);
+  background: rgba(251, 250, 245, .65);
+}
+
+:root[data-theme="light"] .admin-table th {
+  color: var(--sc-muted);
+  background: var(--sc-cream-deep);
+}
+
+:root[data-theme="light"] .admin-table td { color: var(--sc-ink); }
+
+/* PIN, kurulum ve mobil çalışma alanı */
+:root[data-theme="light"] .pin-lock {
+  color: var(--sc-ink);
+  background-color: var(--sc-cream);
+  background-image:
+    linear-gradient(rgba(11, 11, 9, .045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(11, 11, 9, .045) 1px, transparent 1px);
+  background-size: 44px 44px;
+}
+
+:root[data-theme="light"] .pin-lock__card {
+  color: var(--sc-ink);
+  border-color: var(--sc-line);
+  border-radius: 20px;
+  background: var(--sc-paper);
+  box-shadow: var(--sc-shadow);
+}
+
+:root[data-theme="light"] .pin-lock__badge {
+  color: var(--sc-ink);
+  background: var(--sc-lime);
+}
+
+:root[data-theme="light"] .pin-lock__card h1 { color: var(--sc-ink); }
+
+:root[data-theme="light"] .setup-overlay {
+  background: rgba(11, 11, 9, .46);
+}
+
+:root[data-theme="light"] .setup-modal {
+  color: var(--sc-ink);
+  border-color: var(--sc-line);
+  border-radius: 20px;
+  background: var(--sc-paper);
+}
+
+:root[data-theme="light"] .setup-modal__icon,
+:root[data-theme="light"] .setup-modal__primary {
+  color: var(--sc-ink);
+  background: var(--sc-lime);
+  box-shadow: none;
+}
+
+:root[data-theme="light"] .setup-modal__header :is(p, h2),
+:root[data-theme="light"] .setup-field span,
+:root[data-theme="light"] .setup-type-card strong { color: var(--sc-ink); }
+
+:root[data-theme="light"] :is(.setup-field input, .setup-field select, .setup-type-card, .setup-preview, .setup-accountant-choice) {
+  color: var(--sc-ink);
+  border-color: var(--sc-line);
+  background: var(--sc-cream);
+}
+
+:root[data-theme="light"] .setup-type-card.active {
+  border-color: var(--sc-ink);
+  background: rgba(200, 255, 0, .2);
+}
+
+:root[data-theme="light"] .mobile-companion {
+  color: var(--sc-ink);
+  background-color: var(--sc-cream);
+  background-image:
+    linear-gradient(rgba(11, 11, 9, .045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(11, 11, 9, .045) 1px, transparent 1px);
+  background-size: 44px 44px;
+}
+
+:root[data-theme="light"] .mobile-companion__panel {
+  color: var(--sc-ink);
+  border-color: var(--sc-line);
+  border-radius: 20px;
+  background: var(--sc-paper);
+  box-shadow: var(--sc-shadow);
+}
+
+:root[data-theme="light"] .mobile-companion__actions a {
+  color: var(--sc-ink);
+  border-color: var(--sc-line);
+  border-radius: 14px;
+  background: var(--sc-cream);
+}
+
+:root[data-theme="light"] .mobile-companion__actions a:first-child {
+  color: var(--sc-ink);
+  border-color: var(--sc-lime);
+  background: var(--sc-lime);
+}
+
+:root[data-theme="light"] .mobile-workspace-view {
+  color: var(--sc-ink);
+  background: var(--sc-cream);
+}
+
+:root[data-theme="light"] .mobile-workspace-nav {
+  gap: 6px;
+  border-top-color: var(--sc-line);
+  background: var(--sc-paper);
+}
+
+:root[data-theme="light"] .mobile-workspace-nav a,
+:root[data-theme="light"] .mobile-workspace-nav a.active {
+  width: auto;
+  min-width: 0;
+  min-height: 48px;
+  flex: 1 1 0;
+  color: var(--sc-muted);
+  border-color: transparent;
+  border-radius: 12px;
+  background: transparent;
+  transition: none;
+}
+
+:root[data-theme="light"] .mobile-workspace-nav a span,
+:root[data-theme="light"] .mobile-workspace-nav a.active span {
+  width: auto;
+  opacity: 1;
+  transition: none;
+}
+
+:root[data-theme="light"] .mobile-workspace-nav a.active {
+  color: var(--sc-ink);
+  border-color: var(--sc-lime);
+  background: var(--sc-lime);
+}
+
+:root[data-theme="light"] .accountant-mobile-filters {
+  border-color: var(--sc-line);
+  background: var(--sc-paper);
+}
+
+:root[data-theme="light"] .accountant-mobile-filter-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+:root[data-theme="light"] .accountant-mobile-filter-tabs button,
+:root[data-theme="light"] .accountant-mobile-filter-tabs button.active {
+  width: 100%;
+  min-width: 0;
+  min-height: 46px;
+  flex: none;
+  color: var(--sc-muted);
+  border-color: var(--sc-line);
+  border-radius: 12px;
+  background: var(--sc-cream);
+  transition: none;
+}
+
+:root[data-theme="light"] .accountant-mobile-filter-tabs button span,
+:root[data-theme="light"] .accountant-mobile-filter-tabs button.active span {
+  display: inline;
+}
+
+:root[data-theme="light"] .accountant-mobile-filter-tabs button.active {
+  color: var(--sc-ink);
+  border-color: var(--sc-lime);
+  background: var(--sc-lime);
+}
+
+@media (max-width: 1280px) {
+  :root[data-theme="light"] .settings-grid,
+  :root[data-theme="light"] .accountant-panel__grid {
+    grid-template-columns: 1fr;
+  }
+
+  :root[data-theme="light"] .accountant-marketplace__body {
+    grid-template-columns: minmax(220px, 250px) minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 900px) {
+  :root[data-theme="light"] .settings-section-row {
+    grid-template-columns: 28px minmax(0, 1fr);
+  }
+
+  :root[data-theme="light"] .settings-section-row :is(select, .settings-status-pill, .settings-btn) {
+    grid-column: 2;
+    width: 100%;
+  }
+
+  :root[data-theme="light"] :is(.settings-block .settings-inline-actions, .settings-card--business .settings-block:not(.settings-block--new) .settings-inline-actions, .settings-block--new .settings-inline-actions, .settings-add-category, .settings-toolbar) {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  :root[data-theme="light"] .settings-btn,
+  :root[data-theme="light"] .settings-toolbar .settings-btn,
+  :root[data-theme="light"] .settings-add-category .settings-btn {
+    width: 100%;
+    min-width: 0;
+  }
+
+  :root[data-theme="light"] .accountant-marketplace__body {
+    grid-template-columns: 1fr;
+  }
+
+  :root[data-theme="light"] .accountant-filter-panel { display: none; }
+
+  :root[data-theme="light"] .chat-center-page {
+    min-height: 100dvh;
+    padding: 0;
+  }
+
+  :root[data-theme="light"] .chat-center {
+    height: 100dvh;
+    min-height: 100dvh;
+    border: 0;
+    border-radius: 0;
+  }
+
+  :root[data-theme="light"] .chat-center__sidebar,
+  :root[data-theme="light"] .chat-center__thread {
+    height: 100dvh;
+  }
+}
+
+@media (max-width: 700px) {
+  :root[data-theme="light"] .settings-page,
+  :root[data-theme="light"] :is(.accountant-panel, .accountant-marketplace, .admin-page) {
+    padding: 14px;
+  }
+
+  :root[data-theme="light"] .settings-tabs-header {
+    justify-content: stretch;
+  }
+
+  :root[data-theme="light"] .settings-tabs {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    border-radius: 16px;
+    overflow: visible;
+  }
+
+  :root[data-theme="light"] .settings-tabs button {
+    width: 100%;
+    min-width: 0;
+    padding-inline: 8px;
+  }
+
+  :root[data-theme="light"] .accountant-marketplace__hero,
+  :root[data-theme="light"] .accountant-panel__hero {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  :root[data-theme="light"] .accountant-primary-link { width: 100%; }
+
+  :root[data-theme="light"] .accountant-metrics,
+  :root[data-theme="light"] .accountant-form-grid,
+  :root[data-theme="light"] .accountant-card__highlights {
+    grid-template-columns: 1fr;
+  }
+
+  :root[data-theme="light"] .accountant-request-list article,
+  :root[data-theme="light"] .accountant-invite-box {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  :root[data-theme="light"] .accountant-request-list :is(select, button),
+  :root[data-theme="light"] .accountant-invite-box button {
+    width: 100%;
+  }
+
+  :root[data-theme="light"] .accountant-mobile-filter-tabs button {
+    padding: 0 6px;
+    font-size: 11px;
+  }
+
+  :root[data-theme="light"] .chat-thread__header > button:last-child span {
+    display: none;
+  }
+
+  :root[data-theme="light"] .chat-thread__tools {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+  }
+
+  :root[data-theme="light"] .chat-thread__tools > * {
+    flex: 0 0 auto;
+  }
+
+  :root[data-theme="light"] .admin-page__actions {
+    width: 100%;
+  }
+
+  :root[data-theme="light"] .admin-page__actions select { min-width: 0; }
+}
+
+/* Muhasebeci paneli — ekran denetimi */
+:root[data-theme="light"] .accountant-panel {
+  --accountant-control-height: 44px;
+  width: 100%;
+  max-width: 1480px;
+  margin-inline: auto;
+}
+
+:root[data-theme="light"] .accountant-panel__hero {
+  align-items: flex-end;
+  padding: clamp(18px, 2.2vw, 28px);
+  border: 1px solid var(--sc-line);
+  border-radius: 20px;
+  background: var(--sc-paper);
+  box-shadow: var(--sc-shadow);
+}
+
+:root[data-theme="light"] .accountant-panel__hero > div:first-child {
+  min-width: 0;
+}
+
+:root[data-theme="light"] .accountant-panel__hero h1 {
+  margin-block: 7px 8px;
+}
+
+:root[data-theme="light"] .accountant-panel__hero p {
+  max-width: 680px;
+  margin: 0;
+  line-height: 1.55;
+}
+
+:root[data-theme="light"] .accountant-panel .accountant-pro-note {
+  flex: 0 1 340px;
+  max-width: 340px;
+  min-height: 46px;
+  margin: 0;
+  padding: 11px 14px;
+  border-radius: 14px;
+}
+
+:root[data-theme="light"] .accountant-panel .accountant-feedback {
+  margin: 0;
+  border-radius: 13px;
+}
+
+:root[data-theme="light"] .accountant-panel .accountant-metrics {
+  gap: 12px;
+}
+
+:root[data-theme="light"] .accountant-panel .accountant-metrics article {
+  min-height: 126px;
+  padding: 18px;
+  align-content: space-between;
+  border-color: var(--sc-line);
+  border-radius: 16px;
+  background: var(--sc-paper);
+  box-shadow: none;
+}
+
+:root[data-theme="light"] .accountant-panel .accountant-metrics article:first-child {
+  color: var(--sc-paper);
+  border-color: var(--sc-ink);
+  background: var(--sc-ink);
+}
+
+:root[data-theme="light"] .accountant-panel .accountant-metrics article:first-child span,
+:root[data-theme="light"] .accountant-panel .accountant-metrics article:first-child small {
+  color: rgba(248, 246, 237, .66);
+}
+
+:root[data-theme="light"] .accountant-panel .accountant-metrics article:first-child strong {
+  color: var(--sc-lime);
+}
+
+:root[data-theme="light"] .accountant-panel__grid {
+  grid-template-columns: minmax(0, 1.35fr) minmax(300px, .65fr);
+  gap: 14px;
+  align-items: start;
+}
+
+:root[data-theme="light"] .accountant-panel .accountant-section {
+  min-width: 0;
+  padding: clamp(16px, 1.7vw, 22px);
+  gap: 16px;
+  border-color: var(--sc-line);
+  border-radius: 18px;
+  background: var(--sc-paper);
+  box-shadow: none;
+}
+
+:root[data-theme="light"] .accountant-panel .accountant-section header {
+  min-width: 0;
+  align-items: center;
+  padding-bottom: 13px;
+  border-bottom: 1px solid var(--sc-line);
+}
+
+:root[data-theme="light"] .accountant-panel .accountant-section header > div {
+  min-width: 0;
+}
+
+:root[data-theme="light"] .accountant-panel .accountant-section h2 {
+  overflow-wrap: anywhere;
+}
+
+:root[data-theme="light"] .accountant-panel .accountant-toggle {
+  min-height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--sc-line);
+  border-radius: 999px;
+  background: var(--sc-cream);
+}
+
+:root[data-theme="light"] .accountant-panel .accountant-toggle input {
+  accent-color: var(--sc-ink);
+}
+
+:root[data-theme="light"] .accountant-panel :is(
+  .accountant-form-grid input,
+  .accountant-form-grid select,
+  .accountant-form-grid textarea,
+  .accountant-section__field textarea,
+  .accountant-request-list select,
+  .accountant-invite-box input
+) {
+  min-height: var(--accountant-control-height);
+  border-color: var(--sc-line);
+  background: #fffef9;
+  transition: border-color .16s ease, box-shadow .16s ease, background-color .16s ease;
+}
+
+:root[data-theme="light"] .accountant-panel :is(
+  .accountant-form-grid input,
+  .accountant-form-grid select,
+  .accountant-form-grid textarea,
+  .accountant-section__field textarea,
+  .accountant-request-list select,
+  .accountant-invite-box input
+):focus {
+  outline: 0;
+  border-color: var(--sc-ink);
+  background: var(--sc-paper);
+  box-shadow: 0 0 0 3px rgba(200, 255, 0, .3);
+}
+
+:root[data-theme="light"] .accountant-panel .accountant-form-grid {
+  gap: 14px;
+}
+
+:root[data-theme="light"] .accountant-panel :is(.accountant-form-grid label, .accountant-section__field) > span,
+:root[data-theme="light"] .accountant-panel .profile-image-uploader__label {
+  color: var(--sc-ink);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+:root[data-theme="light"] .accountant-panel .profile-image-uploader {
+  padding: 13px;
+  border: 1px dashed var(--sc-line-strong);
+  border-radius: 14px;
+  background: var(--sc-cream);
+}
+
+:root[data-theme="light"] .accountant-panel .profile-image-uploader__body {
+  align-items: center;
+}
+
+:root[data-theme="light"] .accountant-panel .profile-image-uploader__preview {
+  width: 72px;
+  height: 72px;
+  flex-basis: 72px;
+  color: var(--sc-ink);
+  border-color: var(--sc-line);
+  border-radius: 50%;
+  background: var(--sc-paper);
+}
+
+:root[data-theme="light"] .accountant-panel .profile-image-uploader__actions button,
+:root[data-theme="light"] .profile-cropper__actions button {
+  min-height: 40px;
+  color: var(--sc-ink);
+  border-color: var(--sc-line-strong);
+  border-radius: 999px;
+  background: var(--sc-paper);
+}
+
+:root[data-theme="light"] .accountant-panel .profile-image-uploader__actions small {
+  color: var(--sc-muted);
+  font-weight: 650;
+}
+
+:root[data-theme="light"] .accountant-panel .accountant-profile-preview {
+  padding: 14px;
+  border-color: var(--sc-line);
+  border-radius: 15px;
+  background: var(--sc-cream);
+}
+
+:root[data-theme="light"] .accountant-panel .accountant-profile-preview__image {
+  color: var(--sc-ink);
+  border-color: var(--sc-line-strong);
+  background: var(--sc-paper);
+}
+
+:root[data-theme="light"] .accountant-panel .accountant-profile-preview__content > span {
+  color: #506a00;
+}
+
+:root[data-theme="light"] .accountant-panel .accountant-profile-preview__content :is(strong, p) {
+  color: var(--sc-ink);
+}
+
+:root[data-theme="light"] .accountant-panel .accountant-profile-preview__content p {
+  color: var(--sc-muted);
+}
+
+:root[data-theme="light"] .accountant-panel .accountant-profile-preview__content :is(small, em) {
+  color: var(--sc-ink);
+  border: 1px solid rgba(79, 102, 0, .16);
+  background: rgba(200, 255, 0, .22);
+}
+
+:root[data-theme="light"] .accountant-panel .accountant-section > button,
+:root[data-theme="light"] .accountant-panel .accountant-request-list button,
+:root[data-theme="light"] .accountant-panel .accountant-invite-box button {
+  min-height: var(--accountant-control-height);
+  border-radius: 999px;
+}
+
+:root[data-theme="light"] .accountant-panel .accountant-section > button:hover,
+:root[data-theme="light"] .accountant-panel .accountant-request-list button:not(.accountant-danger-button):hover,
+:root[data-theme="light"] .accountant-panel .accountant-invite-box button:hover {
+  border-color: var(--sc-ink);
+  background: var(--sc-ink);
+  color: var(--sc-paper);
+}
+
+:root[data-theme="light"] .accountant-panel .accountant-permission {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+:root[data-theme="light"] .accountant-panel .accountant-permission button {
+  min-width: 0;
+  min-height: 42px;
+  justify-content: center;
+}
+
+:root[data-theme="light"] .accountant-panel .accountant-request-list article {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(145px, 165px) auto auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 13px;
+  border-radius: 14px;
+}
+
+:root[data-theme="light"] .accountant-panel .accountant-request-list article > div {
+  min-width: 0;
+}
+
+:root[data-theme="light"] .accountant-panel .accountant-request-list article > div span {
+  overflow-wrap: anywhere;
+}
+
+:root[data-theme="light"] .accountant-panel .accountant-request-list :is(select, button) {
+  width: auto;
+  min-width: 0;
+  margin: 0;
+}
+
+:root[data-theme="light"] .accountant-panel .accountant-danger-button:hover {
+  border-color: var(--expense) !important;
+  background: var(--expense) !important;
+  color: #fff !important;
+}
+
+:root[data-theme="light"] .accountant-panel .accountant-table-wrap {
+  border-radius: 14px;
+}
+
+:root[data-theme="light"] .accountant-panel .accountant-table {
+  min-width: 900px;
+}
+
+:root[data-theme="light"] .accountant-panel .accountant-table :is(th, td) {
+  padding: 13px 14px;
+  border-color: var(--sc-line);
+}
+
+:root[data-theme="light"] .accountant-panel .accountant-table th {
+  letter-spacing: .05em;
+}
+
+:root[data-theme="light"] .accountant-panel .accountant-table td:last-child {
+  width: 270px;
+  display: grid;
+  grid-template-columns: auto minmax(150px, 1fr);
+  gap: 8px;
+}
+
+:root[data-theme="light"] .accountant-panel .accountant-table button {
+  min-height: 38px;
+  white-space: nowrap;
+}
+
+:root[data-theme="light"] .accountant-panel .accountant-invite-box {
+  display: grid;
+  grid-template-columns: auto minmax(140px, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  padding: 11px;
+  border-radius: 14px;
+}
+
+:root[data-theme="light"] .accountant-panel .accountant-invite-box span:first-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+:root[data-theme="light"] .profile-cropper {
+  background: rgba(11, 11, 9, .58);
+}
+
+:root[data-theme="light"] .profile-cropper__panel {
+  color: var(--sc-ink);
+  border-color: var(--sc-line);
+  border-radius: 18px;
+  background: var(--sc-paper);
+  box-shadow: 0 24px 70px rgba(11, 11, 9, .24);
+}
+
+:root[data-theme="light"] .profile-cropper__panel :is(h2, header span, .profile-cropper__zoom span) {
+  color: var(--sc-ink);
+}
+
+:root[data-theme="light"] .profile-cropper__panel header span {
+  color: #506a00;
+}
+
+:root[data-theme="light"] .profile-cropper__panel header button {
+  color: var(--sc-ink);
+  border-color: var(--sc-line);
+  border-radius: 50%;
+  background: var(--sc-cream);
+}
+
+:root[data-theme="light"] .profile-cropper__frame {
+  border-color: var(--sc-lime);
+  background-color: var(--sc-ink);
+}
+
+:root[data-theme="light"] .profile-cropper__actions .profile-cropper__primary {
+  color: var(--sc-ink);
+  border-color: var(--sc-lime);
+  background: var(--sc-lime);
+}
+
+@media (max-width: 1180px) {
+  :root[data-theme="light"] .accountant-panel__grid {
+    grid-template-columns: 1fr;
+  }
+
+  :root[data-theme="light"] .accountant-panel .accountant-request-list article {
+    grid-template-columns: minmax(220px, 1fr) minmax(145px, 170px) repeat(3, auto);
+  }
+}
+
+@media (max-width: 900px) {
+  :root[data-theme="light"] .accountant-panel .accountant-request-list article {
+    grid-template-columns: minmax(0, 1fr) repeat(3, auto);
+  }
+
+  :root[data-theme="light"] .accountant-panel .accountant-request-list article > div {
+    grid-column: 1 / -1;
+  }
+
+  :root[data-theme="light"] .accountant-panel .accountant-request-list select {
+    width: 100%;
+  }
+}
+
+@media (max-width: 700px) {
+  :root[data-theme="light"] .accountant-panel {
+    gap: 12px;
+  }
+
+  :root[data-theme="light"] .accountant-panel__hero {
+    align-items: stretch;
+    padding: 17px;
+    border-radius: 17px;
+  }
+
+  :root[data-theme="light"] .accountant-panel .accountant-pro-note {
+    flex-basis: auto;
+    max-width: none;
+  }
+
+  :root[data-theme="light"] .accountant-panel .accountant-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  :root[data-theme="light"] .accountant-panel .accountant-metrics article {
+    min-height: 108px;
+  }
+
+  :root[data-theme="light"] .accountant-panel .accountant-section {
+    padding: 15px;
+    border-radius: 16px;
+  }
+
+  :root[data-theme="light"] .accountant-panel .accountant-section header {
+    align-items: flex-start;
+  }
+
+  :root[data-theme="light"] .accountant-panel .accountant-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  :root[data-theme="light"] .accountant-panel .accountant-form-grid__wide {
+    grid-column: auto;
+  }
+
+  :root[data-theme="light"] .accountant-panel .accountant-profile-preview {
+    grid-template-columns: 58px minmax(0, 1fr);
+  }
+
+  :root[data-theme="light"] .accountant-panel .accountant-profile-preview__image {
+    width: 58px;
+    height: 58px;
+  }
+
+  :root[data-theme="light"] .accountant-panel .accountant-section > button {
+    width: 100%;
+  }
+
+  :root[data-theme="light"] .accountant-panel .accountant-request-list article {
+    grid-template-columns: 1fr;
+  }
+
+  :root[data-theme="light"] .accountant-panel .accountant-request-list article > div {
+    grid-column: auto;
+  }
+
+  :root[data-theme="light"] .accountant-panel .accountant-request-list :is(select, button) {
+    width: 100%;
+  }
+
+  :root[data-theme="light"] .accountant-panel .accountant-invite-box {
+    grid-template-columns: 1fr;
+  }
+
+  :root[data-theme="light"] .accountant-panel .accountant-invite-box button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 430px) {
+  :root[data-theme="light"] .accountant-panel .accountant-section header {
+    flex-direction: column;
+  }
+
+  :root[data-theme="light"] .accountant-panel .accountant-toggle {
+    width: 100%;
+    justify-content: center;
+  }
+
+  :root[data-theme="light"] .accountant-panel .profile-image-uploader__body {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  :root[data-theme="light"] .accountant-panel .profile-image-uploader__actions button {
+    width: 100%;
+  }
+
+  :root[data-theme="light"] .accountant-panel .accountant-profile-preview {
+    grid-template-columns: 1fr;
+  }
+
+  :root[data-theme="light"] .profile-cropper {
+    padding: 12px;
+  }
+
+  :root[data-theme="light"] .profile-cropper__frame {
+    width: min(250px, 78vw);
+    height: min(250px, 78vw);
+  }
+}

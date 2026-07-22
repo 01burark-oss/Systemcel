@@ -6,7 +6,7 @@ interface ThemeContextValue {
   theme: Theme;
 }
 
-const DEFAULT_THEME: Theme = "dark";
+const DEFAULT_THEME: Theme = "light";
 
 const ThemeContext = React.createContext<ThemeContextValue | undefined>(undefined);
 

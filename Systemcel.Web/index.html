@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="tr" data-theme="dark">
+<html lang="tr" data-theme="light">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -12,6 +12,24 @@
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:image" content="/systemcel-social-preview.png" />
     <title>Systemcel — Ön Muhasebe ve Nakit Akışı</title>
+    <script>
+      if (/^\/(sign-in|sign-up)(?:\/|$)/.test(window.location.pathname)) {
+        document.documentElement.dataset.authRoute = "true";
+      }
+    </script>
+    <style>
+      html[data-auth-route="true"],
+      html[data-auth-route="true"] body,
+      html[data-auth-route="true"] #root {
+        background: #f5f3ea;
+      }
+
+      html:not([data-auth-route="true"]),
+      html:not([data-auth-route="true"]) body,
+      html:not([data-auth-route="true"]) #root {
+        background: #f2f0e7;
+      }
+    </style>
   </head>
   <body>
     <div id="root"></div>

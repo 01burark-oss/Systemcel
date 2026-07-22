@@ -14,6 +14,7 @@ import {
   Landmark,
   Loader2,
   LogOut,
+  Menu,
   MessageCircle,
   Send,
   Settings,
@@ -22,10 +23,10 @@ import {
   ShoppingCart,
   Wallet,
   WalletCards,
+  X,
   type LucideIcon
 } from "lucide-react";
 import { AuthUserButton } from "../auth/AuthUserButton";
-import systemcelLogo from "../assets/systemcel-logo.png";
 import { AiAssistantPanel } from "./AiAssistantPanel";
 import type { UstBarDurumu } from "./chrome";
 import { jsonOku } from "./json";
@@ -141,6 +142,7 @@ export function ReactWorkspaceShell({ children, ustBar, baslik, sagAksiyon }: Re
   const [bildirimHata, setBildirimHata] = React.useState("");
   const [sohbetPaneliAcik, setSohbetPaneliAcik] = React.useState(false);
   const [baglamKapatiliyor, setBaglamKapatiliyor] = React.useState(false);
+  const [mobilMenuAcik, setMobilMenuAcik] = React.useState(false);
   const rawPath = normalizePath(window.location.pathname);
   const currentPath = rawPath === "/app" ? "/" : rawPath.startsWith("/app/") ? rawPath.slice(4) : rawPath;
   const aktifAyarlarSekmesi = new URLSearchParams(window.location.search).get("sekme")?.toLocaleLowerCase("tr-TR") || "isletme";
@@ -154,6 +156,14 @@ export function ReactWorkspaceShell({ children, ustBar, baslik, sagAksiyon }: Re
   React.useEffect(() => {
     const handle = window.setInterval(() => setNow(new Date()), 30_000);
     return () => window.clearInterval(handle);
+  }, []);
+
+  React.useEffect(() => {
+    const menuyuKapat = () => {
+      if (window.innerWidth > 980) setMobilMenuAcik(false);
+    };
+    window.addEventListener("resize", menuyuKapat);
+    return () => window.removeEventListener("resize", menuyuKapat);
   }, []);
 
   const bildirimleriYukle = React.useCallback(async () => {
@@ -187,16 +197,29 @@ export function ReactWorkspaceShell({ children, ustBar, baslik, sagAksiyon }: Re
 
   return (
     <div className={`react-shell ${baslik ? "react-shell--page-title" : ""}`}>
-      <aside className="react-sidebar" aria-label="Systemcel menüsü">
+      <aside className={`react-sidebar ${mobilMenuAcik ? "react-sidebar--open" : ""}`} aria-label="Systemcel menüsü">
         <a className="react-sidebar__brand" href={brandHref} aria-label="Systemcel ana sayfa">
           <span className="react-sidebar__brand-mark" aria-hidden="true">
-            <img src={systemcelLogo} alt="" />
+            <i />
+            <i />
+            <i />
+            <i />
           </span>
           <span className="react-sidebar__brand-text">
-            <strong>SYSTEMCEL</strong>
+            <strong>systemcel</strong>
             <small>Finance Suite</small>
           </span>
         </a>
+
+        <button
+          className="react-sidebar__mobile-toggle"
+          type="button"
+          aria-label={mobilMenuAcik ? "Menüyü kapat" : "Menüyü aç"}
+          aria-expanded={mobilMenuAcik}
+          onClick={() => setMobilMenuAcik((current) => !current)}
+        >
+          {mobilMenuAcik ? <X size={22} /> : <Menu size={22} />}
+        </button>
 
         <nav className="react-sidebar__nav" aria-label="Ana menü">
           {menuItems.map((item) => {

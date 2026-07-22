@@ -117,13 +117,7 @@ export function GibPortalSayfasi({ yenileAnahtari }: GibPortalSayfasiProps) {
         </button>
       </section>
 
-      <section className="gib-status-grid">
-        <article className="gib-status-card">
-          <span className="green"><ShieldCheck size={24} /></span>
-          <p>Güvenli Saklama</p>
-          <strong>Windows DPAPI</strong>
-          <small>Şifre sadece bu cihazda çözümlenir.</small>
-        </article>
+      <section className="gib-status-grid gib-status-grid--compact" aria-label="GİB bağlantı özeti">
         <article className="gib-status-card">
           <span className={ekran?.hasPassword ? "blue" : "amber"}><LockKeyhole size={24} /></span>
           <p>Şifre Durumu</p>
@@ -213,6 +207,11 @@ export function GibPortalSayfasi({ yenileAnahtari }: GibPortalSayfasiProps) {
           {hata || mesaj}
         </div>
       )}
+
+      <p className="gib-security-note">
+        <ShieldCheck size={14} />
+        GİB şifreniz Windows DPAPI ile korunur ve yalnızca bu cihazda çözümlenir.
+      </p>
     </main>
   );
 }
