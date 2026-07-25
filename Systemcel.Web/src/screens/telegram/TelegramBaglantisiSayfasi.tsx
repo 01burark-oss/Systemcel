@@ -304,7 +304,7 @@ export function TelegramBaglantisiSayfasi({ onTelegramDurumuDegisti }: TelegramB
               </span>
               <ChevronRight size={20} />
             </button>
-            <button className="telegram-after-action" disabled={islemde || !data.bagli} type="button" onClick={baglantiyiKaldir}>
+            <button className="telegram-after-action telegram-after-action--danger" disabled={islemde || !data.bagli} type="button" onClick={baglantiyiKaldir}>
               <Trash2 size={20} />
               <span>
                 <strong>Bağlantıyı Kaldır</strong>

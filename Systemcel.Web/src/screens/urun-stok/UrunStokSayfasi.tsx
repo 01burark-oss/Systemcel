@@ -144,6 +144,7 @@ export function UrunStokSayfasi({
   const [barkodPaneliAcik, setBarkodPaneliAcik] = React.useState(false);
   const [barkodDegeri, setBarkodDegeri] = React.useState("");
   const [barkodMesaji, setBarkodMesaji] = React.useState("");
+  const [aktifIslemPaneli, setAktifIslemPaneli] = React.useState<"urun" | "stok">("urun");
   const seciliIdRef = React.useRef<number | null>(null);
 
   const seciliUrun = React.useMemo(
@@ -180,6 +181,7 @@ export function UrunStokSayfasi({
     setSeciliId(null);
     setUrunFormu({ ...bosUrunFormu(), barkod });
     setStokFormu(bosStokFormu());
+    setAktifIslemPaneli("urun");
   }, []);
 
   const kaydiSec = React.useCallback((row: UrunListeKaydi) => {
@@ -347,6 +349,7 @@ export function UrunStokSayfasi({
       setBarkodMesaji("Barkod kontrol ediliyor...");
       const existing = await jsonOku<UrunListeKaydi>(`/api/ekran/urun-stok/barkod?deger=${encodeURIComponent(barcode)}`);
       kaydiSec(existing);
+      setAktifIslemPaneli("urun");
       setBarkodPaneliAcik(false);
       setBarkodDegeri("");
       setDurum(`Barkod mevcut kayda ait: ${existing.ad}`);
@@ -456,7 +459,19 @@ export function UrunStokSayfasi({
                     );
                   })}
                   {filtreliUrunler.length === 0 && (
-                    <tr><td className="bos" colSpan={9}>Liste boş.</td></tr>
+                    <tr>
+                      <td className="bos" colSpan={9}>
+                        <div className="stock-empty">
+                          <Box size={22} />
+                          <strong>Henüz ürün bulunmuyor.</strong>
+                          <span>İlk ürün veya hizmet kartınızı oluşturarak başlayın.</span>
+                          <button type="button" onClick={() => formuSifirla()}>
+                            <Plus size={15} />
+                            İlk ürünü ekle
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
                   )}
                 </tbody>
               </table>
@@ -491,7 +506,15 @@ export function UrunStokSayfasi({
                     </tr>
                   ))}
                   {(ekran?.sonHareketler.length ?? 0) === 0 && (
-                    <tr><td className="bos" colSpan={6}>Stok hareketi yok.</td></tr>
+                    <tr>
+                      <td className="bos" colSpan={6}>
+                        <div className="stock-empty stock-empty--compact">
+                          <PackagePlus size={20} />
+                          <strong>Henüz stok hareketi yok.</strong>
+                          <span>Ürün giriş ve çıkışları burada listelenecek.</span>
+                        </div>
+                      </td>
+                    </tr>
                   )}
                 </tbody>
               </table>
@@ -499,45 +522,137 @@ export function UrunStokSayfasi({
           </div>
         </div>
 
-        <div className="stock-side">
-          <div className="stock-card stock-form-card">
-            <div className="stock-card__header">
-              <h2>Ürün / Hizmet Kartı</h2>
+        <aside className="stock-side">
+          <section className="stock-card stock-workbench">
+            <header className="stock-workbench__header">
+              <div>
+                <span>Hızlı işlem</span>
+                <h2>İşlem Paneli</h2>
+              </div>
+              {seciliUrun ? (
+                <small title={seciliUrun.ad}>{seciliUrun.ad}</small>
+              ) : (
+                <small>Yeni kart</small>
+              )}
+            </header>
+
+            <div className="stock-workbench__tabs" role="tablist" aria-label="Ürün ve stok işlemleri">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={aktifIslemPaneli === "urun"}
+                className={aktifIslemPaneli === "urun" ? "active" : ""}
+                onClick={() => setAktifIslemPaneli("urun")}
+              >
+                <Box size={17} />
+                Ürün kartı
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={aktifIslemPaneli === "stok"}
+                className={aktifIslemPaneli === "stok" ? "active" : ""}
+                onClick={() => setAktifIslemPaneli("stok")}
+              >
+                <PackagePlus size={17} />
+                Stok hareketi
+              </button>
             </div>
 
-            <div className="stock-form-grid">
-              <label className="stock-field"><span>Tip</span><select value={urunFormu.tip} onChange={(event) => urunAlaniniGuncelle("tip", event.target.value)}>{(ekran?.tipSecenekleri ?? []).map((secenek) => <option key={secenek.deger} value={secenek.deger}>{etiketBic(secenek.etiket)}</option>)}</select></label>
-              <label className="stock-field"><span>Alış</span><input inputMode="decimal" value={urunFormu.alisFiyati} onChange={(event) => urunAlaniniGuncelle("alisFiyati", event.target.value)} /></label>
-              <label className="stock-field"><span>Ad</span><input value={urunFormu.ad} onChange={(event) => urunAlaniniGuncelle("ad", event.target.value)} placeholder="Ürün veya hizmet adı" /></label>
-              <label className="stock-field"><span>Satış</span><input inputMode="decimal" value={urunFormu.satisFiyati} onChange={(event) => urunAlaniniGuncelle("satisFiyati", event.target.value)} /></label>
-              <label className="stock-field"><span>Barkod</span><input value={urunFormu.barkod} onChange={(event) => urunAlaniniGuncelle("barkod", event.target.value)} placeholder="Barkod numarası" /></label>
-              <label className="stock-field"><span>Kritik stok</span><input inputMode="decimal" value={urunFormu.kritikStok} onChange={(event) => urunAlaniniGuncelle("kritikStok", event.target.value)} /></label>
-              <label className="stock-field"><span>Birim</span><select value={urunFormu.birim} onChange={(event) => urunAlaniniGuncelle("birim", event.target.value)}>{(ekran?.birimSecenekleri ?? []).map((secenek) => <option key={secenek.deger} value={secenek.deger}>{secenek.etiket}</option>)}</select></label>
-              <label className="stock-check"><input type="checkbox" checked={urunFormu.aktif} onChange={(event) => urunAlaniniGuncelle("aktif", event.target.checked)} />Aktif</label>
-              <label className="stock-field"><span>KDV %</span><input inputMode="decimal" value={urunFormu.kdvOrani} onChange={(event) => urunAlaniniGuncelle("kdvOrani", event.target.value)} /></label>
-              <button type="button" className="stock-btn stock-btn--barcode stock-btn--barcode-inline" onClick={() => setBarkodPaneliAcik(true)} disabled={islemde}><Barcode size={17} />Barkod ile ürün ekle</button>
-            </div>
+            {aktifIslemPaneli === "urun" ? (
+              <div className="stock-workbench__panel" role="tabpanel">
+                <div className="stock-form-grid">
+                  <label className="stock-field">
+                    <span>Tip</span>
+                    <select value={urunFormu.tip} onChange={(event) => urunAlaniniGuncelle("tip", event.target.value)}>
+                      {(ekran?.tipSecenekleri ?? []).map((secenek) => <option key={secenek.deger} value={secenek.deger}>{etiketBic(secenek.etiket)}</option>)}
+                    </select>
+                  </label>
+                  <label className="stock-field">
+                    <span>Birim</span>
+                    <select value={urunFormu.birim} onChange={(event) => urunAlaniniGuncelle("birim", event.target.value)}>
+                      {(ekran?.birimSecenekleri ?? []).map((secenek) => <option key={secenek.deger} value={secenek.deger}>{secenek.etiket}</option>)}
+                    </select>
+                  </label>
+                  <label className="stock-field">
+                    <span>Ad</span>
+                    <input value={urunFormu.ad} onChange={(event) => urunAlaniniGuncelle("ad", event.target.value)} placeholder="Ürün veya hizmet adı" />
+                  </label>
+                  <label className="stock-field">
+                    <span>Barkod</span>
+                    <input value={urunFormu.barkod} onChange={(event) => urunAlaniniGuncelle("barkod", event.target.value)} placeholder="Barkod numarası" />
+                  </label>
+                  <label className="stock-field">
+                    <span>Alış fiyatı</span>
+                    <input inputMode="decimal" value={urunFormu.alisFiyati} onChange={(event) => urunAlaniniGuncelle("alisFiyati", event.target.value)} />
+                  </label>
+                  <label className="stock-field">
+                    <span>Satış fiyatı</span>
+                    <input inputMode="decimal" value={urunFormu.satisFiyati} onChange={(event) => urunAlaniniGuncelle("satisFiyati", event.target.value)} />
+                  </label>
+                  <label className="stock-field">
+                    <span>KDV %</span>
+                    <input inputMode="decimal" value={urunFormu.kdvOrani} onChange={(event) => urunAlaniniGuncelle("kdvOrani", event.target.value)} />
+                  </label>
+                  <label className="stock-field">
+                    <span>Kritik stok</span>
+                    <input inputMode="decimal" value={urunFormu.kritikStok} onChange={(event) => urunAlaniniGuncelle("kritikStok", event.target.value)} />
+                  </label>
+                  <label className="stock-check">
+                    <input type="checkbox" checked={urunFormu.aktif} onChange={(event) => urunAlaniniGuncelle("aktif", event.target.checked)} />
+                    <span>
+                      <strong>Aktif ürün</strong>
+                      <small>Listelerde ve işlemlerde kullanılabilir.</small>
+                    </span>
+                  </label>
+                  <button type="button" className="stock-btn stock-btn--barcode stock-btn--barcode-inline" onClick={() => setBarkodPaneliAcik(true)} disabled={islemde}>
+                    <Barcode size={17} />
+                    Barkod ile ürün ekle
+                  </button>
+                </div>
 
-            <div className="stock-actions">
-              <button type="button" className="stock-btn" onClick={() => formuSifirla()} disabled={islemde}><Plus size={16} />Yeni</button>
-              <button type="button" className="stock-btn stock-btn--primary" onClick={() => void urunKaydet()} disabled={islemde}><Save size={16} />Kaydet</button>
-              <button type="button" className="stock-btn stock-btn--danger" onClick={() => void urunSil()} disabled={islemde || !seciliId}><Trash2 size={16} />Sil</button>
-            </div>
-          </div>
+                <div className="stock-actions">
+                  <button type="button" className="stock-btn" onClick={() => formuSifirla()} disabled={islemde}><Plus size={16} />Yeni</button>
+                  <button type="button" className="stock-btn stock-btn--danger" onClick={() => void urunSil()} disabled={islemde || !seciliId}><Trash2 size={16} />Sil</button>
+                  <button type="button" className="stock-btn stock-btn--primary" onClick={() => void urunKaydet()} disabled={islemde}><Save size={16} />Kaydet</button>
+                </div>
+              </div>
+            ) : (
+              <div className="stock-workbench__panel" role="tabpanel">
+                <div className={`stock-selection-summary ${seciliUrun?.tip === "Urun" ? "ready" : ""}`}>
+                  <span>
+                    <small>Seçili ürün</small>
+                    <strong>{seciliUrun?.ad || "Önce listeden bir ürün seçin"}</strong>
+                  </span>
+                  <span>
+                    <small>Mevcut stok</small>
+                    <strong>{sayiBic(seciliUrun?.mevcutStok ?? 0)}</strong>
+                  </span>
+                </div>
 
-          <div className="stock-card stock-movement-card">
-            <div className="stock-card__header compact">
-              <h2>Stok Hareketi</h2>
-              <strong>Mevcut stok: {sayiBic(seciliUrun?.mevcutStok ?? 0)}</strong>
-            </div>
-            <div className="stock-movement-form">
-              <label className="stock-field"><span>Miktar (+/-)</span><input inputMode="decimal" value={stokFormu.miktar} onChange={(event) => stokAlaniniGuncelle("miktar", event.target.value)} disabled={!seciliId || seciliUrun?.tip !== "Urun"} /></label>
-              <label className="stock-field stock-field--date"><span>Tarih</span><input className="stock-date-input" type="date" value={stokFormu.tarih} onChange={(event) => stokAlaniniGuncelle("tarih", event.target.value)} disabled={!seciliId || seciliUrun?.tip !== "Urun"} /></label>
-              <label className="stock-field stock-field--grow"><span>Açıklama</span><input value={stokFormu.aciklama} onChange={(event) => stokAlaniniGuncelle("aciklama", event.target.value)} disabled={!seciliId || seciliUrun?.tip !== "Urun"} placeholder="Açıklama giriniz" /></label>
-              <button type="button" className="stock-btn stock-btn--primary" onClick={() => void stokIsle()} disabled={islemde || !seciliId || seciliUrun?.tip !== "Urun"}><PackagePlus size={16} />Stok İşle</button>
-            </div>
-          </div>
-        </div>
+                <div className="stock-movement-form">
+                  <label className="stock-field">
+                    <span>Miktar (+/-)</span>
+                    <input inputMode="decimal" value={stokFormu.miktar} onChange={(event) => stokAlaniniGuncelle("miktar", event.target.value)} disabled={!seciliId || seciliUrun?.tip !== "Urun"} />
+                    <small>Pozitif değer giriş, negatif değer çıkış yapar.</small>
+                  </label>
+                  <label className="stock-field stock-field--date">
+                    <span>Tarih</span>
+                    <input className="stock-date-input" type="date" value={stokFormu.tarih} onChange={(event) => stokAlaniniGuncelle("tarih", event.target.value)} disabled={!seciliId || seciliUrun?.tip !== "Urun"} />
+                  </label>
+                  <label className="stock-field stock-field--grow stock-field--wide">
+                    <span>Açıklama</span>
+                    <input value={stokFormu.aciklama} onChange={(event) => stokAlaniniGuncelle("aciklama", event.target.value)} disabled={!seciliId || seciliUrun?.tip !== "Urun"} placeholder="Hareket açıklaması" />
+                  </label>
+                  <button type="button" className="stock-btn stock-btn--primary stock-btn--movement" onClick={() => void stokIsle()} disabled={islemde || !seciliId || seciliUrun?.tip !== "Urun"}>
+                    <PackagePlus size={16} />
+                    Stok hareketini kaydet
+                  </button>
+                </div>
+              </div>
+            )}
+          </section>
+        </aside>
       </section>
 
       {hata ? (
