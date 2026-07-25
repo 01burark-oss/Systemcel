@@ -337,7 +337,7 @@ export function CariHesaplarSayfasi({
                 ))}
                 {(ekran?.kartlar.length ?? 0) === 0 && (
                   <tr>
-                    <td className="bos" colSpan={6} aria-label="Liste boş" />
+                    <td className="bos" colSpan={6}>Cari kayıt bulunamadı.</td>
                   </tr>
                 )}
               </tbody>

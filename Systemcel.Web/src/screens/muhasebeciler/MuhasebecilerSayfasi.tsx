@@ -6,7 +6,6 @@ import {
   ChevronDown,
   Clock3,
   Copy,
-  LayoutList,
   Loader2,
   MapPin,
   MessageCircle,
@@ -332,8 +331,8 @@ export function MuhasebecilerSayfasi({ mobileMode = false, publicMode = false, u
       {mesaj ? <p className="accountant-feedback accountant-feedback--success">{mesaj}</p> : null}
       {hata ? <p className="accountant-feedback accountant-feedback--error">{hata}</p> : null}
 
-      {mobileMode ? (
-        <section className="accountant-mobile-filters" aria-label="Muhasebeci filtreleri">
+      {mobileMode || publicMode ? (
+        <section className={`accountant-mobile-filters${publicMode && !mobileMode ? " accountant-mobile-filters--responsive" : ""}`} aria-label="Muhasebeci filtreleri">
           <form className="accountant-filter-search" onSubmit={(event) => { event.preventDefault(); setAktifArama(arama); }}>
             <label>
               <Search size={18} />
@@ -405,9 +404,6 @@ export function MuhasebecilerSayfasi({ mobileMode = false, publicMode = false, u
                 </select>
                 <ChevronDown size={16} />
               </label>
-              <button type="button" aria-label="Liste görünümü">
-                <LayoutList size={18} />
-              </button>
             </div>
           </header>
 

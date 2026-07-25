@@ -61,9 +61,11 @@ function OzetMetrik({
   ton: "gelir" | "net" | "gider";
   trend?: NetTrendNokta[];
 }) {
+  const degerDurumu = Math.abs(deger) < 0.005 ? "bos" : deger < 0 ? "negatif" : "pozitif";
+
   if (ton === "net") {
     return (
-      <article className="snapshot-card snapshot-card--net snapshot-card--benchmark">
+      <article className={`snapshot-card snapshot-card--net snapshot-card--benchmark snapshot-card--${degerDurumu}`}>
         <div className="snapshot-card__head">
           <h3>{baslik}</h3>
           <span className="snapshot-period-chip">
@@ -83,7 +85,7 @@ function OzetMetrik({
   }
 
   return (
-    <article className={`snapshot-card snapshot-card--${ton}`}>
+    <article className={`snapshot-card snapshot-card--${ton} snapshot-card--${degerDurumu}`}>
       <div className="snapshot-card__head">
         <h3>{baslik}</h3>
       </div>
@@ -107,22 +109,23 @@ function NetBenchmark({ bugunNet, trend }: { bugunNet: number; trend: NetTrendNo
   const yuzde = Math.round((Math.abs(fark) / Math.max(Math.abs(ortalama), 1)) * 100);
   const sinyalOrani = veriOlanGunler.length === 0 ? 0 : Math.min(100, Math.max(10, yuzde));
   const iyi = fark >= 0;
+  const durumSinifi = veriOlanGunler.length === 0 ? "notr" : iyi ? "pozitif" : "negatif";
   const durumMetni = NetBenchmarkMetni(veriOlanGunler.length, ortalama, bugunNet, yuzde, iyi);
 
   return (
     <div className="net-benchmark">
       <div className="net-benchmark__header">
         <span>Bugünkü performans</span>
-        <strong className={iyi ? "pozitif" : "negatif"}>Son zamanlara göre</strong>
+        <strong className={durumSinifi}>Son zamanlara göre</strong>
       </div>
 
-      <strong className={`net-benchmark__insight ${iyi ? "pozitif" : "negatif"}`}>
+      <strong className={`net-benchmark__insight ${durumSinifi}`}>
         {durumMetni}
       </strong>
 
       <div className="net-benchmark__bar" aria-hidden="true">
         <span
-          className={`net-benchmark__fill ${iyi ? "pozitif" : "negatif"}`}
+          className={`net-benchmark__fill ${durumSinifi}`}
           style={{ width: `${sinyalOrani}%` }}
         />
       </div>

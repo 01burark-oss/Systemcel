@@ -3,7 +3,6 @@ import {
   AlertTriangle,
   Barcode,
   Box,
-  Filter,
   PackagePlus,
   Plus,
   RefreshCw,
@@ -421,9 +420,6 @@ export function UrunStokSayfasi({
                   <option value="Pasif">Pasif Ürünler</option>
                   <option value="Tumu">Tüm Durumlar</option>
                 </select>
-                <button type="button" aria-label="Filtreler">
-                  <Filter size={18} />
-                </button>
               </div>
             </div>
 
