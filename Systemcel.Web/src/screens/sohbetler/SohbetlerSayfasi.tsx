@@ -11,10 +11,9 @@ import {
   Mic,
   Paperclip,
   RefreshCw,
+  Search,
   Send,
   Share2,
-  Signal,
-  SignalZero,
   Trash2,
   X
 } from "lucide-react";
@@ -109,6 +108,7 @@ export function SohbetlerSayfasi({ mobileMode = false, ustBar, onUstBarYenile }:
   const [mesajYukleniyor, setMesajYukleniyor] = React.useState(false);
   const [eskiYukleniyor, setEskiYukleniyor] = React.useState(false);
   const [hata, setHata] = React.useState("");
+  const [arama, setArama] = React.useState("");
   const [metin, setMetin] = React.useState("");
   const [baglanti, setBaglanti] = React.useState<signalR.HubConnection | null>(null);
   const [realtime, setRealtime] = React.useState<RealtimeState>("connecting");
@@ -144,6 +144,13 @@ export function SohbetlerSayfasi({ mobileMode = false, ustBar, onUstBarYenile }:
   const viewerAccountantId = ustBar?.muhasebeciMusteriBaglami ? ustBar.muhasebeciIsletmeId : ustBar?.aktifIsletmeId;
   const viewerIsAccountant = Boolean(aktifSohbet && viewerAccountantId && aktifSohbet.muhasebeciIsletmeId === viewerAccountantId);
   const dataActionLabel = viewerIsAccountant ? "Veri iste" : "Veri paylaş";
+  const filtreliSohbetler = React.useMemo(() => {
+    const sorgu = arama.trim().toLocaleLowerCase("tr-TR");
+    if (!sorgu)
+      return liste.sohbetler;
+    return liste.sohbetler.filter((item) =>
+      `${item.baslik} ${item.sonMesaj}`.toLocaleLowerCase("tr-TR").includes(sorgu));
+  }, [arama, liste.sohbetler]);
 
   React.useEffect(() => {
     document.title = "Sohbetler";
@@ -189,7 +196,7 @@ export function SohbetlerSayfasi({ mobileMode = false, ustBar, onUstBarYenile }:
     return request;
   }, [includeArchived, mobileMode]);
 
-  const mesajlariYukle = React.useCallback(async (sohbetId: number) => {
+  const mesajlariYukle = React.useCallback(async (sohbetId: number, yuklemeGoster = false) => {
     if (!sohbetId)
       return;
     const ongoing = mesajYuklemeRef.current.get(sohbetId);
@@ -197,7 +204,8 @@ export function SohbetlerSayfasi({ mobileMode = false, ustBar, onUstBarYenile }:
       return ongoing;
 
     const request = (async () => {
-      setMesajYukleniyor(true);
+      if (yuklemeGoster)
+        setMesajYukleniyor(true);
       setHata("");
       try {
         const data = await jsonOku<MesajSayfasi>(`/api/ekran/sohbetler/${sohbetId}/mesajlar?limit=${PAGE_SIZE}`);
@@ -213,7 +221,8 @@ export function SohbetlerSayfasi({ mobileMode = false, ustBar, onUstBarYenile }:
       } catch (error) {
         setHata(error instanceof Error ? error.message : "Sohbet yüklenemedi.");
       } finally {
-        setMesajYukleniyor(false);
+        if (yuklemeGoster)
+          setMesajYukleniyor(false);
       }
     })().finally(() => {
       mesajYuklemeRef.current.delete(sohbetId);
@@ -235,7 +244,7 @@ export function SohbetlerSayfasi({ mobileMode = false, ustBar, onUstBarYenile }:
       const url = new URL(window.location.href);
       url.searchParams.set("sohbetId", String(aktifSohbetId));
       window.history.replaceState(null, "", `${url.pathname}${url.search}`);
-      mesajlariYukle(aktifSohbetId).catch(() => undefined);
+      mesajlariYukle(aktifSohbetId, true).catch(() => undefined);
     } else if (mobileMode) {
       setAktifSohbet(null);
       const url = new URL(window.location.href);
@@ -651,6 +660,10 @@ export function SohbetlerSayfasi({ mobileMode = false, ustBar, onUstBarYenile }:
               {listeYukleniyor ? <Loader2 size={17} className="spin" /> : <RefreshCw size={17} />}
             </button>
           </header>
+          <label className="chat-center__search">
+            <Search size={17} />
+            <input value={arama} onChange={(event) => setArama(event.target.value)} placeholder="Sohbet ara" />
+          </label>
           <label className="chat-center__archive-toggle">
             <input type="checkbox" checked={includeArchived} onChange={(event) => setIncludeArchived(event.target.checked)} />
             <span>Arşivlenenleri göster</span>
@@ -658,9 +671,9 @@ export function SohbetlerSayfasi({ mobileMode = false, ustBar, onUstBarYenile }:
           <div className="chat-center__list">
             {listeYukleniyor ? (
               <p className="chat-center__state"><Loader2 size={17} className="spin" /> Sohbetler yükleniyor...</p>
-            ) : liste.sohbetler.length === 0 ? (
-              <p className="chat-center__state">Henüz sohbet yok.</p>
-            ) : liste.sohbetler.map((item) => (
+            ) : filtreliSohbetler.length === 0 ? (
+              <p className="chat-center__state">{arama.trim() ? "Aramanızla eşleşen sohbet yok." : "Henüz sohbet yok."}</p>
+            ) : filtreliSohbetler.map((item) => (
               <button
                 key={item.id}
                 type="button"
@@ -692,12 +705,17 @@ export function SohbetlerSayfasi({ mobileMode = false, ustBar, onUstBarYenile }:
                 </button>
                 <div>
                   <strong>{aktifSohbet?.baslik}</strong>
-                  <small className={`chat-thread__connection chat-thread__connection--${realtime}`}>
-                    {realtime === "connected" ? <Signal size={14} /> : <SignalZero size={14} />}
-                    {realtime === "connected" ? "Mesajlar anlık güncelleniyor" : realtime === "connecting" ? "Bağlantı kuruluyor" : "Bağlantı zayıf, mesajlar yenileniyor"}
+                  <small className={`chat-thread__presence chat-thread__presence--${realtime}`}>
+                    <span aria-hidden="true" />
+                    {realtime === "connected" ? "Çevrimiçi" : realtime === "connecting" ? "Bağlanıyor" : "Çevrimdışı"}
                   </small>
                 </div>
-                <button type="button" onClick={arsivle}>
+                <button
+                  type="button"
+                  className="chat-thread__archive"
+                  onClick={arsivle}
+                  aria-label={aktifSohbet?.arsivlendi ? "Sohbeti arşivden çıkar" : "Sohbeti arşivle"}
+                >
                   <Archive size={16} />
                   <span>{aktifSohbet?.arsivlendi ? "Arşivden çıkar" : "Arşivle"}</span>
                 </button>
@@ -751,34 +769,7 @@ export function SohbetlerSayfasi({ mobileMode = false, ustBar, onUstBarYenile }:
               ) : null}
 
               <form className="chat-thread__composer" onSubmit={mesajGonder}>
-                <div className="chat-thread__tools">
-                  <input ref={fileRef} type="file" multiple hidden onChange={dosyaSecildi} accept=".pdf,.xml,.html,.htm,.xlsx,.csv,.zip,.png,.jpg,.jpeg,.webp,.webm,.ogg,.m4a,.mp3,.wav" />
-                  <button type="button" onClick={() => fileRef.current?.click()} disabled={dosyaIslemde}>
-                    {dosyaIslemde ? <Loader2 size={16} className="spin" /> : <Paperclip size={16} />}
-                    <span>Dosya</span>
-                  </button>
-                  <label>
-                    <span>Dönem</span>
-                    <select value={veriAraligi} onChange={(event) => setVeriAraligi(event.target.value)}>
-                      <option value="last30">Son 30 gün</option>
-                      <option value="thisMonth">Bu ay</option>
-                      <option value="previousMonth">Önceki ay</option>
-                      <option value="selectedMonth">Seçili ay</option>
-                      <option value="custom">Özel aralık</option>
-                    </select>
-                  </label>
-                  {veriAraligi === "selectedMonth" ? <input type="month" value={seciliAy} onChange={(event) => setSeciliAy(event.target.value)} /> : null}
-                  {veriAraligi === "custom" ? (
-                    <>
-                      <input type="date" value={ozelBaslangic} onChange={(event) => setOzelBaslangic(event.target.value)} />
-                      <input type="date" value={ozelBitis} onChange={(event) => setOzelBitis(event.target.value)} />
-                    </>
-                  ) : null}
-                  <button type="button" onClick={veriAksiyonu} disabled={veriIslemde}>
-                    {veriIslemde ? <Loader2 size={16} className="spin" /> : <FileUp size={16} />}
-                    <span>{dataActionLabel}</span>
-                  </button>
-                </div>
+                <input ref={fileRef} type="file" multiple hidden onChange={dosyaSecildi} accept=".pdf,.xml,.html,.htm,.xlsx,.csv,.zip,.png,.jpg,.jpeg,.webp,.webm,.ogg,.m4a,.mp3,.wav" />
                 {sesKaydi ? (
                   <div className={`chat-voice-recorder ${sesKaydiKilitli ? "locked" : ""}`}>
                     <span className="chat-voice-recorder__pulse" />
@@ -793,7 +784,31 @@ export function SohbetlerSayfasi({ mobileMode = false, ustBar, onUstBarYenile }:
                     ) : null}
                   </div>
                 ) : null}
-                <label className="chat-thread__input">
+                <div className="chat-thread__composer-row">
+                  <button
+                    type="button"
+                    className="chat-thread__composer-icon"
+                    onClick={() => fileRef.current?.click()}
+                    disabled={dosyaIslemde}
+                    aria-label="Dosya ekle"
+                  >
+                    {dosyaIslemde ? <Loader2 size={17} className="spin" /> : <Paperclip size={18} />}
+                  </button>
+                  <button
+                    type="button"
+                    className="chat-thread__composer-icon chat-thread__composer-mic"
+                    disabled={sesKaydi || dosyaIslemde}
+                    onPointerDown={sesKaydiniBaslat}
+                    onPointerMove={sesKaydiHareket}
+                    onPointerUp={sesKaydiBirak}
+                    onPointerCancel={() => {
+                      audioHoldingRef.current = false;
+                      sesKaydiniDurdur("cancel");
+                    }}
+                    aria-label="Basılı tutarak ses kaydı gönder"
+                  >
+                    <Mic size={18} />
+                  </button>
                   <textarea
                     value={metin}
                     onChange={(event) => metinDegisti(event.target.value)}
@@ -804,32 +819,37 @@ export function SohbetlerSayfasi({ mobileMode = false, ustBar, onUstBarYenile }:
                       }
                     }}
                     placeholder="Bir mesaj yazın..."
-                    rows={2}
+                    rows={1}
                   />
-                  {metin.trim() ? (
-                    <button type="submit">
-                      <Send size={17} />
-                      <span>Gönder</span>
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      className="chat-thread__mic"
-                      disabled={sesKaydi || dosyaIslemde}
-                      onPointerDown={sesKaydiniBaslat}
-                      onPointerMove={sesKaydiHareket}
-                      onPointerUp={sesKaydiBirak}
-                      onPointerCancel={() => {
-                        audioHoldingRef.current = false;
-                        sesKaydiniDurdur("cancel");
-                      }}
-                      aria-label="Basılı tutarak ses kaydı gönder"
-                    >
-                      <Mic size={18} />
-                      <span>Basılı tut</span>
-                    </button>
-                  )}
-                </label>
+                  <label className="chat-thread__composer-period">
+                    <span>Dönem</span>
+                    <select value={veriAraligi} onChange={(event) => setVeriAraligi(event.target.value)}>
+                      <option value="last30">Son 30 gün</option>
+                      <option value="thisMonth">Bu ay</option>
+                      <option value="previousMonth">Önceki ay</option>
+                      <option value="selectedMonth">Seçili ay</option>
+                      <option value="custom">Özel aralık</option>
+                    </select>
+                  </label>
+                  <button type="button" className="chat-thread__composer-data" onClick={veriAksiyonu} disabled={veriIslemde}>
+                    {veriIslemde ? <Loader2 size={17} className="spin" /> : <FileUp size={17} />}
+                    <span>{dataActionLabel}</span>
+                  </button>
+                  <button type="submit" className="chat-thread__composer-send" disabled={!metin.trim()} aria-label="Mesajı gönder">
+                    <Send size={18} />
+                  </button>
+                </div>
+                {veriAraligi === "selectedMonth" ? (
+                  <div className="chat-thread__range-fields">
+                    <input type="month" value={seciliAy} onChange={(event) => setSeciliAy(event.target.value)} />
+                  </div>
+                ) : null}
+                {veriAraligi === "custom" ? (
+                  <div className="chat-thread__range-fields">
+                    <input type="date" value={ozelBaslangic} onChange={(event) => setOzelBaslangic(event.target.value)} />
+                    <input type="date" value={ozelBitis} onChange={(event) => setOzelBitis(event.target.value)} />
+                  </div>
+                ) : null}
               </form>
             </>
           )}
