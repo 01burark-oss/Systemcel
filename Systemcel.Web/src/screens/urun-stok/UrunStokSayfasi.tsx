@@ -367,13 +367,26 @@ export function UrunStokSayfasi({
   return (
     <main ref={pageRef} className="stock-page">
       <section className="stock-titlebar">
-        <div>
-          <h1>Ürün / Stok</h1>
-          <p>{ekran?.aktifIsletme ? `${ekran.aktifIsletme} için ürün, hizmet ve stok hareketleri.` : "Ürün/Stok hazırlanıyor."}</p>
+        <div className="stock-titlebar__identity">
+          <span className="stock-titlebar__icon" aria-hidden="true">
+            <Box size={22} />
+          </span>
+          <div className="stock-titlebar__copy">
+            <span className="stock-titlebar__eyebrow">Envanter yönetimi</span>
+            <h1>Ürün ve stok</h1>
+            <p>{ekran?.aktifIsletme ? `${ekran.aktifIsletme} için ürün, hizmet ve stok hareketleri.` : "Ürün ve stok bilgileri hazırlanıyor."}</p>
+          </div>
         </div>
 
         <div className="stock-titlebar__actions">
-          <button type="button" className="ghost-refresh" onClick={() => yenile().catch((error: Error) => setHata(error.message))} disabled={islemde}>
+          <button
+            type="button"
+            className="ghost-refresh"
+            aria-label="Ürün ve stok verilerini yenile"
+            title="Verileri yenile"
+            onClick={() => yenile().catch((error: Error) => setHata(error.message))}
+            disabled={islemde}
+          >
             <RefreshCw size={18} />
           </button>
           <BusinessSelector

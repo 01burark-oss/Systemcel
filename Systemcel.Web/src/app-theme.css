@@ -5837,3 +5837,141 @@
   color: #fff;
   background: var(--telegram-blue);
 }
+
+/* Ürün / Stok — kompakt sayfa başlığı */
+:root[data-theme="light"] .stock-titlebar {
+  min-height: 0;
+  padding: 16px 18px;
+  align-items: center;
+  gap: 20px;
+  border: 1px solid var(--sc-line);
+  border-radius: 18px;
+  background: rgba(251, 250, 245, .96);
+  box-shadow: 0 18px 42px -38px rgba(11, 11, 9, .72);
+}
+
+:root[data-theme="light"] .stock-titlebar__identity {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+:root[data-theme="light"] .stock-titlebar__icon {
+  width: 46px;
+  height: 46px;
+  flex: 0 0 46px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--sc-ink);
+  border: 1px solid rgba(123, 170, 0, .28);
+  border-radius: 14px;
+  background: var(--sc-lime-soft);
+}
+
+:root[data-theme="light"] .stock-titlebar__copy {
+  min-width: 0;
+}
+
+:root[data-theme="light"] .stock-titlebar__eyebrow {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--sc-muted);
+  font-family: var(--sc-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .14em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+:root[data-theme="light"] .stock-titlebar h1 {
+  margin: 0;
+  font-family: var(--sc-sans);
+  font-size: clamp(25px, 2vw, 31px);
+  font-weight: 750;
+  letter-spacing: -.035em;
+  line-height: 1;
+}
+
+:root[data-theme="light"] .stock-titlebar p {
+  margin: 6px 0 0;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+:root[data-theme="light"] .stock-titlebar__actions {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-left: 18px;
+  border-left: 1px solid var(--sc-line);
+}
+
+:root[data-theme="light"] .stock-titlebar__actions .ghost-refresh {
+  width: 46px;
+  height: 46px;
+  flex: 0 0 46px;
+  border-radius: 50%;
+  box-shadow: none;
+}
+
+:root[data-theme="light"] .stock-titlebar__actions .business-selector {
+  height: 46px;
+  min-width: min(280px, 100%);
+  box-shadow: none;
+}
+
+@media (max-width: 820px) {
+  :root[data-theme="light"] .stock-titlebar {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  :root[data-theme="light"] .stock-titlebar__actions {
+    width: 100%;
+    padding: 14px 0 0;
+    border-top: 1px solid var(--sc-line);
+    border-left: 0;
+  }
+
+  :root[data-theme="light"] .stock-titlebar__actions .business-selector {
+    width: 100%;
+    max-width: none;
+  }
+}
+
+@media (max-width: 520px) {
+  :root[data-theme="light"] .stock-titlebar {
+    padding: 14px;
+    border-radius: 16px;
+  }
+
+  :root[data-theme="light"] .stock-titlebar__identity {
+    align-items: flex-start;
+    gap: 11px;
+  }
+
+  :root[data-theme="light"] .stock-titlebar__icon {
+    width: 42px;
+    height: 42px;
+    flex-basis: 42px;
+    border-radius: 13px;
+  }
+
+  :root[data-theme="light"] .stock-titlebar h1 {
+    font-size: 25px;
+  }
+
+  :root[data-theme="light"] .stock-titlebar p {
+    font-size: 12px;
+  }
+
+  :root[data-theme="light"] .stock-titlebar__actions {
+    display: grid;
+    grid-template-columns: 46px minmax(0, 1fr);
+  }
+}
