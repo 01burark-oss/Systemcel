@@ -5,14 +5,12 @@ import {
   Box,
   PackagePlus,
   Plus,
-  RefreshCw,
   Save,
   Search,
   Trash2,
   TrendingUp,
   WalletCards
 } from "lucide-react";
-import { BusinessSelector } from "../../shared/BusinessSelector";
 import type { UstBarDurumu } from "../../shared/chrome";
 import { jsonOku } from "../../shared/json";
 import type { StokHareketFormu, UrunFormu, UrunListeKaydi, UrunStokEkranVerisi } from "./types";
@@ -123,12 +121,7 @@ function etiketBic(value: string) {
   }
 }
 
-export function UrunStokSayfasi({
-  onIsletmeDegistir,
-  ustBar,
-  ustBarIslemde,
-  yenileAnahtari
-}: UrunStokSayfasiProps) {
+export function UrunStokSayfasi({ yenileAnahtari }: UrunStokSayfasiProps) {
   const pageRef = React.useRef<HTMLElement | null>(null);
   const barcodeInputRef = React.useRef<HTMLInputElement | null>(null);
   const [ekran, setEkran] = React.useState<UrunStokEkranVerisi | null>(null);
@@ -366,38 +359,6 @@ export function UrunStokSayfasi({
 
   return (
     <main ref={pageRef} className="stock-page">
-      <section className="stock-titlebar">
-        <div className="stock-titlebar__identity">
-          <span className="stock-titlebar__icon" aria-hidden="true">
-            <Box size={22} />
-          </span>
-          <div className="stock-titlebar__copy">
-            <span className="stock-titlebar__eyebrow">Envanter yönetimi</span>
-            <h1>Ürün ve stok</h1>
-            <p>{ekran?.aktifIsletme ? `${ekran.aktifIsletme} için ürün, hizmet ve stok hareketleri.` : "Ürün ve stok bilgileri hazırlanıyor."}</p>
-          </div>
-        </div>
-
-        <div className="stock-titlebar__actions">
-          <button
-            type="button"
-            className="ghost-refresh"
-            aria-label="Ürün ve stok verilerini yenile"
-            title="Verileri yenile"
-            onClick={() => yenile().catch((error: Error) => setHata(error.message))}
-            disabled={islemde}
-          >
-            <RefreshCw size={18} />
-          </button>
-          <BusinessSelector
-            aktifIsletmeId={ustBar?.aktifIsletmeId}
-            isletmeler={ustBar?.isletmeler ?? []}
-            disabled={ustBarIslemde}
-            onChange={onIsletmeDegistir}
-          />
-        </div>
-      </section>
-
       <section className="stock-stats">
         <div className="stock-stat">
           <span className="stock-stat__icon blue"><Box size={24} /></span>

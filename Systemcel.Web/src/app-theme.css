@@ -5975,3 +5975,471 @@
     grid-template-columns: 46px minmax(0, 1fr);
   }
 }
+
+/* Uygulama çalışma alanı — birleşik sayfa başlığı ve içerik sistemi */
+:root[data-theme="light"] .react-shell {
+  background: var(--sc-cream);
+}
+
+:root[data-theme="light"] .react-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 90;
+  min-height: 102px;
+  margin: 14px 18px 0;
+  padding: 14px 18px;
+  gap: 18px;
+  border: 1px solid var(--sc-line);
+  border-radius: 18px;
+  background: rgba(251, 250, 245, .96);
+  box-shadow: 0 18px 42px -38px rgba(11, 11, 9, .72);
+  backdrop-filter: blur(16px);
+}
+
+:root[data-theme="light"] .react-topbar__title-slot {
+  min-width: 280px;
+}
+
+:root[data-theme="light"] .workspace-page-heading {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+:root[data-theme="light"] .workspace-page-heading__icon {
+  width: 46px;
+  height: 46px;
+  flex: 0 0 46px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--sc-ink);
+  border: 1px solid rgba(123, 170, 0, .28);
+  border-radius: 14px;
+  background: var(--sc-lime-soft);
+}
+
+:root[data-theme="light"] .workspace-page-heading__copy {
+  min-width: 0;
+}
+
+:root[data-theme="light"] .workspace-page-heading__eyebrow {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--sc-muted);
+  font-family: var(--sc-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .14em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+:root[data-theme="light"] .workspace-page-heading h1 {
+  margin: 0;
+  color: var(--sc-ink);
+  font-family: var(--sc-sans);
+  font-size: clamp(24px, 1.8vw, 30px);
+  font-weight: 760;
+  letter-spacing: -.035em;
+  line-height: 1;
+}
+
+:root[data-theme="light"] .workspace-page-heading p {
+  max-width: 680px;
+  margin: 6px 0 0;
+  overflow: hidden;
+  color: var(--sc-muted);
+  font-size: 12px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:root[data-theme="light"] .react-topbar__actions {
+  flex: 0 1 auto;
+  gap: 10px;
+}
+
+:root[data-theme="light"] .react-topbar__telegram {
+  gap: 8px;
+}
+
+:root[data-theme="light"] .react-topbar__icon,
+:root[data-theme="light"] .react-topbar__bell {
+  width: 42px;
+  height: 42px;
+  color: var(--sc-ink);
+  border: 1px solid var(--sc-line);
+  border-radius: 50%;
+  background: var(--sc-paper);
+}
+
+:root[data-theme="light"] .react-topbar__icon {
+  color: var(--sc-ink);
+  background: var(--sc-lime);
+}
+
+:root[data-theme="light"] .react-topbar__badge {
+  height: 28px;
+  padding-inline: 12px;
+  font-family: var(--sc-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+
+:root[data-theme="light"] .react-topbar__divider {
+  height: 42px;
+  background: var(--sc-line);
+}
+
+:root[data-theme="light"] .react-topbar__clock {
+  min-width: 100px;
+  gap: 1px;
+}
+
+:root[data-theme="light"] .react-topbar__clock strong {
+  color: var(--sc-ink);
+  font-family: var(--sc-mono);
+  font-size: 12px;
+  letter-spacing: .06em;
+}
+
+:root[data-theme="light"] .react-topbar__clock span {
+  color: var(--sc-muted);
+  font-family: var(--sc-mono);
+  font-size: 11px;
+}
+
+:root[data-theme="light"] .workspace-page-actions {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+:root[data-theme="light"] .workspace-page-actions .ghost-refresh {
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  border-radius: 50%;
+  box-shadow: none;
+}
+
+:root[data-theme="light"] .workspace-page-actions .business-selector {
+  min-width: 245px;
+  height: 44px;
+  box-shadow: none;
+}
+
+:root[data-theme="light"] .react-shell__body {
+  min-height: calc(100% - 116px);
+}
+
+:root[data-theme="light"] .react-shell__body > :is(
+  .dashboard-page,
+  .sayfa,
+  .cari-page,
+  .stock-page,
+  .invoice-page,
+  .payment-page,
+  .reports-page,
+  .chat-center-page,
+  .accountant-marketplace,
+  .accountant-panel,
+  .admin-page,
+  .gib-page,
+  .settings-page
+) {
+  width: min(100%, 1600px);
+  min-height: 100%;
+  margin-inline: auto;
+  padding: 16px 18px 26px;
+  background: transparent;
+}
+
+:root[data-theme="light"] .react-shell__body :is(
+  .legacy-dashboard__header,
+  .cari-hero,
+  .gib-hero
+) {
+  display: none;
+}
+
+:root[data-theme="light"] .react-shell__body .accountant-marketplace:not(.accountant-marketplace--public) > .accountant-marketplace__hero {
+  display: none;
+}
+
+:root[data-theme="light"] .react-shell__body .accountant-panel__hero {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+:root[data-theme="light"] .react-shell__body .accountant-panel__hero > div:first-child {
+  display: none;
+}
+
+:root[data-theme="light"] .react-shell__body .accountant-panel__hero:not(:has(.accountant-pro-note)) {
+  display: none;
+}
+
+:root[data-theme="light"] .react-shell__body .kart-baslik {
+  min-height: auto;
+  padding: 16px 18px;
+  align-items: center;
+  border-bottom: 1px solid var(--sc-line);
+}
+
+:root[data-theme="light"] .react-shell__body .kart-baslik > div:first-child {
+  display: none;
+}
+
+:root[data-theme="light"] .react-shell__body .kart-baslik__aksiyonlar {
+  width: 100%;
+}
+
+:root[data-theme="light"] .react-shell__body .kart-baslik__aksiyonlar > .business-selector {
+  display: none;
+}
+
+:root[data-theme="light"] .react-shell__body .kart-baslik__aksiyonlar .arama-kutusu {
+  width: min(100%, 460px);
+  margin-left: 0;
+}
+
+:root[data-theme="light"] .react-shell__body :is(
+  .kart,
+  .snapshot-card,
+  .legacy-panel,
+  .legacy-summary-card,
+  .cari-card,
+  .stock-card,
+  .invoice-stat,
+  .invoice-card,
+  .payment-stat,
+  .payment-card,
+  .reports-card,
+  .settings-card,
+  .telegram-card,
+  .gib-card,
+  .gib-status-card,
+  .accountant-toolbar,
+  .accountant-metrics article,
+  .accountant-results,
+  .accountant-panel__section,
+  .admin-page__toolbar,
+  .admin-table-wrap,
+  .chat-center
+) {
+  border-color: var(--sc-line);
+  border-radius: 18px;
+  background: rgba(251, 250, 245, .96);
+  box-shadow: 0 18px 42px -38px rgba(11, 11, 9, .72);
+}
+
+:root[data-theme="light"] .react-shell__body :is(
+  .legacy-panel__header h2,
+  .cari-card__header h2,
+  .stock-card__header h2,
+  .invoice-card__header h2,
+  .payment-card__header h2,
+  .reports-card__header h2,
+  .settings-card__header h2,
+  .telegram-card h2,
+  .telegram-card h3,
+  .gib-card h2,
+  .accountant-panel h2,
+  .admin-page h2
+) {
+  color: var(--sc-ink);
+  font-family: var(--sc-sans);
+  font-weight: 760;
+  letter-spacing: -.025em;
+}
+
+:root[data-theme="light"] .react-shell__body :is(
+  input:not([type="checkbox"]):not([type="radio"]),
+  select,
+  textarea
+) {
+  min-height: 46px;
+  color: var(--sc-ink);
+  border-color: var(--sc-line);
+  border-radius: 12px;
+  background: var(--sc-paper);
+  box-shadow: none;
+}
+
+:root[data-theme="light"] .react-shell__body :is(
+  input:not([type="checkbox"]):not([type="radio"]),
+  select,
+  textarea
+):focus {
+  border-color: rgba(123, 170, 0, .72);
+  outline: 3px solid rgba(184, 255, 0, .15);
+}
+
+:root[data-theme="light"] .react-shell__body :is(
+  .tablo-kapsayici,
+  .cari-table-wrap,
+  .stock-table-wrap,
+  .invoice-table-wrap,
+  .payment-table-wrap,
+  .reports-table-wrap,
+  .admin-table-wrap
+) {
+  border-color: var(--sc-line);
+  border-radius: 14px;
+  background: var(--sc-paper);
+}
+
+:root[data-theme="light"] .react-shell__body :is(table thead, .table-head) {
+  background: var(--sc-soft);
+}
+
+:root[data-theme="light"] .react-shell__body table th {
+  color: var(--sc-muted);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .035em;
+}
+
+:root[data-theme="light"] .react-shell__body table td {
+  border-color: var(--sc-line);
+}
+
+@media (max-width: 1500px) {
+  :root[data-theme="light"] .react-topbar__clock,
+  :root[data-theme="light"] .react-topbar__divider {
+    display: none;
+  }
+
+  :root[data-theme="light"] .workspace-page-heading p {
+    max-width: 480px;
+  }
+}
+
+@media (max-width: 1220px) {
+  :root[data-theme="light"] .react-topbar__telegram {
+    display: none;
+  }
+
+  :root[data-theme="light"] .workspace-page-heading p {
+    max-width: 360px;
+  }
+
+  :root[data-theme="light"] .workspace-page-actions .business-selector {
+    min-width: 210px;
+  }
+}
+
+@media (max-width: 980px) {
+  :root[data-theme="light"] .react-sidebar {
+    height: auto;
+    flex: 0 0 auto;
+  }
+
+  :root[data-theme="light"] .react-topbar {
+    position: relative;
+    min-height: 0;
+    flex: 0 0 auto;
+    margin: 12px 12px 0;
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  :root[data-theme="light"] .react-topbar__title-slot {
+    height: auto;
+    flex: 0 0 auto;
+    overflow: visible;
+  }
+
+  :root[data-theme="light"] .react-shell__body {
+    min-height: 0;
+  }
+
+  :root[data-theme="light"] .react-topbar__actions {
+    width: 100%;
+    justify-content: flex-end;
+    padding-top: 12px;
+    border-top: 1px solid var(--sc-line);
+  }
+
+  :root[data-theme="light"] .workspace-page-heading p {
+    max-width: none;
+  }
+
+  :root[data-theme="light"] .workspace-page-actions {
+    flex: 1;
+  }
+
+  :root[data-theme="light"] .workspace-page-actions .business-selector {
+    width: 100%;
+    max-width: none;
+  }
+
+  :root[data-theme="light"] .react-shell__body > :is(
+    .dashboard-page,
+    .sayfa,
+    .cari-page,
+    .stock-page,
+    .invoice-page,
+    .payment-page,
+    .reports-page,
+    .chat-center-page,
+    .accountant-marketplace,
+    .accountant-panel,
+    .admin-page,
+    .gib-page,
+    .settings-page
+  ) {
+    padding: 14px 12px 22px;
+  }
+}
+
+@media (max-width: 640px) {
+  :root[data-theme="light"] .react-topbar {
+    padding: 14px;
+    border-radius: 16px;
+  }
+
+  :root[data-theme="light"] .workspace-page-heading {
+    align-items: flex-start;
+    gap: 11px;
+  }
+
+  :root[data-theme="light"] .workspace-page-heading__icon {
+    width: 42px;
+    height: 42px;
+    flex-basis: 42px;
+    border-radius: 13px;
+  }
+
+  :root[data-theme="light"] .workspace-page-heading h1 {
+    font-size: 24px;
+  }
+
+  :root[data-theme="light"] .workspace-page-heading p {
+    display: -webkit-box;
+    overflow: hidden;
+    font-size: 12px;
+    white-space: normal;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  :root[data-theme="light"] .react-topbar__chat-wrap,
+  :root[data-theme="light"] .react-topbar__bell-wrap {
+    display: none;
+  }
+
+  :root[data-theme="light"] .workspace-page-actions {
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr);
+  }
+}

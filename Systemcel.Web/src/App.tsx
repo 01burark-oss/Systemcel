@@ -1,5 +1,5 @@
 import React from "react";
-import { LogOut, MessageCircle, Monitor, Search } from "lucide-react";
+import { LogOut, MessageCircle, Monitor, RefreshCw, Search } from "lucide-react";
 import { AuthSayfasi } from "./auth/AuthSayfasi";
 import { RequireAuth } from "./auth/AuthGate";
 import { useSystemcelAuth } from "./auth/SystemcelAuthProvider";
@@ -443,34 +443,33 @@ function WorkspaceRoutes({ path }: { path: string }) {
   const muhasebeciCalismaAlaniRoute = path === "/muhasebeci" || path === "/muhasebeciler" || path === "/sohbetler" || path === "/ayarlar";
   const routePath = muhasebeciCalismaAlani && !yonetimRoute && !muhasebeciCalismaAlaniRoute ? "/muhasebeci" : path === "/yonetim" ? "/yonetim/muhasebeci-basvurulari" : path;
 
-  const shellBaslik =
-    routePath === "/faturalar"
-      ? "Faturalar"
-      : routePath === "/tahsilat-odeme"
-        ? "Tahsilat / Ödeme"
-        : routePath === "/raporlar"
-          ? "Raporlar"
-          : routePath === "/muhasebeci"
-            ? "Muhasebeci Paneli"
-            : routePath === "/yonetim/muhasebeci-basvurulari"
-              ? "Muhasebeci Başvuruları"
-            : routePath === "/muhasebeciler"
-              ? "Muhasebeciler"
-              : routePath === "/sohbetler"
-                ? "Sohbetler"
-              : routePath === "/gib-portal"
-            ? "GİB Portal Ayarları"
-            : routePath === "/ayarlar"
-              ? "Ayarlar"
-              : "";
-  const shellUstBaslik = shellBaslik ? <h1 className="react-topbar__page-title">{shellBaslik}</h1> : null;
-  const shellUstAksiyon = shellBaslik && !ustBar?.muhasebeciMusteriBaglami && !muhasebeciCalismaAlani && routePath !== "/muhasebeci" && !yonetimRoute ? (
-    <BusinessSelector
-      aktifIsletmeId={ustBar?.aktifIsletmeId}
-      disabled={ustBarIslemde}
-      isletmeler={ustBar?.isletmeler ?? []}
-      onChange={isletmeDegistir}
-    />
+  const shellUstAksiyon = !ustBar?.muhasebeciMusteriBaglami && !muhasebeciCalismaAlani && routePath !== "/muhasebeci" && !yonetimRoute ? (
+    <div className="workspace-page-actions">
+      <button
+        type="button"
+        className="ghost-refresh"
+        aria-label="Çalışma alanını yenile"
+        title="Çalışma alanını yenile"
+        disabled={ustBarIslemde}
+        onClick={() => {
+          setUstBarIslemde(true);
+          Promise.resolve(ustBarYukle())
+            .then(() => {
+              React.startTransition(() => setYenileAnahtari((current) => current + 1));
+            })
+            .catch((error: Error) => setUstBarHata(error.message))
+            .finally(() => setUstBarIslemde(false));
+        }}
+      >
+        <RefreshCw size={17} />
+      </button>
+      <BusinessSelector
+        aktifIsletmeId={ustBar?.aktifIsletmeId}
+        disabled={ustBarIslemde}
+        isletmeler={ustBar?.isletmeler ?? []}
+        onChange={isletmeDegistir}
+      />
+    </div>
   ) : null;
 
   if (mobileWorkspace && routePath === "/sohbetler") {
@@ -511,7 +510,6 @@ function WorkspaceRoutes({ path }: { path: string }) {
 
   return (
     <ReactWorkspaceShell
-      baslik={shellUstBaslik}
       hata={ustBarHata}
       islemde={ustBarIslemde}
       onUstBarYenile={ustBarYukle}

@@ -41,6 +41,13 @@ interface ReactWorkspaceShellProps {
   onUstBarYenile?: () => unknown | Promise<unknown>;
 }
 
+interface WorkspacePageMeta {
+  category: string;
+  description: string;
+  icon: LucideIcon;
+  title: string;
+}
+
 interface Bildirim {
   id: string;
   tur: string;
@@ -134,6 +141,141 @@ function yetkiEtiketi(value?: string) {
   return value === "TamIslem" ? "Tam işlem" : "Okuma + rapor";
 }
 
+function workspacePageMeta(path: string, settingsTab: string): WorkspacePageMeta {
+  if (path === "/gelir-gider") {
+    return {
+      category: "Nakit akışı",
+      description: "Gelir ve gider hareketlerini kaydedin, arayın ve güncel nakit akışınızı izleyin.",
+      icon: ArrowDownUp,
+      title: "Gelir ve gider kayıtları"
+    };
+  }
+
+  if (path === "/cari-hesaplar") {
+    return {
+      category: "Müşteri ve tedarikçi",
+      description: "Cari kartları, bakiyeleri ve hesap hareketlerini tek çalışma alanında yönetin.",
+      icon: CreditCard,
+      title: "Cari hesaplar"
+    };
+  }
+
+  if (path === "/urun-stok") {
+    return {
+      category: "Envanter yönetimi",
+      description: "Ürün, hizmet ve stok hareketlerini düzenleyin; kritik seviyeleri takip edin.",
+      icon: ShoppingCart,
+      title: "Ürün ve stok"
+    };
+  }
+
+  if (path === "/faturalar") {
+    return {
+      category: "Belge yönetimi",
+      description: "Faturaları oluşturun, durumlarını takip edin ve tahsilat süreçlerine bağlayın.",
+      icon: FileText,
+      title: "Faturalar"
+    };
+  }
+
+  if (path === "/tahsilat-odeme") {
+    return {
+      category: "Nakit yönetimi",
+      description: "Gelen tahsilatları ve yapılan ödemeleri kaydedip açık bakiyelerle eşleştirin.",
+      icon: WalletCards,
+      title: "Tahsilat ve ödeme"
+    };
+  }
+
+  if (path === "/raporlar") {
+    return {
+      category: "Finansal analiz",
+      description: "Dönem performansını inceleyin, karşılaştırın ve paylaşılabilir raporlar hazırlayın.",
+      icon: BarChart3,
+      title: "Raporlar"
+    };
+  }
+
+  if (path === "/sohbetler") {
+    return {
+      category: "İletişim merkezi",
+      description: "Muhasebeciniz veya müşterilerinizle mesaj, belge ve veri taleplerini yönetin.",
+      icon: MessageCircle,
+      title: "Sohbetler"
+    };
+  }
+
+  if (path === "/muhasebeciler") {
+    return {
+      category: "Uzman eşleşmesi",
+      description: "Uzmanlık ve çalışma alanına göre muhasebecileri karşılaştırın ve bağlantı kurun.",
+      icon: Search,
+      title: "Muhasebeciler"
+    };
+  }
+
+  if (path === "/muhasebeci") {
+    return {
+      category: "Müşteri yönetimi",
+      description: "Müşteri portföyünüzü, talepleri ve çalışma alanlarını tek panelden yönetin.",
+      icon: BriefcaseBusiness,
+      title: "Muhasebeci paneli"
+    };
+  }
+
+  if (path.startsWith("/yonetim")) {
+    return {
+      category: "Platform yönetimi",
+      description: "Muhasebeci başvurularını inceleyin, doğrulayın ve üyelik durumlarını yönetin.",
+      icon: ShieldCheck,
+      title: "Muhasebeci başvuruları"
+    };
+  }
+
+  if (path === "/gib-portal") {
+    return {
+      category: "E-belge bağlantıları",
+      description: "GİB Portal kimlik bilgilerini güvenle yönetin ve bağlantı durumunu doğrulayın.",
+      icon: Globe2,
+      title: "GİB Portal ayarları"
+    };
+  }
+
+  if (path === "/ayarlar") {
+    if (settingsTab === "telegram" || settingsTab === "bot") {
+      return {
+        category: "Bildirim entegrasyonu",
+        description: "Telegram botunu bağlayın, eşleştirme durumunu ve bildirim akışını yönetin.",
+        icon: Send,
+        title: "Telegram bağlantısı"
+      };
+    }
+
+    if (settingsTab === "gib" || settingsTab === "gib-portal") {
+      return {
+        category: "E-belge ayarları",
+        description: "İşletmenizin GİB Portal bağlantısını ve e-belge tercihlerini yönetin.",
+        icon: Landmark,
+        title: "GİB Portal ayarları"
+      };
+    }
+
+    return {
+      category: "Çalışma alanı",
+      description: "İşletme bilgilerini, kategorileri ve uygulama tercihlerini düzenleyin.",
+      icon: Settings,
+      title: "İşletme ayarları"
+    };
+  }
+
+  return {
+    category: "Genel bakış",
+    description: "Gelir, gider, net kâr ve finansal hareketlerin güncel özetini takip edin.",
+    icon: Home,
+    title: "Finansal özet"
+  };
+}
+
 export function ReactWorkspaceShell({ children, ustBar, baslik, sagAksiyon }: ReactWorkspaceShellProps) {
   const [now, setNow] = React.useState(() => new Date());
   const [bildirimPaneliAcik, setBildirimPaneliAcik] = React.useState(false);
@@ -150,6 +292,8 @@ export function ReactWorkspaceShell({ children, ustBar, baslik, sagAksiyon }: Re
   const menuItems = menuForWorkspace(ustBar, musteriBaglami);
   const brandHref = ustBar?.hesapTipi === "Muhasebeci" && !musteriBaglami ? "/app/muhasebeci" : "/app";
   const menuCurrentPath = ustBar?.hesapTipi === "Muhasebeci" && !musteriBaglami && currentPath === "/" ? "/muhasebeci" : currentPath;
+  const pageMeta = workspacePageMeta(menuCurrentPath, aktifAyarlarSekmesi);
+  const PageIcon = pageMeta.icon;
   const sohbetler = ustBar?.sohbet?.sohbetler ?? [];
   const sohbetSayisi = ustBar?.sohbet?.okunmamisMesajSayisi ?? 0;
 
@@ -196,7 +340,7 @@ export function ReactWorkspaceShell({ children, ustBar, baslik, sagAksiyon }: Re
   }, []);
 
   return (
-    <div className={`react-shell ${baslik ? "react-shell--page-title" : ""}`}>
+    <div className="react-shell react-shell--page-title">
       <aside className={`react-sidebar ${mobilMenuAcik ? "react-sidebar--open" : ""}`} aria-label="Systemcel menüsü">
         <a className="react-sidebar__brand" href={brandHref} aria-label="Systemcel ana sayfa">
           <span className="react-sidebar__brand-mark" aria-hidden="true">
@@ -261,7 +405,18 @@ export function ReactWorkspaceShell({ children, ustBar, baslik, sagAksiyon }: Re
       <main className="react-shell__main">
         <header className="react-topbar">
           <div className="react-topbar__title-slot">
-            {baslik ?? null}
+            {baslik ?? (
+              <div className="workspace-page-heading">
+                <span className="workspace-page-heading__icon" aria-hidden="true">
+                  <PageIcon size={21} />
+                </span>
+                <div className="workspace-page-heading__copy">
+                  <span className="workspace-page-heading__eyebrow">{pageMeta.category}</span>
+                  <h1>{pageMeta.title}</h1>
+                  <p>{pageMeta.description}</p>
+                </div>
+              </div>
+            )}
             {musteriBaglami ? (
               <div className="react-topbar__context" role="status">
                 <span>
