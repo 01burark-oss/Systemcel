@@ -638,12 +638,14 @@ export function SohbetlerSayfasi({ mobileMode = false, ustBar, onUstBarYenile }:
       <section className={`chat-center ${aktifVar ? "chat-center--thread-open" : ""}`}>
         <aside className="chat-center__sidebar">
           <header>
-            <div>
-              <span className="accountant-eyebrow">
-                <MessageCircle size={16} />
-                Sohbet Merkezi
+            <div className="chat-center__sidebar-title">
+              <span className="chat-center__sidebar-icon">
+                <MessageCircle size={18} />
               </span>
-              <h2>Sohbetler</h2>
+              <div>
+                <span className="accountant-eyebrow">Tüm konuşmalar</span>
+                <h2>Görüşmeler</h2>
+              </div>
             </div>
             <button type="button" onClick={() => listeYukle().catch(() => undefined)} disabled={listeYukleniyor} aria-label="Yenile">
               {listeYukleniyor ? <Loader2 size={17} className="spin" /> : <RefreshCw size={17} />}
