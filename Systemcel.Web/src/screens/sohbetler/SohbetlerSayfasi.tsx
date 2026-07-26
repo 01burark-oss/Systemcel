@@ -121,16 +121,18 @@ export function SohbetlerSayfasi({ mobileMode = false, ustBar, onUstBarYenile }:
   const [ozelBitis, setOzelBitis] = React.useState(() => new Date().toISOString().slice(0, 10));
   const [veriIslemde, setVeriIslemde] = React.useState(false);
   const [dosyaIslemde, setDosyaIslemde] = React.useState(false);
+  const [arsivIslemde, setArsivIslemde] = React.useState(false);
   const [sesKaydi, setSesKaydi] = React.useState(false);
   const [sesKaydiKilitli, setSesKaydiKilitli] = React.useState(false);
   const [sesKaydiSuresi, setSesKaydiSuresi] = React.useState(0);
   const messagesRef = React.useRef<HTMLDivElement | null>(null);
   const fileRef = React.useRef<HTMLInputElement | null>(null);
+  const includeArchivedRef = React.useRef(includeArchived);
   const typingStopRef = React.useRef<number | null>(null);
   const selectedRef = React.useRef(aktifSohbetId);
   const messagesAtBottomRef = React.useRef(true);
   const onUstBarYenileRef = React.useRef(onUstBarYenile);
-  const listeYuklemeRef = React.useRef<Promise<void> | null>(null);
+  const listeIstekSirasiRef = React.useRef(0);
   const mesajYuklemeRef = React.useRef<Map<number, Promise<void>>>(new Map());
   const mediaRecorderRef = React.useRef<MediaRecorder | null>(null);
   const mediaStreamRef = React.useRef<MediaStream | null>(null);
@@ -140,6 +142,7 @@ export function SohbetlerSayfasi({ mobileMode = false, ustBar, onUstBarYenile }:
   const audioLockedRef = React.useRef(false);
   const audioHoldingRef = React.useRef(false);
   const audioTimerRef = React.useRef<number | null>(null);
+  includeArchivedRef.current = includeArchived;
 
   const viewerAccountantId = ustBar?.muhasebeciMusteriBaglami ? ustBar.muhasebeciIsletmeId : ustBar?.aktifIsletmeId;
   const viewerIsAccountant = Boolean(aktifSohbet && viewerAccountantId && aktifSohbet.muhasebeciIsletmeId === viewerAccountantId);
@@ -171,11 +174,11 @@ export function SohbetlerSayfasi({ mobileMode = false, ustBar, onUstBarYenile }:
   }, []);
 
   const listeYukle = React.useCallback(async () => {
-    if (listeYuklemeRef.current)
-      return listeYuklemeRef.current;
-
-    const request = (async () => {
-      const data = await jsonOku<SohbetListe>(`/api/ekran/sohbetler?includeArchived=${includeArchived ? "true" : "false"}`);
+    const istekSirasi = ++listeIstekSirasiRef.current;
+    try {
+      const data = await jsonOku<SohbetListe>(`/api/ekran/sohbetler?includeArchived=${includeArchivedRef.current ? "true" : "false"}`);
+      if (istekSirasi !== listeIstekSirasiRef.current)
+        return;
       const selectedId = selectedRef.current;
       setListe(data);
       setListeYukleniyor(false);
@@ -186,15 +189,20 @@ export function SohbetlerSayfasi({ mobileMode = false, ustBar, onUstBarYenile }:
         const found = data.sohbetler.find((item) => item.id === selectedId);
         if (found) {
           setAktifSohbet(found);
+        } else {
+          const nextId = !mobileMode && data.sohbetler.length > 0 ? data.sohbetler[0].id : 0;
+          selectedRef.current = nextId;
+          setAktifSohbetId(nextId);
+          setAktifSohbet(null);
+          setMesajlar([]);
         }
       }
       await onUstBarYenileRef.current?.();
-    })().finally(() => {
-      listeYuklemeRef.current = null;
-    });
-    listeYuklemeRef.current = request;
-    return request;
-  }, [includeArchived, mobileMode]);
+    } catch (error) {
+      if (istekSirasi === listeIstekSirasiRef.current)
+        throw error;
+    }
+  }, [mobileMode]);
 
   const mesajlariYukle = React.useCallback(async (sohbetId: number, yuklemeGoster = false) => {
     if (!sohbetId)
@@ -237,7 +245,7 @@ export function SohbetlerSayfasi({ mobileMode = false, ustBar, onUstBarYenile }:
       setHata(error.message);
       setListeYukleniyor(false);
     });
-  }, [listeYukle]);
+  }, [includeArchived, listeYukle]);
 
   React.useEffect(() => {
     if (aktifSohbetId) {
@@ -417,17 +425,29 @@ export function SohbetlerSayfasi({ mobileMode = false, ustBar, onUstBarYenile }:
   }
 
   async function arsivle() {
-    if (!aktifSohbetId || !aktifSohbet)
+    if (!aktifSohbetId || !aktifSohbet || arsivIslemde)
       return;
 
+    setArsivIslemde(true);
+    setHata("");
     try {
-      await jsonOku<SohbetOzet>(`/api/ekran/sohbetler/${aktifSohbetId}/arsiv`, {
+      const updated = await jsonOku<SohbetOzet>(`/api/ekran/sohbetler/${aktifSohbetId}/arsiv`, {
         method: "PUT",
         body: JSON.stringify({ arsivlendi: !aktifSohbet.arsivlendi })
       });
+      if (updated.arsivlendi && !includeArchived) {
+        selectedRef.current = 0;
+        setAktifSohbetId(0);
+        setAktifSohbet(null);
+        setMesajlar([]);
+      } else {
+        setAktifSohbet(updated);
+      }
       await listeYukle();
     } catch (error) {
       setHata(error instanceof Error ? error.message : "Arşiv durumu değiştirilemedi.");
+    } finally {
+      setArsivIslemde(false);
     }
   }
 
@@ -714,9 +734,10 @@ export function SohbetlerSayfasi({ mobileMode = false, ustBar, onUstBarYenile }:
                   type="button"
                   className="chat-thread__archive"
                   onClick={arsivle}
+                  disabled={arsivIslemde}
                   aria-label={aktifSohbet?.arsivlendi ? "Sohbeti arşivden çıkar" : "Sohbeti arşivle"}
                 >
-                  <Archive size={16} />
+                  {arsivIslemde ? <Loader2 size={16} className="spin" /> : <Archive size={16} />}
                   <span>{aktifSohbet?.arsivlendi ? "Arşivden çıkar" : "Arşivle"}</span>
                 </button>
               </header>
