@@ -491,21 +491,23 @@ function WorkspaceRoutes({ path }: { path: string }) {
 
   if (mobileWorkspace) {
     return (
-      <MobileCompanionScreen
-        hesapTipi={ustBar?.hesapTipi ?? ""}
-        islemde={ustBarIslemde}
-        calismaAlani={ustBar?.aktifIsletme ?? ""}
-        sohbetSayisi={ustBar?.sohbet?.okunmamisMesajSayisi ?? 0}
-        onSignOut={() => {
-          const redirectUrl = "/";
-          if (auth.clerk?.signOut) {
-            auth.clerk.signOut({ redirectUrl });
-            return;
-          }
+      <MobileWorkspaceView active="merkez">
+        <MobileCompanionScreen
+          hesapTipi={ustBar?.hesapTipi ?? ""}
+          islemde={ustBarIslemde}
+          calismaAlani={ustBar?.aktifIsletme ?? ""}
+          sohbetSayisi={ustBar?.sohbet?.okunmamisMesajSayisi ?? 0}
+          onSignOut={() => {
+            const redirectUrl = "/";
+            if (auth.clerk?.signOut) {
+              auth.clerk.signOut({ redirectUrl });
+              return;
+            }
 
-          window.location.href = redirectUrl;
-        }}
-      />
+            window.location.href = redirectUrl;
+          }}
+        />
+      </MobileWorkspaceView>
     );
   }
 
@@ -685,14 +687,14 @@ function MobileWorkspaceView({
   active,
   children
 }: {
-  active: "sohbetler" | "muhasebeciler";
+  active: "merkez" | "sohbetler" | "muhasebeciler";
   children: React.ReactNode;
 }) {
   return (
     <div className={`mobile-workspace-view mobile-workspace-view--${active}`}>
       <div className="mobile-workspace-view__content">{children}</div>
       <nav className="mobile-workspace-nav" aria-label="Mobil çalışma alanı">
-        <a href="/app" aria-label="Merkeze dön">
+        <a className={active === "merkez" ? "active" : ""} href="/app" aria-label="Merkeze dön">
           <House size={18} />
           <span>Merkez</span>
         </a>

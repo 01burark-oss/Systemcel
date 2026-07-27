@@ -4921,6 +4921,15 @@
   grid-template-rows: minmax(0, 1fr) calc(68px + env(safe-area-inset-bottom));
 }
 
+:root[data-theme="light"] .mobile-workspace-view--merkez .mobile-workspace-view__content {
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+}
+
+:root[data-theme="light"] .mobile-workspace-view--merkez .mobile-companion {
+  min-height: 100%;
+}
+
 :root[data-theme="light"] .mobile-workspace-nav {
   display: flex;
   gap: 6px;
