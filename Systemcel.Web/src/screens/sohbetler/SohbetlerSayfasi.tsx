@@ -2,18 +2,21 @@ import React from "react";
 import {
   Archive,
   ArrowDown,
+  ArrowUpDown,
+  Banknote,
   CalendarDays,
+  ChartNoAxesCombined,
   ChevronRight,
   ChevronLeft,
   Download,
   FileDown,
-  FileText,
   FileUp,
   Loader2,
   Lock,
   MessageCircle,
   Mic,
   Paperclip,
+  ReceiptText,
   RefreshCw,
   Search,
   Send,
@@ -132,6 +135,7 @@ export function SohbetlerSayfasi({ mobileMode = false, ustBar, onUstBarYenile }:
   const [sesKaydiSuresi, setSesKaydiSuresi] = React.useState(0);
   const messagesRef = React.useRef<HTMLDivElement | null>(null);
   const fileRef = React.useRef<HTMLInputElement | null>(null);
+  const textareaRef = React.useRef<HTMLTextAreaElement | null>(null);
   const includeArchivedRef = React.useRef(includeArchived);
   const typingStopRef = React.useRef<number | null>(null);
   const selectedRef = React.useRef(aktifSohbetId);
@@ -159,6 +163,10 @@ export function SohbetlerSayfasi({ mobileMode = false, ustBar, onUstBarYenile }:
     return liste.sohbetler.filter((item) =>
       `${item.baslik} ${item.sonMesaj}`.toLocaleLowerCase("tr-TR").includes(sorgu));
   }, [arama, liste.sohbetler]);
+  const gorunenMesajlar = React.useMemo(
+    () => mesajlar.filter((item) => item.ekler.length > 0 || anlamliMetinMi(item.mesaj)),
+    [mesajlar]
+  );
 
   React.useEffect(() => {
     document.title = "Sohbetler";
@@ -171,6 +179,14 @@ export function SohbetlerSayfasi({ mobileMode = false, ustBar, onUstBarYenile }:
   React.useEffect(() => {
     onUstBarYenileRef.current = onUstBarYenile;
   }, [onUstBarYenile]);
+
+  React.useEffect(() => {
+    const textarea = textareaRef.current;
+    if (!textarea)
+      return;
+    textarea.style.height = "42px";
+    textarea.style.height = `${Math.min(Math.max(textarea.scrollHeight, 42), 104)}px`;
+  }, [metin]);
 
   React.useEffect(() => () => {
     if (audioTimerRef.current)
@@ -720,8 +736,11 @@ export function SohbetlerSayfasi({ mobileMode = false, ustBar, onUstBarYenile }:
                 onClick={() => setAktifSohbetId(item.id)}
               >
                 <span>
-                  <strong>{item.baslik}</strong>
-                  <em>{item.sonMesaj || "Henüz mesaj yok."}</em>
+                  <span className="chat-center__list-meta">
+                    <strong>{item.baslik}</strong>
+                    {item.sonMesajAt ? <time>{sadeceSaat(item.sonMesajAt)}</time> : null}
+                  </span>
+                  <em>{sohbetOnizlemesi(item.sonMesaj)}</em>
                 </span>
                 {item.okunmamisMesajSayisi > 0 ? <i>{item.okunmamisMesajSayisi > 9 ? "9+" : item.okunmamisMesajSayisi}</i> : null}
               </button>
@@ -772,12 +791,15 @@ export function SohbetlerSayfasi({ mobileMode = false, ustBar, onUstBarYenile }:
                 {eskiYukleniyor ? <p className="chat-center__state"><Loader2 size={15} className="spin" /> Eski mesajlar yükleniyor...</p> : null}
                 {mesajYukleniyor ? (
                   <p className="chat-center__state"><Loader2 size={17} className="spin" /> Mesajlar yükleniyor...</p>
-                ) : mesajlar.length === 0 ? (
+                ) : gorunenMesajlar.length === 0 ? (
                   <p className="chat-center__state">Henüz mesaj yok. İlk mesajı Systemcel içinde gönderin.</p>
-                ) : mesajlar.map((item) => (
+                ) : gorunenMesajlar.map((item) => (
                   <article key={`${item.id}-${item.clientMessageId}`} className={`chat-bubble ${item.benimMesajim ? "mine" : ""} chat-bubble--${item.mesajTipi}`}>
-                    <small>{item.gonderenAdi} · {tarihSaat(item.createdAt)}</small>
-                    <p>{item.mesaj}</p>
+                    <header className="chat-bubble__meta">
+                      <strong>{item.benimMesajim ? "Siz" : item.gonderenAdi}</strong>
+                      <time>{tarihSaat(item.createdAt)}</time>
+                    </header>
+                    {anlamliMetinMi(item.mesaj) ? <p>{mesajMetni(item.mesaj)}</p> : null}
                     {item.ekler.length ? (
                       <div className="chat-bubble__attachments">
                         {item.ekler.map((ek) => ek.ekTipi === "VeriKarti" ? (
@@ -790,9 +812,16 @@ export function SohbetlerSayfasi({ mobileMode = false, ustBar, onUstBarYenile }:
                         ) : (
                           <button key={ek.id} type="button" className="chat-attachment-card" onClick={() => ekiAc(ek)}>
                             <span className="chat-attachment-card__icon">
-                              {ek.ekTipi === "RaporPaketi" ? <FileText size={18} /> : ek.icerikTipi === "application/pdf" ? <FileDown size={18} /> : <Download size={18} />}
+                              {ek.ekTipi === "RaporPaketi" && ek.icerikTipi !== "application/pdf"
+                                ? <ChartNoAxesCombined size={18} />
+                                : ek.icerikTipi === "application/pdf"
+                                  ? <FileDown size={18} />
+                                  : <Download size={18} />}
                             </span>
-                            <span className="chat-attachment-card__title">{ek.baslik || ek.dosyaAdi || "Ek"}</span>
+                            <span className="chat-attachment-card__copy">
+                              <strong>{ekEtiketi(ek)}</strong>
+                              <small>{ek.baslik || ek.dosyaAdi || "Paylaşılan dosya"}</small>
+                            </span>
                             <ChevronRight className="chat-attachment-card__chevron" size={18} />
                           </button>
                         ))}
@@ -827,6 +856,31 @@ export function SohbetlerSayfasi({ mobileMode = false, ustBar, onUstBarYenile }:
                     ) : null}
                   </div>
                 ) : null}
+                <div className="chat-thread__composer-toolbar">
+                  <nav className="chat-thread__quick-actions" aria-label="Hızlı finans işlemleri">
+                    <a href="/app/gelir-gider"><ArrowUpDown size={14} /><span>Gelir / Gider</span></a>
+                    <a href="/app/faturalar"><ReceiptText size={14} /><span>Faturalar</span></a>
+                    <a href="/app/tahsilat-odeme"><Banknote size={14} /><span>Tahsilat</span></a>
+                    <a href="/app/raporlar"><ChartNoAxesCombined size={14} /><span>Raporlar</span></a>
+                  </nav>
+                  <div className="chat-thread__composer-tools">
+                    <label className="chat-thread__composer-period">
+                      <CalendarDays aria-hidden="true" size={15} />
+                      <span className="sr-only">Dönem</span>
+                      <select value={veriAraligi} onChange={(event) => setVeriAraligi(event.target.value)}>
+                        <option value="last30">Son 30 gün</option>
+                        <option value="thisMonth">Bu ay</option>
+                        <option value="previousMonth">Önceki ay</option>
+                        <option value="selectedMonth">Seçili ay</option>
+                        <option value="custom">Özel aralık</option>
+                      </select>
+                    </label>
+                    <button type="button" className="chat-thread__composer-data" onClick={veriAksiyonu} disabled={veriIslemde}>
+                      {veriIslemde ? <Loader2 size={15} className="spin" /> : <FileUp size={15} />}
+                      <span>{dataActionLabel}</span>
+                    </button>
+                  </div>
+                </div>
                 <div className="chat-thread__composer-row">
                   <button
                     type="button"
@@ -853,6 +907,7 @@ export function SohbetlerSayfasi({ mobileMode = false, ustBar, onUstBarYenile }:
                     <Mic size={18} />
                   </button>
                   <textarea
+                    ref={textareaRef}
                     value={metin}
                     onChange={(event) => metinDegisti(event.target.value)}
                     onKeyDown={(event) => {
@@ -864,21 +919,6 @@ export function SohbetlerSayfasi({ mobileMode = false, ustBar, onUstBarYenile }:
                     placeholder="Bir mesaj yazın..."
                     rows={1}
                   />
-                  <label className="chat-thread__composer-period">
-                    <CalendarDays aria-hidden="true" size={17} />
-                    <span className="sr-only">Dönem</span>
-                    <select value={veriAraligi} onChange={(event) => setVeriAraligi(event.target.value)}>
-                      <option value="last30">Son 30 gün</option>
-                      <option value="thisMonth">Bu ay</option>
-                      <option value="previousMonth">Önceki ay</option>
-                      <option value="selectedMonth">Seçili ay</option>
-                      <option value="custom">Özel aralık</option>
-                    </select>
-                  </label>
-                  <button type="button" className="chat-thread__composer-data" onClick={veriAksiyonu} disabled={veriIslemde}>
-                    {veriIslemde ? <Loader2 size={17} className="spin" /> : <FileUp size={17} />}
-                    <span>{dataActionLabel}</span>
-                  </button>
                   <button type="submit" className="chat-thread__composer-send" disabled={!metin.trim()} aria-label="Mesajı gönder">
                     <Send size={18} />
                   </button>
@@ -960,12 +1000,45 @@ function DataCard({ attachment }: { attachment: SohbetEki }) {
   );
 }
 
+function anlamliMetinMi(value: string) {
+  return /[\p{L}\p{N}]/u.test(value?.trim() ?? "");
+}
+
+function mesajMetni(value: string) {
+  return value
+    .trim()
+    .replace(/gelir\/gider özeti paylaşıldı\.?/gi, "gelir/gider raporu oluşturuldu.");
+}
+
+function sohbetOnizlemesi(value: string) {
+  if (!anlamliMetinMi(value))
+    return "Yeni mesaj";
+  return mesajMetni(value);
+}
+
+function ekEtiketi(attachment: SohbetEki) {
+  if (attachment.icerikTipi === "application/pdf")
+    return "PDF Detayları";
+  if (attachment.ekTipi === "RaporPaketi")
+    return "Rapor Paketi";
+  return attachment.baslik || attachment.dosyaAdi || "Paylaşılan dosya";
+}
+
 function tarihSaat(value: string) {
   if (!value)
     return "-";
   return new Date(value).toLocaleString("tr-TR", {
     day: "2-digit",
     month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+}
+
+function sadeceSaat(value: string) {
+  if (!value)
+    return "";
+  return new Date(value).toLocaleTimeString("tr-TR", {
     hour: "2-digit",
     minute: "2-digit"
   });

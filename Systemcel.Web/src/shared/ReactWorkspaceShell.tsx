@@ -434,12 +434,15 @@ export function ReactWorkspaceShell({ children, ustBar, baslik, sagAksiyon }: Re
           </div>
 
           <div className="react-topbar__actions">
-            <div className="react-topbar__telegram">
+            <div
+              className="react-topbar__telegram"
+              title={ustBar?.telegramAktif ? "Telegram bağlantısı açık" : "Telegram bağlantısı kapalı"}
+            >
               <span className="react-topbar__icon">
                 <Send size={22} />
               </span>
               <span className={`react-topbar__badge ${ustBar?.telegramAktif ? "aktif" : "pasif"}`}>
-                {ustBar?.telegramAktif ? "Aktif" : "Pasif"}
+                {ustBar?.telegramAktif ? "Bağlı" : "Bağlı değil"}
               </span>
             </div>
 
