@@ -15,6 +15,7 @@ import {
   ShieldCheck,
   SlidersHorizontal,
   UsersRound,
+  UserRound,
   WalletCards,
   X
 } from "lucide-react";
@@ -64,6 +65,28 @@ interface MuhasebecilerSayfasiProps {
 }
 
 type MobilFiltre = "konum" | "uzmanlik" | "musteriTipi";
+
+function AccountantAvatar({ src, name }: { src: string; name: string }) {
+  const [imageFailed, setImageFailed] = React.useState(false);
+
+  React.useEffect(() => {
+    setImageFailed(false);
+  }, [src]);
+
+  return (
+    <span className="accountant-card__icon">
+      {src && !imageFailed ? (
+        <img
+          src={src}
+          alt={`${name} profil fotoğrafı`}
+          onError={() => setImageFailed(true)}
+        />
+      ) : (
+        <UserRound aria-hidden="true" size={24} strokeWidth={1.8} />
+      )}
+    </span>
+  );
+}
 
 export function MuhasebecilerSayfasi({ mobileMode = false, publicMode = false, ustBar, onUstBarYenile }: MuhasebecilerSayfasiProps) {
   const auth = useSystemcelAuth();
@@ -422,13 +445,7 @@ export function MuhasebecilerSayfasi({ mobileMode = false, publicMode = false, u
               {gorunenProfiller.map((profil) => (
                 <article key={profil.muhasebeciIsletmeId} className="accountant-card">
                   <header>
-                    <span className="accountant-card__icon">
-                      {profil.profilResmiUrl ? (
-                        <img src={profil.profilResmiUrl} alt="" />
-                      ) : (
-                        <BriefcaseBusiness size={20} />
-                      )}
-                    </span>
+                    <AccountantAvatar src={profil.profilResmiUrl} name={profil.unvan} />
                     <div>
                       <h2>{profil.unvan}</h2>
                     </div>
@@ -502,13 +519,7 @@ export function MuhasebecilerSayfasi({ mobileMode = false, publicMode = false, u
               <X size={18} />
             </button>
             <header>
-              <span className="accountant-card__icon">
-                {detayProfil.profilResmiUrl ? (
-                  <img src={detayProfil.profilResmiUrl} alt="" />
-                ) : (
-                  <BriefcaseBusiness size={20} />
-                )}
-              </span>
+              <AccountantAvatar src={detayProfil.profilResmiUrl} name={detayProfil.unvan} />
               <div>
                 <p>Muhasebeci profili</p>
                 <h2 id="accountant-detail-title">{detayProfil.unvan}</h2>

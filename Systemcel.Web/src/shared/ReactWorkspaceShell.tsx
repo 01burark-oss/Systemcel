@@ -42,7 +42,7 @@ interface ReactWorkspaceShellProps {
 }
 
 interface WorkspacePageMeta {
-  category: string;
+  category?: string;
   description: string;
   icon: LucideIcon;
   title: string;
@@ -70,7 +70,6 @@ const anaMenu: Array<{ href: string; label: string; icon: LucideIcon; adminOnly?
   { href: "/muhasebeci", label: "Muhasebeci Paneli", icon: BriefcaseBusiness },
   { href: "/muhasebeciler", label: "Muhasebeciler", icon: Search },
   { href: "/yonetim/muhasebeci-basvurulari", label: "Yönetim", icon: ShieldCheck, adminOnly: true },
-  { href: "/gib-portal", label: "GİB Portal Ayarları", icon: Globe2 },
   { href: "/ayarlar", label: "Ayarlar", icon: Settings }
 ];
 
@@ -144,7 +143,6 @@ function yetkiEtiketi(value?: string) {
 function workspacePageMeta(path: string, settingsTab: string): WorkspacePageMeta {
   if (path === "/gelir-gider") {
     return {
-      category: "Nakit akışı",
       description: "Gelir ve gider hareketlerini kaydedin, arayın ve güncel nakit akışınızı izleyin.",
       icon: ArrowDownUp,
       title: "Gelir ve gider kayıtları"
@@ -171,7 +169,6 @@ function workspacePageMeta(path: string, settingsTab: string): WorkspacePageMeta
 
   if (path === "/faturalar") {
     return {
-      category: "Belge yönetimi",
       description: "Faturaları oluşturun, durumlarını takip edin ve tahsilat süreçlerine bağlayın.",
       icon: FileText,
       title: "Faturalar"
@@ -180,7 +177,6 @@ function workspacePageMeta(path: string, settingsTab: string): WorkspacePageMeta
 
   if (path === "/tahsilat-odeme") {
     return {
-      category: "Nakit yönetimi",
       description: "Gelen tahsilatları ve yapılan ödemeleri kaydedip açık bakiyelerle eşleştirin.",
       icon: WalletCards,
       title: "Tahsilat ve ödeme"
@@ -189,7 +185,6 @@ function workspacePageMeta(path: string, settingsTab: string): WorkspacePageMeta
 
   if (path === "/raporlar") {
     return {
-      category: "Finansal analiz",
       description: "Dönem performansını inceleyin, karşılaştırın ve paylaşılabilir raporlar hazırlayın.",
       icon: BarChart3,
       title: "Raporlar"
@@ -198,7 +193,6 @@ function workspacePageMeta(path: string, settingsTab: string): WorkspacePageMeta
 
   if (path === "/sohbetler") {
     return {
-      category: "İletişim merkezi",
       description: "Muhasebeciniz veya müşterilerinizle mesaj, belge ve veri taleplerini yönetin.",
       icon: MessageCircle,
       title: "Sohbetler"
@@ -234,7 +228,6 @@ function workspacePageMeta(path: string, settingsTab: string): WorkspacePageMeta
 
   if (path === "/gib-portal") {
     return {
-      category: "E-belge bağlantıları",
       description: "GİB Portal kimlik bilgilerini güvenle yönetin ve bağlantı durumunu doğrulayın.",
       icon: Globe2,
       title: "GİB Portal ayarları"
@@ -253,7 +246,6 @@ function workspacePageMeta(path: string, settingsTab: string): WorkspacePageMeta
 
     if (settingsTab === "gib" || settingsTab === "gib-portal") {
       return {
-        category: "E-belge ayarları",
         description: "İşletmenizin GİB Portal bağlantısını ve e-belge tercihlerini yönetin.",
         icon: Landmark,
         title: "GİB Portal ayarları"
@@ -410,8 +402,8 @@ export function ReactWorkspaceShell({ children, ustBar, baslik, sagAksiyon }: Re
                 <span className="workspace-page-heading__icon" aria-hidden="true">
                   <PageIcon size={21} />
                 </span>
-                <div className="workspace-page-heading__copy">
-                  <span className="workspace-page-heading__eyebrow">{pageMeta.category}</span>
+                <div className={`workspace-page-heading__copy${pageMeta.category ? "" : " workspace-page-heading__copy--without-eyebrow"}`}>
+                  {pageMeta.category ? <span className="workspace-page-heading__eyebrow">{pageMeta.category}</span> : null}
                   <h1>{pageMeta.title}</h1>
                   <p>{pageMeta.description}</p>
                 </div>

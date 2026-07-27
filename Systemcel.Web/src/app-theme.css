@@ -120,6 +120,12 @@
   padding: clamp(16px, 2.5vw, 30px);
   grid-template-columns: minmax(0, 1.35fr) minmax(340px, .72fr);
   gap: 16px;
+  align-items: start;
+}
+
+:root[data-theme="light"] .sayfa > :is(.liste-karti, .form-karti) {
+  height: auto;
+  align-self: start;
 }
 
 :root[data-theme="light"] .kart-baslik {
@@ -148,11 +154,22 @@
 }
 
 :root[data-theme="light"] .tablo-kapsayici {
+  flex: 0 1 auto;
   margin: 0 20px 20px;
   border-color: var(--sc-line);
   border-radius: 12px;
   background: var(--sc-paper);
+  overflow-y: visible;
   overscroll-behavior-inline: contain;
+}
+
+:root[data-theme="light"] .tablo-kapsayici table:has(.bos) {
+  height: auto;
+}
+
+:root[data-theme="light"] .tablo-kapsayici .bos {
+  height: 92px;
+  padding-block: 28px;
 }
 
 :root[data-theme="light"] .tablo-kapsayici :is(th, td) {
@@ -422,6 +439,7 @@
   height: auto;
   grid-template-columns: minmax(0, 1.35fr) minmax(380px, .8fr);
   gap: 16px;
+  align-items: start;
   overflow: visible;
 }
 
@@ -458,7 +476,8 @@
 :root[data-theme="light"] :is(.invoice-stat, .payment-stat) strong { color: var(--sc-ink); }
 
 :root[data-theme="light"] :is(.invoice-card--list, .payment-card--list) {
-  min-height: 520px;
+  height: auto;
+  min-height: 0;
   padding: 15px;
 }
 
@@ -532,10 +551,16 @@
 :root[data-theme="light"] :is(.invoice-form-section h3, .payment-form-section h3) i { background: var(--sc-lime); }
 
 :root[data-theme="light"] :is(.invoice-table-wrap, .payment-table-wrap) {
+  flex: 0 1 auto;
   overflow-x: auto;
-  overflow-y: auto;
+  overflow-y: visible;
   border-color: var(--sc-line);
   background: var(--sc-paper);
+}
+
+:root[data-theme="light"] :is(.invoice-empty, .payment-empty) {
+  height: 92px;
+  padding-block: 28px;
 }
 
 :root[data-theme="light"] :is(.invoice-table, .payment-table) {
@@ -2946,7 +2971,7 @@
 }
 
 :root[data-theme="light"] .telegram-steps-card ol {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
 }
 
@@ -2959,6 +2984,8 @@
 }
 
 :root[data-theme="light"] .telegram-steps-card li code {
+  color: #12648b;
+  background: var(--telegram-blue-soft);
   overflow-wrap: anywhere;
 }
 
@@ -3269,11 +3296,11 @@
 }
 
 :root[data-theme="light"] .accountant-filter-field {
-  gap: 7px;
-  padding: 10px 11px;
+  gap: 5px;
+  padding: 11px 13px 10px;
   border: 1px solid var(--sc-line);
   border-radius: 12px;
-  background: var(--sc-cream);
+  background: var(--sc-paper);
   color: var(--sc-ink);
 }
 
@@ -3284,11 +3311,17 @@
 }
 
 :root[data-theme="light"] .accountant-filter-field select {
-  min-height: 42px;
-  padding-inline: 11px 34px;
-  border: 1px solid var(--sc-line);
-  border-radius: 10px;
-  background: #fffef9;
+  min-height: 30px;
+  padding: 0 28px 0 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  font-size: 14px;
+}
+
+:root[data-theme="light"] .accountant-filter-field > svg {
+  right: 13px;
+  bottom: 17px;
 }
 
 :root[data-theme="light"] .accountant-filter-panel > button {
@@ -3319,6 +3352,10 @@
 }
 
 :root[data-theme="light"] .accountant-results__bar label {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   min-height: 38px;
   padding-inline: 11px 32px;
   color: var(--sc-ink);
@@ -3328,8 +3365,31 @@
 }
 
 :root[data-theme="light"] .accountant-results__bar select {
+  width: auto;
+  min-width: 104px;
+  padding: 0;
   color: var(--sc-ink);
+  border: 0;
+  border-radius: 0;
   background: transparent;
+  box-shadow: none;
+}
+
+:root[data-theme="light"] .accountant-results__bar label:focus-within {
+  border-color: var(--sc-line-strong);
+  box-shadow: 0 0 0 3px rgba(184, 255, 0, .13);
+}
+
+:root[data-theme="light"] .accountant-results__bar select:focus,
+:root[data-theme="light"] .accountant-results__bar select:focus-visible {
+  outline: 0;
+  box-shadow: none;
+}
+
+:root[data-theme="light"] .accountant-results__bar label > svg {
+  position: absolute;
+  right: 11px;
+  pointer-events: none;
 }
 
 :root[data-theme="light"] .accountant-filter-search input {
@@ -3355,15 +3415,17 @@
 :root[data-theme="light"] .accountant-card-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
+  align-items: start;
 }
 
 :root[data-theme="light"] .accountant-card {
   min-width: 0;
-  min-height: 330px;
-  padding: 18px;
+  min-height: 0;
+  padding: 15px;
   display: flex;
   flex-direction: column;
-  gap: 13px;
+  gap: 10px;
+  align-self: start;
   border-color: var(--sc-line);
   border-radius: 17px;
   background: var(--sc-paper);
@@ -3386,9 +3448,19 @@
 :root[data-theme="light"] .accountant-card__icon {
   width: 48px;
   height: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border: 1px solid rgba(79, 102, 0, .16);
   border-radius: 14px;
+  color: var(--sc-muted);
+  background: var(--sc-cream);
   overflow: hidden;
+}
+
+:root[data-theme="light"] .accountant-card__icon > svg {
+  width: 25px;
+  height: 25px;
 }
 
 :root[data-theme="light"] .accountant-card h2 {
@@ -3410,8 +3482,8 @@
 
 :root[data-theme="light"] .accountant-card__highlights > span {
   min-width: 0;
-  min-height: 62px;
-  padding: 10px;
+  min-height: 54px;
+  padding: 9px 10px;
   border-radius: 12px;
 }
 
@@ -3421,7 +3493,7 @@
 
 :root[data-theme="light"] .accountant-card__summary {
   margin: 0;
-  line-height: 1.5;
+  line-height: 1.4;
 }
 
 :root[data-theme="light"] .accountant-card__meta {
@@ -3436,8 +3508,14 @@
 
 :root[data-theme="light"] .accountant-card__action {
   width: 100%;
-  margin-top: auto;
+  min-height: 42px;
+  margin-top: 2px;
   padding-inline: 16px;
+}
+
+:root[data-theme="light"] .accountant-profile-detail .accountant-card__icon {
+  width: 58px;
+  height: 58px;
 }
 
 :root[data-theme="light"] .accountant-state {
@@ -6177,6 +6255,11 @@
 
 :root[data-theme="light"] .workspace-page-heading__copy {
   min-width: 0;
+}
+
+:root[data-theme="light"] .workspace-page-heading__copy--without-eyebrow {
+  display: grid;
+  align-content: center;
 }
 
 :root[data-theme="light"] .workspace-page-heading__eyebrow {

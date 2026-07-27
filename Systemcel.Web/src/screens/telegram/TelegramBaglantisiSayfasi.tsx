@@ -283,10 +283,9 @@ export function TelegramBaglantisiSayfasi({ onTelegramDurumuDegisti }: TelegramB
               <div className="telegram-hero-icon"><Send size={54} /></div>
               <h3>Bağlantı Adımları</h3>
               <ol>
-                <li><span>1</span> Telegram'ı Bağla</li>
-                <li><span>2</span> QR kodu okut veya linki aç</li>
-                <li><span>3</span> <code>{startKomutu}</code> komutunu gönder</li>
-                <li><span>4</span> Systemcel bağlantıyı doğrular</li>
+                <li><span>1</span> QR kodu okut veya linki aç</li>
+                <li><span>2</span> <code>{startKomutu}</code> komutunu gönder</li>
+                <li><span>3</span> Systemcel bağlantıyı doğrular</li>
               </ol>
             </aside>
           </section>

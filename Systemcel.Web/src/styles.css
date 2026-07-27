@@ -18673,8 +18673,8 @@ tbody tr.secili {
 :root[data-theme="light"] .gib-card__header svg { color: #536e00; }
 
 :root[data-theme="light"] .gib-status-grid--compact {
-  width: min(100%, 760px);
-  margin: 14px 0 0 auto;
+  width: 100%;
+  margin: 14px 0 0;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
 }
@@ -18757,7 +18757,9 @@ tbody tr.secili {
 :root[data-theme="light"] .gib-toggle input { accent-color: var(--app-ink); }
 
 :root[data-theme="light"] .gib-security-note {
+  min-height: 54px;
   margin: 13px 2px 0;
+  padding-right: 76px;
   display: flex;
   align-items: center;
   justify-content: flex-end;
@@ -19756,13 +19758,13 @@ tbody tr.secili {
 }
 
 :root[data-theme="light"] .telegram-steps-card li span {
-  color: var(--app-ink);
-  background: var(--app-lime);
+  color: #fff;
+  background: var(--telegram-blue);
 }
 
 :root[data-theme="light"] .telegram-steps-card li code {
-  color: #415000;
-  background: rgba(200, 255, 0, .15);
+  color: #12648b;
+  background: var(--telegram-blue-soft);
 }
 
 :root[data-theme="light"] .telegram-btn--primary {
