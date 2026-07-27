@@ -181,11 +181,12 @@ namespace CashTracker.Infrastructure.Services
             if (string.IsNullOrWhiteSpace(attachment.DosyaYolu) || !File.Exists(attachment.DosyaYolu))
                 throw new FileNotFoundException("Dosya bulunamadi.", attachment.DosyaAdi);
 
+            var absolutePath = Path.GetFullPath(attachment.DosyaYolu);
             return new SohbetDosyaIndirme
             {
                 DosyaAdi = attachment.DosyaAdi,
                 IcerikTipi = string.IsNullOrWhiteSpace(attachment.IcerikTipi) ? "application/octet-stream" : attachment.IcerikTipi,
-                DosyaYolu = attachment.DosyaYolu
+                DosyaYolu = absolutePath
             };
         }
 
@@ -504,8 +505,6 @@ namespace CashTracker.Infrastructure.Services
             if (state != null)
             {
                 state.SonOkumaAt = now;
-                state.Arsivlendi = false;
-                state.ArsivlendiAt = null;
                 state.UpdatedAt = now;
             }
 
@@ -940,6 +939,7 @@ namespace CashTracker.Infrastructure.Services
             var root = string.IsNullOrWhiteSpace(_storageOptions.AppDataPath)
                 ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Systemcel", "Web")
                 : _storageOptions.AppDataPath;
+            root = Path.GetFullPath(root);
             Directory.CreateDirectory(root);
             return root;
         }
