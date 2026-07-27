@@ -2,8 +2,12 @@ import React from "react";
 import {
   Archive,
   ArrowDown,
+  CalendarDays,
+  ChevronRight,
   ChevronLeft,
   Download,
+  FileDown,
+  FileText,
   FileUp,
   Loader2,
   Lock,
@@ -13,12 +17,13 @@ import {
   RefreshCw,
   Search,
   Send,
-  Share2,
+  TrendingUp,
   Trash2,
   X
 } from "lucide-react";
 import * as signalR from "@microsoft/signalr";
 import { getAuthToken } from "../../auth/authToken";
+import { fetchAuthenticatedFileBlob, openAuthenticatedFile } from "../../shared/authenticatedFile";
 import type { UstBarDurumu } from "../../shared/chrome";
 import { jsonOku } from "../../shared/json";
 
@@ -476,6 +481,20 @@ export function SohbetlerSayfasi({ mobileMode = false, ustBar, onUstBarYenile }:
     }
   }
 
+  async function ekiAc(ek: SohbetEki) {
+    if (!ek.indirUrl)
+      return;
+    setHata("");
+    try {
+      await openAuthenticatedFile(ek.indirUrl, {
+        fileName: ek.dosyaAdi || ek.baslik || "systemcel-dosya",
+        contentType: ek.icerikTipi
+      });
+    } catch (error) {
+      setHata(error instanceof Error ? error.message : "Dosya açılamadı.");
+    }
+  }
+
   async function sesKaydiniBaslat(event: React.PointerEvent<HTMLButtonElement>) {
     if (!aktifSohbetId || sesKaydi || dosyaIslemde)
       return;
@@ -766,13 +785,16 @@ export function SohbetlerSayfasi({ mobileMode = false, ustBar, onUstBarYenile }:
                         ) : ek.icerikTipi.startsWith("audio/") ? (
                           <div key={ek.id} className="chat-voice-message">
                             <Mic size={15} />
-                            <audio controls preload="metadata" src={ek.indirUrl} />
+                            <AuthenticatedAudio attachment={ek} onError={setHata} />
                           </div>
                         ) : (
-                          <a key={ek.id} href={ek.indirUrl} target="_blank" rel="noreferrer">
-                            {ek.ekTipi === "RaporPaketi" ? <Share2 size={15} /> : <Download size={15} />}
-                            <span>{ek.baslik || ek.dosyaAdi || "Ek"}</span>
-                          </a>
+                          <button key={ek.id} type="button" className="chat-attachment-card" onClick={() => ekiAc(ek)}>
+                            <span className="chat-attachment-card__icon">
+                              {ek.ekTipi === "RaporPaketi" ? <FileText size={18} /> : ek.icerikTipi === "application/pdf" ? <FileDown size={18} /> : <Download size={18} />}
+                            </span>
+                            <span className="chat-attachment-card__title">{ek.baslik || ek.dosyaAdi || "Ek"}</span>
+                            <ChevronRight className="chat-attachment-card__chevron" size={18} />
+                          </button>
                         ))}
                       </div>
                     ) : null}
@@ -843,7 +865,8 @@ export function SohbetlerSayfasi({ mobileMode = false, ustBar, onUstBarYenile }:
                     rows={1}
                   />
                   <label className="chat-thread__composer-period">
-                    <span>Dönem</span>
+                    <CalendarDays aria-hidden="true" size={17} />
+                    <span className="sr-only">Dönem</span>
                     <select value={veriAraligi} onChange={(event) => setVeriAraligi(event.target.value)}>
                       <option value="last30">Son 30 gün</option>
                       <option value="thisMonth">Bu ay</option>
@@ -880,6 +903,37 @@ export function SohbetlerSayfasi({ mobileMode = false, ustBar, onUstBarYenile }:
   );
 }
 
+function AuthenticatedAudio({ attachment, onError }: { attachment: SohbetEki; onError: (message: string) => void }) {
+  const [source, setSource] = React.useState("");
+
+  React.useEffect(() => {
+    let disposed = false;
+    let objectUrl = "";
+
+    fetchAuthenticatedFileBlob(attachment.indirUrl)
+      .then((blob) => {
+        if (disposed)
+          return;
+        objectUrl = URL.createObjectURL(blob);
+        setSource(objectUrl);
+      })
+      .catch((error) => {
+        if (!disposed)
+          onError(error instanceof Error ? error.message : "Ses kaydı açılamadı.");
+      });
+
+    return () => {
+      disposed = true;
+      if (objectUrl)
+        URL.revokeObjectURL(objectUrl);
+    };
+  }, [attachment.indirUrl, onError]);
+
+  return source
+    ? <audio controls preload="metadata" src={source} />
+    : <span className="chat-voice-message__loading"><Loader2 size={15} className="spin" /> Ses yükleniyor...</span>;
+}
+
 function DataCard({ attachment }: { attachment: SohbetEki }) {
   const data = React.useMemo(() => {
     try {
@@ -891,10 +945,17 @@ function DataCard({ attachment }: { attachment: SohbetEki }) {
 
   return (
     <div className="chat-data-card">
-      <strong>{attachment.baslik || "Veri özeti"}</strong>
-      <span>Gelir: {para(data.gelir)}</span>
-      <span>Gider: {para(data.gider)}</span>
-      <span>Net: {para(data.net)}</span>
+      <span className="chat-data-card__icon">
+        <TrendingUp size={20} />
+      </span>
+      <div className="chat-data-card__content">
+        <strong>{attachment.baslik || "Veri özeti"}</strong>
+        <dl>
+          <div><dt>Gelir</dt><dd>{para(data.gelir)}</dd></div>
+          <div><dt>Gider</dt><dd>{para(data.gider)}</dd></div>
+          <div className="chat-data-card__net"><dt>Net</dt><dd>{para(data.net)}</dd></div>
+        </dl>
+      </div>
     </div>
   );
 }

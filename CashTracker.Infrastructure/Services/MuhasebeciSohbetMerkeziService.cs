@@ -525,9 +525,12 @@ namespace CashTracker.Infrastructure.Services
             if (senderBusinessId != sohbet.MuhasebeciIsletmeId && senderBusinessId != sohbet.MusteriIsletmeId)
                 throw new InvalidOperationException("Bu sohbet icin yetkiniz yok.");
 
-            var normalized = messageType == MuhasebeciSohbetMesajTipleri.Sistem
-                ? NormalizeSystemMessage(message)
-                : NormalizeConversationText(message);
+            // The contact wall applies only to text authored by the user. File names and
+            // generated report labels can legitimately contain long number sequences (for
+            // example camera file names) and must not be mistaken for phone numbers.
+            var normalized = messageType == MuhasebeciSohbetMesajTipleri.Metin
+                ? NormalizeConversationText(message)
+                : NormalizeSystemMessage(message);
             var entity = new MuhasebeciSohbetMesaji
             {
                 SohbetId = sohbet.Id,
