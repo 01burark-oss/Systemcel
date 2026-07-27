@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 180" role="img" aria-labelledby="title description">
+  <title id="title">systemcel</title>
+  <desc id="description">Systemcel Finance Suite logosu</desc>
+  <g transform="translate(18 18)">
+    <rect width="144" height="144" rx="31" fill="#fbfaf5" stroke="#0b0b09" stroke-width="5"/>
+    <path d="M72 2.5v139M2.5 72h139" fill="none" stroke="#d8d7ce" stroke-width="3"/>
+    <path d="M72 72h69.5v38c0 17.4-14.1 31.5-31.5 31.5H72z" fill="#c8ff00"/>
+  </g>
+  <text x="190" y="91" fill="#0b0b09" font-family="Inter, Arial, sans-serif" font-size="69" font-weight="850" letter-spacing="-4">systemcel</text>
+  <text x="194" y="132" fill="#73746d" font-family="Consolas, 'Courier New', monospace" font-size="20" font-weight="700" letter-spacing="6">FINANCE SUITE</text>
+</svg>

@@ -1,10 +1,10 @@
 import React from "react";
-import { LogOut, MessageCircle, Monitor, RefreshCw, Search } from "lucide-react";
+import { Building2, House, LogOut, MessageCircle, RefreshCw, Search } from "lucide-react";
 import { AuthSayfasi } from "./auth/AuthSayfasi";
 import { RequireAuth } from "./auth/AuthGate";
 import { AuthUserButton } from "./auth/AuthUserButton";
 import { useSystemcelAuth } from "./auth/SystemcelAuthProvider";
-import systemcelIcon from "./assets/systemcel-icon.png";
+import systemcelBrand from "./assets/systemcel-brand.svg";
 import { CariHesaplarSayfasi } from "./screens/cari/CariHesaplarSayfasi";
 import { DashboardSayfasi } from "./screens/dashboard/DashboardSayfasi";
 import { FaturalarSayfasi } from "./screens/faturalar/FaturalarSayfasi";
@@ -622,7 +622,7 @@ function MobileCompanionScreen({
   onSignOut: () => void;
 }) {
   const isAccountant = hesapTipi === "Muhasebeci";
-  const title = isAccountant ? "Mobil muhasebeci merkezi" : "Mobil çalışma alanı";
+  const title = isAccountant ? "Muhasebeci Merkezi" : "Çalışma Alanı";
   const description = isAccountant
     ? "Müşteri sohbetlerini yönetin ve pazaryerindeki işletme taleplerini görüntüleyin."
     : "Muhasebecinizle konuşun veya ihtiyaçlarınıza uygun muhasebecileri karşılaştırın.";
@@ -631,11 +631,7 @@ function MobileCompanionScreen({
     <main className="mobile-companion">
       <section className="mobile-companion__panel" aria-labelledby="mobile-companion-title">
         <header className="mobile-companion__brand">
-          <img src={systemcelIcon} alt="" />
-          <div>
-            <strong>SYSTEMCEL</strong>
-            <span>Finance Suite</span>
-          </div>
+          <img className="mobile-companion__brand-logo" src={systemcelBrand} alt="systemcel Finance Suite" />
         </header>
 
         <h1 id="mobile-companion-title">{title}</h1>
@@ -655,32 +651,24 @@ function MobileCompanionScreen({
 
         {calismaAlani || islemde ? (
           <div className="mobile-companion__workspace">
-            <span>Çalışma alanı</span>
-            <strong>{islemde ? "Yükleniyor..." : calismaAlani}</strong>
+            <span className="mobile-companion__workspace-icon" aria-hidden="true">
+              <Building2 size={20} />
+            </span>
+            <div>
+              <span>Aktif çalışma alanı</span>
+              <strong>{islemde ? "Yükleniyor..." : calismaAlani}</strong>
+            </div>
           </div>
         ) : null}
 
-        <div className="mobile-companion__features" aria-label="Mobil erişim kapsamı">
+        <div className="mobile-companion__summary" aria-label="Çalışma alanı özeti">
           <article>
-            <MessageCircle size={20} />
-            <div>
-              <strong>{isAccountant ? "Müşteri sohbetleri" : "Muhasebeci sohbetleri"}</strong>
-              <span>Mesaj, belge ve veri taleplerini mobilde takip edin.</span>
-            </div>
+            <strong>{sohbetSayisi}</strong>
+            <span>Okunmamış mesaj</span>
           </article>
           <article>
-            <Search size={20} />
-            <div>
-              <strong>Muhasebeci pazaryeri</strong>
-              <span>Profilleri karşılaştırın, talep gönderin ve bağlantılarınızı yönetin.</span>
-            </div>
-          </article>
-          <article>
-            <Monitor size={20} />
-            <div>
-              <strong>Masaüstünde tam kullanım</strong>
-              <span>Kayıt, fatura, stok ve tahsilat işlemleri bilgisayardan yapılır.</span>
-            </div>
+            <strong>{calismaAlani ? "Aktif" : "—"}</strong>
+            <span>Çalışma alanı</span>
           </article>
         </div>
 
@@ -704,6 +692,10 @@ function MobileWorkspaceView({
     <div className={`mobile-workspace-view mobile-workspace-view--${active}`}>
       <div className="mobile-workspace-view__content">{children}</div>
       <nav className="mobile-workspace-nav" aria-label="Mobil çalışma alanı">
+        <a href="/app" aria-label="Merkeze dön">
+          <House size={18} />
+          <span>Merkez</span>
+        </a>
         <a className={active === "sohbetler" ? "active" : ""} href="/app/sohbetler" aria-label="Sohbetler">
           <MessageCircle size={18} />
           <span>Sohbetler</span>

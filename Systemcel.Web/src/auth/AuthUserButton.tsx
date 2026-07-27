@@ -68,7 +68,7 @@ export function AuthUserButton({ compact = false }: { compact?: boolean }) {
       <button
         className="systemcel-user-button"
         type="button"
-        aria-label="Kullanıcı hesabı"
+        aria-label={compact ? "Hesap ve çıkış menüsü" : "Kullanıcı hesabı"}
         aria-haspopup="menu"
         aria-expanded={menuOpen}
         onClick={() => setMenuOpen((current) => !current)}
