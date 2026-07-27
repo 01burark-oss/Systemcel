@@ -200,18 +200,27 @@ export function SohbetlerSayfasi({ mobileMode = false, ustBar, onUstBarYenile }:
       const data = await jsonOku<SohbetListe>(`/api/ekran/sohbetler?includeArchived=${includeArchivedRef.current ? "true" : "false"}`);
       if (istekSirasi !== listeIstekSirasiRef.current)
         return;
+      const tekilSohbetler = Array.from(
+        new Map(data.sohbetler.map((item) => [item.id, item])).values()
+      );
+      const sohbetler = tekilSohbetler.filter((item) =>
+        includeArchivedRef.current ? item.arsivlendi : !item.arsivlendi);
+      const gorunenListe: SohbetListe = {
+        sohbetler,
+        okunmamisMesajSayisi: sohbetler.reduce((toplam, item) => toplam + item.okunmamisMesajSayisi, 0)
+      };
       const selectedId = selectedRef.current;
-      setListe(data);
+      setListe(gorunenListe);
       setListeYukleniyor(false);
-      if (!mobileMode && !selectedId && data.sohbetler.length > 0) {
-        setAktifSohbetId(data.sohbetler[0].id);
+      if (!mobileMode && !selectedId && sohbetler.length > 0) {
+        setAktifSohbetId(sohbetler[0].id);
       }
       if (selectedId) {
-        const found = data.sohbetler.find((item) => item.id === selectedId);
+        const found = sohbetler.find((item) => item.id === selectedId);
         if (found) {
           setAktifSohbet(found);
         } else {
-          const nextId = !mobileMode && data.sohbetler.length > 0 ? data.sohbetler[0].id : 0;
+          const nextId = !mobileMode && sohbetler.length > 0 ? sohbetler[0].id : 0;
           selectedRef.current = nextId;
           setAktifSohbetId(nextId);
           setAktifSohbet(null);
@@ -456,7 +465,8 @@ export function SohbetlerSayfasi({ mobileMode = false, ustBar, onUstBarYenile }:
         method: "PUT",
         body: JSON.stringify({ arsivlendi: !aktifSohbet.arsivlendi })
       });
-      if (updated.arsivlendi && !includeArchived) {
+      const mevcutGorunumdeKalacak = includeArchived ? updated.arsivlendi : !updated.arsivlendi;
+      if (!mevcutGorunumdeKalacak) {
         selectedRef.current = 0;
         setAktifSohbetId(0);
         setAktifSohbet(null);
@@ -721,13 +731,19 @@ export function SohbetlerSayfasi({ mobileMode = false, ustBar, onUstBarYenile }:
           </label>
           <label className="chat-center__archive-toggle">
             <input type="checkbox" checked={includeArchived} onChange={(event) => setIncludeArchived(event.target.checked)} />
-            <span>Arşivlenenleri göster</span>
+            <span>{includeArchived ? "Arşiv görünümü" : "Arşivlenenleri göster"}</span>
           </label>
           <div className="chat-center__list">
             {listeYukleniyor ? (
               <p className="chat-center__state"><Loader2 size={17} className="spin" /> Sohbetler yükleniyor...</p>
             ) : filtreliSohbetler.length === 0 ? (
-              <p className="chat-center__state">{arama.trim() ? "Aramanızla eşleşen sohbet yok." : "Henüz sohbet yok."}</p>
+              <p className="chat-center__state">
+                {arama.trim()
+                  ? "Aramanızla eşleşen sohbet yok."
+                  : includeArchived
+                    ? "Arşivlenmiş sohbet yok."
+                    : "Henüz sohbet yok."}
+              </p>
             ) : filtreliSohbetler.map((item) => (
               <button
                 key={item.id}

@@ -19225,3 +19225,554 @@ tbody tr.secili {
     padding: 25px 22px;
   }
 }
+
+/* 27.07.2026 — mobil auth, hesap menüsü ve kalan eski tema yüzeyleri */
+@media (max-width: 1180px) {
+  .auth-shell--branded .auth-shell__layout,
+  .auth-shell--sign-up.auth-shell--branded .auth-shell__layout {
+    width: min(100%, 680px);
+    grid-template-columns: minmax(0, 1fr);
+    gap: 28px;
+  }
+
+  .auth-shell--branded .auth-shell__card,
+  .auth-shell--sign-up.auth-shell--branded .auth-shell__card {
+    grid-column: 1;
+    justify-self: stretch;
+    width: 100%;
+  }
+}
+
+@media (max-width: 760px) {
+  .auth-shell--branded,
+  .auth-shell--sign-up.auth-shell--branded {
+    width: 100%;
+    min-width: 0;
+    min-height: 100dvh;
+    max-height: none;
+    padding:
+      max(22px, env(safe-area-inset-top))
+      clamp(18px, 5vw, 26px)
+      calc(42px + env(safe-area-inset-bottom));
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-content: start;
+    align-items: center;
+    column-gap: 12px;
+    row-gap: clamp(30px, 8vw, 48px);
+    overflow-x: clip;
+    overflow-y: auto;
+  }
+
+  .auth-shell--branded .auth-shell__brand--top {
+    position: static;
+    min-width: 0;
+  }
+
+  .auth-shell--branded .auth-shell__brand-mark {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+  }
+
+  .auth-shell--branded .auth-shell__brand-copy strong {
+    font-size: 23px;
+  }
+
+  .auth-shell--branded .auth-shell__brand-copy small {
+    font-size: 8px;
+    letter-spacing: .14em;
+  }
+
+  .auth-shell--branded .auth-shell__language {
+    position: static;
+    margin: 0;
+    justify-self: end;
+  }
+
+  .auth-shell--branded .auth-shell__lang {
+    min-width: 78px;
+    min-height: 46px;
+    font-size: 14px;
+  }
+
+  .auth-shell--branded .auth-shell__layout,
+  .auth-shell--sign-up.auth-shell--branded .auth-shell__layout {
+    grid-column: 1 / -1;
+    width: min(100%, 560px);
+    min-width: 0;
+    min-height: 0;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+
+  .auth-shell--branded .auth-shell__left {
+    display: none;
+  }
+
+  .auth-shell--branded .auth-shell__card,
+  .auth-shell--sign-up.auth-shell--branded .auth-shell__card {
+    grid-column: 1;
+    grid-row: 1;
+    width: 100%;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .auth-shell--branded .auth-shell__card-head,
+  .auth-shell--sign-up.auth-shell--branded .auth-shell__card-head {
+    max-width: 480px;
+    margin: 0 auto clamp(28px, 7vw, 38px);
+    text-align: center;
+  }
+
+  .auth-shell--branded .auth-shell__card-head h2,
+  .auth-shell--sign-up.auth-shell--branded .auth-shell__card-head h2 {
+    color: var(--auth-ink);
+    font-family: Inter, "Segoe UI", sans-serif;
+    font-size: clamp(37px, 11vw, 52px);
+    font-weight: 850;
+    line-height: 1.02;
+    letter-spacing: -.055em;
+  }
+
+  .auth-shell--branded .auth-shell__card-head p,
+  .auth-shell--sign-up.auth-shell--branded .auth-shell__card-head p {
+    max-width: 390px;
+    margin: 17px auto 0;
+    color: var(--auth-muted);
+    font-size: clamp(16px, 4.6vw, 20px);
+    line-height: 1.45;
+  }
+
+  .auth-shell--branded .auth-custom,
+  .auth-shell--sign-up.auth-shell--branded .auth-custom {
+    width: 100%;
+    min-width: 0;
+    gap: 18px;
+  }
+
+  .auth-shell--branded .auth-custom__form,
+  .auth-shell--sign-up.auth-shell--branded .auth-custom__form {
+    width: 100%;
+    min-width: 0;
+    gap: 16px;
+  }
+
+  .auth-shell--branded .auth-custom__google,
+  .auth-shell--branded .auth-custom__submit,
+  .auth-shell--sign-up.auth-shell--branded .auth-custom__google,
+  .auth-shell--sign-up.auth-shell--branded .auth-custom__submit {
+    width: 100%;
+    min-width: 0;
+    min-height: 58px;
+    border-radius: 16px;
+    font-size: 17px;
+  }
+
+  .auth-shell--branded .auth-custom__divider {
+    width: 100%;
+    min-width: 0;
+    gap: 12px;
+  }
+
+  .auth-shell--branded .auth-account-type,
+  .auth-shell--sign-up.auth-shell--branded .auth-account-type {
+    width: 100%;
+    min-width: 0;
+    padding: 4px;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    border-radius: 16px;
+  }
+
+  .auth-shell--branded .auth-account-type button,
+  .auth-shell--sign-up.auth-shell--branded .auth-account-type button {
+    width: 100%;
+    min-width: 0;
+    min-height: 50px;
+    padding: 0 9px;
+    display: inline-flex;
+    grid-template-columns: none;
+    justify-content: center;
+    gap: 7px;
+    border-radius: 12px;
+    font-size: clamp(13px, 3.8vw, 16px);
+    white-space: nowrap;
+  }
+
+  .auth-shell--branded .auth-account-type button span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transform: none;
+  }
+
+  .auth-shell--branded .auth-custom__field,
+  .auth-shell--sign-up.auth-shell--branded .auth-custom__field {
+    width: 100%;
+    min-width: 0;
+    gap: 8px;
+  }
+
+  .auth-shell--branded .auth-custom__field > span,
+  .auth-shell--sign-up.auth-shell--branded .auth-custom__field > span {
+    font-size: 15px;
+  }
+
+  .auth-shell--branded .auth-custom__field input,
+  .auth-shell--sign-up.auth-shell--branded .auth-custom__field input {
+    width: 100%;
+    min-width: 0;
+    min-height: 56px;
+    border-radius: 14px;
+    font-size: 16px;
+  }
+
+  .auth-shell--branded .auth-shell__terms {
+    max-width: 520px;
+    margin: 18px auto 0;
+    font-size: 12px;
+    line-height: 1.55;
+    text-align: center;
+  }
+
+  .auth-shell--branded .auth-shell__switch {
+    width: fit-content;
+    max-width: 100%;
+    margin: 14px auto 0;
+    flex-wrap: wrap;
+    justify-content: center;
+    font-size: 15px;
+    text-align: center;
+  }
+}
+
+:root[data-theme="light"] .mobile-workspace-view {
+  background: var(--app-cream);
+}
+
+:root[data-theme="light"] .mobile-workspace-nav {
+  gap: 8px;
+  border-top-color: var(--app-line);
+  background: rgba(251, 250, 245, .98);
+  box-shadow: 0 -12px 34px rgba(11, 11, 9, .06);
+}
+
+:root[data-theme="light"] .mobile-workspace-nav > a {
+  color: var(--app-muted);
+}
+
+:root[data-theme="light"] .mobile-workspace-nav > a.active {
+  border-color: var(--app-ink);
+  color: var(--app-lime);
+  background: var(--app-ink);
+}
+
+.mobile-workspace-nav > .systemcel-user {
+  width: 56px;
+  flex: 0 0 56px;
+}
+
+.systemcel-user--compact .systemcel-user-button {
+  width: 56px;
+  min-height: 48px;
+  padding: 4px;
+  display: grid;
+  grid-template-columns: 1fr;
+  justify-items: center;
+  gap: 1px;
+  border-radius: 14px;
+  text-align: center;
+}
+
+.systemcel-user--compact .systemcel-user-avatar {
+  width: 28px;
+  height: 28px;
+  font-size: 12px;
+}
+
+.systemcel-user-button__compact-label {
+  color: inherit;
+  font-size: 9px;
+  font-weight: 850;
+  line-height: 1;
+}
+
+.systemcel-user--compact .systemcel-user-menu {
+  right: 0;
+  left: auto;
+  width: min(286px, calc(100vw - 24px));
+}
+
+@media (max-width: 420px) {
+  :root[data-theme="light"] .mobile-workspace-nav > a.active {
+    width: 142px;
+    flex-basis: 142px;
+  }
+}
+
+/* Muhasebeci çalışma alanı — eski mavi uygulama temasını Systemcel token'larına taşı. */
+:root[data-theme="light"] :is(.accountant-marketplace, .accountant-panel) {
+  color: var(--app-ink);
+}
+
+:root[data-theme="light"] :is(.accountant-card, .accountant-section, .accountant-metrics article, .accountant-panel__empty, .accountant-toolbar) {
+  border-color: var(--app-line);
+  background: rgba(251, 250, 245, .96);
+  box-shadow: 0 22px 52px -42px rgba(11, 11, 9, .6);
+}
+
+:root[data-theme="light"] .accountant-eyebrow {
+  color: #536e00;
+}
+
+:root[data-theme="light"] :is(
+  .accountant-primary-link,
+  .accountant-card__action,
+  .accountant-section > button,
+  .accountant-request-list button:not(.accountant-danger-button),
+  .accountant-table button,
+  .accountant-invite-strip a,
+  .accountant-toolbar button,
+  .accountant-modal__primary
+) {
+  color: var(--app-ink);
+  border-color: var(--app-lime);
+  background: var(--app-lime);
+  box-shadow: none;
+}
+
+:root[data-theme="light"] :is(
+  .accountant-toolbar label,
+  .accountant-toolbar input,
+  .accountant-toolbar select,
+  .accountant-form-grid input,
+  .accountant-form-grid select,
+  .accountant-form-grid textarea,
+  .accountant-section__field textarea,
+  .accountant-request-list select,
+  .accountant-modal__field textarea,
+  .accountant-invite-box input
+) {
+  color: var(--app-ink);
+  border-color: var(--app-line);
+  background: #fffef9;
+}
+
+:root[data-theme="light"] :is(
+  .accountant-toolbar input,
+  .accountant-toolbar select,
+  .accountant-form-grid input,
+  .accountant-form-grid select,
+  .accountant-form-grid textarea,
+  .accountant-section__field textarea,
+  .accountant-request-list select,
+  .accountant-modal__field textarea,
+  .accountant-invite-box input
+):focus {
+  border-color: var(--app-ink);
+  box-shadow: 0 0 0 3px rgba(200, 255, 0, .36);
+}
+
+:root[data-theme="light"] :is(.accountant-card--pro, .accountant-pro-note, .accountant-invite-strip) {
+  color: var(--app-ink);
+  border-color: rgba(11, 11, 9, .22);
+  background: rgba(200, 255, 0, .13);
+  box-shadow: none;
+}
+
+:root[data-theme="light"] .accountant-card__icon {
+  color: var(--app-ink);
+  background: var(--app-lime);
+}
+
+:root[data-theme="light"] .accountant-card__highlights > span {
+  color: var(--app-ink);
+  border-color: rgba(83, 110, 0, .2);
+  background: rgba(200, 255, 0, .12);
+}
+
+:root[data-theme="light"] :is(.accountant-status, .accountant-count) {
+  color: var(--app-ink);
+  background: var(--app-cream-deep);
+}
+
+:root[data-theme="light"] .accountant-status--pro {
+  color: var(--app-ink);
+  background: var(--app-lime);
+}
+
+:root[data-theme="light"] .accountant-permission button.active {
+  color: var(--app-paper);
+  border-color: var(--app-ink);
+  background: var(--app-ink);
+}
+
+:root[data-theme="light"] :is(.accountant-request-list article, .accountant-invite-box, .accountant-table th, .accountant-chat__messages) {
+  border-color: var(--app-line);
+  background: var(--app-cream);
+}
+
+:root[data-theme="light"] .accountant-chat__notice,
+:root[data-theme="light"] .accountant-chat__messages article.mine {
+  color: var(--app-ink);
+  border-color: rgba(83, 110, 0, .2);
+  background: rgba(200, 255, 0, .12);
+}
+
+:root[data-theme="light"] .accountant-modal {
+  background: rgba(11, 11, 9, .46);
+}
+
+:root[data-theme="light"] .accountant-modal__panel {
+  border-color: var(--app-line);
+  background: var(--app-paper);
+  box-shadow: 0 28px 70px rgba(11, 11, 9, .24);
+}
+
+:root[data-theme="light"] .accountant-modal__panel header p,
+:root[data-theme="light"] .accountant-panel__empty svg {
+  color: #536e00;
+}
+
+/* Ayarlar ve GİB — uygulama yüzeyleri nötr; durum renkleri semantik kalır. */
+:root[data-theme="light"] .settings-page {
+  color: var(--app-ink);
+}
+
+:root[data-theme="light"] :is(.settings-card, .settings-section-row, .settings-block, .settings-tabs, .settings-list) {
+  border-color: var(--app-line);
+  background: rgba(251, 250, 245, .96);
+  box-shadow: 0 22px 52px -42px rgba(11, 11, 9, .6);
+}
+
+:root[data-theme="light"] :is(.settings-card__header h2, .settings-section-row strong, .settings-block__title, .settings-block__title strong, .settings-field span, .settings-block--new h3) {
+  color: var(--app-ink);
+}
+
+:root[data-theme="light"] :is(.settings-card__header p, .settings-block--new p, .settings-footer, .settings-feedback) {
+  color: var(--app-muted);
+}
+
+:root[data-theme="light"] :is(.settings-section-row select, .settings-block input, .settings-add-category input, .settings-field select, .settings-search input) {
+  color: var(--app-ink);
+  border-color: var(--app-line);
+  background: #fffef9;
+}
+
+:root[data-theme="light"] :is(.settings-section-row select, .settings-block input, .settings-add-category input, .settings-field select, .settings-search input):focus {
+  border-color: var(--app-ink);
+  box-shadow: 0 0 0 3px rgba(200, 255, 0, .36);
+}
+
+:root[data-theme="light"] :is(.settings-btn--navy, .settings-btn--green) {
+  color: var(--app-ink);
+  border-color: var(--app-lime);
+  background: var(--app-lime);
+  box-shadow: none;
+}
+
+:root[data-theme="light"] .settings-tabs button {
+  color: var(--app-muted);
+}
+
+:root[data-theme="light"] .settings-tabs button.active {
+  color: var(--app-paper);
+  border-color: var(--app-ink);
+  background: var(--app-ink);
+  box-shadow: none;
+}
+
+:root[data-theme="light"] .settings-list__row {
+  color: var(--app-ink);
+  border-bottom-color: var(--app-line);
+  background: #fffef9;
+}
+
+:root[data-theme="light"] .settings-list__row.selected {
+  background: rgba(200, 255, 0, .18);
+}
+
+:root[data-theme="light"] .settings-info {
+  color: #415000;
+  border-color: rgba(83, 110, 0, .24);
+  background: rgba(200, 255, 0, .12);
+}
+
+:root[data-theme="light"] .gib-flow-card li {
+  border-left-color: var(--app-lime);
+}
+
+:root[data-theme="light"] .gib-feedback:not(.success):not(.error) {
+  color: #415000;
+  background: rgba(200, 255, 0, .14);
+}
+
+/* Telegram — yalnızca gerçek Telegram bağlantı aksiyonları marka mavisi kullanır. */
+:root[data-theme="light"] .telegram-page {
+  color: var(--app-ink);
+}
+
+:root[data-theme="light"] .telegram-card {
+  border-color: var(--app-line);
+  background: rgba(251, 250, 245, .96);
+  box-shadow: 0 22px 52px -42px rgba(11, 11, 9, .6);
+}
+
+:root[data-theme="light"] :is(.telegram-title-row h2, .telegram-link-field, .telegram-manual strong, .telegram-qr-panel h3, .telegram-steps-card h3, .telegram-after-card h3, .telegram-after-action strong) {
+  color: var(--app-ink);
+}
+
+:root[data-theme="light"] :is(.telegram-breadcrumb, .telegram-header p, .telegram-code-box span, .telegram-expiry, .telegram-manual p, .telegram-qr-panel p, .telegram-after-card p, .telegram-after-action small, .telegram-feedback) {
+  color: var(--app-muted);
+}
+
+:root[data-theme="light"] :is(.telegram-code-box, .telegram-manual, .telegram-qr-frame, .telegram-after-action, .telegram-link-field input) {
+  color: var(--app-ink);
+  border-color: var(--app-line);
+  background: #fffef9;
+}
+
+:root[data-theme="light"] :is(.telegram-code-box button, .telegram-link-field button, .telegram-manual button, .telegram-btn:not(.telegram-btn--primary)) {
+  color: var(--app-ink);
+  border-color: var(--app-line);
+  background: var(--app-paper);
+}
+
+:root[data-theme="light"] .telegram-code-box strong {
+  color: var(--app-ink);
+}
+
+:root[data-theme="light"] .telegram-steps-card li {
+  color: var(--app-ink);
+}
+
+:root[data-theme="light"] .telegram-steps-card li span {
+  color: var(--app-ink);
+  background: var(--app-lime);
+}
+
+:root[data-theme="light"] .telegram-steps-card li code {
+  color: #415000;
+  background: rgba(200, 255, 0, .15);
+}
+
+:root[data-theme="light"] .telegram-btn--primary {
+  color: #fff;
+  border-color: #229ed9;
+  background: #229ed9;
+  box-shadow: 0 12px 24px rgba(34, 158, 217, .18);
+}
+
+:root[data-theme="light"] :is(.telegram-manual__icon, .telegram-hero-icon) {
+  background: #229ed9;
+  box-shadow: 0 14px 28px rgba(34, 158, 217, .18);
+}

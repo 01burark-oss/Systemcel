@@ -1,6 +1,6 @@
 # Systemcel — Kalan İşler ve Yayına Çıkış Planı
 
-> Son güncelleme: 21 Temmuz 2026
+> Son güncelleme: 27 Temmuz 2026
 > Durum: Kod deposu incelenerek hazırlanmış güncel icra planı
 > Kapsam: Landing page, abonelikler, muhasebeci ürünü, güvenlik, test, operasyon ve yayın
 
@@ -95,7 +95,7 @@ flowchart LR
 
 **Karar verilmesi gerekenler:**
 
-- [ ] Türkiye merkezli kart/tekrarlayan ödeme sağlayıcısı: iyzico, PayTR veya seçilecek başka sağlayıcı.
+- [x] Türkiye merkezli kart/tekrarlayan ödeme sağlayıcısı: **PayTR**. (22 Temmuz 2026: Şirket kuruluşu ve PayTR üye işyeri onayı bekleniyor; karar kaydı `docs/adr/ADR-001-odeme-saglayicisi.md`.)
 - [ ] İşletme denemesi kredi kartsız kalacak mı? Mevcut davranış kredi kartsız 30 gündür.
 - [ ] Muhasebeci planlarında deneme olacak mı, yoksa doğrudan checkout mu açılacak?
 - [ ] Aylık/yıllık yükseltme, düşürme ve dönem ortası fiyat farkı kuralı.
@@ -274,6 +274,105 @@ flowchart LR
 **Kabul kriteri:** Kritik E2E akışı otomatik geçer; migration ve Docker imajı CI'da doğrulanır; geri dönüş adımları denenmiştir.
 
 **Tahmini efor:** 4–7 gün.
+
+### P0.10 — Mobil kimlik doğrulama ve sohbet regresyonlarını gider
+
+**Amaç:** Mobil kayıt/giriş ve sohbet deneyimindeki mevcut üretim hatalarını, yeni özellik çalışmalarından önce kararlı hale getirmek.
+
+#### P0.10.1 — Mobil kayıt ekranını yeniden düzenle
+
+**Mevcut sorun:** Mobil kayıt ekranında form sütunu aşırı daralıyor; başlık, açıklama, rol seçici, butonlar ve alanlar kelime kelime kırılıyor. Ekranın kullanılabilir genişliği değerlendirilmiyor ve yatay/dikey yerleşim masaüstü kurallarından etkileniyor.
+
+**Görsel yön:** `1000100572.jpg` mevcut hatayı, `codex-clipboard-a3078783-876a-45ea-af7d-2e2a1aaa2ebc.png` hedeflenen daha temiz mobil hiyerarşiyi gösterir. Hedef görsel birebir kopyalanmayacak; Systemcel'in krem, siyah ve lime tasarım dili korunarak genişlik, boşluk, tipografi ve form hiyerarşisi referans alınacaktır.
+
+**Etkilenen ana dosyalar:**
+
+- `Systemcel.Web/src/auth/AuthSayfasi.tsx`
+- `Systemcel.Web/src/styles.css`
+- `Systemcel.Web/src/auth/AuthGate.tsx`
+
+**Yapılacaklar:**
+
+- [x] Mobilde masaüstünden kalan sabit/dar sütun genişliklerini kaldır; formu kullanılabilir ekran genişliğine yay.
+- [x] Logo ve dil seçiciyi tek, dengeli bir üst satırda tut.
+- [x] Başlık, açıklama, Google butonu, ayırıcı, rol seçici ve form alanları arasında net bir dikey hiyerarşi kur.
+- [x] İşletme/Muhasebeci rol seçicisinin metinlerinin üst üste binmesini ve taşmasını engelle.
+- [x] Form alanlarını en az 44 px dokunma yüksekliğiyle, okunabilir placeholder ve parola görünürlük kontrolüyle düzenle.
+- [x] Kayıt/giriş/yasal metin bağlantılarının ekranın altına veya tarayıcı çubuğunun arkasına sıkışmamasını sağla.
+- [x] İlk HTML/CSS yüklenirken eski mavi tema veya genişlik sıçraması göstermediğini doğrula.
+- [ ] 320, 360, 375, 390 ve 430 px genişliklerde; iOS Safari ve Android Chrome görünümünde kontrol et.
+
+**Kabul kriteri:** Hiçbir metin harf/kelime sütununa dönüşmez, yatay taşma oluşmaz, rol seçenekleri çakışmaz, tüm alanlar ve ana CTA tek elle kullanılabilir kalır; ekran hedef görseldeki kadar açık ve taranabilir bir hiyerarşiye sahip olur.
+
+#### P0.10.2 — Sohbet arşiv durumunu tekilleştir
+
+**Mevcut sorun:** Bir sohbet arşivden çıkarılıp tekrar arşivlendiğinde hem normal hem arşiv görünümünde kalabiliyor. SignalR bildirimi, liste yenileme ve açık sohbet yenilemesi aynı anda çalıştığında eski durum yeni durumu ezebiliyor.
+
+**Etkilenen ana dosyalar:**
+
+- `Systemcel.Web/src/screens/sohbetler/SohbetlerSayfasi.tsx`
+- `CashTracker.Infrastructure/Services/MuhasebeciSohbetMerkeziService.cs`
+- `Systemcel.Api/Api/SohbetMerkeziApi.cs`
+
+**Yapılacaklar:**
+
+- [x] Aktif ve arşiv görünümünün sorgu anlamını açıkça ayır (`active`, `archived`, gerekirse `all`); “Arşivlenenleri göster” davranışını belirsiz bırakma.
+- [x] Sohbet listesini `sohbetId` üzerinden tekilleştir; aynı konuşmanın aynı anda iki listede veya iki kart olarak görünmesini engelle.
+- [x] Arşivle/arşivden çıkar işleminden sonra sunucudan dönen son durumu tek doğruluk kaynağı kabul et.
+- [x] Eski liste isteği, polling veya SignalR yanıtının daha yeni arşiv durumunu geri çevirmesini istek sırası/sürüm kontrolüyle engelle.
+- [x] Açık sohbet arşivlenince aktif görünümden kaldır; arşiv görünümündeyse yerinde ve tek kayıt olarak güncelle.
+- [x] Yeni karşı taraf mesajının arşivden çıkarma kuralını koru; yalnızca okuma/yenileme işleminin arşivi değiştirmediğini doğrula.
+- [ ] Arşivle → çıkar → tekrar arşivle döngüsünü hızlı ve tekrarlı tıklamalarla otomatik test et.
+
+**Kabul kriteri:** Her `sohbetId` ekranda en fazla bir kez görünür; aktif ve arşiv durumları karşılıklı olarak tutarlıdır; sayfa yenileme, hızlı tıklama, polling ve SignalR sonrasında durum geri sıçramaz.
+
+#### P0.10.3 — Mobilde erişilebilir hesap ve çıkış akışı ekle
+
+**Mevcut sorun:** Kullanıcı mobilde hesaba girdikten sonra görünür ve güvenilir bir “Çıkış yap” yoluna ulaşamıyor.
+
+**Etkilenen ana dosyalar:**
+
+- `Systemcel.Web/src/auth/AuthUserButton.tsx`
+- `Systemcel.Web/src/shared/ReactWorkspaceShell.tsx`
+- `Systemcel.Web/src/App.tsx`
+- `Systemcel.Web/src/styles.css`
+
+**Yapılacaklar:**
+
+- [x] Mobil uygulama kabuğunda profil/hesap menüsünü her ana ekrandan erişilebilir yap.
+- [x] Hesap menüsünde kullanıcı adı/e-posta, hesap veya profil bağlantısı ve açıkça adlandırılmış “Çıkış yap” eylemi göster.
+- [x] Çıkış eylemini alt navigasyon, sayfa içeriği ve açık klavye tarafından kapatılamayan bir sheet/menu içinde sun.
+- [x] Clerk oturumunu gerçekten sonlandır; yerel kullanıcı/işletme bağlamını temizle ve `/giris` sayfasına yönlendir.
+- [ ] Geri tuşuyla korumalı uygulama ekranına dönülemediğini doğrula.
+- [ ] 320–430 px genişliklerde ve tüm mobil çalışma alanı rotalarında erişilebilirlik testi yap.
+
+**Kabul kriteri:** Oturum açmış kullanıcı herhangi bir mobil ana ekrandan en fazla iki dokunuşla çıkış yapabilir; çıkıştan sonra korumalı API ve ekranlara erişemez.
+
+#### P0.10.4 — Eski mavi tema kalıntılarını temizle
+
+**Mevcut sorun:** Muhasebeci ekranı, Ayarlar, GİB Portal ve Telegram ekranlarında eski tasarım sisteminden kalan mavi yüzey, vurgu, input, buton veya yükleme durumları bulunuyor. Bu parçalar uygulamanın krem, siyah ve lime Systemcel diliyle görsel olarak kopuk duruyor.
+
+**Etkilenen ana alanlar:**
+
+- `Systemcel.Web/src/screens/muhasebeci/*`
+- `Systemcel.Web/src/screens/settings/*`
+- GİB Portal ayar ekranı ve ilgili ortak bileşenler
+- Telegram bağlantı/ayar ekranı ve ilgili ortak bileşenler
+- `Systemcel.Web/src/styles.css`
+
+**Yapılacaklar:**
+
+- [x] Sayfa arka planı, üst bar, kart, sekme, form alanı, seçim kontrolü, modal, toast, loading ve empty-state renklerini ekran ekran denetle.
+- [x] Eski tema kaynaklı lacivert/mavi yüzey ve odak renklerini ortak Systemcel token'larıyla değiştir.
+- [x] Birincil aksiyonlarda lime, ana yüzeylerde krem/beyaz, güçlü vurgu ve seçili durumlarda siyah kullanımını tutarlı hale getir.
+- [x] Hata, başarı, uyarı ve bilgi renklerini semantik amaçları bozulmadan ortaklaştır.
+- [x] Telegram’ın marka kimliği veya doğrudan Telegram bağlantı eylemi olan butonlarda marka mavisine izin ver; ekranın geri kalanını mavi temaya dönüştürme.
+- [x] GİB’e ait dış bağlantı/marka öğelerini koru; form ve uygulama kabuğunda Systemcel temasını kullan.
+- [ ] Masaüstü ve mobilde hover, focus, disabled ve loading durumlarında eski mavi rengin geri gelmediğini kontrol et.
+
+**Kabul kriteri:** Dört alanda eski mavi tema yüzeyi kalmaz; yalnızca açıkça marka anlamı taşıyan Telegram/GİB öğeleri istisna olur ve tüm ekranlar aynı uygulamanın parçası gibi görünür.
+
+**Tahmini efor:** 3–5 gün.
 
 ---
 

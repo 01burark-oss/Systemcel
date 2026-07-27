@@ -12,7 +12,7 @@ function getInitials(name?: string | null, email?: string | null) {
   return source.slice(0, 1).toLocaleUpperCase("tr-TR");
 }
 
-export function AuthUserButton() {
+export function AuthUserButton({ compact = false }: { compact?: boolean }) {
   const auth = useSystemcelAuth();
   const [menuOpen, setMenuOpen] = React.useState(false);
   const [profileOpen, setProfileOpen] = React.useState(false);
@@ -64,7 +64,7 @@ export function AuthUserButton() {
   };
 
   return (
-    <div className="systemcel-user" ref={rootRef}>
+    <div className={`systemcel-user ${compact ? "systemcel-user--compact" : ""}`} ref={rootRef}>
       <button
         className="systemcel-user-button"
         type="button"
@@ -76,11 +76,17 @@ export function AuthUserButton() {
         <span className="systemcel-user-avatar">
           {auth.user?.imageUrl ? <img src={auth.user.imageUrl} alt="" /> : initials}
         </span>
-        <span className="systemcel-user-button__text">
-          <strong>{userName}</strong>
-          {userHandle ? <small>{userHandle}</small> : null}
-        </span>
-        <ChevronUp className="systemcel-user-button__chevron" size={16} />
+        {compact ? (
+          <span className="systemcel-user-button__compact-label">Hesap</span>
+        ) : (
+          <>
+            <span className="systemcel-user-button__text">
+              <strong>{userName}</strong>
+              {userHandle ? <small>{userHandle}</small> : null}
+            </span>
+            <ChevronUp className="systemcel-user-button__chevron" size={16} />
+          </>
+        )}
       </button>
 
       {menuOpen ? (

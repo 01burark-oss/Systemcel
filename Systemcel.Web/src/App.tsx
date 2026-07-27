@@ -2,6 +2,7 @@ import React from "react";
 import { LogOut, MessageCircle, Monitor, RefreshCw, Search } from "lucide-react";
 import { AuthSayfasi } from "./auth/AuthSayfasi";
 import { RequireAuth } from "./auth/AuthGate";
+import { AuthUserButton } from "./auth/AuthUserButton";
 import { useSystemcelAuth } from "./auth/SystemcelAuthProvider";
 import systemcelIcon from "./assets/systemcel-icon.png";
 import { CariHesaplarSayfasi } from "./screens/cari/CariHesaplarSayfasi";
@@ -711,6 +712,7 @@ function MobileWorkspaceView({
           <Search size={18} />
           <span>Muhasebeciler</span>
         </a>
+        <AuthUserButton compact />
       </nav>
     </div>
   );
