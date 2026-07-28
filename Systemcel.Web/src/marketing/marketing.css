@@ -1834,6 +1834,51 @@
   .marketing-tour-modal .marketing-tour-slide__copy p { -webkit-line-clamp: 1; }
   .marketing-tour-slide__copy > button { margin-top: 4px; }
   .marketing-tour-visual { min-height: 230px; }
+  .marketing-tour-visual--4 {
+    height: 220px;
+    min-height: 220px;
+  }
+  .marketing-tour-visual--4 .marketing-tour-window--setup {
+    width: calc(100% - 20px);
+    max-height: none;
+  }
+  .marketing-tour-window--setup > header {
+    min-height: 27px;
+  }
+  .marketing-tour-window--setup > header small {
+    display: none;
+  }
+  .marketing-tour-setup {
+    height: auto;
+    padding: 8px;
+    gap: 5px;
+  }
+  .marketing-tour-setup__steps {
+    gap: 4px;
+  }
+  .marketing-tour-setup__steps > span {
+    min-height: 27px;
+    padding-inline: 6px;
+    gap: 5px;
+  }
+  .marketing-tour-setup__steps i {
+    width: 16px;
+    height: 16px;
+  }
+  .marketing-tour-setup__plan,
+  .marketing-tour-setup__complete {
+    padding: 5px 7px;
+  }
+  .marketing-tour-setup__plan small,
+  .marketing-tour-setup__complete small {
+    display: none;
+  }
+  .marketing-tour-setup__complete > b {
+    width: 27px;
+    height: 27px;
+    border-width: 2px;
+    font-size: 7px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
