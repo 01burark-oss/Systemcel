@@ -10,7 +10,6 @@ import {
   Search,
   Send,
   Trash2,
-  WalletCards,
   X
 } from "lucide-react";
 import type { UstBarDurumu } from "../../shared/chrome";
@@ -19,8 +18,7 @@ import type {
   FaturaDetay,
   FaturaEkranVerisi,
   FaturaFormu,
-  FaturaListeKaydi,
-  TahsilatFormu
+  FaturaListeKaydi
 } from "./types";
 
 interface FaturalarSayfasiProps {
@@ -73,15 +71,6 @@ function bosFaturaFormu(tarih = bugun()): FaturaFormu {
     kdvOrani: "20",
     iskontoOrani: "0",
     stokEtkilesin: true
-  };
-}
-
-function bosTahsilatFormu(tarih = bugun()): TahsilatFormu {
-  return {
-    tutar: "0",
-    tarih,
-    odemeYontemi: "Nakit",
-    aciklama: ""
   };
 }
 
@@ -200,7 +189,6 @@ export function FaturalarSayfasi({
   const [ekran, setEkran] = React.useState<FaturaEkranVerisi | null>(null);
   const [seciliId, setSeciliId] = React.useState<number | null>(null);
   const [form, setForm] = React.useState<FaturaFormu>(() => bosFaturaFormu());
-  const [tahsilatFormu, setTahsilatFormu] = React.useState<TahsilatFormu>(() => bosTahsilatFormu());
   const [arama, setArama] = React.useState("");
   const [filtreAcik, setFiltreAcik] = React.useState(false);
   const [tarihPanelAcik, setTarihPanelAcik] = React.useState(false);
@@ -242,20 +230,6 @@ export function FaturalarSayfasi({
     return toplam <= 0 ? 0 : Math.round(((ekran?.ozet.tahsilEdilen ?? 0) / toplam) * 100);
   }, [ekran]);
 
-  const kalanTutar = React.useMemo(() => {
-    if (!seciliFatura) {
-      return 0;
-    }
-
-    return Math.max(0, seciliFatura.genelToplam - seciliFatura.odenenTutar);
-  }, [seciliFatura]);
-  const tahsilatIslemAdi = seciliFatura?.faturaTipi === "Alis" ? "Ödeme" : "Tahsilat";
-  const tahsilatTutarDegeri = Number(tahsilatFormu.tutar.replace(",", ".").trim());
-  const tahsilatTutariGecerli =
-    Number.isFinite(tahsilatTutarDegeri) &&
-    tahsilatTutarDegeri > 0 &&
-    tahsilatTutarDegeri <= kalanTutar + 0.005;
-
   const yenile = React.useCallback(async (tercihId?: number | null) => {
     setHata("");
     setDurum("Faturalar yükleniyor...");
@@ -275,7 +249,6 @@ export function FaturalarSayfasi({
     seciliIdRef.current = null;
     setSeciliId(null);
     setForm(bosFaturaFormu(data.bugun || bugun()));
-    setTahsilatFormu(bosTahsilatFormu(data.bugun || bugun()));
     setDurum("Fatura kaydı yok. Yeni taslak oluşturabilirsiniz.");
   }, []);
 
@@ -293,28 +266,16 @@ export function FaturalarSayfasi({
     setSeciliId(id);
     setForm(formaAktar(detay));
     setFormPaneliAcik(true);
-    const kalan = Math.max(0, detay.fatura.genelToplam - detay.fatura.odenenTutar);
-    setTahsilatFormu({
-      tutar: String(kalan),
-      tarih: ekran?.bugun || bugun(),
-      odemeYontemi: detay.fatura.odemeYontemi || "Nakit",
-      aciklama: ""
-    });
   }
 
   function formGuncelle<K extends keyof FaturaFormu>(alan: K, deger: FaturaFormu[K]) {
     setForm((current) => ({ ...current, [alan]: deger }));
   }
 
-  function tahsilatGuncelle<K extends keyof TahsilatFormu>(alan: K, deger: TahsilatFormu[K]) {
-    setTahsilatFormu((current) => ({ ...current, [alan]: deger }));
-  }
-
   function yeniTaslak() {
     seciliIdRef.current = null;
     setSeciliId(null);
     setForm(bosFaturaFormu(ekran?.bugun || bugun()));
-    setTahsilatFormu(bosTahsilatFormu(ekran?.bugun || bugun()));
     setFormPaneliAcik(true);
     setDurum("Yeni fatura taslağı.");
   }
@@ -455,43 +416,6 @@ export function FaturalarSayfasi({
       setDurum(result.mesaj);
     } catch (error) {
       setHata(error instanceof Error ? error.message : "GİB SMS onayı tamamlanamadı.");
-    } finally {
-      setIslemde(false);
-    }
-  }
-
-  async function tahsilatEkle() {
-    if (!seciliId) {
-      setHata("Önce fatura seçin.");
-      return;
-    }
-
-    if (kalanTutar <= 0) {
-      setHata("Bu fatura zaten tamamen ödendi.");
-      return;
-    }
-
-    if (!tahsilatTutariGecerli) {
-      setHata(`Tutar 0'dan büyük ve kalan bakiye olan ${paraBic(kalanTutar)} değerini aşmayacak şekilde girilmelidir.`);
-      return;
-    }
-
-    try {
-      setIslemde(true);
-      setHata("");
-      const result = await jsonOku<ApiMesaj>(`/api/ekran/faturalar/${seciliId}/tahsilat-odeme`, {
-        method: "POST",
-        body: JSON.stringify({
-          tutar: sayiyaCevir(tahsilatFormu.tutar),
-          tarih: tahsilatFormu.tarih,
-          odemeYontemi: tahsilatFormu.odemeYontemi,
-          aciklama: tahsilatFormu.aciklama
-        })
-      });
-      await yenile(seciliId);
-      setDurum(result.mesaj);
-    } catch (error) {
-      setHata(error instanceof Error ? error.message : "Tahsilat/ödeme eklenemedi.");
     } finally {
       setIslemde(false);
     }
@@ -768,86 +692,6 @@ export function FaturalarSayfasi({
               </div>
             </div>
 
-            <div className="invoice-form-section invoice-payment-section">
-              <div className="invoice-payment-section__head">
-                <div>
-                  <h3><i /> Faturaya {tahsilatIslemAdi} Ekle</h3>
-                  <p>Seçili faturanın ödenen tutarını ve kalan bakiyesini günceller.</p>
-                </div>
-                {kalanTutar > 0 ? (
-                  <button
-                    type="button"
-                    className="invoice-payment-fill"
-                    onClick={() => tahsilatGuncelle("tutar", String(kalanTutar))}
-                  >
-                    Kalanı kullan
-                  </button>
-                ) : null}
-              </div>
-
-              <div className="invoice-payment-summary" aria-label="Fatura ödeme özeti">
-                <span><small>Fatura toplamı</small><strong>{paraBic(seciliFatura?.genelToplam ?? 0)}</strong></span>
-                <span><small>Ödenen</small><strong>{paraBic(seciliFatura?.odenenTutar ?? 0)}</strong></span>
-                <span className={kalanTutar <= 0 ? "paid" : ""}><small>Kalan bakiye</small><strong>{paraBic(kalanTutar)}</strong></span>
-              </div>
-
-              {kalanTutar <= 0 && seciliId ? (
-                <p className="invoice-payment-complete">
-                  <CheckCircle2 size={17} />
-                  Bu fatura tamamen ödendi. Yeni tahsilat eklenemez.
-                </p>
-              ) : null}
-
-              <div className="invoice-payment-form">
-                <label className="invoice-field">
-                  <span>{tahsilatIslemAdi} tutarı</span>
-                  <input
-                    inputMode="decimal"
-                    value={tahsilatFormu.tutar}
-                    onChange={(event) => tahsilatGuncelle("tutar", event.target.value)}
-                    disabled={!seciliId || kalanTutar <= 0}
-                    aria-invalid={Boolean(tahsilatFormu.tutar) && !tahsilatTutariGecerli}
-                  />
-                </label>
-                <label className="invoice-field">
-                  <span>Tarih</span>
-                  <input
-                    type="date"
-                    value={tahsilatFormu.tarih}
-                    onChange={(event) => tahsilatGuncelle("tarih", event.target.value)}
-                    disabled={!seciliId || kalanTutar <= 0}
-                  />
-                </label>
-                <label className="invoice-field">
-                  <span>Ödeme yöntemi</span>
-                  <select
-                    value={tahsilatFormu.odemeYontemi}
-                    onChange={(event) => tahsilatGuncelle("odemeYontemi", event.target.value)}
-                    disabled={!seciliId || kalanTutar <= 0}
-                  >
-                    {ekran?.odemeYontemleri.map((item) => (
-                      <option key={item.deger} value={item.deger}>{etiketBic(item.etiket)}</option>
-                    ))}
-                  </select>
-                </label>
-                <label className="invoice-field invoice-field--pay-note">
-                  <span>Açıklama</span>
-                  <input
-                    value={tahsilatFormu.aciklama}
-                    onChange={(event) => tahsilatGuncelle("aciklama", event.target.value)}
-                    placeholder="Örn. POS tahsilatı"
-                    disabled={!seciliId || kalanTutar <= 0}
-                  />
-                </label>
-                <button
-                  className="invoice-btn invoice-btn--primary"
-                  onClick={tahsilatEkle}
-                  disabled={islemde || !seciliId || kalanTutar <= 0 || !tahsilatTutariGecerli}
-                >
-                  <WalletCards size={18} /> {tahsilatIslemAdi} Kaydet
-                </button>
-              </div>
-            </div>
           </section>
         </aside> : null}
       </section>

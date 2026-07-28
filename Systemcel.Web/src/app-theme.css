@@ -8497,16 +8497,20 @@
   align-items: center;
 }
 
-:root[data-theme="light"] .snapshot-period-chip select {
+:root[data-theme="light"] .react-shell__body .snapshot-period-chip select {
   max-width: 150px;
+  min-height: 0;
   padding: 0 21px 0 0;
   appearance: none;
-  border: 0;
+  -webkit-appearance: none;
+  border: 0 !important;
+  border-radius: 0 !important;
   outline: 0;
-  background: transparent;
+  background: transparent !important;
   color: inherit;
   font: inherit;
   font-weight: 850;
+  box-shadow: none !important;
   cursor: pointer;
 }
 
@@ -8663,11 +8667,11 @@
 }
 
 /* Stok ve fatura düzenleme panelleri yalnızca kullanıcı çağırdığında görünür. */
-:root[data-theme="light"] :is(.stock-layout--panel-closed, .invoice-layout--panel-closed) {
+:root[data-theme="light"] :is(.stock-layout--panel-closed, .invoice-layout--panel-closed, .payment-layout--panel-closed) {
   grid-template-columns: minmax(0, 1fr);
 }
 
-:root[data-theme="light"] :is(.stock-side--drawer, .invoice-side--drawer) {
+:root[data-theme="light"] :is(.stock-side--drawer, .invoice-side--drawer, .payment-side--drawer) {
   min-width: 0;
   animation: sc-side-panel-in .28s cubic-bezier(.2, .78, .2, 1) both;
   transform-origin: right center;
@@ -8699,6 +8703,10 @@
   margin-left: auto;
 }
 
+:root[data-theme="light"] .payment-card__header .side-panel-close {
+  margin-left: auto;
+}
+
 @keyframes sc-side-panel-in {
   from {
     opacity: 0;
@@ -8712,7 +8720,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  :root[data-theme="light"] :is(.stock-side--drawer, .invoice-side--drawer) {
+  :root[data-theme="light"] :is(.stock-side--drawer, .invoice-side--drawer, .payment-side--drawer) {
     animation: none;
   }
 }

@@ -141,6 +141,7 @@ export function TahsilatOdemeSayfasi({ yenileAnahtari }: TahsilatOdemeSayfasiPro
   const [hata, setHata] = React.useState("");
   const [durum, setDurum] = React.useState("Tahsilat/ödeme verileri yükleniyor...");
   const [islemde, setIslemde] = React.useState(false);
+  const [formPaneliAcik, setFormPaneliAcik] = React.useState(true);
 
   const filtreliHareketler = React.useMemo(() => {
     const query = arama.trim().toLocaleLowerCase("tr-TR");
@@ -204,6 +205,7 @@ export function TahsilatOdemeSayfasi({ yenileAnahtari }: TahsilatOdemeSayfasiPro
 
     setHata("");
     setDurum(`${fatura.no} seçildi. Kalan tutar forma aktarıldı.`);
+    setFormPaneliAcik(true);
     setForm((current) => ({
       ...current,
       faturaId: String(fatura.id),
@@ -293,11 +295,12 @@ export function TahsilatOdemeSayfasi({ yenileAnahtari }: TahsilatOdemeSayfasiPro
     setHata("");
     setDurum("Yeni tahsilat/ödeme hazır.");
     setForm(bosForm(ekran?.bugun || bugun()));
+    setFormPaneliAcik(true);
   };
 
   return (
     <main className="payment-page">
-      <section className="payment-layout">
+      <section className={`payment-layout ${formPaneliAcik ? "payment-layout--panel-open" : "payment-layout--panel-closed"}`}>
         <div className="payment-left">
           <div className="payment-stats">
             <StatCard
@@ -381,11 +384,19 @@ export function TahsilatOdemeSayfasi({ yenileAnahtari }: TahsilatOdemeSayfasiPro
           </section>
         </div>
 
-        <aside className="payment-side">
+        {formPaneliAcik ? <aside className="payment-side payment-side--drawer">
           <section className="payment-card payment-form-card">
             <div className="payment-card__header">
-            <h2>Yeni Tahsilat / Ödeme</h2>
-              <ChevronUp size={21} />
+              <h2>Yeni Tahsilat / Ödeme</h2>
+              <button
+                type="button"
+                className="side-panel-close"
+                onClick={() => setFormPaneliAcik(false)}
+                aria-label="Tahsilat ve ödeme panelini kapat"
+                title="Paneli kapat"
+              >
+                <ChevronUp size={21} />
+              </button>
             </div>
 
             <FormSection title="Genel Bilgiler">
@@ -550,7 +561,7 @@ export function TahsilatOdemeSayfasi({ yenileAnahtari }: TahsilatOdemeSayfasiPro
               </div>
             </FormSection>
           </section>
-        </aside>
+        </aside> : null}
       </section>
 
       {hata && (
