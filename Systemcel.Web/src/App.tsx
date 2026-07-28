@@ -1,6 +1,6 @@
 import React from "react";
 import { Building2, House, LogOut, MessageCircle, RefreshCw, Search } from "lucide-react";
-import { AuthSayfasi } from "./auth/AuthSayfasi";
+import { AuthSayfasi, OAuthCallbackSayfasi } from "./auth/AuthSayfasi";
 import { RequireAuth } from "./auth/AuthGate";
 import { AuthUserButton } from "./auth/AuthUserButton";
 import { useSystemcelAuth } from "./auth/SystemcelAuthProvider";
@@ -44,6 +44,7 @@ function workspacePathFromPublicPath(path: string) {
 
 export function App() {
   useClientNavigation();
+  useNumericInputGuard();
   const auth = useSystemcelAuth();
 
   const rawPath = normalizePath(window.location.pathname);
@@ -56,6 +57,10 @@ export function App() {
 
   if (path === "/kilit-ekrani") {
     return <PinKilitSayfasi />;
+  }
+
+  if (path === "/oauth-callback") {
+    return <OAuthCallbackSayfasi />;
   }
 
   if (pathMatches(path, "/giris")) {
@@ -246,6 +251,7 @@ function isClientRoute(pathname: string) {
     decoded.startsWith("/giris/") ||
     decoded === "/kayit" ||
     decoded.startsWith("/kayit/") ||
+    decoded === "/oauth-callback" ||
     decoded === "/hosgeldin" ||
     decoded === "/muhasebeciler" ||
     decoded === "/yardim" ||
@@ -713,4 +719,53 @@ function MobileWorkspaceView({
       </nav>
     </div>
   );
+}
+
+function useNumericInputGuard() {
+  React.useEffect(() => {
+    const sayisalAlanMi = (target: EventTarget | null): target is HTMLInputElement => {
+      if (!(target instanceof HTMLInputElement)) return false;
+      return target.type === "number" || target.inputMode === "decimal" || target.inputMode === "numeric";
+    };
+
+    const degerGecerliMi = (input: HTMLInputElement, value: string) => {
+      const negatifOlabilir = input.dataset.allowNegative === "true";
+      if (input.inputMode === "numeric") {
+        return negatifOlabilir ? /^-?\d*$/.test(value) : /^\d*$/.test(value);
+      }
+
+      return negatifOlabilir
+        ? /^-?\d*(?:[.,]\d*)?$/.test(value)
+        : /^\d*(?:[.,]\d*)?$/.test(value);
+    };
+
+    const sonrakiDeger = (input: HTMLInputElement, eklenen: string) => {
+      const start = input.selectionStart ?? input.value.length;
+      const end = input.selectionEnd ?? start;
+      return `${input.value.slice(0, start)}${eklenen}${input.value.slice(end)}`;
+    };
+
+    const beforeInput = (event: InputEvent) => {
+      if (!sayisalAlanMi(event.target) || event.isComposing || event.inputType.startsWith("delete")) return;
+      if (event.data === null) return;
+      if (!degerGecerliMi(event.target, sonrakiDeger(event.target, event.data))) {
+        event.preventDefault();
+      }
+    };
+
+    const paste = (event: ClipboardEvent) => {
+      if (!sayisalAlanMi(event.target)) return;
+      const text = event.clipboardData?.getData("text") ?? "";
+      if (!degerGecerliMi(event.target, sonrakiDeger(event.target, text))) {
+        event.preventDefault();
+      }
+    };
+
+    document.addEventListener("beforeinput", beforeInput, true);
+    document.addEventListener("paste", paste, true);
+    return () => {
+      document.removeEventListener("beforeinput", beforeInput, true);
+      document.removeEventListener("paste", paste, true);
+    };
+  }, []);
 }

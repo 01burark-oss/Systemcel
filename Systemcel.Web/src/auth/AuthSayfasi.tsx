@@ -300,12 +300,10 @@ export function AuthSayfasi({ mode }: { mode: AuthMode }) {
   }, [languageMenuOpen]);
 
   React.useEffect(() => {
-    if (mode === "sign-up") return;
-
     if (auth.clerkEnabled && auth.isLoaded && auth.isSignedIn) {
-      window.location.replace(returnUrl);
+      window.location.replace(returnUrlForAccountType(returnUrl, accountTypeIntent));
     }
-  }, [auth.clerkEnabled, auth.isLoaded, auth.isSignedIn, mode, returnUrl]);
+  }, [accountTypeIntent, auth.clerkEnabled, auth.isLoaded, auth.isSignedIn, returnUrl]);
 
   const setLanguage = (nextLanguage: AuthLanguage) => {
     setLanguageState(nextLanguage);
@@ -324,6 +322,10 @@ export function AuthSayfasi({ mode }: { mode: AuthMode }) {
   }
 
   if (!auth.isLoaded) {
+    return null;
+  }
+
+  if (auth.isSignedIn) {
     return null;
   }
 
@@ -512,6 +514,65 @@ export function AuthSayfasi({ mode }: { mode: AuthMode }) {
   );
 }
 
+export function OAuthCallbackSayfasi() {
+  const auth = useSystemcelAuth();
+  const handledRef = React.useRef(false);
+  const [hata, setHata] = React.useState("");
+  const accountTypeIntent = getAccountTypeIntent("sign-up") || "Isletme";
+  const returnUrl = returnUrlForAccountType(getSafeReturnUrl(), accountTypeIntent);
+
+  React.useEffect(() => {
+    if (!auth.isLoaded || handledRef.current) {
+      return;
+    }
+
+    if (auth.isSignedIn) {
+      handledRef.current = true;
+      window.location.replace(returnUrl);
+      return;
+    }
+
+    if (!auth.clerk?.handleRedirectCallback) {
+      setHata("Google oturum dönüşü tamamlanamadı. Lütfen yeniden deneyin.");
+      return;
+    }
+
+    handledRef.current = true;
+    const signInUrl = buildOAuthUrl("/giris", accountTypeIntent, returnUrl).toString();
+    const signUpUrl = buildOAuthUrl("/kayit", accountTypeIntent, returnUrl).toString();
+
+    auth.clerk.handleRedirectCallback({
+      signInUrl,
+      signUpUrl,
+      continueSignUpUrl: signUpUrl,
+      signInFallbackRedirectUrl: returnUrl,
+      signUpFallbackRedirectUrl: returnUrl,
+      transferable: true
+    }).catch((error: unknown) => {
+      handledRef.current = false;
+      setHata(readableAuthError(error, "tr"));
+    });
+  }, [accountTypeIntent, auth.clerk, auth.isLoaded, auth.isSignedIn, returnUrl]);
+
+  if (hata) {
+    return (
+      <AuthStatus
+        title="Google ile devam edilemedi"
+        text={hata}
+        actionHref={buildOAuthUrl("/giris", accountTypeIntent, returnUrl).toString()}
+        actionText="Giriş ekranına dön"
+      />
+    );
+  }
+
+  return (
+    <AuthStatus
+      title="Google hesabınız doğrulanıyor"
+      text="Oturumunuz hazırlanıyor; işlem tamamlandığında çalışma alanına yönlendirileceksiniz."
+    />
+  );
+}
+
 function SystemcelAuthForm({
   mode,
   returnUrl,
@@ -566,14 +627,6 @@ function SystemcelAuthForm({
     }
 
     await auth.clerk?.setActive({ session: sessionId });
-
-    if (mode === "sign-up") {
-      setStep("sign-up-complete");
-      setPassword("");
-      setCode("");
-      setBilgi("");
-      return;
-    }
 
     window.location.replace(completionReturnUrl);
   }, [auth.clerk, completionReturnUrl, language, mode]);
@@ -730,24 +783,13 @@ function SystemcelAuthForm({
       const oauthAccountType = selectedAccountType || "Isletme";
       window.localStorage.setItem(ACCOUNT_TYPE_INTENT_KEY, oauthAccountType);
 
-      const redirectUrl = buildOAuthUrl(mode === "sign-up" ? "/kayit" : "/giris", oauthAccountType, completionReturnUrl);
-      const redirectUrlComplete = buildOAuthUrl("/kayit", oauthAccountType, completionReturnUrl);
-      redirectUrlComplete.searchParams.set("kayitTamam", "1");
-      const signInUrl = buildOAuthUrl("/giris", oauthAccountType, completionReturnUrl);
-      const signUpUrl = buildOAuthUrl("/kayit", oauthAccountType, completionReturnUrl);
       const completionUrl = returnUrlForAccountType(completionReturnUrl, oauthAccountType);
-      const signUpCompletionUrl = mode === "sign-up" ? redirectUrlComplete.toString() : completionUrl;
+      const redirectUrl = buildOAuthUrl("/oauth-callback", oauthAccountType, completionUrl);
 
       await resource.authenticateWithRedirect({
         strategy: "oauth_google",
         redirectUrl: redirectUrl.toString(),
-        redirectUrlComplete: mode === "sign-up" ? redirectUrlComplete.toString() : completionUrl,
-        signInUrl: signInUrl.toString(),
-        signUpUrl: signUpUrl.toString(),
-        continueSignUpUrl: signUpUrl.toString(),
-        signInFallbackRedirectUrl: completionUrl,
-        signUpFallbackRedirectUrl: signUpCompletionUrl,
-        transferable: true
+        redirectUrlComplete: completionUrl
       });
     } catch (error) {
       setHata(readableAuthError(error, language));

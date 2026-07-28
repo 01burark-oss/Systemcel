@@ -54,12 +54,18 @@ function OzetMetrik({
   baslik,
   deger,
   ton,
-  trend
+  trend,
+  donem,
+  donemSecenekleri,
+  onDonemChange
 }: {
   baslik: string;
   deger: number;
   ton: "gelir" | "net" | "gider";
   trend?: NetTrendNokta[];
+  donem?: string;
+  donemSecenekleri?: OzetKart[];
+  onDonemChange?: (value: string) => void;
 }) {
   const degerDurumu = Math.abs(deger) < 0.005 ? "bos" : deger < 0 ? "negatif" : "pozitif";
 
@@ -68,10 +74,20 @@ function OzetMetrik({
       <article className={`snapshot-card snapshot-card--net snapshot-card--benchmark snapshot-card--${degerDurumu}`}>
         <div className="snapshot-card__head">
           <h3>{baslik}</h3>
-          <span className="snapshot-period-chip">
-            Bugün
+          <label className="snapshot-period-chip">
+            <select
+              aria-label="Net kâr dönemi"
+              value={donem ?? "Bugun"}
+              onChange={(event) => onDonemChange?.(event.target.value)}
+            >
+              {(donemSecenekleri ?? []).map((secenek) => (
+                <option key={secenek.etiket} value={secenek.etiket}>
+                  {ozetEtiketi(secenek.etiket)}
+                </option>
+              ))}
+            </select>
             <ChevronDown size={14} />
-          </span>
+          </label>
         </div>
 
         <div className="snapshot-card__value">
@@ -79,7 +95,7 @@ function OzetMetrik({
           <strong>{paraDegerBic(deger)}</strong>
         </div>
 
-        <NetBenchmark bugunNet={deger} trend={trend ?? []} />
+        <NetBenchmark bugunNet={deger} trend={trend ?? []} donem={donem ?? "Bugun"} />
       </article>
     );
   }
@@ -99,7 +115,7 @@ function OzetMetrik({
   );
 }
 
-function NetBenchmark({ bugunNet, trend }: { bugunNet: number; trend: NetTrendNokta[] }) {
+function NetBenchmark({ bugunNet, trend, donem }: { bugunNet: number; trend: NetTrendNokta[]; donem: string }) {
   const gecmisTrend = trend.length > 1 ? trend.slice(0, -1) : [];
   const veriOlanGunler = gecmisTrend.filter((item) => item.islemVar ?? Math.abs(item.net) > 0);
   const ortalama = veriOlanGunler.length
@@ -115,7 +131,7 @@ function NetBenchmark({ bugunNet, trend }: { bugunNet: number; trend: NetTrendNo
   return (
     <div className="net-benchmark">
       <div className="net-benchmark__header">
-        <span>Bugünkü performans</span>
+        <span>{donem === "Bugun" ? "Bugünkü performans" : `${ozetEtiketi(donem)} performansı`}</span>
         <strong className={durumSinifi}>Son zamanlara göre</strong>
       </div>
 
@@ -243,6 +259,7 @@ export function DashboardSayfasi({
   const [paylasimAcik, setPaylasimAcik] = React.useState(false);
   const [paylasimIslemde, setPaylasimIslemde] = React.useState(false);
   const [paylasimMesaj, setPaylasimMesaj] = React.useState("");
+  const [netDonem, setNetDonem] = React.useState("Bugun");
 
   React.useEffect(() => {
     document.title = "CashTracker Gösterge Paneli";
@@ -276,6 +293,14 @@ export function DashboardSayfasi({
 
   const son30Gun = React.useMemo(() => ozetBul(ekran, "Son 30 Gun"), [ekran]);
   const son1Yil = React.useMemo(() => ozetBul(ekran, "Son 1 Yil"), [ekran]);
+  const netDonemSecenekleri = React.useMemo(
+    () => ekran ? [{ ...ekran.bugun, etiket: "Bugun" }, ...ekran.paneller] : [],
+    [ekran]
+  );
+  const seciliNetDonem = React.useMemo(
+    () => netDonemSecenekleri.find((item) => item.etiket === netDonem) ?? netDonemSecenekleri[0] ?? null,
+    [netDonem, netDonemSecenekleri]
+  );
 
   const odemeSatirlari = React.useMemo(() => {
     const satirlar = ekran?.odemeDagilimi ?? [];
@@ -336,7 +361,15 @@ export function DashboardSayfasi({
 
         <section className="snapshot-grid">
           <OzetMetrik baslik="Toplam Gelir" deger={ekran?.bugun.gelir ?? 0} ton="gelir" />
-          <OzetMetrik baslik="Net Kâr" deger={ekran?.bugun.net ?? 0} ton="net" trend={ekran?.netTrend} />
+          <OzetMetrik
+            baslik="Net Kâr"
+            deger={seciliNetDonem?.net ?? 0}
+            ton="net"
+            trend={netDonem === "Bugun" ? ekran?.netTrend : []}
+            donem={netDonem}
+            donemSecenekleri={netDonemSecenekleri}
+            onDonemChange={setNetDonem}
+          />
           <OzetMetrik baslik="Toplam Gider" deger={ekran?.bugun.gider ?? 0} ton="gider" />
         </section>
 

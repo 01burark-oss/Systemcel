@@ -9,7 +9,8 @@ import {
   Search,
   Trash2,
   TrendingUp,
-  WalletCards
+  WalletCards,
+  X
 } from "lucide-react";
 import type { UstBarDurumu } from "../../shared/chrome";
 import { jsonOku } from "../../shared/json";
@@ -129,6 +130,8 @@ function etiketBic(value: string) {
 export function UrunStokSayfasi({ yenileAnahtari }: UrunStokSayfasiProps) {
   const pageRef = React.useRef<HTMLElement | null>(null);
   const barcodeInputRef = React.useRef<HTMLInputElement | null>(null);
+  const productNameInputRef = React.useRef<HTMLInputElement | null>(null);
+  const workbenchRef = React.useRef<HTMLElement | null>(null);
   const [ekran, setEkran] = React.useState<UrunStokEkranVerisi | null>(null);
   const [seciliId, setSeciliId] = React.useState<number | null>(null);
   const [urunFormu, setUrunFormu] = React.useState<UrunFormu>(() => bosUrunFormu());
@@ -143,6 +146,7 @@ export function UrunStokSayfasi({ yenileAnahtari }: UrunStokSayfasiProps) {
   const [barkodDegeri, setBarkodDegeri] = React.useState("");
   const [barkodMesaji, setBarkodMesaji] = React.useState("");
   const [aktifIslemPaneli, setAktifIslemPaneli] = React.useState<"urun" | "stok">("urun");
+  const [islemPaneliAcik, setIslemPaneliAcik] = React.useState(false);
   const seciliIdRef = React.useRef<number | null>(null);
 
   const seciliUrun = React.useMemo(
@@ -182,11 +186,21 @@ export function UrunStokSayfasi({ yenileAnahtari }: UrunStokSayfasiProps) {
     setAktifIslemPaneli("urun");
   }, []);
 
+  const yeniUrunFormunuAc = React.useCallback(() => {
+    formuSifirla();
+    setIslemPaneliAcik(true);
+    window.requestAnimationFrame(() => {
+      workbenchRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      window.setTimeout(() => productNameInputRef.current?.focus(), 280);
+    });
+  }, [formuSifirla]);
+
   const kaydiSec = React.useCallback((row: UrunListeKaydi) => {
     seciliIdRef.current = row.id;
     setSeciliId(row.id);
     setUrunFormu(formdanKayit(row));
     setStokFormu(bosStokFormu());
+    setIslemPaneliAcik(true);
     setDurum(`${row.ad || "Kayıt"} seçildi.`);
   }, []);
 
@@ -197,8 +211,8 @@ export function UrunStokSayfasi({ yenileAnahtari }: UrunStokSayfasiProps) {
     setEkran(data);
 
     const hedefId = tercihId === undefined
-      ? seciliIdRef.current ?? data.urunler[0]?.id ?? null
-      : tercihId ?? data.urunler[0]?.id ?? null;
+      ? seciliIdRef.current
+      : tercihId;
     const hedef = data.urunler.find((row) => row.id === hedefId) ?? null;
     if (hedef) {
       kaydiSec(hedef);
@@ -207,6 +221,9 @@ export function UrunStokSayfasi({ yenileAnahtari }: UrunStokSayfasiProps) {
     }
 
     formuSifirla();
+    if (tercihId === null) {
+      setIslemPaneliAcik(false);
+    }
     setDurum("Kayıtlı ürün/hizmet bulunamadı. Yeni kart oluşturabilirsiniz.");
   }, [formuSifirla, kaydiSec]);
 
@@ -383,7 +400,7 @@ export function UrunStokSayfasi({ yenileAnahtari }: UrunStokSayfasiProps) {
         </div>
       </section>
 
-      <section className="stock-layout">
+      <section className={`stock-layout ${islemPaneliAcik ? "stock-layout--panel-open" : "stock-layout--panel-closed"}`}>
         <div className="stock-left">
           <div className="stock-card stock-card--list">
             <div className="stock-card__header">
@@ -444,7 +461,7 @@ export function UrunStokSayfasi({ yenileAnahtari }: UrunStokSayfasiProps) {
                           <Box size={22} />
                           <strong>Henüz ürün bulunmuyor.</strong>
                           <span>İlk ürün veya hizmet kartınızı oluşturarak başlayın.</span>
-                          <button type="button" onClick={() => formuSifirla()}>
+                          <button type="button" onClick={yeniUrunFormunuAc}>
                             <Plus size={15} />
                             İlk ürünü ekle
                           </button>
@@ -501,13 +518,21 @@ export function UrunStokSayfasi({ yenileAnahtari }: UrunStokSayfasiProps) {
           </div>
         </div>
 
-        <aside className="stock-side">
+        {islemPaneliAcik ? <aside ref={workbenchRef} className="stock-side stock-side--drawer">
           <section className="stock-card stock-workbench">
             <header className="stock-workbench__header">
               <div>
                 <span>Hızlı işlem</span>
                 <h2>İşlem Paneli</h2>
               </div>
+              <button
+                type="button"
+                className="side-panel-close"
+                onClick={() => setIslemPaneliAcik(false)}
+                aria-label="İşlem panelini kapat"
+              >
+                <X size={18} />
+              </button>
             </header>
 
             <div className="stock-workbench__tabs" role="tablist" aria-label="Ürün ve stok işlemleri">
@@ -550,7 +575,7 @@ export function UrunStokSayfasi({ yenileAnahtari }: UrunStokSayfasiProps) {
                   </label>
                   <label className="stock-field">
                     <span>Ad</span>
-                    <input value={urunFormu.ad} onChange={(event) => urunAlaniniGuncelle("ad", event.target.value)} placeholder="Ürün veya hizmet adı" />
+                    <input ref={productNameInputRef} value={urunFormu.ad} onChange={(event) => urunAlaniniGuncelle("ad", event.target.value)} placeholder="Ürün veya hizmet adı" />
                   </label>
                   <label className="stock-field">
                     <span>Barkod</span>
@@ -608,7 +633,7 @@ export function UrunStokSayfasi({ yenileAnahtari }: UrunStokSayfasiProps) {
                   <div className="stock-movement-form__primary">
                     <label className="stock-field">
                       <span>Miktar (+/-)</span>
-                      <input inputMode="decimal" value={stokFormu.miktar} onChange={(event) => stokAlaniniGuncelle("miktar", event.target.value)} disabled={!seciliId || seciliUrun?.tip !== "Urun"} />
+                      <input inputMode="decimal" data-allow-negative="true" value={stokFormu.miktar} onChange={(event) => stokAlaniniGuncelle("miktar", event.target.value)} disabled={!seciliId || seciliUrun?.tip !== "Urun"} />
                     </label>
                     <label className="stock-field stock-field--date">
                       <span>Tarih</span>
@@ -632,7 +657,7 @@ export function UrunStokSayfasi({ yenileAnahtari }: UrunStokSayfasiProps) {
               </div>
             )}
           </section>
-        </aside>
+        </aside> : null}
       </section>
 
       {hata ? (

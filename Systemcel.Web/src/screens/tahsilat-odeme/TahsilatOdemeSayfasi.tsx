@@ -457,7 +457,7 @@ export function TahsilatOdemeSayfasi({ yenileAnahtari }: TahsilatOdemeSayfasiPro
               <div className="payment-form-grid payment-form-grid--three">
                 <label className="payment-field">
                   <span>Tutar</span>
-                  <input value={form.tutar} onChange={(event) => formGuncelle("tutar", event.target.value)} />
+                  <input inputMode="decimal" value={form.tutar} onChange={(event) => formGuncelle("tutar", event.target.value)} />
                 </label>
                 <label className="payment-field">
                   <span>Para Birimi</span>
@@ -605,7 +605,7 @@ function PaymentTable({
   rows: TahsilatOdemeListeKaydi[];
 }) {
   return (
-    <div className="payment-table-wrap">
+    <div className={`payment-table-wrap${rows.length === 0 ? " payment-table-wrap--empty" : ""}`}>
       <table className="payment-table">
         <colgroup>
           <col style={{ width: "80px" }} />

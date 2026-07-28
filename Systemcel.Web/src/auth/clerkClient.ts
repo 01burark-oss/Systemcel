@@ -54,6 +54,10 @@ export interface ClerkJsClient {
   session?: ClerkSession | null;
   client: ClerkClientResource;
   load(options?: Record<string, unknown>): Promise<void>;
+  handleRedirectCallback?(
+    params: Record<string, unknown>,
+    customNavigate?: (to: string) => Promise<unknown>
+  ): Promise<unknown>;
   setActive(options: { session?: string | null }): Promise<void>;
   signOut?(options?: { redirectUrl?: string }): Promise<void> | void;
   addListener?(

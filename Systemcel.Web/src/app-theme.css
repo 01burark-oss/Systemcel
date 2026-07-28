@@ -6249,6 +6249,65 @@
   }
 }
 
+:root[data-theme="light"] .accountant-permission {
+  padding: 5px;
+  gap: 5px;
+  border: 1px solid var(--sc-line);
+  background: #e9e6dc;
+}
+
+:root[data-theme="light"] .accountant-permission button {
+  color: #73746d;
+  border: 1px solid transparent;
+  background: transparent;
+  box-shadow: none;
+  transition:
+    color .18s ease,
+    background-color .18s ease,
+    border-color .18s ease,
+    box-shadow .18s ease,
+    transform .18s ease;
+}
+
+:root[data-theme="light"] .accountant-permission button:hover:not(.active) {
+  color: var(--sc-ink);
+  background: rgba(251, 250, 245, .72);
+}
+
+:root[data-theme="light"] .accountant-permission button.active {
+  color: var(--sc-ink);
+  border-color: #a6d900;
+  background: var(--sc-lime);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, .45),
+    0 5px 14px rgba(94, 124, 0, .16);
+  transform: translateY(-1px);
+}
+
+:root[data-theme="light"] .accountant-permission button.active svg {
+  stroke-width: 2.5;
+}
+
+:root[data-theme="light"] .payment-table {
+  width: 100%;
+  min-width: 100%;
+  table-layout: fixed;
+}
+
+:root[data-theme="light"] .payment-table-wrap--empty {
+  overflow-x: hidden;
+}
+
+@media (max-width: 760px) {
+  :root[data-theme="light"] .payment-table {
+    min-width: 760px;
+  }
+
+  :root[data-theme="light"] .payment-table-wrap--empty .payment-table {
+    min-width: 100%;
+  }
+}
+
 /* Uygulama çalışma alanı — birleşik sayfa başlığı ve içerik sistemi */
 :root[data-theme="light"] .react-shell {
   background: var(--sc-cream);
@@ -8312,5 +8371,322 @@
   :root[data-theme="light"] .auth-shell--branded .auth-shell__brand .auth-shell__brand-mark--image {
     width: 38px;
     height: 38px;
+  }
+}
+
+/* Son arayüz rötuşları: açılır paneller, formlar ve kompakt kartlar. */
+:root[data-theme="light"] .react-topbar__chat-panel,
+:root[data-theme="light"] .react-topbar__panel {
+  border: 1px solid var(--sc-line);
+  background: rgba(251, 250, 245, .99);
+  box-shadow: 0 22px 54px rgba(11, 11, 9, .16);
+}
+
+:root[data-theme="light"] .topbar-chat-list button {
+  border-color: #11110f;
+  background: #11110f;
+  color: #fbfaf5;
+}
+
+:root[data-theme="light"] .topbar-chat-list button:hover {
+  border-color: var(--sc-lime);
+  background: #191a16;
+}
+
+:root[data-theme="light"] .topbar-chat-list strong {
+  color: #fbfaf5;
+}
+
+:root[data-theme="light"] .topbar-chat-list small {
+  color: rgba(251, 250, 245, .65);
+}
+
+:root[data-theme="light"] .topbar-chat-list i,
+:root[data-theme="light"] .react-topbar__panel-head span {
+  color: #11110f;
+  background: var(--sc-lime);
+}
+
+:root[data-theme="light"] .topbar-chat-center-link {
+  color: #11110f;
+  background: var(--sc-lime);
+}
+
+:root[data-theme="light"] .topbar-chat-center-link:hover {
+  background: #b8ee00;
+}
+
+:root[data-theme="light"] .notification-item {
+  border-color: var(--sc-line);
+  background: #f4f1e8;
+}
+
+:root[data-theme="light"] .notification-item__icon,
+:root[data-theme="light"] .notification-item__icon--sohbet,
+:root[data-theme="light"] .notification-item__icon--tahsilat {
+  color: #11110f;
+  background: var(--sc-lime);
+}
+
+:root[data-theme="light"] .notification-item__icon--risk,
+:root[data-theme="light"] .notification-item--yuksek .notification-item__icon {
+  color: #a8322e;
+  background: #f7ded8;
+}
+
+:root[data-theme="light"] .notification-item small {
+  color: #5c7300;
+}
+
+:root[data-theme="light"] .react-shell__body .snapshot-card.snapshot-card--net {
+  color: #fbfaf5;
+  border-color: #11110f;
+  background: #11110f;
+}
+
+:root[data-theme="light"] .react-shell__body .snapshot-card--net .snapshot-card__head h3,
+:root[data-theme="light"] .react-shell__body .snapshot-card--net .net-benchmark__insight,
+:root[data-theme="light"] .react-shell__body .snapshot-card--net .net-benchmark__insight.notr {
+  color: #fbfaf5;
+}
+
+:root[data-theme="light"] .react-shell__body .snapshot-card--net .snapshot-card__value .currency,
+:root[data-theme="light"] .react-shell__body .snapshot-card--net .net-benchmark__header span {
+  color: rgba(251, 250, 245, .62);
+}
+
+:root[data-theme="light"] .react-shell__body .snapshot-card--net .net-benchmark__header strong.notr {
+  color: #c8ff00;
+  border-color: rgba(200, 255, 0, .22);
+  background: rgba(200, 255, 0, .1);
+}
+
+:root[data-theme="light"] .react-shell__body .snapshot-card--net .net-benchmark__bar {
+  background: rgba(251, 250, 245, .17);
+}
+
+:root[data-theme="light"] .snapshot-period-chip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+:root[data-theme="light"] .snapshot-period-chip select {
+  max-width: 150px;
+  padding: 0 21px 0 0;
+  appearance: none;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+:root[data-theme="light"] .snapshot-period-chip svg {
+  position: absolute;
+  right: 0;
+  pointer-events: none;
+}
+
+:root[data-theme="light"] .stock-search {
+  overflow: hidden;
+}
+
+:root[data-theme="light"] .stock-search > svg {
+  flex: 0 0 auto;
+}
+
+:root[data-theme="light"] .stock-search > input {
+  height: auto;
+  min-height: 0;
+  padding: 0;
+  border: 0 !important;
+  border-radius: 0;
+  outline: 0;
+  background: transparent;
+  box-shadow: none !important;
+}
+
+:root[data-theme="light"] .cari-field--date .cari-input-icon > input {
+  min-height: 0;
+  padding: 0;
+  border: 0 !important;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none !important;
+}
+
+:root[data-theme="light"] .invoice-payment-section__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+:root[data-theme="light"] .invoice-payment-section__head h3 {
+  margin-bottom: 4px;
+}
+
+:root[data-theme="light"] .invoice-payment-section__head p {
+  margin: 0;
+  color: var(--sc-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+:root[data-theme="light"] .invoice-payment-fill {
+  flex: 0 0 auto;
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--sc-line);
+  border-radius: 999px;
+  color: var(--sc-ink);
+  background: var(--sc-cream);
+  font-weight: 800;
+  cursor: pointer;
+}
+
+:root[data-theme="light"] .invoice-payment-summary {
+  margin: 12px 0;
+  padding: 10px 12px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  border: 1px solid var(--sc-line);
+  border-radius: 12px;
+  background: var(--sc-cream);
+}
+
+:root[data-theme="light"] .invoice-payment-summary span {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+:root[data-theme="light"] .invoice-payment-summary small {
+  color: var(--sc-muted);
+  font-size: 10px;
+  font-weight: 750;
+}
+
+:root[data-theme="light"] .invoice-payment-summary strong {
+  color: var(--sc-ink);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+:root[data-theme="light"] .invoice-payment-summary span:last-child strong {
+  color: #7aa000;
+}
+
+:root[data-theme="light"] .invoice-payment-summary span.paid strong {
+  color: #28764a;
+}
+
+:root[data-theme="light"] .invoice-payment-complete {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 10px;
+  color: #245e3d;
+  background: #e8f3e8;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+:root[data-theme="light"] .invoice-side .invoice-payment-form {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+:root[data-theme="light"] .invoice-side .invoice-payment-form .invoice-field--pay-note {
+  grid-column: 1 / -1;
+}
+
+:root[data-theme="light"] .invoice-side .invoice-payment-form .invoice-btn {
+  grid-column: 1 / -1;
+  width: 100%;
+  justify-self: stretch;
+}
+
+@media (min-width: 701px) {
+  :root[data-theme="light"] .accountant-card-grid {
+    grid-template-columns: repeat(auto-fill, minmax(310px, 370px));
+    justify-content: start;
+  }
+}
+
+@media (max-width: 520px) {
+  :root[data-theme="light"] .invoice-payment-summary,
+  :root[data-theme="light"] .invoice-side .invoice-payment-form {
+    grid-template-columns: 1fr;
+  }
+
+  :root[data-theme="light"] .invoice-payment-section__head {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  :root[data-theme="light"] .invoice-payment-fill {
+    align-self: flex-start;
+  }
+}
+
+/* Stok ve fatura düzenleme panelleri yalnızca kullanıcı çağırdığında görünür. */
+:root[data-theme="light"] :is(.stock-layout--panel-closed, .invoice-layout--panel-closed) {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+:root[data-theme="light"] :is(.stock-side--drawer, .invoice-side--drawer) {
+  min-width: 0;
+  animation: sc-side-panel-in .28s cubic-bezier(.2, .78, .2, 1) both;
+  transform-origin: right center;
+}
+
+:root[data-theme="light"] .side-panel-close {
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid var(--sc-line);
+  border-radius: 999px;
+  color: var(--sc-ink);
+  background: var(--sc-paper);
+  transition:
+    border-color .16s ease,
+    background-color .16s ease,
+    transform .16s ease;
+}
+
+:root[data-theme="light"] .side-panel-close:hover {
+  border-color: var(--sc-ink);
+  background: var(--sc-cream);
+  transform: rotate(4deg);
+}
+
+:root[data-theme="light"] .invoice-card__header .side-panel-close {
+  margin-left: auto;
+}
+
+@keyframes sc-side-panel-in {
+  from {
+    opacity: 0;
+    transform: translate3d(42px, 0, 0) scale(.985);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-theme="light"] :is(.stock-side--drawer, .invoice-side--drawer) {
+    animation: none;
   }
 }

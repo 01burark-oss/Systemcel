@@ -289,6 +289,8 @@ export function ReactWorkspaceShell({ children, ustBar, baslik, sagAksiyon }: Re
   const [sohbetPaneliAcik, setSohbetPaneliAcik] = React.useState(false);
   const [baglamKapatiliyor, setBaglamKapatiliyor] = React.useState(false);
   const [mobilMenuAcik, setMobilMenuAcik] = React.useState(false);
+  const sohbetPanelRef = React.useRef<HTMLDivElement | null>(null);
+  const bildirimPanelRef = React.useRef<HTMLDivElement | null>(null);
   const rawPath = normalizePath(window.location.pathname);
   const currentPath = rawPath === "/app" ? "/" : rawPath.startsWith("/app/") ? rawPath.slice(4) : rawPath;
   const aktifAyarlarSekmesi = new URLSearchParams(window.location.search).get("sekme")?.toLocaleLowerCase("tr-TR") || "isletme";
@@ -332,6 +334,38 @@ export function ReactWorkspaceShell({ children, ustBar, baslik, sagAksiyon }: Re
       bildirimleriYukle();
     }
   }, [bildirimPaneliAcik, bildirimleriYukle]);
+
+  React.useEffect(() => {
+    if (!sohbetPaneliAcik && !bildirimPaneliAcik) {
+      return;
+    }
+
+    const disTiklamayiYakala = (event: PointerEvent) => {
+      const target = event.target as Node | null;
+      if (!target) return;
+
+      if (sohbetPaneliAcik && !sohbetPanelRef.current?.contains(target)) {
+        setSohbetPaneliAcik(false);
+      }
+
+      if (bildirimPaneliAcik && !bildirimPanelRef.current?.contains(target)) {
+        setBildirimPaneliAcik(false);
+      }
+    };
+
+    const escapeIleKapat = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      setSohbetPaneliAcik(false);
+      setBildirimPaneliAcik(false);
+    };
+
+    document.addEventListener("pointerdown", disTiklamayiYakala);
+    document.addEventListener("keydown", escapeIleKapat);
+    return () => {
+      document.removeEventListener("pointerdown", disTiklamayiYakala);
+      document.removeEventListener("keydown", escapeIleKapat);
+    };
+  }, [bildirimPaneliAcik, sohbetPaneliAcik]);
 
   const musteriBaglaminiKapat = React.useCallback(async () => {
     try {
@@ -459,7 +493,7 @@ export function ReactWorkspaceShell({ children, ustBar, baslik, sagAksiyon }: Re
 
             <span className="react-topbar__divider" />
 
-            <div className="react-topbar__chat-wrap">
+            <div ref={sohbetPanelRef} className="react-topbar__chat-wrap">
               <button
                 className="react-topbar__bell react-topbar__chat-button"
                 type="button"
@@ -508,7 +542,7 @@ export function ReactWorkspaceShell({ children, ustBar, baslik, sagAksiyon }: Re
 
             <span className="react-topbar__divider" />
 
-            <div className="react-topbar__bell-wrap">
+            <div ref={bildirimPanelRef} className="react-topbar__bell-wrap">
               <button
                 className="react-topbar__bell"
                 type="button"
