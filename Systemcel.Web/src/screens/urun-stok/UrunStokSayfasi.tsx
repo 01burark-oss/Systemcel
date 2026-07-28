@@ -737,15 +737,19 @@ export function UrunStokSayfasi({ yenileAnahtari }: UrunStokSayfasiProps) {
                 </div>
 
                 <div className="stock-movement-form">
-                  <label className="stock-field">
-                    <span>Miktar (+/-)</span>
-                    <input inputMode="decimal" value={stokFormu.miktar} onChange={(event) => stokAlaniniGuncelle("miktar", event.target.value)} disabled={!seciliId || seciliUrun?.tip !== "Urun"} />
-                    <small>Pozitif değer giriş, negatif değer çıkış yapar.</small>
-                  </label>
-                  <label className="stock-field stock-field--date">
-                    <span>Tarih</span>
-                    <input className="stock-date-input" type="date" value={stokFormu.tarih} onChange={(event) => stokAlaniniGuncelle("tarih", event.target.value)} disabled={!seciliId || seciliUrun?.tip !== "Urun"} />
-                  </label>
+                  <div className="stock-movement-form__primary">
+                    <label className="stock-field">
+                      <span>Miktar (+/-)</span>
+                      <input inputMode="decimal" value={stokFormu.miktar} onChange={(event) => stokAlaniniGuncelle("miktar", event.target.value)} disabled={!seciliId || seciliUrun?.tip !== "Urun"} />
+                    </label>
+                    <label className="stock-field stock-field--date">
+                      <span>Tarih</span>
+                      <input className="stock-date-input" type="date" value={stokFormu.tarih} onChange={(event) => stokAlaniniGuncelle("tarih", event.target.value)} disabled={!seciliId || seciliUrun?.tip !== "Urun"} />
+                    </label>
+                  </div>
+                  <p className="stock-movement-form__hint">
+                    Pozitif değer stok girişi, negatif değer stok çıkışı yapar.
+                  </p>
                   <label className="stock-field stock-field--grow stock-field--wide">
                     <span>Açıklama</span>
                     <input value={stokFormu.aciklama} onChange={(event) => stokAlaniniGuncelle("aciklama", event.target.value)} disabled={!seciliId || seciliUrun?.tip !== "Urun"} placeholder="Hareket açıklaması" />

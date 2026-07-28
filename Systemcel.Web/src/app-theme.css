@@ -5863,14 +5863,39 @@
 }
 
 :root[data-theme="light"] .stock-movement-form {
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: 14px;
+}
+
+:root[data-theme="light"] .stock-movement-form__primary {
+  min-width: 0;
+  display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  align-items: start;
+  gap: 14px;
+}
+
+:root[data-theme="light"] .stock-movement-form__primary .stock-field {
+  align-self: start;
+}
+
+:root[data-theme="light"] .stock-movement-form__primary :is(input, .stock-date-input) {
+  width: 100%;
+  min-height: 48px;
+  box-sizing: border-box;
+}
+
+:root[data-theme="light"] .stock-movement-form__hint {
+  margin: -6px 0 0;
+  color: var(--sc-muted);
+  font-size: 11px;
+  line-height: 1.45;
 }
 
 :root[data-theme="light"] .stock-btn--movement {
-  grid-column: 1 / -1;
   width: 100%;
-  margin-top: 2px;
+  margin-top: 0;
 }
 
 @media (max-width: 1180px) {
@@ -5939,7 +5964,8 @@
   }
 
   :root[data-theme="light"] .stock-form-grid,
-  :root[data-theme="light"] .stock-movement-form {
+  :root[data-theme="light"] .stock-movement-form,
+  :root[data-theme="light"] .stock-movement-form__primary {
     grid-template-columns: 1fr;
   }
 
@@ -8220,5 +8246,56 @@
 
   :root[data-theme="light"] .chat-thread__range-fields {
     padding-inline: 0;
+  }
+}
+
+/* Dashboard net kâr kartı: açık kart yüzeyinde erişilebilir metin kontrastı. */
+:root[data-theme="light"] .react-shell__body .snapshot-card.snapshot-card--net {
+  color: var(--sc-ink);
+  border-color: var(--sc-line);
+  background: rgba(251, 250, 245, .96);
+}
+
+:root[data-theme="light"] .react-shell__body .snapshot-card--net .snapshot-card__head h3 {
+  color: var(--sc-ink);
+}
+
+:root[data-theme="light"] .react-shell__body .snapshot-card--net .snapshot-card__value .currency {
+  color: #6f7068;
+}
+
+:root[data-theme="light"] .react-shell__body .snapshot-card--net .net-benchmark__header span {
+  color: #686a62;
+}
+
+:root[data-theme="light"] .react-shell__body .snapshot-card--net .net-benchmark__header strong.notr {
+  color: #4f514a;
+  border-color: var(--sc-line);
+  background: #efede4;
+}
+
+:root[data-theme="light"] .react-shell__body .snapshot-card--net .net-benchmark__insight,
+:root[data-theme="light"] .react-shell__body .snapshot-card--net .net-benchmark__insight.notr {
+  color: #272923;
+}
+
+:root[data-theme="light"] .react-shell__body .snapshot-card--net .net-benchmark__bar {
+  background: #deddd5;
+}
+
+:root[data-theme="light"] .auth-shell--branded .auth-shell__brand .auth-shell__brand-mark--image {
+  width: 31px;
+  height: 31px;
+  display: block;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  object-fit: contain;
+}
+
+@media (max-width: 760px) {
+  :root[data-theme="light"] .auth-shell--branded .auth-shell__brand .auth-shell__brand-mark--image {
+    width: 38px;
+    height: 38px;
   }
 }

@@ -92,6 +92,13 @@
 .auth-shell__brand-mark { width: 31px; height: 31px; grid-template-columns: 1fr 1fr; border: 1.5px solid currentColor; border-radius: 8px; overflow: hidden; background: transparent; }
 .auth-shell__brand-mark i { border-right: 1px solid rgba(11, 11, 9, .18); border-bottom: 1px solid rgba(11, 11, 9, .18); }
 .auth-shell__brand-mark i:last-child { background: var(--auth-lime); }
+.auth-shell__brand-mark--image {
+  display: block;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  object-fit: contain;
+}
 .auth-shell__brand-copy { gap: 3px; }
 .auth-shell__brand-copy strong { color: var(--auth-ink); font-size: 20px; letter-spacing: -.04em; text-transform: lowercase; }
 .auth-shell__brand-copy small { color: var(--auth-muted); font-family: Consolas, monospace; font-size: 8px; font-weight: 700; letter-spacing: .12em; }

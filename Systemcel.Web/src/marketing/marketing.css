@@ -74,7 +74,7 @@
 .marketing-eyebrow { display: inline-flex; align-items: center; gap: 9px; color: var(--mk-muted); font-family: Consolas, monospace; font-size: 11px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; }
 .marketing-eyebrow i { width: 8px; height: 8px; background: var(--mk-lime); border: 1px solid currentColor; }
 .marketing-hero h1 { margin: 24px 0 0; max-width: 760px; font-family: Georgia, "Times New Roman", serif; font-size: clamp(50px, 5.3vw, 76px); font-weight: 400; letter-spacing: -.045em; line-height: 1.02; }
-.marketing-hero h1 em { position: relative; display: inline-block; z-index: 0; padding: 0 .09em; font-weight: 400; white-space: nowrap; }
+.marketing-hero h1 em { position: relative; display: inline-block; z-index: 0; padding: 0 .09em; color: var(--mk-ink); font-weight: 400; white-space: nowrap; }
 .marketing-hero h1 em::before { content: ""; position: absolute; inset: .05em -.01em; z-index: -1; background: var(--mk-lime); transform: rotate(-1deg); }
 .marketing-hero__copy > p { max-width: 48ch; margin: 27px 0 0; color: var(--mk-muted); font-size: 18px; line-height: 1.7; }
 .marketing-hero__actions { margin-top: 37px; display: flex; gap: 13px; flex-wrap: wrap; }
