@@ -814,12 +814,11 @@
   padding: 12px 28px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 24px;
   border-top: 1px solid var(--mk-white-line);
   background: rgba(13,13,11,.9);
 }
-.marketing-tour-footer > span { color: #828179; font-family: Consolas, monospace; font-size: 9px; letter-spacing: .08em; text-transform: uppercase; }
 .marketing-tour-footer > div { display: flex; gap: 9px; }
 .marketing-tour-nav { border-color: rgba(255,255,255,.15); color: var(--mk-cream); }
 .marketing-tour-nav--secondary { color: var(--mk-cream); }
@@ -909,7 +908,6 @@
   .marketing-tour-window__cards span { padding: 7px; font-size: 7px; }
   .marketing-tour-float { max-width: 145px; padding: 8px 10px; font-size: 8px; }
   .marketing-tour-footer { min-height: 66px; padding: 9px 14px; }
-  .marketing-tour-footer > span { display: none; }
   .marketing-tour-footer > div { width: 100%; display: grid; grid-template-columns: .75fr 1.25fr; }
   .marketing-tour-nav { min-height: 42px; }
 }

@@ -522,7 +522,7 @@ export function LandingPage() {
                 <BrandMark /><strong>systemcel</strong>
               </a>
               <div>
-                <span><Play size={15} />{language === "tr" ? "Etkileşimli ürün turu" : "Interactive product tour"}</span>
+                <span><Play size={15} />{language === "tr" ? "Canlı tur" : "Live tour"}</span>
                 <strong>{activeTourStep.number} / {String(tourSteps.length).padStart(2, "0")}</strong>
               </div>
               <button className="marketing-tour-modal__close" type="button" onClick={() => setTourOpen(false)} aria-label={t.close}><X /></button>
@@ -633,7 +633,6 @@ export function LandingPage() {
             </div>
 
             <footer className="marketing-tour-footer">
-              <span>{language === "tr" ? "Aşağı kaydır; kamera ürünün içinde ilerlesin" : "Scroll down to move through the product"}</span>
               <div>
                 <button type="button" className="marketing-tour-nav marketing-tour-nav--secondary" onClick={() => moveTourToStep(tourStep - 1)} disabled={tourStep === 0}>
                   {language === "tr" ? "Geri" : "Back"}
