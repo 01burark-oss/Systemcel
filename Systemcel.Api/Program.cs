@@ -53,6 +53,7 @@ builder.Services.AddSingleton<IDailyReportService, DailyReportService>();
 builder.Services.AddSingleton<ICariService, CariService>();
 builder.Services.AddSingleton<IUrunHizmetService, UrunHizmetService>();
 builder.Services.AddSingleton<IStokService, StokService>();
+builder.Services.AddSingleton<IHizliSatisService, HizliSatisService>();
 builder.Services.AddSingleton<IFaturaService, FaturaService>();
 builder.Services.AddSingleton<ITahsilatOdemeService, TahsilatOdemeService>();
 builder.Services.AddSingleton<IOnMuhasebeReportService, OnMuhasebeReportService>();

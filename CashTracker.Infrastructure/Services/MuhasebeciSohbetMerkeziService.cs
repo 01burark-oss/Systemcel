@@ -615,7 +615,7 @@ namespace CashTracker.Infrastructure.Services
                 DosyaYolu = package.PdfPath,
                 Boyut = File.Exists(package.PdfPath) ? new FileInfo(package.PdfPath).Length : 0,
                 VeriTipi = dataType,
-                Baslik = $"{package.Title} harcama detaylari PDF",
+                Baslik = $"{package.Title} PDF detaylari",
                 OzetJson = package.SummaryJson,
                 CreatedAt = DateTime.Now
             });
@@ -625,38 +625,192 @@ namespace CashTracker.Infrastructure.Services
 
         private async Task<DataPackage> BuildDataPackageAsync(CashTrackerDbContext db, int businessId, string dataType, string rangeCode, DateTime from, DateTime to, CancellationToken ct)
         {
+            var normalizedDataType = NormalizeDataType(dataType);
+            var endExclusive = to.Date.AddDays(1);
+            var business = await db.Isletmeler.AsNoTracking().FirstOrDefaultAsync(x => x.Id == businessId, ct);
+            var businessName = business?.Ad ?? "Isletme";
+            var rangeLabel = DisplayRange(rangeCode, from, to);
+
             var records = await db.Kasalar.AsNoTracking()
-                .Where(x => x.IsletmeId == businessId && x.Tarih >= from && x.Tarih <= to)
+                .Where(x => x.IsletmeId == businessId && x.Tarih >= from.Date && x.Tarih < endExclusive)
                 .OrderBy(x => x.Tarih)
                 .ThenBy(x => x.Id)
                 .ToListAsync(ct);
-            var business = await db.Isletmeler.AsNoTracking().FirstOrDefaultAsync(x => x.Id == businessId, ct);
             var income = records.Where(x => string.Equals(x.Tip, "Gelir", StringComparison.OrdinalIgnoreCase) || string.Equals(x.Tip, "Giris", StringComparison.OrdinalIgnoreCase)).Sum(x => x.Tutar);
             var expense = records.Where(x => string.Equals(x.Tip, "Gider", StringComparison.OrdinalIgnoreCase) || string.Equals(x.Tip, "Cikis", StringComparison.OrdinalIgnoreCase)).Sum(x => x.Tutar);
-            var summary = new
-            {
-                veriTipi = dataType,
-                aralikKodu = rangeCode,
-                baslangic = from.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
-                bitis = to.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
-                isletme = business?.Ad ?? "Isletme",
-                gelir = income,
-                gider = expense,
-                net = income - expense,
-                gelirKayitSayisi = records.Count(x => string.Equals(x.Tip, "Gelir", StringComparison.OrdinalIgnoreCase) || string.Equals(x.Tip, "Giris", StringComparison.OrdinalIgnoreCase)),
-                giderKayitSayisi = records.Count(x => string.Equals(x.Tip, "Gider", StringComparison.OrdinalIgnoreCase) || string.Equals(x.Tip, "Cikis", StringComparison.OrdinalIgnoreCase))
-            };
 
-            var title = $"{DisplayRange(rangeCode, from, to)} gelir/gider ozeti";
-            var directory = Path.Combine(GetStorageRoot(), "chat-reports", businessId.ToString(CultureInfo.InvariantCulture), DateTime.Now.ToString("yyyyMMdd_HHmmss", CultureInfo.InvariantCulture));
+            object summary;
+            string title;
+            string csvFileName;
+            string csvContent;
+            string pdfFileName;
+            byte[] pdfContent;
+
+            if (normalizedDataType == "Faturalar")
+            {
+                var invoices = await db.Faturalar.AsNoTracking()
+                    .Where(x => x.IsletmeId == businessId && x.Tarih >= from.Date && x.Tarih < endExclusive)
+                    .OrderBy(x => x.Tarih)
+                    .ThenBy(x => x.Id)
+                    .ToListAsync(ct);
+                var salesTotal = invoices.Where(x => string.Equals(x.FaturaTipi, "Satis", StringComparison.OrdinalIgnoreCase)).Sum(x => x.GenelToplam);
+                var purchaseTotal = invoices.Where(x => string.Equals(x.FaturaTipi, "Alis", StringComparison.OrdinalIgnoreCase)).Sum(x => x.GenelToplam);
+                var outstanding = invoices.Sum(x => Math.Max(0m, x.GenelToplam - x.OdenenTutar));
+                summary = new
+                {
+                    veriTipi = normalizedDataType,
+                    aralikKodu = rangeCode,
+                    baslangic = from.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+                    bitis = to.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+                    isletme = businessName,
+                    satisToplami = salesTotal,
+                    alisToplami = purchaseTotal,
+                    bekleyen = outstanding,
+                    faturaSayisi = invoices.Count
+                };
+                title = $"{rangeLabel} fatura ozeti";
+                csvFileName = "faturalar.csv";
+                csvContent = BuildInvoiceCsv(invoices);
+                pdfFileName = "fatura-detaylari.pdf";
+                var lines = new List<string>
+                {
+                    "SYSTEMCEL FATURA DETAYLARI",
+                    title,
+                    $"Isletme: {businessName}",
+                    $"Satis toplami: {salesTotal.ToString("N2", CultureInfo.GetCultureInfo("tr-TR"))} TL",
+                    $"Alis toplami: {purchaseTotal.ToString("N2", CultureInfo.GetCultureInfo("tr-TR"))} TL",
+                    $"Bekleyen: {outstanding.ToString("N2", CultureInfo.GetCultureInfo("tr-TR"))} TL",
+                    $"Fatura sayisi: {invoices.Count}",
+                    ""
+                };
+                lines.AddRange(invoices.Select(x =>
+                    $"{x.Tarih:dd.MM.yyyy} | {x.FaturaTipi} | {x.GenelToplam.ToString("N2", CultureInfo.GetCultureInfo("tr-TR"))} TL | {x.Durum} | {x.YerelFaturaNo}"));
+                if (invoices.Count == 0)
+                    lines.Add("Secilen donemde fatura bulunmuyor.");
+                pdfContent = BuildSimplePdf(lines);
+            }
+            else if (normalizedDataType == "TahsilatOdemeler")
+            {
+                var payments = await db.TahsilatOdemeleri.AsNoTracking()
+                    .Where(x => x.IsletmeId == businessId && x.Tarih >= from.Date && x.Tarih < endExclusive)
+                    .OrderBy(x => x.Tarih)
+                    .ThenBy(x => x.Id)
+                    .ToListAsync(ct);
+                var collectionTotal = payments.Where(x => string.Equals(x.Tip, "Tahsilat", StringComparison.OrdinalIgnoreCase)).Sum(x => x.Tutar);
+                var paymentTotal = payments.Where(x => string.Equals(x.Tip, "Odeme", StringComparison.OrdinalIgnoreCase)).Sum(x => x.Tutar);
+                summary = new
+                {
+                    veriTipi = normalizedDataType,
+                    aralikKodu = rangeCode,
+                    baslangic = from.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+                    bitis = to.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+                    isletme = businessName,
+                    tahsilat = collectionTotal,
+                    odeme = paymentTotal,
+                    net = collectionTotal - paymentTotal,
+                    islemSayisi = payments.Count
+                };
+                title = $"{rangeLabel} tahsilat/odeme ozeti";
+                csvFileName = "tahsilat-odemeler.csv";
+                csvContent = BuildPaymentCsv(payments);
+                pdfFileName = "tahsilat-odeme-detaylari.pdf";
+                var lines = new List<string>
+                {
+                    "SYSTEMCEL TAHSILAT / ODEME DETAYLARI",
+                    title,
+                    $"Isletme: {businessName}",
+                    $"Tahsilat: {collectionTotal.ToString("N2", CultureInfo.GetCultureInfo("tr-TR"))} TL",
+                    $"Odeme: {paymentTotal.ToString("N2", CultureInfo.GetCultureInfo("tr-TR"))} TL",
+                    $"Net: {(collectionTotal - paymentTotal).ToString("N2", CultureInfo.GetCultureInfo("tr-TR"))} TL",
+                    $"Islem sayisi: {payments.Count}",
+                    ""
+                };
+                lines.AddRange(payments.Select(x =>
+                    $"{x.Tarih:dd.MM.yyyy} | {x.Tip} | {x.Tutar.ToString("N2", CultureInfo.GetCultureInfo("tr-TR"))} TL | {x.OdemeYontemi} | {x.Aciklama ?? "-"}"));
+                if (payments.Count == 0)
+                    lines.Add("Secilen donemde tahsilat veya odeme bulunmuyor.");
+                pdfContent = BuildSimplePdf(lines);
+            }
+            else if (normalizedDataType == "FinansalRapor")
+            {
+                var invoices = await db.Faturalar.AsNoTracking()
+                    .Where(x => x.IsletmeId == businessId && x.Tarih >= from.Date && x.Tarih < endExclusive)
+                    .ToListAsync(ct);
+                var payments = await db.TahsilatOdemeleri.AsNoTracking()
+                    .Where(x => x.IsletmeId == businessId && x.Tarih >= from.Date && x.Tarih < endExclusive)
+                    .ToListAsync(ct);
+                var invoiceTotal = invoices.Sum(x => x.GenelToplam);
+                var collectionTotal = payments.Where(x => string.Equals(x.Tip, "Tahsilat", StringComparison.OrdinalIgnoreCase)).Sum(x => x.Tutar);
+                var paymentTotal = payments.Where(x => string.Equals(x.Tip, "Odeme", StringComparison.OrdinalIgnoreCase)).Sum(x => x.Tutar);
+                summary = new
+                {
+                    veriTipi = normalizedDataType,
+                    aralikKodu = rangeCode,
+                    baslangic = from.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+                    bitis = to.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+                    isletme = businessName,
+                    gelir = income,
+                    gider = expense,
+                    net = income - expense,
+                    faturaToplami = invoiceTotal,
+                    tahsilat = collectionTotal,
+                    odeme = paymentTotal,
+                    kayitSayisi = records.Count,
+                    faturaSayisi = invoices.Count,
+                    islemSayisi = payments.Count
+                };
+                title = $"{rangeLabel} finansal raporu";
+                csvFileName = "finansal-rapor.csv";
+                csvContent = BuildFinancialSummaryCsv(income, expense, invoiceTotal, collectionTotal, paymentTotal, records.Count, invoices.Count, payments.Count);
+                pdfFileName = "finansal-rapor.pdf";
+                pdfContent = BuildSimplePdf(new List<string>
+                {
+                    "SYSTEMCEL FINANSAL RAPOR",
+                    title,
+                    $"Isletme: {businessName}",
+                    $"Gelir: {income.ToString("N2", CultureInfo.GetCultureInfo("tr-TR"))} TL",
+                    $"Gider: {expense.ToString("N2", CultureInfo.GetCultureInfo("tr-TR"))} TL",
+                    $"Net: {(income - expense).ToString("N2", CultureInfo.GetCultureInfo("tr-TR"))} TL",
+                    $"Fatura toplami: {invoiceTotal.ToString("N2", CultureInfo.GetCultureInfo("tr-TR"))} TL",
+                    $"Tahsilat: {collectionTotal.ToString("N2", CultureInfo.GetCultureInfo("tr-TR"))} TL",
+                    $"Odeme: {paymentTotal.ToString("N2", CultureInfo.GetCultureInfo("tr-TR"))} TL",
+                    $"Gelir/gider kaydi: {records.Count}",
+                    $"Fatura sayisi: {invoices.Count}",
+                    $"Tahsilat/odeme islemi: {payments.Count}"
+                });
+            }
+            else
+            {
+                summary = new
+                {
+                    veriTipi = normalizedDataType,
+                    aralikKodu = rangeCode,
+                    baslangic = from.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+                    bitis = to.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+                    isletme = businessName,
+                    gelir = income,
+                    gider = expense,
+                    net = income - expense,
+                    gelirKayitSayisi = records.Count(x => string.Equals(x.Tip, "Gelir", StringComparison.OrdinalIgnoreCase) || string.Equals(x.Tip, "Giris", StringComparison.OrdinalIgnoreCase)),
+                    giderKayitSayisi = records.Count(x => string.Equals(x.Tip, "Gider", StringComparison.OrdinalIgnoreCase) || string.Equals(x.Tip, "Cikis", StringComparison.OrdinalIgnoreCase))
+                };
+                title = $"{rangeLabel} gelir/gider ozeti";
+                csvFileName = "gelir-gider.csv";
+                csvContent = BuildCsv(records);
+                pdfFileName = "harcama-detaylari.pdf";
+                pdfContent = BuildExpenseDetailsPdf(title, businessName, records);
+            }
+
+            var packageKey = $"{DateTime.Now:yyyyMMdd_HHmmss_fff}_{Guid.NewGuid():N}";
+            var directory = Path.Combine(GetStorageRoot(), "chat-reports", businessId.ToString(CultureInfo.InvariantCulture), packageKey);
             Directory.CreateDirectory(directory);
-            var csvPath = Path.Combine(directory, "gelir-gider.csv");
+            var csvPath = Path.Combine(directory, csvFileName);
             var htmlPath = Path.Combine(directory, "ozet.html");
-            var pdfPath = Path.Combine(directory, "harcama-detaylari.pdf");
+            var pdfPath = Path.Combine(directory, pdfFileName);
             var zipPath = Path.Combine(directory, "rapor-paketi.zip");
-            await File.WriteAllTextAsync(csvPath, BuildCsv(records), Encoding.UTF8, ct);
+            await File.WriteAllTextAsync(csvPath, csvContent, Encoding.UTF8, ct);
             await File.WriteAllTextAsync(htmlPath, BuildHtml(title, summary), Encoding.UTF8, ct);
-            await File.WriteAllBytesAsync(pdfPath, BuildExpenseDetailsPdf(title, business?.Ad ?? "Isletme", records), ct);
+            await File.WriteAllBytesAsync(pdfPath, pdfContent, ct);
             if (File.Exists(zipPath))
                 File.Delete(zipPath);
             using (var archive = ZipFile.Open(zipPath, ZipArchiveMode.Create))
@@ -914,12 +1068,29 @@ namespace CashTracker.Infrastructure.Services
         private static string NormalizeDataType(string? value)
         {
             var normalized = (value ?? string.Empty).Trim();
-            return string.IsNullOrWhiteSpace(normalized) ? "GelirGiderOzeti" : normalized;
+            return normalized switch
+            {
+                "Faturalar" => "Faturalar",
+                "TahsilatOdemeler" => "TahsilatOdemeler",
+                "FinansalRapor" => "FinansalRapor",
+                _ => "GelirGiderOzeti"
+            };
         }
 
         private static string BuildDataRequestMessage(MuhasebeciSohbetVeriIstegi request)
         {
-            return $"{DisplayRange(request.AralikKodu, request.Baslangic, request.Bitis)} verisi istendi.";
+            return $"{DisplayRange(request.AralikKodu, request.Baslangic, request.Bitis)} {DisplayDataType(request.VeriTipi)} verisi istendi.";
+        }
+
+        private static string DisplayDataType(string dataType)
+        {
+            return NormalizeDataType(dataType) switch
+            {
+                "Faturalar" => "fatura",
+                "TahsilatOdemeler" => "tahsilat/odeme",
+                "FinansalRapor" => "finansal rapor",
+                _ => "gelir/gider"
+            };
         }
 
         private static string DisplayRange(string rangeCode, DateTime from, DateTime to)
@@ -998,6 +1169,71 @@ namespace CashTracker.Infrastructure.Services
                     Csv(record.Aciklama ?? string.Empty)
                 }));
             }
+            return builder.ToString();
+        }
+
+        private static string BuildInvoiceCsv(IEnumerable<Fatura> invoices)
+        {
+            var builder = new StringBuilder();
+            builder.AppendLine("Tarih,FaturaTipi,FaturaNo,Durum,GenelToplam,OdenenTutar,OdemeYontemi,Aciklama");
+            foreach (var invoice in invoices)
+            {
+                builder.AppendLine(string.Join(",", new[]
+                {
+                    Csv(invoice.Tarih.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)),
+                    Csv(invoice.FaturaTipi),
+                    Csv(invoice.YerelFaturaNo),
+                    Csv(invoice.Durum),
+                    Csv(invoice.GenelToplam.ToString(CultureInfo.InvariantCulture)),
+                    Csv(invoice.OdenenTutar.ToString(CultureInfo.InvariantCulture)),
+                    Csv(invoice.OdemeYontemi),
+                    Csv(invoice.Aciklama ?? string.Empty)
+                }));
+            }
+            return builder.ToString();
+        }
+
+        private static string BuildPaymentCsv(IEnumerable<TahsilatOdeme> payments)
+        {
+            var builder = new StringBuilder();
+            builder.AppendLine("Tarih,Tip,Tutar,OdemeYontemi,FaturaId,CariKartId,Aciklama");
+            foreach (var payment in payments)
+            {
+                builder.AppendLine(string.Join(",", new[]
+                {
+                    Csv(payment.Tarih.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)),
+                    Csv(payment.Tip),
+                    Csv(payment.Tutar.ToString(CultureInfo.InvariantCulture)),
+                    Csv(payment.OdemeYontemi),
+                    Csv(payment.FaturaId.ToString(CultureInfo.InvariantCulture)),
+                    Csv(payment.CariKartId.ToString(CultureInfo.InvariantCulture)),
+                    Csv(payment.Aciklama ?? string.Empty)
+                }));
+            }
+            return builder.ToString();
+        }
+
+        private static string BuildFinancialSummaryCsv(
+            decimal income,
+            decimal expense,
+            decimal invoiceTotal,
+            decimal collectionTotal,
+            decimal paymentTotal,
+            int recordCount,
+            int invoiceCount,
+            int paymentCount)
+        {
+            var builder = new StringBuilder();
+            builder.AppendLine("Metrik,Deger");
+            builder.AppendLine($"{Csv("Gelir")},{Csv(income.ToString(CultureInfo.InvariantCulture))}");
+            builder.AppendLine($"{Csv("Gider")},{Csv(expense.ToString(CultureInfo.InvariantCulture))}");
+            builder.AppendLine($"{Csv("Net")},{Csv((income - expense).ToString(CultureInfo.InvariantCulture))}");
+            builder.AppendLine($"{Csv("Fatura toplami")},{Csv(invoiceTotal.ToString(CultureInfo.InvariantCulture))}");
+            builder.AppendLine($"{Csv("Tahsilat")},{Csv(collectionTotal.ToString(CultureInfo.InvariantCulture))}");
+            builder.AppendLine($"{Csv("Odeme")},{Csv(paymentTotal.ToString(CultureInfo.InvariantCulture))}");
+            builder.AppendLine($"{Csv("Gelir/gider kaydi")},{Csv(recordCount.ToString(CultureInfo.InvariantCulture))}");
+            builder.AppendLine($"{Csv("Fatura sayisi")},{Csv(invoiceCount.ToString(CultureInfo.InvariantCulture))}");
+            builder.AppendLine($"{Csv("Tahsilat/odeme islemi")},{Csv(paymentCount.ToString(CultureInfo.InvariantCulture))}");
             return builder.ToString();
         }
 

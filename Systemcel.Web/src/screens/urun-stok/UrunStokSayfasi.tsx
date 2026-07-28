@@ -1,19 +1,31 @@
 import React from "react";
+import "./hizli-satis.css";
 import {
   AlertTriangle,
   Barcode,
   Box,
+  Check,
+  Minus,
   PackagePlus,
   Plus,
   Save,
   Search,
+  ShoppingCart,
   Trash2,
   TrendingUp,
-  WalletCards
+  WalletCards,
+  X
 } from "lucide-react";
 import type { UstBarDurumu } from "../../shared/chrome";
 import { jsonOku } from "../../shared/json";
-import type { StokHareketFormu, UrunFormu, UrunListeKaydi, UrunStokEkranVerisi } from "./types";
+import type {
+  HizliSatisSepetSatiri,
+  HizliSatisSonucu,
+  StokHareketFormu,
+  UrunFormu,
+  UrunListeKaydi,
+  UrunStokEkranVerisi
+} from "./types";
 
 interface UrunStokSayfasiProps {
   onIsletmeDegistir: (id: number) => void;
@@ -29,6 +41,12 @@ interface KimlikliMesaj {
 
 function bugun() {
   return new Date().toISOString().slice(0, 10);
+}
+
+function yeniIslemAnahtari() {
+  return typeof crypto !== "undefined" && "randomUUID" in crypto
+    ? crypto.randomUUID()
+    : `hizli-satis-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
 function bosUrunFormu(): UrunFormu {
@@ -137,6 +155,13 @@ export function UrunStokSayfasi({ yenileAnahtari }: UrunStokSayfasiProps) {
   const [barkodPaneliAcik, setBarkodPaneliAcik] = React.useState(false);
   const [barkodDegeri, setBarkodDegeri] = React.useState("");
   const [barkodMesaji, setBarkodMesaji] = React.useState("");
+  const [hizliSatisAcik, setHizliSatisAcik] = React.useState(false);
+  const [satisBarkodu, setSatisBarkodu] = React.useState("");
+  const [satisMesaji, setSatisMesaji] = React.useState("");
+  const [odemeYontemi, setOdemeYontemi] = React.useState("Nakit");
+  const [sepet, setSepet] = React.useState<HizliSatisSepetSatiri[]>([]);
+  const [satisAnahtari, setSatisAnahtari] = React.useState(() => yeniIslemAnahtari());
+  const satisBarkodRef = React.useRef<HTMLInputElement | null>(null);
   const [aktifIslemPaneli, setAktifIslemPaneli] = React.useState<"urun" | "stok">("urun");
   const seciliIdRef = React.useRef<number | null>(null);
 
@@ -221,6 +246,20 @@ export function UrunStokSayfasi({ yenileAnahtari }: UrunStokSayfasiProps) {
     const handle = window.setTimeout(() => barcodeInputRef.current?.focus(), 60);
     return () => window.clearTimeout(handle);
   }, [barkodPaneliAcik]);
+
+  React.useEffect(() => {
+    if (!hizliSatisAcik) {
+      return;
+    }
+
+    const handle = window.setTimeout(() => satisBarkodRef.current?.focus(), 60);
+    return () => window.clearTimeout(handle);
+  }, [hizliSatisAcik]);
+
+  const sepetToplami = React.useMemo(
+    () => sepet.reduce((total, row) => total + row.satisFiyati * row.miktar, 0),
+    [sepet]
+  );
 
   function urunAlaniniGuncelle<K extends keyof UrunFormu>(alan: K, deger: UrunFormu[K]) {
     setUrunFormu((current) => ({ ...current, [alan]: deger }));
@@ -357,6 +396,94 @@ export function UrunStokSayfasi({ yenileAnahtari }: UrunStokSayfasiProps) {
     }
   }
 
+  function hizliSatisiAc() {
+    setHizliSatisAcik(true);
+    setSatisMesaji("");
+    setSatisBarkodu("");
+    if (sepet.length === 0) {
+      setSatisAnahtari(yeniIslemAnahtari());
+    }
+  }
+
+  function sepetMiktariniDegistir(id: number, fark: number) {
+    setSepet((current) => current
+      .map((row) => row.id === id ? { ...row, miktar: row.miktar + fark } : row)
+      .filter((row) => row.miktar > 0));
+  }
+
+  async function satisBarkodunuEkle() {
+    const barcode = satisBarkodu.trim();
+    if (!barcode) {
+      setSatisMesaji("Barkod okutun veya yazın.");
+      satisBarkodRef.current?.focus();
+      return;
+    }
+
+    try {
+      setIslemde(true);
+      setSatisMesaji("Ürün aranıyor...");
+      const product = await jsonOku<UrunListeKaydi>(`/api/ekran/urun-stok/barkod?deger=${encodeURIComponent(barcode)}`);
+      if (!product.aktif) {
+        throw new Error("Bu ürün satışa kapalı.");
+      }
+      if (product.satisFiyati <= 0) {
+        throw new Error("Ürünün satış fiyatı girilmemiş.");
+      }
+
+      const existing = sepet.find((row) => row.id === product.id);
+      const nextQuantity = (existing?.miktar ?? 0) + 1;
+      if (product.tip === "Urun" && nextQuantity > product.mevcutStok) {
+        throw new Error(`${product.ad} için yeterli stok yok.`);
+      }
+
+      setSepet((current) => existing
+        ? current.map((row) => row.id === product.id ? { ...row, miktar: nextQuantity } : row)
+        : [...current, { ...product, miktar: 1 }]);
+      setSatisMesaji(`${product.ad} sepete eklendi.`);
+      setSatisBarkodu("");
+    } catch (error) {
+      setSatisMesaji(error instanceof Error ? error.message : "Barkodlu ürün bulunamadı.");
+    } finally {
+      setIslemde(false);
+      window.setTimeout(() => satisBarkodRef.current?.focus(), 20);
+    }
+  }
+
+  async function hizliSatisiTamamla() {
+    if (sepet.length === 0) {
+      setSatisMesaji("Sepete en az bir ürün ekleyin.");
+      return;
+    }
+
+    try {
+      setIslemde(true);
+      setHata("");
+      setSatisMesaji("Satış kaydediliyor...");
+      const result = await jsonOku<HizliSatisSonucu>("/api/ekran/urun-stok/hizli-satis", {
+        method: "POST",
+        body: JSON.stringify({
+          islemAnahtari: satisAnahtari,
+          odemeYontemi,
+          satirlar: sepet.map((row) => ({
+            urunHizmetId: row.id,
+            miktar: row.miktar
+          }))
+        })
+      });
+
+      setSepet([]);
+      setSatisBarkodu("");
+      setSatisAnahtari(yeniIslemAnahtari());
+      setHizliSatisAcik(false);
+      await yenile(seciliId);
+      setDurum(`${result.mesaj} • ${paraBic(result.toplam)} gelir olarak kaydedildi.`);
+    } catch (error) {
+      setSatisMesaji(error instanceof Error ? error.message : "Satış kaydedilemedi.");
+    } finally {
+      setIslemde(false);
+    }
+  }
+
   return (
     <main ref={pageRef} className="stock-page">
       <section className="stock-stats">
@@ -384,6 +511,11 @@ export function UrunStokSayfasi({ yenileAnahtari }: UrunStokSayfasiProps) {
             <div className="stock-card__header">
               <h2>Ürün Listesi</h2>
               <div className="stock-list-tools">
+                <button type="button" className="quick-sale-launch" onClick={hizliSatisiAc}>
+                  <ShoppingCart size={17} />
+                  Hızlı satış
+                  {sepet.length > 0 ? <span>{sepet.reduce((total, row) => total + row.miktar, 0)}</span> : null}
+                </button>
                 <label className="stock-search">
                   <Search size={17} />
                   <input value={arama} onChange={(event) => setArama(event.target.value)} placeholder="Ürün adı, barkod ara..." />
@@ -658,6 +790,103 @@ export function UrunStokSayfasi({ yenileAnahtari }: UrunStokSayfasiProps) {
               <button type="button" className="stock-btn stock-btn--primary" onClick={() => void barkoduIsle()}>Tamam</button>
             </div>
           </div>
+        </div>
+      )}
+
+      {hizliSatisAcik && (
+        <div className="quick-sale-modal" role="dialog" aria-modal="true" aria-labelledby="quick-sale-title">
+          <section className="quick-sale-card">
+            <header>
+              <div>
+                <span className="quick-sale-eyebrow">Barkodlu satış</span>
+                <h2 id="quick-sale-title">Hızlı sepet</h2>
+                <p>Okutulan ürün stoktan düşer ve satış tutarı Gelir’e eklenir.</p>
+              </div>
+              <button type="button" className="quick-sale-close" onClick={() => setHizliSatisAcik(false)} aria-label="Hızlı satışı kapat">
+                <X size={20} />
+              </button>
+            </header>
+
+            <div className="quick-sale-scanner">
+              <Barcode size={22} />
+              <input
+                ref={satisBarkodRef}
+                value={satisBarkodu}
+                onChange={(event) => setSatisBarkodu(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    void satisBarkodunuEkle();
+                  }
+                }}
+                placeholder="Barkodu okutun veya yazın"
+                inputMode="numeric"
+              />
+              <button type="button" onClick={() => void satisBarkodunuEkle()} disabled={islemde}>
+                Sepete ekle
+              </button>
+            </div>
+            <small className="quick-sale-message" role="status">{satisMesaji || "Okuyucu Enter gönderdiğinde ürün otomatik eklenir."}</small>
+
+            <div className="quick-sale-lines">
+              {sepet.map((row) => (
+                <article key={row.id}>
+                  <div className="quick-sale-product">
+                    <span><Box size={18} /></span>
+                    <div>
+                      <strong>{row.ad}</strong>
+                      <small>{row.barkod || "Barkodsuz"} • Stok {sayiBic(row.mevcutStok)}</small>
+                    </div>
+                  </div>
+                  <div className="quick-sale-quantity">
+                    <button type="button" onClick={() => sepetMiktariniDegistir(row.id, -1)} aria-label={`${row.ad} miktarını azalt`}>
+                      <Minus size={15} />
+                    </button>
+                    <strong>{sayiBic(row.miktar)}</strong>
+                    <button
+                      type="button"
+                      onClick={() => sepetMiktariniDegistir(row.id, 1)}
+                      disabled={row.tip === "Urun" && row.miktar >= row.mevcutStok}
+                      aria-label={`${row.ad} miktarını artır`}
+                    >
+                      <Plus size={15} />
+                    </button>
+                  </div>
+                  <strong className="quick-sale-line-total">{paraBic(row.satisFiyati * row.miktar)}</strong>
+                  <button type="button" className="quick-sale-remove" onClick={() => setSepet((current) => current.filter((item) => item.id !== row.id))} aria-label={`${row.ad} ürününü çıkar`}>
+                    <Trash2 size={16} />
+                  </button>
+                </article>
+              ))}
+              {sepet.length === 0 ? (
+                <div className="quick-sale-empty">
+                  <ShoppingCart size={28} />
+                  <strong>Sepet boş</strong>
+                  <span>İlk ürünün barkodunu okutarak başlayın.</span>
+                </div>
+              ) : null}
+            </div>
+
+            <footer>
+              <label>
+                <span>Ödeme yöntemi</span>
+                <select value={odemeYontemi} onChange={(event) => setOdemeYontemi(event.target.value)}>
+                  <option value="Nakit">Nakit</option>
+                  <option value="KrediKarti">Kredi kartı</option>
+                  <option value="Havale">Havale / EFT</option>
+                  <option value="OnlineOdeme">Online ödeme</option>
+                </select>
+              </label>
+              <div className="quick-sale-total">
+                <span>Toplam</span>
+                <strong>{paraBic(sepetToplami)}</strong>
+              </div>
+              <button type="button" className="quick-sale-submit" onClick={() => void hizliSatisiTamamla()} disabled={islemde || sepet.length === 0}>
+                <Check size={18} />
+                {islemde ? "Kaydediliyor..." : "Satışı tamamla"}
+              </button>
+            </footer>
+          </section>
         </div>
       )}
     </main>

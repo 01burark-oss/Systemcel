@@ -96,8 +96,19 @@ interface SohbetlerSayfasiProps {
 }
 
 type RealtimeState = "connecting" | "connected" | "fallback";
+type SohbetVeriTipi = "GelirGiderOzeti" | "Faturalar" | "TahsilatOdemeler" | "FinansalRapor";
 
 const PAGE_SIZE = 50;
+const QUICK_DATA_ACTIONS: Array<{
+  type: SohbetVeriTipi;
+  label: string;
+  icon: React.ComponentType<{ size?: number; className?: string }>;
+}> = [
+  { type: "GelirGiderOzeti", label: "Gelir / Gider", icon: ArrowUpDown },
+  { type: "Faturalar", label: "Faturalar", icon: ReceiptText },
+  { type: "TahsilatOdemeler", label: "Tahsilat", icon: Banknote },
+  { type: "FinansalRapor", label: "Raporlar", icon: ChartNoAxesCombined }
+];
 
 export function SohbetlerSayfasi({ mobileMode = false, ustBar, onUstBarYenile }: SohbetlerSayfasiProps) {
   const initialId = React.useMemo(() => {
@@ -128,6 +139,7 @@ export function SohbetlerSayfasi({ mobileMode = false, ustBar, onUstBarYenile }:
   const [ozelBaslangic, setOzelBaslangic] = React.useState(() => new Date(Date.now() - 29 * 86400000).toISOString().slice(0, 10));
   const [ozelBitis, setOzelBitis] = React.useState(() => new Date().toISOString().slice(0, 10));
   const [veriIslemde, setVeriIslemde] = React.useState(false);
+  const [aktifVeriTipi, setAktifVeriTipi] = React.useState<SohbetVeriTipi | null>(null);
   const [dosyaIslemde, setDosyaIslemde] = React.useState(false);
   const [arsivIslemde, setArsivIslemde] = React.useState(false);
   const [sesKaydi, setSesKaydi] = React.useState(false);
@@ -609,15 +621,16 @@ export function SohbetlerSayfasi({ mobileMode = false, ustBar, onUstBarYenile }:
     }
   }
 
-  async function veriAksiyonu() {
+  async function veriAksiyonu(veriTipi: SohbetVeriTipi = "GelirGiderOzeti") {
     if (!aktifSohbetId)
       return;
 
     setVeriIslemde(true);
+    setAktifVeriTipi(veriTipi);
     setHata("");
     try {
       const payload = {
-        veriTipi: "GelirGiderOzeti",
+        veriTipi,
         aralikKodu: veriAraligi,
         baslangic: veriAraligi === "selectedMonth" ? seciliAy : veriAraligi === "custom" ? ozelBaslangic : "",
         bitis: veriAraligi === "custom" ? ozelBitis : "",
@@ -634,6 +647,7 @@ export function SohbetlerSayfasi({ mobileMode = false, ustBar, onUstBarYenile }:
       setHata(error instanceof Error ? error.message : `${dataActionLabel} tamamlanamadı.`);
     } finally {
       setVeriIslemde(false);
+      setAktifVeriTipi(null);
     }
   }
 
@@ -874,10 +888,23 @@ export function SohbetlerSayfasi({ mobileMode = false, ustBar, onUstBarYenile }:
                 ) : null}
                 <div className="chat-thread__composer-toolbar">
                   <nav className="chat-thread__quick-actions" aria-label="Hızlı finans işlemleri">
-                    <a href="/app/gelir-gider"><ArrowUpDown size={14} /><span>Gelir / Gider</span></a>
-                    <a href="/app/faturalar"><ReceiptText size={14} /><span>Faturalar</span></a>
-                    <a href="/app/tahsilat-odeme"><Banknote size={14} /><span>Tahsilat</span></a>
-                    <a href="/app/raporlar"><ChartNoAxesCombined size={14} /><span>Raporlar</span></a>
+                    {QUICK_DATA_ACTIONS.map((action) => {
+                      const Icon = action.icon;
+                      const loading = veriIslemde && aktifVeriTipi === action.type;
+                      return (
+                        <button
+                          key={action.type}
+                          type="button"
+                          onClick={() => veriAksiyonu(action.type)}
+                          disabled={veriIslemde || !aktifSohbetId}
+                          aria-label={`${action.label} verisini ${viewerIsAccountant ? "iste" : "paylaş"}`}
+                          title={`${action.label}: ${viewerIsAccountant ? "veri iste" : "veri paylaş"}`}
+                        >
+                          {loading ? <Loader2 size={14} className="spin" /> : <Icon size={14} />}
+                          <span>{action.label}</span>
+                        </button>
+                      );
+                    })}
                   </nav>
                   <div className="chat-thread__composer-tools">
                     <label className="chat-thread__composer-period">
@@ -891,7 +918,7 @@ export function SohbetlerSayfasi({ mobileMode = false, ustBar, onUstBarYenile }:
                         <option value="custom">Özel aralık</option>
                       </select>
                     </label>
-                    <button type="button" className="chat-thread__composer-data" onClick={veriAksiyonu} disabled={veriIslemde}>
+                    <button type="button" className="chat-thread__composer-data" onClick={() => veriAksiyonu()} disabled={veriIslemde}>
                       {veriIslemde ? <Loader2 size={15} className="spin" /> : <FileUp size={15} />}
                       <span>{dataActionLabel}</span>
                     </button>
@@ -998,18 +1025,62 @@ function DataCard({ attachment }: { attachment: SohbetEki }) {
       return {};
     }
   }, [attachment.ozetJson]);
+  const card = React.useMemo(() => {
+    if (attachment.veriTipi === "Faturalar") {
+      return {
+        icon: ReceiptText,
+        rows: [
+          ["Satış", para(data.satisToplami)],
+          ["Alış", para(data.alisToplami)],
+          ["Bekleyen", para(data.bekleyen)]
+        ]
+      };
+    }
+    if (attachment.veriTipi === "TahsilatOdemeler") {
+      return {
+        icon: Banknote,
+        rows: [
+          ["Tahsilat", para(data.tahsilat)],
+          ["Ödeme", para(data.odeme)],
+          ["Net", para(data.net)]
+        ]
+      };
+    }
+    if (attachment.veriTipi === "FinansalRapor") {
+      return {
+        icon: ChartNoAxesCombined,
+        rows: [
+          ["Gelir", para(data.gelir)],
+          ["Gider", para(data.gider)],
+          ["Net", para(data.net)]
+        ]
+      };
+    }
+    return {
+      icon: TrendingUp,
+      rows: [
+        ["Gelir", para(data.gelir)],
+        ["Gider", para(data.gider)],
+        ["Net", para(data.net)]
+      ]
+    };
+  }, [attachment.veriTipi, data]);
+  const CardIcon = card.icon;
 
   return (
     <div className="chat-data-card">
       <span className="chat-data-card__icon">
-        <TrendingUp size={20} />
+        <CardIcon size={20} />
       </span>
       <div className="chat-data-card__content">
         <strong>{attachment.baslik || "Veri özeti"}</strong>
         <dl>
-          <div><dt>Gelir</dt><dd>{para(data.gelir)}</dd></div>
-          <div><dt>Gider</dt><dd>{para(data.gider)}</dd></div>
-          <div className="chat-data-card__net"><dt>Net</dt><dd>{para(data.net)}</dd></div>
+          {card.rows.map(([label, value], index) => (
+            <div key={label} className={index === card.rows.length - 1 ? "chat-data-card__net" : undefined}>
+              <dt>{label}</dt>
+              <dd>{value}</dd>
+            </div>
+          ))}
         </dl>
       </div>
     </div>

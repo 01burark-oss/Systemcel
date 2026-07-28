@@ -25,6 +25,7 @@ namespace Systemcel.Api.Api
         private readonly IKalemTanimiService? _kalemTanimiService;
         private readonly IUrunHizmetService? _urunHizmetService;
         private readonly IStokService? _stokService;
+        private readonly IHizliSatisService? _hizliSatisService;
         private readonly IDashboardSnapshotService? _dashboardSnapshotService;
         private readonly BackupReportService? _backupReportService;
         private readonly TelegramSettings? _telegramSettings;
@@ -49,6 +50,7 @@ namespace Systemcel.Api.Api
             IKalemTanimiService kalemTanimiService,
             IUrunHizmetService urunHizmetService,
             IStokService stokService,
+            IHizliSatisService hizliSatisService,
             IDashboardSnapshotService dashboardSnapshotService,
             BackupReportService backupReportService,
             TelegramSettings telegramSettings,
@@ -71,6 +73,7 @@ namespace Systemcel.Api.Api
             _kalemTanimiService = kalemTanimiService;
             _urunHizmetService = urunHizmetService;
             _stokService = stokService;
+            _hizliSatisService = hizliSatisService;
             _dashboardSnapshotService = dashboardSnapshotService;
             _backupReportService = backupReportService;
             _telegramSettings = telegramSettings;
@@ -917,6 +920,43 @@ namespace Systemcel.Api.Api
                     catch (Exception ex)
                     {
                         return Results.BadRequest(new ApiHata($"Stok hareketi eklenemedi: {ex.Message}"));
+                    }
+                });
+
+                app.MapPost("/api/ekran/urun-stok/hizli-satis", async (HizliSatisKaydetIstek request) =>
+                {
+                    var readOnly = await RejectReadOnlyAccountantContextAsync();
+                    if (readOnly is not null)
+                        return readOnly;
+
+                    try
+                    {
+                        var result = await _hizliSatisService!.CreateAsync(new HizliSatisCreateRequest
+                        {
+                            IslemAnahtari = request.islemAnahtari ?? string.Empty,
+                            OdemeYontemi = request.odemeYontemi ?? "Nakit",
+                            Tarih = DateTime.Now,
+                            Satirlar = request.satirlar.Select(x => new HizliSatisSatirRequest
+                            {
+                                UrunHizmetId = x.urunHizmetId,
+                                Miktar = x.miktar
+                            }).ToList()
+                        });
+
+                        return Results.Ok(new HizliSatisSonucDto
+                        {
+                            mesaj = result.Tekrarlandi
+                                ? $"Satış daha önce kaydedilmişti: {result.FaturaNo}"
+                                : $"Satış tamamlandı: {result.FaturaNo}",
+                            faturaId = result.FaturaId,
+                            faturaNo = result.FaturaNo,
+                            toplam = result.Toplam,
+                            tekrarlandi = result.Tekrarlandi
+                        });
+                    }
+                    catch (Exception ex)
+                    {
+                        return Results.BadRequest(new ApiHata($"Hızlı satış tamamlanamadı: {ex.Message}"));
                     }
                 });
             }
@@ -3925,6 +3965,28 @@ namespace Systemcel.Api.Api
             public decimal miktar { get; set; }
             public string? tarih { get; set; }
             public string? aciklama { get; set; }
+        }
+
+        public sealed class HizliSatisKaydetIstek
+        {
+            public string? islemAnahtari { get; set; }
+            public string? odemeYontemi { get; set; }
+            public List<HizliSatisSatirKaydetIstek> satirlar { get; set; } = new();
+        }
+
+        public sealed class HizliSatisSatirKaydetIstek
+        {
+            public int urunHizmetId { get; set; }
+            public decimal miktar { get; set; }
+        }
+
+        public sealed class HizliSatisSonucDto
+        {
+            public string mesaj { get; set; } = string.Empty;
+            public int faturaId { get; set; }
+            public string faturaNo { get; set; } = string.Empty;
+            public decimal toplam { get; set; }
+            public bool tekrarlandi { get; set; }
         }
 
         public sealed class FaturaKaydetIstek

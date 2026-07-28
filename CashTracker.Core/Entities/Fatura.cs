@@ -14,6 +14,7 @@ namespace CashTracker.Core.Entities
         public string YerelFaturaNo { get; set; } = string.Empty;
         public string PortalBelgeNo { get; set; } = string.Empty;
         public string PortalUuid { get; set; } = string.Empty;
+        public string? HizliSatisAnahtari { get; set; }
         public decimal AraToplam { get; set; }
         public decimal IskontoToplam { get; set; }
         public decimal KdvToplam { get; set; }

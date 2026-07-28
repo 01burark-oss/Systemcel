@@ -355,6 +355,7 @@ namespace CashTracker.Infrastructure.Persistence
                 e.HasIndex(x => x.IsletmeId);
                 e.HasIndex(x => new { x.IsletmeId, x.Tarih });
                 e.HasIndex(x => new { x.IsletmeId, x.CariKartId });
+                e.HasIndex(x => new { x.IsletmeId, x.HizliSatisAnahtari }).IsUnique();
             });
 
             modelBuilder.Entity<FaturaSatir>(e =>

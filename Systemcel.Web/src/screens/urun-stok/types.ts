@@ -54,3 +54,15 @@ export interface StokHareketFormu {
   tarih: string;
   aciklama: string;
 }
+
+export interface HizliSatisSepetSatiri extends UrunListeKaydi {
+  miktar: number;
+}
+
+export interface HizliSatisSonucu {
+  mesaj: string;
+  faturaId: number;
+  faturaNo: string;
+  toplam: number;
+  tekrarlandi: boolean;
+}

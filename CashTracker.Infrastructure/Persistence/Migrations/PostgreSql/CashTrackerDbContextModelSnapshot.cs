@@ -346,6 +346,9 @@ namespace CashTracker.Infrastructure.Persistence.Migrations.PostgreSql
                     b.Property<decimal>("GenelToplam")
                         .HasColumnType("NUMERIC");
 
+                    b.Property<string>("HizliSatisAnahtari")
+                        .HasColumnType("text");
+
                     b.Property<decimal>("IskontoToplam")
                         .HasColumnType("NUMERIC");
 
@@ -391,6 +394,9 @@ namespace CashTracker.Infrastructure.Persistence.Migrations.PostgreSql
                     b.HasIndex("IsletmeId");
 
                     b.HasIndex("IsletmeId", "CariKartId");
+
+                    b.HasIndex("IsletmeId", "HizliSatisAnahtari")
+                        .IsUnique();
 
                     b.HasIndex("IsletmeId", "Tarih");
 

@@ -1,0 +1,355 @@
+.quick-sale-launch {
+  min-height: 46px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 16px;
+  border: 1px solid #0b0b09;
+  border-radius: 14px;
+  background: #0b0b09;
+  color: #fff;
+  font: inherit;
+  font-weight: 800;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.quick-sale-launch span {
+  min-width: 22px;
+  height: 22px;
+  display: inline-grid;
+  place-items: center;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: #c8ff00;
+  color: #0b0b09;
+  font-size: 12px;
+}
+
+.quick-sale-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(11, 11, 9, .48);
+  backdrop-filter: blur(8px);
+}
+
+.quick-sale-card {
+  width: min(760px, 100%);
+  max-height: min(760px, calc(100vh - 48px));
+  display: grid;
+  grid-template-rows: auto auto auto minmax(150px, 1fr) auto;
+  overflow: hidden;
+  border: 1px solid #cbc9be;
+  border-radius: 26px;
+  background: #fbfaf5;
+  box-shadow: 0 28px 70px rgba(11, 11, 9, .25);
+  color: #0b0b09;
+}
+
+.quick-sale-card > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 24px 26px 20px;
+  border-bottom: 1px solid #dedcd2;
+}
+
+.quick-sale-eyebrow {
+  display: block;
+  margin-bottom: 5px;
+  color: #6f6d64;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+
+.quick-sale-card h2 {
+  margin: 0;
+  font-size: 30px;
+  line-height: 1.05;
+}
+
+.quick-sale-card header p {
+  margin: 7px 0 0;
+  color: #6f6d64;
+  font-size: 14px;
+}
+
+.quick-sale-close,
+.quick-sale-remove,
+.quick-sale-quantity button {
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid #d7d5cb;
+  background: #fffef9;
+  color: #0b0b09;
+  cursor: pointer;
+}
+
+.quick-sale-close {
+  width: 42px;
+  height: 42px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+}
+
+.quick-sale-scanner {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  margin: 22px 26px 0;
+  padding: 8px 8px 8px 16px;
+  border: 1px solid #0b0b09;
+  border-radius: 17px;
+  background: #fffef9;
+}
+
+.quick-sale-scanner input {
+  min-width: 0;
+  height: 42px;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #0b0b09;
+  font: inherit;
+  font-size: 16px;
+}
+
+.quick-sale-scanner button,
+.quick-sale-submit {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 0;
+  border-radius: 12px;
+  background: #c8ff00;
+  color: #0b0b09;
+  font: inherit;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.quick-sale-scanner button {
+  padding: 0 18px;
+}
+
+.quick-sale-message {
+  min-height: 20px;
+  display: block;
+  padding: 7px 27px 12px;
+  color: #6f6d64;
+}
+
+.quick-sale-lines {
+  overflow: auto;
+  padding: 0 26px 18px;
+}
+
+.quick-sale-lines article {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(100px, auto) auto;
+  align-items: center;
+  gap: 15px;
+  padding: 14px 0;
+  border-top: 1px solid #dedcd2;
+}
+
+.quick-sale-product {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.quick-sale-product > span {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border: 1px solid #d9e8a4;
+  border-radius: 12px;
+  background: #f3fbd9;
+}
+
+.quick-sale-product div {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.quick-sale-product strong,
+.quick-sale-product small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.quick-sale-product small {
+  color: #77746b;
+}
+
+.quick-sale-quantity {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.quick-sale-quantity button,
+.quick-sale-remove {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+}
+
+.quick-sale-quantity button:disabled,
+.quick-sale-scanner button:disabled,
+.quick-sale-submit:disabled {
+  cursor: not-allowed;
+  opacity: .45;
+}
+
+.quick-sale-line-total {
+  text-align: right;
+}
+
+.quick-sale-remove {
+  color: #a43834;
+}
+
+.quick-sale-empty {
+  min-height: 170px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 7px;
+  color: #77746b;
+  text-align: center;
+}
+
+.quick-sale-empty strong {
+  color: #0b0b09;
+}
+
+.quick-sale-card > footer {
+  display: grid;
+  grid-template-columns: minmax(170px, 1fr) auto auto;
+  align-items: end;
+  gap: 18px;
+  padding: 18px 26px 22px;
+  border-top: 1px solid #dedcd2;
+  background: #f4f2e9;
+}
+
+.quick-sale-card footer label,
+.quick-sale-total {
+  display: grid;
+  gap: 6px;
+}
+
+.quick-sale-card footer label span,
+.quick-sale-total span {
+  color: #6f6d64;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.quick-sale-card footer select {
+  height: 46px;
+  padding: 0 42px 0 14px;
+  border: 1px solid #cbc9be;
+  border-radius: 13px;
+  background: #fffef9;
+  color: #0b0b09;
+  font: inherit;
+  font-weight: 700;
+}
+
+.quick-sale-total strong {
+  font-size: 25px;
+  white-space: nowrap;
+}
+
+.quick-sale-submit {
+  min-width: 185px;
+  height: 48px;
+  padding: 0 20px;
+}
+
+@media (max-width: 860px) {
+  .quick-sale-modal {
+    align-items: end;
+    padding: 0;
+  }
+
+  .quick-sale-card {
+    width: 100%;
+    max-height: 92dvh;
+    border-radius: 24px 24px 0 0;
+  }
+
+  .quick-sale-lines article {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+  }
+
+  .quick-sale-line-total {
+    grid-column: 1 / 2;
+    padding-left: 52px;
+    text-align: left;
+  }
+
+  .quick-sale-remove {
+    grid-column: 3;
+    grid-row: 1;
+  }
+}
+
+@media (max-width: 620px) {
+  .quick-sale-launch {
+    width: 100%;
+  }
+
+  .quick-sale-card > header {
+    padding: 20px 18px 16px;
+  }
+
+  .quick-sale-scanner {
+    grid-template-columns: auto minmax(0, 1fr);
+    margin: 16px 18px 0;
+  }
+
+  .quick-sale-scanner button {
+    grid-column: 1 / -1;
+  }
+
+  .quick-sale-message {
+    padding-right: 19px;
+    padding-left: 19px;
+  }
+
+  .quick-sale-lines {
+    padding-right: 18px;
+    padding-left: 18px;
+  }
+
+  .quick-sale-card > footer {
+    grid-template-columns: 1fr auto;
+    gap: 13px;
+    padding: 15px 18px 18px;
+  }
+
+  .quick-sale-submit {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+}
