@@ -19791,16 +19791,18 @@ tbody tr.secili {
   .auth-shell--branded {
     width: 100%;
     height: 100dvh;
-    min-height: 0;
-    max-height: 100dvh;
+    min-height: 100dvh;
+    max-height: none;
     padding: 13px 16px calc(10px + env(safe-area-inset-bottom));
     grid-template-columns: minmax(0, 1fr) auto;
-    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-rows: auto auto;
     align-content: start;
     gap: 8px 10px;
-    overflow: hidden;
-    overscroll-behavior: none;
-    touch-action: manipulation;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior-y: auto;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
   }
 
   .auth-shell__brand--top {
@@ -19833,12 +19835,12 @@ tbody tr.secili {
   .auth-shell__layout,
   .auth-shell--sign-up .auth-shell__layout {
     width: 100%;
-    height: 100%;
+    height: auto;
     min-height: 0;
     grid-column: 1 / -1;
     grid-row: 2;
     display: block;
-    overflow: hidden;
+    overflow: visible;
   }
 
   .auth-shell__left {
@@ -19849,10 +19851,10 @@ tbody tr.secili {
   .auth-shell--sign-up .auth-shell__card {
     width: 100%;
     max-width: none;
-    max-height: 100%;
+    max-height: none;
     margin: 0;
     padding: 14px 16px 12px;
-    overflow: hidden;
+    overflow: visible;
     border-radius: 18px;
   }
 
