@@ -419,6 +419,15 @@ export function UrunStokSayfasi({ yenileAnahtari }: UrunStokSayfasiProps) {
                   <option value="Pasif">Pasif Ürünler</option>
                   <option value="Tumu">Tüm Durumlar</option>
                 </select>
+                <button
+                  type="button"
+                  className="stock-btn stock-btn--primary stock-new-product"
+                  onClick={yeniUrunFormunuAc}
+                  disabled={islemde}
+                >
+                  <Plus size={17} />
+                  Yeni ürün
+                </button>
               </div>
             </div>
 
@@ -441,7 +450,19 @@ export function UrunStokSayfasi({ yenileAnahtari }: UrunStokSayfasiProps) {
                   {filtreliUrunler.map((row) => {
                     const kritik = row.tip === "Urun" && row.mevcutStok <= row.kritikStok;
                     return (
-                      <tr key={row.id} className={seciliId === row.id ? "secili" : ""} onClick={() => kaydiSec(row)}>
+                      <tr
+                        key={row.id}
+                        className={seciliId === row.id ? "secili" : ""}
+                        onClick={() => kaydiSec(row)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            kaydiSec(row);
+                          }
+                        }}
+                        tabIndex={0}
+                        aria-label={`${row.ad} ürün kartını aç`}
+                      >
                         <td><span className={`stock-type ${row.tip === "Hizmet" ? "service" : ""}`}><Box size={15} />{etiketBic(row.tip)}</span></td>
                         <td>{row.ad || "-"}</td>
                         <td>{row.barkod || "-"}</td>
