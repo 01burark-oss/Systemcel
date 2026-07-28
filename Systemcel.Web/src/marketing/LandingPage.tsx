@@ -133,6 +133,7 @@ export function LandingPage() {
   const auth = useSystemcelAuth();
   const pageRef = React.useRef<HTMLDivElement>(null);
   const progressRef = React.useRef<HTMLDivElement>(null);
+  const tourTouchStartRef = React.useRef<number | null>(null);
   const [language, setLanguage] = React.useState<Language>(() => window.localStorage.getItem("systemcel.language") === "en" ? "en" : "tr");
   const [billing, setBilling] = React.useState<Billing>("Aylik");
   const [plans, setPlans] = React.useState<PublicPlan[]>(fallbackPlans);
@@ -229,6 +230,7 @@ export function LandingPage() {
     },
   ];
   const activeTourStep = tourSteps[tourStep];
+  const tourIcons = [WalletCards, Bot, Users, Check];
 
   React.useEffect(() => {
     document.title = language === "tr" ? "systemcel — Yapay Zekâ Destekli Ön Muhasebe" : "systemcel — AI-powered accounting";
@@ -442,15 +444,18 @@ export function LandingPage() {
       {tourOpen ? (
         <div className="marketing-modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setTourOpen(false)}>
           <div className="marketing-tour-modal" role="dialog" aria-modal="true" aria-labelledby="tour-title">
-            <button className="marketing-tour-modal__close" type="button" onClick={() => setTourOpen(false)} aria-label={t.close}><X /></button>
-            <div className="marketing-tour-modal__topline">
-              <span><Play size={18} /></span>
+            <header className="marketing-tour-header">
+              <a className="marketing-brand marketing-brand--dark" href="#top" onClick={() => setTourOpen(false)}>
+                <BrandMark /><strong>systemcel</strong>
+              </a>
               <div>
-                <small>{t.tourTitle}</small>
+                <span><Play size={15} />{language === "tr" ? "Etkileşimli ürün turu" : "Interactive product tour"}</span>
                 <strong>{activeTourStep.number} / {String(tourSteps.length).padStart(2, "0")}</strong>
               </div>
-            </div>
-            <div className="marketing-tour-progress" aria-label={language === "tr" ? "Tur ilerlemesi" : "Tour progress"}>
+              <button className="marketing-tour-modal__close" type="button" onClick={() => setTourOpen(false)} aria-label={t.close}><X /></button>
+            </header>
+
+            <nav className="marketing-tour-progress" aria-label={language === "tr" ? "Tur ilerlemesi" : "Tour progress"}>
               {tourSteps.map((step, index) => (
                 <button
                   key={step.target}
@@ -459,24 +464,83 @@ export function LandingPage() {
                   onClick={() => setTourStep(index)}
                   aria-label={`${index + 1}. ${step.eyebrow}`}
                   aria-current={index === tourStep ? "step" : undefined}
-                />
+                >
+                  <span>{step.number}</span>
+                  <b>{step.eyebrow}</b>
+                </button>
               ))}
-            </div>
-            <div className="marketing-tour-preview">
-              <div className="marketing-tour-preview__header">
-                <span>{activeTourStep.eyebrow}</span>
-                <b>{activeTourStep.metricLabel}</b>
+            </nav>
+
+            <div
+              className="marketing-tour-viewport"
+              onTouchStart={(event) => {
+                tourTouchStartRef.current = event.touches[0]?.clientX ?? null;
+              }}
+              onTouchEnd={(event) => {
+                const start = tourTouchStartRef.current;
+                const end = event.changedTouches[0]?.clientX;
+                tourTouchStartRef.current = null;
+                if (start === null || end === undefined) return;
+                const distance = end - start;
+                if (distance < -50) setTourStep((step) => Math.min(tourSteps.length - 1, step + 1));
+                if (distance > 50) setTourStep((step) => Math.max(0, step - 1));
+              }}
+            >
+              <div className="marketing-tour-track" style={{ transform: `translate3d(-${tourStep * 100}%, 0, 0)` }}>
+                {tourSteps.map((step, index) => {
+                  const Icon = tourIcons[index] ?? Play;
+                  return (
+                    <article className={`marketing-tour-slide${index === tourStep ? " active" : ""}`} key={step.target} aria-hidden={index !== tourStep}>
+                      <div className="marketing-tour-slide__copy">
+                        <span>{step.number} — {step.eyebrow}</span>
+                        <h2 id={index === tourStep ? "tour-title" : undefined}>{step.title}</h2>
+                        <p>{step.text}</p>
+                        <button type="button" onClick={() => showTourSection(step.target)}>
+                          {language === "tr" ? "Landing’de bu bölümü gör" : "View this section on the landing page"}
+                          <ArrowRight size={17} />
+                        </button>
+                      </div>
+
+                      <div className={`marketing-tour-visual marketing-tour-visual--${index + 1}`} aria-hidden="true">
+                        <div className="marketing-tour-visual__glow" />
+                        <div className="marketing-tour-window">
+                          <header>
+                            <span><i /><i /><i /></span>
+                            <b>SYSTEMCEL / {step.number}</b>
+                            <small>{language === "tr" ? "CANLI" : "LIVE"}</small>
+                          </header>
+                          <div className="marketing-tour-window__body">
+                            <aside>
+                              <span className="active"><Icon size={17} /></span>
+                              <span /><span /><span /><span />
+                            </aside>
+                            <main>
+                              <div className="marketing-tour-window__title">
+                                <span>{step.metricLabel}</span>
+                                <strong>{step.metricValue}</strong>
+                              </div>
+                              <div className="marketing-tour-window__chart">
+                                <i /><i /><i /><i /><i /><i /><i />
+                              </div>
+                              <div className="marketing-tour-window__cards">
+                                {step.chips.map((chip, chipIndex) => (
+                                  <span key={chip}><b>{String(chipIndex + 1).padStart(2, "0")}</b>{chip}</span>
+                                ))}
+                              </div>
+                            </main>
+                          </div>
+                        </div>
+                        <div className="marketing-tour-float marketing-tour-float--top"><Sparkles size={15} />{step.chips[0]}</div>
+                        <div className="marketing-tour-float marketing-tour-float--bottom"><Check size={15} />{step.metricValue}</div>
+                      </div>
+                    </article>
+                  );
+                })}
               </div>
-              <strong>{activeTourStep.metricValue}</strong>
-              <div>{activeTourStep.chips.map((chip) => <span key={chip}>{chip}</span>)}</div>
             </div>
-            <span className="marketing-tour-modal__eyebrow">{activeTourStep.eyebrow}</span>
-            <h2 id="tour-title">{activeTourStep.title}</h2>
-            <p>{activeTourStep.text}</p>
-            <div className="marketing-tour-modal__actions">
-              <button type="button" className="marketing-tour-section-link" onClick={() => showTourSection(activeTourStep.target)}>
-                {language === "tr" ? "Bu bölümü göster" : "Show this section"}
-              </button>
+
+            <footer className="marketing-tour-footer">
+              <span>{language === "tr" ? "Kaydırarak veya oklarla ilerle" : "Swipe or use the arrows"}</span>
               <div>
                 <button type="button" className="marketing-tour-nav marketing-tour-nav--secondary" onClick={() => setTourStep((step) => Math.max(0, step - 1))} disabled={tourStep === 0}>
                   {language === "tr" ? "Geri" : "Back"}
@@ -489,7 +553,7 @@ export function LandingPage() {
                   <a className="marketing-tour-nav marketing-tour-nav--primary" href={trialHref()}>{t.tourAction}<ArrowRight size={17} /></a>
                 )}
               </div>
-            </div>
+            </footer>
           </div>
         </div>
       ) : null}

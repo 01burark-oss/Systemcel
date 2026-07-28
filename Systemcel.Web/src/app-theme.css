@@ -5683,23 +5683,6 @@
   white-space: nowrap;
 }
 
-:root[data-theme="light"] .stock-workbench__header .stock-workbench__sale {
-  flex: 0 0 auto;
-  min-height: 42px;
-  padding-inline: 15px;
-  border-radius: 12px;
-}
-
-:root[data-theme="light"] .stock-workbench__header .stock-workbench__sale span {
-  min-width: 21px;
-  height: 21px;
-  color: var(--sc-ink);
-  font-family: inherit;
-  font-size: 11px;
-  letter-spacing: 0;
-  text-transform: none;
-}
-
 :root[data-theme="light"] .stock-workbench__tabs {
   margin: 14px 18px 0;
   padding: 4px;

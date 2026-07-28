@@ -16,6 +16,8 @@ import {
   LogOut,
   Menu,
   MessageCircle,
+  Package,
+  ScanBarcode,
   Send,
   Settings,
   Search,
@@ -61,7 +63,8 @@ interface Bildirim {
 const anaMenu: Array<{ href: string; label: string; icon: LucideIcon; adminOnly?: boolean }> = [
   { href: "/", label: "Ana Sayfa", icon: Home },
   { href: "/gelir-gider", label: "Gelir / Gider Kayıtları", icon: ArrowDownUp },
-  { href: "/urun-stok", label: "Ürün / Stok", icon: ShoppingCart },
+  { href: "/hizli-satis", label: "Hızlı Satış", icon: ShoppingCart },
+  { href: "/urun-stok", label: "Ürün / Stok", icon: Package },
   { href: "/cari-hesaplar", label: "Cari Hesaplar", icon: CreditCard },
   { href: "/faturalar", label: "Faturalar", icon: FileText },
   { href: "/tahsilat-odeme", label: "Tahsilat / Ödeme", icon: WalletCards },
@@ -164,6 +167,15 @@ function workspacePageMeta(path: string, settingsTab: string): WorkspacePageMeta
       description: "Ürün, hizmet ve stok hareketlerini düzenleyin; kritik seviyeleri takip edin.",
       icon: ShoppingCart,
       title: "Ürün ve stok"
+    };
+  }
+
+  if (path === "/hizli-satis") {
+    return {
+      category: "Satış noktası",
+      description: "Stoktaki ürünleri seçin veya barkod okutun; satışı tamamlayınca stok ve gelir kaydı otomatik güncellensin.",
+      icon: ScanBarcode,
+      title: "Hızlı satış"
     };
   }
 

@@ -18,6 +18,7 @@ import { RaporlarSayfasi } from "./screens/raporlar/RaporlarSayfasi";
 import { SohbetlerSayfasi } from "./screens/sohbetler/SohbetlerSayfasi";
 import { AyarlarSayfasi } from "./screens/ayarlar/AyarlarSayfasi";
 import { TahsilatOdemeSayfasi } from "./screens/tahsilat-odeme/TahsilatOdemeSayfasi";
+import { HizliSatisSayfasi } from "./screens/urun-stok/HizliSatisSayfasi";
 import { UrunStokSayfasi } from "./screens/urun-stok/UrunStokSayfasi";
 import { WelcomeSayfasi } from "./screens/welcome/WelcomeSayfasi";
 import { PublicContentPage } from "./marketing/PublicContentPage";
@@ -526,6 +527,8 @@ function WorkspaceRoutes({ path }: { path: string }) {
           yenileAnahtari={yenileAnahtari}
           onIsletmeDegistir={isletmeDegistir}
         />
+      ) : routePath === "/hizli-satis" ? (
+        <HizliSatisSayfasi yenileAnahtari={yenileAnahtari} />
       ) : routePath === "/cari-hesaplar" ? (
         <CariHesaplarSayfasi
           ustBar={ustBar}
