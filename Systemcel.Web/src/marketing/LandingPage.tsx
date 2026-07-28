@@ -135,6 +135,7 @@ export function LandingPage() {
   const pageRef = React.useRef<HTMLDivElement>(null);
   const progressRef = React.useRef<HTMLDivElement>(null);
   const tourViewportRef = React.useRef<HTMLDivElement>(null);
+  const tourTouchStartRef = React.useRef<{ x: number; y: number } | null>(null);
   const [language, setLanguage] = React.useState<Language>(() => window.localStorage.getItem("systemcel.language") === "en" ? "en" : "tr");
   const [billing, setBilling] = React.useState<Billing>("Aylik");
   const [plans, setPlans] = React.useState<PublicPlan[]>(fallbackPlans);
@@ -365,6 +366,23 @@ export function LandingPage() {
     setTourStep((current) => current === nextStep ? current : nextStep);
   }
 
+  function handleTourTouchStart(event: React.TouchEvent<HTMLDivElement>) {
+    const touch = event.touches[0];
+    tourTouchStartRef.current = touch ? { x: touch.clientX, y: touch.clientY } : null;
+  }
+
+  function handleTourTouchEnd(event: React.TouchEvent<HTMLDivElement>) {
+    const start = tourTouchStartRef.current;
+    const touch = event.changedTouches[0];
+    tourTouchStartRef.current = null;
+    if (!start || !touch) return;
+
+    const deltaX = touch.clientX - start.x;
+    const deltaY = touch.clientY - start.y;
+    if (Math.abs(deltaX) < 46 || Math.abs(deltaX) <= Math.abs(deltaY) * 1.15) return;
+    moveTourToStep(tourStep + (deltaX < 0 ? 1 : -1));
+  }
+
   return (
     <div className="marketing-page" ref={pageRef}>
       <a className="marketing-skip" href="#main">{language === "tr" ? "İçeriğe geç" : "Skip to content"}</a>
@@ -544,7 +562,13 @@ export function LandingPage() {
               ))}
             </nav>
 
-            <div className="marketing-tour-viewport" ref={tourViewportRef} onScroll={handleTourScroll}>
+            <div
+              className="marketing-tour-viewport"
+              ref={tourViewportRef}
+              onScroll={handleTourScroll}
+              onTouchStart={handleTourTouchStart}
+              onTouchEnd={handleTourTouchEnd}
+            >
               <div className="marketing-tour-scrollworld" style={{ height: `${tourSteps.length * 100}%` }}>
                 <div className="marketing-tour-stage" style={{ height: `${100 / tourSteps.length}%` }}>
                   <div className="marketing-tour-camera">
@@ -554,22 +578,26 @@ export function LandingPage() {
                       const absoluteDistance = Math.abs(distance);
                       const sceneOpacity = Math.max(0, 1 - absoluteDistance * .72);
                       const sceneScale = Math.max(.68, 1 - absoluteDistance * .16);
-                      const sceneTransform = [
-                        `translate3d(${distance * 8}%, ${distance * 72}%, ${-absoluteDistance * 620}px)`,
-                        `rotateX(${distance * -11}deg)`,
-                        `rotateY(${distance * 13}deg)`,
-                        `scale(${sceneScale})`,
-                      ].join(" ");
+                      const sceneStyle = {
+                        "--tour-x": `${distance * 8}%`,
+                        "--tour-y": `${distance * 72}%`,
+                        "--tour-z": `${-absoluteDistance * 620}px`,
+                        "--tour-rx": `${distance * -11}deg`,
+                        "--tour-ry": `${distance * 13}deg`,
+                        "--tour-mobile-x": `${distance * 86}%`,
+                        "--tour-mobile-z": `${-absoluteDistance * 120}px`,
+                        "--tour-mobile-ry": `${distance * -6}deg`,
+                        "--tour-scene-opacity": sceneOpacity,
+                        "--tour-mobile-opacity": Math.max(.2, 1 - absoluteDistance * .58),
+                        "--tour-scene-scale": sceneScale,
+                        zIndex: tourSteps.length - Math.round(absoluteDistance * 2),
+                      } as React.CSSProperties;
                       return (
                         <article
                           className={`marketing-tour-scene${index === tourStep ? " active" : ""}`}
                           key={step.target}
                           aria-hidden={index !== tourStep}
-                          style={{
-                            opacity: sceneOpacity,
-                            transform: sceneTransform,
-                            zIndex: tourSteps.length - Math.round(absoluteDistance * 2),
-                          }}
+                          style={sceneStyle}
                         >
                           <div className="marketing-tour-slide__copy">
                             <span>{step.number} — {step.eyebrow}</span>
@@ -581,45 +609,7 @@ export function LandingPage() {
                             </button>
                           </div>
 
-                          <div className={`marketing-tour-visual marketing-tour-visual--${index + 1}`} aria-hidden="true">
-                            <div className="marketing-tour-visual__glow" />
-                            <div
-                              className="marketing-tour-cube"
-                              style={{ transform: `rotateX(${28 + tourProgress * 26}deg) rotateY(${38 + tourProgress * 42}deg)` }}
-                            >
-                              <i /><i /><i /><i /><i /><i />
-                            </div>
-                            <div className="marketing-tour-orb"><Icon size={20} /></div>
-                            <div className="marketing-tour-window">
-                              <header>
-                                <span><i /><i /><i /></span>
-                                <b>SYSTEMCEL / {step.number}</b>
-                                <small>{language === "tr" ? "CANLI" : "LIVE"}</small>
-                              </header>
-                              <div className="marketing-tour-window__body">
-                                <aside>
-                                  <span className="active"><Icon size={17} /></span>
-                                  <span /><span /><span /><span />
-                                </aside>
-                                <main>
-                                  <div className="marketing-tour-window__title">
-                                    <span>{step.metricLabel}</span>
-                                    <strong>{step.metricValue}</strong>
-                                  </div>
-                                  <div className="marketing-tour-window__chart">
-                                    <i /><i /><i /><i /><i /><i /><i />
-                                  </div>
-                                  <div className="marketing-tour-window__cards">
-                                    {step.chips.map((chip, chipIndex) => (
-                                      <span key={chip}><b>{String(chipIndex + 1).padStart(2, "0")}</b>{chip}</span>
-                                    ))}
-                                  </div>
-                                </main>
-                              </div>
-                            </div>
-                            <div className="marketing-tour-float marketing-tour-float--top"><Sparkles size={15} />{step.chips[0]}</div>
-                            <div className="marketing-tour-float marketing-tour-float--bottom"><Check size={15} />{step.metricValue}</div>
-                          </div>
+                          <TourSceneVisual index={index} step={step} Icon={Icon} language={language} />
                         </article>
                       );
                     })}
@@ -650,6 +640,155 @@ export function LandingPage() {
         </div>
       ) : null}
     </div>
+  );
+}
+
+type TourVisualStep = {
+  number: string;
+  metricLabel: string;
+  metricValue: string;
+  chips: string[];
+};
+
+function TourSceneVisual({
+  index,
+  step,
+  Icon,
+  language,
+}: {
+  index: number;
+  step: TourVisualStep;
+  Icon: React.ComponentType<{ size?: number; strokeWidth?: number }>;
+  language: Language;
+}) {
+  const tr = language === "tr";
+
+  return (
+    <div className={`marketing-tour-visual marketing-tour-visual--${index + 1}`} aria-hidden="true">
+      <div className="marketing-tour-visual__glow" />
+      <div className="marketing-tour-orb"><Icon size={20} /></div>
+
+      {index === 0 ? (
+        <div className="marketing-tour-window marketing-tour-window--finance">
+          <TourWindowHeader step={step} language={language} />
+          <main className="marketing-tour-finance">
+            <div className="marketing-tour-finance__headline">
+              <span>{tr ? "Nakit akışı" : "Cash flow"}</span>
+              <b>₺1.248.560</b>
+              <small>+12,4%</small>
+            </div>
+            <svg className="marketing-tour-finance__chart" viewBox="0 0 420 120" preserveAspectRatio="none">
+              <defs>
+                <linearGradient id="tour-chart-fill" x1="0" x2="0" y1="0" y2="1">
+                  <stop offset="0%" stopColor="#c8ff00" stopOpacity=".34" />
+                  <stop offset="100%" stopColor="#c8ff00" stopOpacity="0" />
+                </linearGradient>
+              </defs>
+              <path className="fill" d="M0 103 C34 98 39 72 72 77 S111 94 139 64 S181 39 208 63 S244 95 272 62 S311 34 338 40 S378 56 420 20 L420 120 L0 120 Z" />
+              <path d="M0 103 C34 98 39 72 72 77 S111 94 139 64 S181 39 208 63 S244 95 272 62 S311 34 338 40 S378 56 420 20" />
+            </svg>
+            <div className="marketing-tour-finance__metrics">
+              <span><small>{tr ? "Gelir" : "Income"}</small><strong>₺2.560.000</strong></span>
+              <span><small>{tr ? "Gider" : "Expense"}</small><strong>₺1.311.440</strong></span>
+            </div>
+            <div className="marketing-tour-finance__invoice">
+              <FileText size={17} />
+              <span><small>{tr ? "Son fatura" : "Latest invoice"}</small><strong>FAT-2026-0148</strong></span>
+              <b>{tr ? "Tahsil edildi" : "Paid"}</b>
+            </div>
+          </main>
+        </div>
+      ) : null}
+
+      {index === 1 ? (
+        <div className="marketing-tour-window marketing-tour-window--assistant">
+          <TourWindowHeader step={step} language={language} />
+          <main className="marketing-tour-assistant">
+            <div className="marketing-tour-assistant__question">
+              {tr ? "Bu ay nakit akışım nasıl görünüyor?" : "How does my cash flow look this month?"}
+            </div>
+            <div className="marketing-tour-assistant__typing"><i /><i /><i /></div>
+            <div className="marketing-tour-assistant__answer">
+              <Bot size={18} />
+              <strong>{tr ? "Net nakit akışınız geçen aya göre %12,4 arttı." : "Net cash flow is up 12.4% from last month."}</strong>
+            </div>
+            <div className="marketing-tour-assistant__insights">
+              {step.chips.map((chip) => <span key={chip}><Sparkles size={12} />{chip}</span>)}
+            </div>
+          </main>
+        </div>
+      ) : null}
+
+      {index === 2 ? (
+        <div className="marketing-tour-window marketing-tour-window--accountant">
+          <TourWindowHeader step={step} language={language} />
+          <main className="marketing-tour-accountant">
+            <div className="marketing-tour-accountant__top">
+              <div className="marketing-tour-accountant__avatar">
+                <img src={accountantAyseAvatar} alt="" />
+                <i><Check size={14} strokeWidth={3} /></i>
+              </div>
+              <div>
+                <strong>Ayşe Demirtaş</strong>
+                <span>SMMM · İstanbul</span>
+              </div>
+              <b><Check size={13} strokeWidth={3} />%97</b>
+            </div>
+            <div className="marketing-tour-accountant__facts">
+              {step.chips.map((chip) => <span key={chip}>{chip}</span>)}
+            </div>
+            <div className="marketing-tour-accountant__meta">
+              <span><ShieldCheck size={15} />{tr ? "Doğrulanmış profil" : "Verified profile"}</span>
+              <span><Users size={15} />{tr ? "12 yıl deneyim" : "12 years experience"}</span>
+            </div>
+            <div className="marketing-tour-accountant__action">{tr ? "Profili incele" : "View profile"}<ArrowRight size={16} /></div>
+          </main>
+        </div>
+      ) : null}
+
+      {index === 3 ? (
+        <div className="marketing-tour-window marketing-tour-window--setup">
+          <TourWindowHeader step={step} language={language} />
+          <main className="marketing-tour-setup">
+            <div className="marketing-tour-setup__steps">
+              {[
+                tr ? "Şirket bilgileri" : "Company details",
+                tr ? "Plan seçimi" : "Choose plan",
+                tr ? "Entegrasyonlar" : "Integrations",
+                tr ? "Başlangıç" : "Launch",
+              ].map((label, itemIndex) => (
+                <span className={itemIndex < 3 ? "complete" : "active"} key={label}>
+                  <i>{itemIndex < 3 ? <Check size={13} strokeWidth={3} /> : itemIndex + 1}</i>
+                  <strong>{label}</strong>
+                </span>
+              ))}
+            </div>
+            <div className="marketing-tour-setup__plan">
+              <Building2 size={19} />
+              <span><small>{tr ? "Seçilen plan" : "Selected plan"}</small><strong>{tr ? "Büyüme" : "Growth"}</strong></span>
+              <b>{tr ? "Aylık" : "Monthly"}</b>
+            </div>
+            <div className="marketing-tour-setup__complete">
+              <b>100%</b>
+              <span><strong>{tr ? "Kurulum tamamlandı" : "Setup complete"}</strong><small>{tr ? "Çalışma alanınız hazır" : "Your workspace is ready"}</small></span>
+            </div>
+          </main>
+        </div>
+      ) : null}
+
+      <div className="marketing-tour-float marketing-tour-float--top"><Sparkles size={15} />{step.chips[0]}</div>
+      <div className="marketing-tour-float marketing-tour-float--bottom"><Check size={15} />{step.metricValue}</div>
+    </div>
+  );
+}
+
+function TourWindowHeader({ step, language }: { step: TourVisualStep; language: Language }) {
+  return (
+    <header>
+      <span><i /><i /><i /></span>
+      <b>SYSTEMCEL / {step.number}</b>
+      <small>{language === "tr" ? "CANLI" : "LIVE"}</small>
+    </header>
   );
 }
 

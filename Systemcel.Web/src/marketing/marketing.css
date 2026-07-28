@@ -789,6 +789,338 @@
 }
 .marketing-tour-window__cards span b { color: #7e9b00; font-family: Consolas, monospace; font-size: 8px; }
 
+/* Each tour step has its own product visual instead of sharing one generic chart. */
+.marketing-tour-window--finance,
+.marketing-tour-window--assistant,
+.marketing-tour-window--accountant,
+.marketing-tour-window--setup {
+  min-height: 0;
+}
+
+.marketing-tour-window--finance main,
+.marketing-tour-window--assistant main,
+.marketing-tour-window--accountant main,
+.marketing-tour-window--setup main {
+  box-sizing: border-box;
+}
+
+.marketing-tour-finance {
+  min-height: 338px;
+  padding: clamp(22px, 3vw, 34px);
+  display: grid;
+  grid-template-columns: 1fr;
+  align-content: space-between;
+  gap: 14px;
+}
+.marketing-tour-finance__headline {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: end;
+  gap: 3px 12px;
+}
+.marketing-tour-finance__headline span {
+  grid-column: 1 / -1;
+  color: var(--mk-muted);
+  font-family: Consolas, monospace;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+.marketing-tour-finance__headline b {
+  font-family: Georgia, serif;
+  font-size: clamp(30px, 3vw, 46px);
+  font-weight: 400;
+  letter-spacing: -.045em;
+}
+.marketing-tour-finance__headline small {
+  margin-bottom: 5px;
+  padding: 5px 8px;
+  color: #405200;
+  background: rgba(200,255,0,.42);
+  border-radius: 999px;
+  font-size: 9px;
+  font-weight: 900;
+}
+.marketing-tour-finance__chart {
+  width: 100%;
+  height: 108px;
+  overflow: visible;
+  border-bottom: 1px solid #cfcdc3;
+}
+.marketing-tour-finance__chart path:not(.fill) {
+  fill: none;
+  stroke: #91b800;
+  stroke-width: 4;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+.marketing-tour-finance__chart .fill { fill: url(#tour-chart-fill); stroke: none; }
+.marketing-tour-finance__metrics { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.marketing-tour-finance__metrics > span {
+  padding: 10px 12px;
+  display: grid;
+  gap: 3px;
+  background: #fffef9;
+  border: 1px solid var(--mk-line);
+  border-radius: 10px;
+}
+.marketing-tour-finance__metrics small,
+.marketing-tour-finance__invoice small { color: var(--mk-muted); font-size: 8px; }
+.marketing-tour-finance__metrics strong { font-size: 12px; }
+.marketing-tour-finance__invoice {
+  padding: 9px 11px;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 9px;
+  background: #efede4;
+  border-radius: 10px;
+}
+.marketing-tour-finance__invoice > span { display: grid; gap: 2px; }
+.marketing-tour-finance__invoice > span strong { font-size: 10px; }
+.marketing-tour-finance__invoice > b {
+  padding: 5px 7px;
+  color: #4a5e00;
+  background: rgba(200,255,0,.32);
+  border-radius: 999px;
+  font-size: 8px;
+}
+
+.marketing-tour-assistant {
+  min-height: 338px;
+  padding: clamp(22px, 3vw, 34px);
+  display: grid;
+  align-content: center;
+  gap: 12px;
+  background:
+    linear-gradient(rgba(11,11,9,.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(11,11,9,.035) 1px, transparent 1px);
+  background-size: 26px 26px;
+}
+.marketing-tour-assistant__question {
+  width: min(78%, 360px);
+  padding: 13px 15px;
+  justify-self: end;
+  color: #f6f4ec;
+  background: #171713;
+  border-radius: 13px 13px 3px 13px;
+  font-size: 12px;
+  line-height: 1.45;
+}
+.marketing-tour-assistant__typing {
+  width: fit-content;
+  padding: 7px 10px;
+  display: flex;
+  gap: 4px;
+  background: #e4e2d8;
+  border-radius: 999px;
+}
+.marketing-tour-assistant__typing i {
+  width: 5px;
+  height: 5px;
+  display: block;
+  background: #8b8a82;
+  border-radius: 50%;
+  animation: marketing-tour-ai-dot .9s infinite alternate;
+}
+.marketing-tour-assistant__typing i:nth-child(2) { animation-delay: .14s; }
+.marketing-tour-assistant__typing i:nth-child(3) { animation-delay: .28s; }
+.marketing-tour-assistant__answer {
+  padding: 16px;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: start;
+  gap: 10px;
+  background: var(--mk-lime);
+  border-radius: 14px 14px 14px 3px;
+  box-shadow: 0 18px 35px -25px rgba(79,100,0,.8);
+}
+.marketing-tour-assistant__answer strong { font-size: 13px; line-height: 1.45; }
+.marketing-tour-assistant__insights { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
+.marketing-tour-assistant__insights span {
+  min-width: 0;
+  padding: 9px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  overflow: hidden;
+  color: #5e5d56;
+  background: #fffef9;
+  border: 1px solid var(--mk-line);
+  border-radius: 10px;
+  font-size: 8px;
+  font-weight: 750;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.marketing-tour-accountant {
+  min-height: 338px;
+  padding: clamp(22px, 3vw, 34px);
+  display: grid;
+  align-content: center;
+  gap: 18px;
+}
+.marketing-tour-accountant__top {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 13px;
+}
+.marketing-tour-accountant__avatar {
+  width: 76px;
+  height: 76px;
+  position: relative;
+}
+.marketing-tour-accountant__avatar img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  border: 3px solid white;
+  border-radius: 50%;
+  box-shadow: 0 12px 28px -18px rgba(0,0,0,.75);
+}
+.marketing-tour-accountant__avatar i {
+  width: 24px;
+  height: 24px;
+  position: absolute;
+  right: -1px;
+  bottom: 1px;
+  display: grid;
+  place-items: center;
+  color: var(--mk-ink);
+  background: var(--mk-lime);
+  border: 2px solid #f7f5ee;
+  border-radius: 50%;
+}
+.marketing-tour-accountant__top > div:nth-child(2) { display: grid; gap: 5px; }
+.marketing-tour-accountant__top > div:nth-child(2) strong { font-size: clamp(18px, 2vw, 26px); }
+.marketing-tour-accountant__top > div:nth-child(2) span { color: var(--mk-muted); font-size: 10px; }
+.marketing-tour-accountant__top > b {
+  padding: 7px 9px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #425400;
+  background: rgba(200,255,0,.34);
+  border-radius: 999px;
+  font-size: 10px;
+}
+.marketing-tour-accountant__facts { display: flex; flex-wrap: wrap; gap: 7px; }
+.marketing-tour-accountant__facts span {
+  padding: 7px 9px;
+  color: #5d5c55;
+  background: #efede4;
+  border: 1px solid var(--mk-line);
+  border-radius: 999px;
+  font-size: 9px;
+  font-weight: 750;
+}
+.marketing-tour-accountant__meta {
+  padding: 13px 0;
+  display: flex;
+  gap: 20px;
+  color: #68675f;
+  border-top: 1px solid var(--mk-line);
+  border-bottom: 1px solid var(--mk-line);
+  font-size: 9px;
+}
+.marketing-tour-accountant__meta span { display: inline-flex; align-items: center; gap: 6px; }
+.marketing-tour-accountant__action {
+  min-height: 42px;
+  padding: 0 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--mk-cream);
+  background: var(--mk-ink);
+  border-radius: 999px;
+  font-weight: 850;
+}
+
+.marketing-tour-setup {
+  min-height: 338px;
+  padding: clamp(22px, 3vw, 34px);
+  display: grid;
+  align-content: center;
+  gap: 13px;
+}
+.marketing-tour-setup__steps { display: grid; gap: 7px; }
+.marketing-tour-setup__steps > span {
+  min-height: 38px;
+  padding: 0 11px;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 10px;
+  color: #66655e;
+  background: #efede4;
+  border-radius: 10px;
+}
+.marketing-tour-setup__steps i {
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  color: #4d6200;
+  background: rgba(200,255,0,.3);
+  border-radius: 50%;
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 900;
+}
+.marketing-tour-setup__steps .active {
+  color: var(--mk-ink);
+  background: rgba(200,255,0,.42);
+}
+.marketing-tour-setup__steps .active i { color: var(--mk-ink); background: var(--mk-lime); }
+.marketing-tour-setup__steps strong { font-size: 10px; }
+.marketing-tour-setup__plan,
+.marketing-tour-setup__complete {
+  padding: 12px;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--mk-line);
+  border-radius: 11px;
+}
+.marketing-tour-setup__plan > span,
+.marketing-tour-setup__complete > span { display: grid; gap: 2px; }
+.marketing-tour-setup__plan small,
+.marketing-tour-setup__complete small { color: var(--mk-muted); font-size: 8px; }
+.marketing-tour-setup__plan strong,
+.marketing-tour-setup__complete strong { font-size: 11px; }
+.marketing-tour-setup__plan > b {
+  padding: 5px 7px;
+  color: #4b5f00;
+  background: rgba(200,255,0,.28);
+  border-radius: 999px;
+  font-size: 8px;
+}
+.marketing-tour-setup__complete {
+  grid-template-columns: auto 1fr;
+  background: #171713;
+  color: var(--mk-cream);
+}
+.marketing-tour-setup__complete > b {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  color: var(--mk-lime);
+  border: 4px solid var(--mk-lime);
+  border-radius: 50%;
+  font-size: 10px;
+}
+
+@keyframes marketing-tour-ai-dot {
+  to { opacity: .25; transform: translateY(-2px); }
+}
+
 .marketing-tour-float {
   max-width: 210px;
   padding: 11px 13px;
@@ -958,6 +1290,12 @@
   gap: clamp(42px, 6vw, 90px);
   transform-origin: 50% 50%;
   transform-style: preserve-3d;
+  opacity: var(--tour-scene-opacity);
+  transform:
+    translate3d(var(--tour-x), var(--tour-y), var(--tour-z))
+    rotateX(var(--tour-rx))
+    rotateY(var(--tour-ry))
+    scale(var(--tour-scene-scale));
   transition: opacity .08s linear;
   will-change: transform, opacity;
   pointer-events: none;
@@ -1228,9 +1566,198 @@
   .marketing-ai-answer { padding: 16px; }
 }
 
+/* Mobile tour behaves like a swipeable carousel with a visible next-card edge. */
+@media (max-width: 700px) {
+  .marketing-tour-progress {
+    min-height: 52px;
+    padding: 7px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .marketing-tour-progress::-webkit-scrollbar { display: none; }
+  .marketing-tour-progress button {
+    width: 38px;
+    min-width: 38px;
+    min-height: 36px;
+    flex: 0 0 38px;
+    padding: 4px 6px;
+    display: grid;
+    grid-template-columns: 1fr;
+    border-radius: 999px;
+    scroll-snap-align: center;
+    transition:
+      width .34s cubic-bezier(.22,.8,.3,1),
+      flex-basis .34s cubic-bezier(.22,.8,.3,1),
+      color .24s ease,
+      background .24s ease;
+  }
+  .marketing-tour-progress button.active {
+    width: min(150px, 40vw);
+    flex-basis: min(150px, 40vw);
+    grid-template-columns: 25px minmax(0, 1fr);
+    justify-items: start;
+  }
+  .marketing-tour-progress button.active > span { width: 25px; height: 25px; }
+  .marketing-tour-progress button b { display: none; }
+  .marketing-tour-progress button.active b {
+    display: block;
+    width: 100%;
+    color: var(--mk-ink);
+    font-size: 8px;
+    text-overflow: ellipsis;
+  }
+
+  .marketing-tour-viewport {
+    perspective: 800px;
+    touch-action: pan-y;
+  }
+  .marketing-tour-stage { overflow: hidden; }
+  .marketing-tour-scene {
+    box-sizing: border-box;
+    padding: 16px 17px 18px;
+    grid-template-columns: 1fr;
+    grid-template-rows: auto minmax(270px, 1fr);
+    align-content: start;
+    align-items: start;
+    justify-items: stretch;
+    gap: 14px;
+    opacity: var(--tour-mobile-opacity);
+    transform:
+      translate3d(var(--tour-mobile-x), 0, var(--tour-mobile-z))
+      rotateY(var(--tour-mobile-ry))
+      scale(calc(.92 + var(--tour-mobile-opacity) * .08));
+    transition: opacity .12s linear;
+    transform-origin: center center;
+  }
+  .marketing-tour-scene::after {
+    content: "";
+    width: 34px;
+    height: 4px;
+    position: absolute;
+    left: 50%;
+    bottom: 7px;
+    border-radius: 999px;
+    background: rgba(255,255,255,.18);
+    transform: translateX(-50%);
+  }
+  .marketing-tour-scene.active::after { background: var(--mk-lime); }
+  .marketing-tour-slide__copy {
+    width: 100%;
+    max-width: none;
+    padding: 0 5px;
+  }
+  .marketing-tour-modal .marketing-tour-slide__copy h2 {
+    max-width: 13ch;
+    margin-top: 7px;
+    font-size: clamp(29px, 8.5vw, 39px);
+    line-height: .98;
+  }
+  .marketing-tour-modal .marketing-tour-slide__copy p {
+    max-width: 48ch;
+    margin-top: 9px;
+    display: -webkit-box;
+    overflow: hidden;
+    font-size: 12px;
+    line-height: 1.45;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+  .marketing-tour-slide__copy > button {
+    margin-top: 8px;
+    padding: 6px 0;
+    font-size: 11px;
+  }
+  .marketing-tour-visual {
+    width: calc(100% - 10px);
+    min-height: clamp(270px, 43dvh, 360px);
+    align-self: stretch;
+    justify-self: center;
+    border-radius: 20px;
+    box-shadow: inset 0 0 55px rgba(0,0,0,.25), 0 22px 42px -30px rgba(0,0,0,.95);
+  }
+  .marketing-tour-window {
+    width: calc(100% - 42px);
+    min-height: 0;
+    max-height: calc(100% - 30px);
+    border-radius: 14px;
+    transform: perspective(900px) rotateX(1deg) rotateY(-1.5deg);
+  }
+  .marketing-tour-window > header { min-height: 34px; padding-inline: 10px; }
+  .marketing-tour-window > header b { font-size: 7px; }
+  .marketing-tour-window > header small { padding: 3px 5px; font-size: 6px; }
+  .marketing-tour-float { display: none; }
+  .marketing-tour-orb {
+    width: 38px;
+    height: 38px;
+    right: 3%;
+    bottom: 4%;
+    box-shadow: 0 0 0 7px rgba(200,255,0,.06), 0 16px 30px rgba(0,0,0,.32);
+  }
+  .marketing-tour-scroll-hint { display: none; }
+
+  .marketing-tour-finance,
+  .marketing-tour-assistant,
+  .marketing-tour-accountant,
+  .marketing-tour-setup {
+    min-height: 0;
+    height: calc(100% - 34px);
+    padding: 13px;
+    gap: 8px;
+  }
+  .marketing-tour-finance__headline b { font-size: 27px; }
+  .marketing-tour-finance__headline small { margin-bottom: 2px; padding: 4px 6px; }
+  .marketing-tour-finance__chart { height: 66px; }
+  .marketing-tour-finance__metrics > span { padding: 7px 8px; }
+  .marketing-tour-finance__metrics strong { font-size: 10px; }
+  .marketing-tour-finance__invoice { padding: 7px 8px; }
+  .marketing-tour-finance__invoice > b { display: none; }
+
+  .marketing-tour-assistant { align-content: center; }
+  .marketing-tour-assistant__question { padding: 9px 11px; font-size: 9px; }
+  .marketing-tour-assistant__answer { padding: 11px; }
+  .marketing-tour-assistant__answer strong { font-size: 10px; }
+  .marketing-tour-assistant__insights { gap: 5px; }
+  .marketing-tour-assistant__insights span { padding: 7px 5px; font-size: 7px; }
+
+  .marketing-tour-accountant { align-content: center; gap: 11px; }
+  .marketing-tour-accountant__avatar { width: 58px; height: 58px; }
+  .marketing-tour-accountant__avatar i { width: 20px; height: 20px; }
+  .marketing-tour-accountant__top { gap: 9px; }
+  .marketing-tour-accountant__top > div:nth-child(2) strong { font-size: 16px; }
+  .marketing-tour-accountant__top > b { padding: 5px 7px; font-size: 8px; }
+  .marketing-tour-accountant__facts span { padding: 5px 7px; font-size: 7px; }
+  .marketing-tour-accountant__meta { padding: 8px 0; gap: 10px; font-size: 7px; }
+  .marketing-tour-accountant__action { min-height: 34px; font-size: 10px; }
+
+  .marketing-tour-setup { align-content: center; }
+  .marketing-tour-setup__steps { gap: 5px; }
+  .marketing-tour-setup__steps > span { min-height: 29px; padding-inline: 8px; }
+  .marketing-tour-setup__steps i { width: 18px; height: 18px; }
+  .marketing-tour-setup__steps strong { font-size: 8px; }
+  .marketing-tour-setup__plan,
+  .marketing-tour-setup__complete { padding: 8px; }
+  .marketing-tour-setup__complete > b { width: 38px; height: 38px; border-width: 3px; font-size: 8px; }
+}
+
+@media (max-width: 420px) and (max-height: 740px) {
+  .marketing-tour-scene {
+    padding-top: 12px;
+    grid-template-rows: auto minmax(230px, 1fr);
+    gap: 9px;
+  }
+  .marketing-tour-modal .marketing-tour-slide__copy h2 { font-size: 28px; }
+  .marketing-tour-modal .marketing-tour-slide__copy p { -webkit-line-clamp: 1; }
+  .marketing-tour-slide__copy > button { margin-top: 4px; }
+  .marketing-tour-visual { min-height: 230px; }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .marketing-tour-cube { transform: rotateX(28deg) rotateY(38deg) !important; }
+  .marketing-tour-scene { transition: none; }
   .marketing-tour-orb, .marketing-tour-scroll-hint i::after,
+  .marketing-tour-assistant__typing i,
   .marketing-ai-question, .marketing-ai-typing, .marketing-ai-answer,
   .marketing-ai-insights b { animation: none !important; }
   .marketing-ai-question, .marketing-ai-answer, .marketing-ai-insights b { opacity: 1; transform: none; }
