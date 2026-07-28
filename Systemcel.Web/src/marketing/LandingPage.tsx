@@ -145,6 +145,7 @@ export function LandingPage() {
   const [tourOpen, setTourOpen] = React.useState(false);
   const [tourStep, setTourStep] = React.useState(0);
   const [tourProgress, setTourProgress] = React.useState(0);
+  const [tourMobile, setTourMobile] = React.useState(() => window.matchMedia("(max-width: 700px)").matches);
   const [marketSide, setMarketSide] = React.useState<"business" | "accountant">("business");
   const [activeSection, setActiveSection] = React.useState("top");
   const t = copy[language];
@@ -250,6 +251,14 @@ export function LandingPage() {
   }, [language]);
 
   React.useEffect(() => {
+    const query = window.matchMedia("(max-width: 700px)");
+    const updateTourMode = (event: MediaQueryListEvent) => setTourMobile(event.matches);
+    setTourMobile(query.matches);
+    query.addEventListener("change", updateTourMode);
+    return () => query.removeEventListener("change", updateTourMode);
+  }, []);
+
+  React.useEffect(() => {
     if (!mobileMenuOpen && !tourOpen) return undefined;
     const page = pageRef.current;
     const onKeyDown = (event: KeyboardEvent) => {
@@ -337,9 +346,11 @@ export function LandingPage() {
 
   function showTourSection(target: string) {
     setTourOpen(false);
-    window.requestAnimationFrame(() => {
-      document.getElementById(target)?.scrollIntoView({ behavior: "smooth", block: "start" });
-    });
+    window.setTimeout(() => {
+      const section = document.getElementById(target);
+      if (!section) return;
+      section.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 80);
   }
 
   function moveTourToStep(nextStep: number) {
@@ -347,7 +358,7 @@ export function LandingPage() {
     const viewport = tourViewportRef.current;
     setTourStep(clampedStep);
     setTourProgress(clampedStep);
-    if (!viewport) return;
+    if (!viewport || tourMobile) return;
     const maximumScroll = viewport.scrollHeight - viewport.clientHeight;
     viewport.scrollTo({
       top: tourSteps.length > 1 ? maximumScroll * clampedStep / (tourSteps.length - 1) : 0,
@@ -356,6 +367,7 @@ export function LandingPage() {
   }
 
   function handleTourScroll(event: React.UIEvent<HTMLDivElement>) {
+    if (tourMobile) return;
     const viewport = event.currentTarget;
     const maximumScroll = viewport.scrollHeight - viewport.clientHeight;
     const progress = maximumScroll > 0
@@ -375,7 +387,7 @@ export function LandingPage() {
     const start = tourTouchStartRef.current;
     const touch = event.changedTouches[0];
     tourTouchStartRef.current = null;
-    if (!start || !touch) return;
+    if (!tourMobile || !start || !touch) return;
 
     const deltaX = touch.clientX - start.x;
     const deltaY = touch.clientY - start.y;
@@ -563,7 +575,7 @@ export function LandingPage() {
             </nav>
 
             <div
-              className="marketing-tour-viewport"
+              className={`marketing-tour-viewport${tourMobile ? " is-mobile-carousel" : ""}`}
               ref={tourViewportRef}
               onScroll={handleTourScroll}
               onTouchStart={handleTourTouchStart}
@@ -594,7 +606,7 @@ export function LandingPage() {
                       } as React.CSSProperties;
                       return (
                         <article
-                          className={`marketing-tour-scene${index === tourStep ? " active" : ""}`}
+                          className={`marketing-tour-scene${index === tourStep ? " active" : ""}${absoluteDistance < .015 ? " is-settled" : ""}`}
                           key={step.target}
                           aria-hidden={index !== tourStep}
                           style={sceneStyle}
@@ -604,7 +616,7 @@ export function LandingPage() {
                             <h2 id={index === tourStep ? "tour-title" : undefined}>{step.title}</h2>
                             <p>{step.text}</p>
                             <button type="button" onClick={() => showTourSection(step.target)}>
-                              {language === "tr" ? "Landing’de bu bölümü gör" : "View this section on the landing page"}
+                              {language === "tr" ? "Bu özelliği incele" : "View this feature"}
                               <ArrowRight size={17} />
                             </button>
                           </div>
@@ -677,15 +689,40 @@ function TourSceneVisual({
               <b>₺1.248.560</b>
               <small>+12,4%</small>
             </div>
-            <svg className="marketing-tour-finance__chart" viewBox="0 0 420 120" preserveAspectRatio="none">
+            <svg className="marketing-tour-finance__chart" viewBox="0 0 480 172" role="img" aria-label={tr ? "Son altı aylık net nakit akışı" : "Net cash flow over the last six months"}>
               <defs>
                 <linearGradient id="tour-chart-fill" x1="0" x2="0" y1="0" y2="1">
                   <stop offset="0%" stopColor="#c8ff00" stopOpacity=".34" />
                   <stop offset="100%" stopColor="#c8ff00" stopOpacity="0" />
                 </linearGradient>
               </defs>
-              <path className="fill" d="M0 103 C34 98 39 72 72 77 S111 94 139 64 S181 39 208 63 S244 95 272 62 S311 34 338 40 S378 56 420 20 L420 120 L0 120 Z" />
-              <path d="M0 103 C34 98 39 72 72 77 S111 94 139 64 S181 39 208 63 S244 95 272 62 S311 34 338 40 S378 56 420 20" />
+              <g className="grid">
+                <line x1="46" x2="466" y1="24" y2="24" />
+                <line x1="46" x2="466" y1="64" y2="64" />
+                <line x1="46" x2="466" y1="104" y2="104" />
+                <line x1="46" x2="466" y1="144" y2="144" />
+              </g>
+              <g className="axis-labels">
+                <text x="3" y="27">₺1,5M</text>
+                <text x="3" y="67">₺1,0M</text>
+                <text x="3" y="107">₺500K</text>
+                <text x="3" y="147">₺0</text>
+                <text x="46" y="166">Şub</text>
+                <text x="126" y="166">Mar</text>
+                <text x="206" y="166">Nis</text>
+                <text x="286" y="166">May</text>
+                <text x="366" y="166">Haz</text>
+                <text x="446" y="166">Tem</text>
+              </g>
+              <path className="fill" d="M46 128 C76 120 92 106 126 111 S171 123 206 88 S252 56 286 80 S327 117 366 76 S415 61 466 35 L466 145 L46 145 Z" />
+              <path className="line" d="M46 128 C76 120 92 106 126 111 S171 123 206 88 S252 56 286 80 S327 117 366 76 S415 61 466 35" />
+              <line className="guide" x1="366" x2="366" y1="18" y2="145" />
+              <circle className="point-ring" cx="366" cy="76" r="8" />
+              <circle className="point" cx="366" cy="76" r="4" />
+              <g className="tooltip">
+                <rect x="310" y="29" width="112" height="28" rx="7" />
+                <text x="322" y="47">Haz · ₺1.086.240</text>
+              </g>
             </svg>
             <div className="marketing-tour-finance__metrics">
               <span><small>{tr ? "Gelir" : "Income"}</small><strong>₺2.560.000</strong></span>
