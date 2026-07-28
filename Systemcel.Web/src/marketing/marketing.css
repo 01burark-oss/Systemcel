@@ -145,6 +145,129 @@
 .marketing-market-profile--match .marketing-market-profile__copy strong { font-size: 14px; }
 .marketing-market-profile--match .marketing-market-profile__copy span { font-size: 12px; line-height: 1.35; }
 .marketing-market-profile--match > b { align-self: start; padding: 5px 8px; border-radius: 999px; background: var(--mk-lime); color: var(--mk-ink); font-family: Consolas, monospace; font-size: 10px; letter-spacing: .03em; white-space: nowrap; }
+.marketing-market-accountant {
+  margin-top: 22px;
+  padding: 25px;
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  gap: 20px;
+  border: 1px solid var(--mk-line);
+  border-radius: 19px;
+  background:
+    radial-gradient(circle at 92% 8%, rgba(200,255,0,.13), transparent 27%),
+    rgba(255,255,255,.62);
+  animation: marketing-card-swap .35s ease both;
+}
+.marketing-market-accountant::before {
+  content: "";
+  width: 86px;
+  height: 3px;
+  position: absolute;
+  left: 25px;
+  bottom: 0;
+  background: var(--mk-lime);
+}
+.marketing-market-accountant__head {
+  display: grid;
+  grid-template-columns: auto minmax(0,1fr) auto;
+  gap: 16px;
+  align-items: center;
+}
+.marketing-market-accountant__avatar {
+  width: 78px;
+  height: 78px;
+  position: relative;
+  flex: 0 0 auto;
+}
+.marketing-market-accountant__avatar img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  border: 3px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 13px 27px -17px rgba(0,0,0,.55);
+}
+.marketing-market-accountant__avatar > span {
+  width: 25px;
+  height: 25px;
+  position: absolute;
+  right: -1px;
+  bottom: 2px;
+  display: grid;
+  place-items: center;
+  color: var(--mk-ink);
+  background: var(--mk-lime);
+  border: 3px solid var(--mk-paper);
+  border-radius: 50%;
+}
+.marketing-market-accountant__identity {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+}
+.marketing-market-accountant__identity strong {
+  font-size: clamp(20px, 2vw, 25px);
+  letter-spacing: -.025em;
+}
+.marketing-market-accountant__identity span {
+  overflow: hidden;
+  color: var(--mk-muted);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.marketing-market-accountant__score {
+  padding: 9px 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #314100;
+  background: linear-gradient(110deg, rgba(200,255,0,.28), rgba(200,255,0,.12));
+  border: 1px solid rgba(117,151,0,.14);
+  border-radius: 999px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.marketing-market-accountant__score svg {
+  padding: 2px;
+  box-sizing: content-box;
+  color: white;
+  background: #79a000;
+  border-radius: 50%;
+}
+.marketing-market-accountant__facts {
+  padding: 15px 0;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  border-top: 1px solid var(--mk-line);
+  border-bottom: 1px solid var(--mk-line);
+}
+.marketing-market-accountant__facts span {
+  padding: 0 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: #44443f;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.marketing-market-accountant__facts span:first-child { padding-left: 0; }
+.marketing-market-accountant__facts span + span { border-left: 1px solid var(--mk-line); }
+.marketing-market-accountant > p {
+  margin: -4px 0 0;
+  color: var(--mk-muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+.marketing-market-accountant > .marketing-button {
+  width: fit-content;
+  min-width: 210px;
+  justify-content: space-between;
+}
 
 .marketing-pricing { padding: 138px 0 150px; background: var(--mk-cream-2); scroll-margin-top: 104px; }
 .marketing-pricing__head { text-align: center; }
@@ -797,4 +920,321 @@
   .marketing-tour-modal .marketing-tour-slide__copy p { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
   .marketing-tour-slide__copy > button { margin-top: 10px; }
   .marketing-tour-visual { min-height: 240px; }
+}
+
+/* Scroll-driven cinematic tour */
+.marketing-tour-viewport {
+  position: relative;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+  touch-action: pan-y;
+}
+.marketing-tour-viewport::-webkit-scrollbar { display: none; }
+.marketing-tour-scrollworld { position: relative; min-height: 100%; }
+.marketing-tour-stage {
+  position: sticky;
+  top: 0;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 68% 50%, rgba(200,255,0,.075), transparent 34%),
+    linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px);
+  background-size: auto, 64px 64px, 64px 64px;
+}
+.marketing-tour-camera {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  perspective: 1350px;
+  transform-style: preserve-3d;
+}
+.marketing-tour-scene {
+  position: absolute;
+  inset: 0;
+  padding: clamp(34px, 4.5vw, 72px);
+  display: grid;
+  grid-template-columns: minmax(280px, .8fr) minmax(480px, 1.25fr);
+  align-items: center;
+  gap: clamp(42px, 6vw, 90px);
+  transform-origin: 50% 50%;
+  transform-style: preserve-3d;
+  transition: opacity .08s linear;
+  will-change: transform, opacity;
+  pointer-events: none;
+}
+.marketing-tour-scene.active { pointer-events: auto; }
+.marketing-tour-scene.active .marketing-tour-slide__copy > * { animation: marketing-tour-copy-in .55s both; }
+.marketing-tour-scene.active .marketing-tour-slide__copy > *:nth-child(2) { animation-delay: .04s; }
+.marketing-tour-scene.active .marketing-tour-slide__copy > *:nth-child(3) { animation-delay: .08s; }
+.marketing-tour-scene.active .marketing-tour-slide__copy > *:nth-child(4) { animation-delay: .12s; }
+.marketing-tour-scene.active .marketing-tour-window { animation: none; }
+.marketing-tour-scene.active .marketing-tour-window__chart i { animation: marketing-tour-bar-in .65s .18s both; }
+
+.marketing-tour-cube {
+  width: 46px;
+  height: 46px;
+  position: absolute;
+  left: 5%;
+  top: 8%;
+  z-index: 4;
+  transform-style: preserve-3d;
+  transition: transform .1s linear;
+  filter: drop-shadow(0 16px 14px rgba(0,0,0,.32));
+}
+.marketing-tour-cube i {
+  width: 46px;
+  height: 46px;
+  position: absolute;
+  inset: 0;
+  display: block;
+  background: rgba(200,255,0,.84);
+  border: 1px solid rgba(11,11,9,.5);
+}
+.marketing-tour-cube i:nth-child(1) { transform: translateZ(23px); }
+.marketing-tour-cube i:nth-child(2) { transform: rotateY(180deg) translateZ(23px); }
+.marketing-tour-cube i:nth-child(3) { transform: rotateY(90deg) translateZ(23px); background: rgba(164,211,0,.9); }
+.marketing-tour-cube i:nth-child(4) { transform: rotateY(-90deg) translateZ(23px); background: rgba(181,231,0,.9); }
+.marketing-tour-cube i:nth-child(5) { transform: rotateX(90deg) translateZ(23px); background: #e5ff86; }
+.marketing-tour-cube i:nth-child(6) { transform: rotateX(-90deg) translateZ(23px); background: #789900; }
+.marketing-tour-orb {
+  width: 64px;
+  height: 64px;
+  position: absolute;
+  right: 4%;
+  bottom: 8%;
+  z-index: 5;
+  display: grid;
+  place-items: center;
+  color: var(--mk-lime);
+  background: rgba(11,11,9,.9);
+  border: 1px solid rgba(200,255,0,.34);
+  border-radius: 50%;
+  box-shadow: 0 0 0 12px rgba(200,255,0,.06), 0 22px 45px rgba(0,0,0,.35);
+  animation: marketing-tour-orb 4s ease-in-out infinite;
+}
+.marketing-tour-scroll-hint {
+  position: absolute;
+  left: 50%;
+  bottom: 18px;
+  z-index: 20;
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  color: #aaa99f;
+  font-family: Consolas, monospace;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+  transform: translateX(-50%);
+  transition: opacity .25s ease, transform .25s ease;
+  pointer-events: none;
+}
+.marketing-tour-scroll-hint i {
+  width: 18px;
+  height: 28px;
+  position: relative;
+  display: block;
+  border: 1px solid rgba(255,255,255,.28);
+  border-radius: 999px;
+}
+.marketing-tour-scroll-hint i::after {
+  content: "";
+  width: 3px;
+  height: 6px;
+  position: absolute;
+  left: 7px;
+  top: 5px;
+  background: var(--mk-lime);
+  border-radius: 999px;
+  animation: marketing-tour-scroll-dot 1.7s ease-in-out infinite;
+}
+.marketing-tour-scroll-hint.is-hidden { opacity: 0; transform: translate(-50%, 8px); }
+
+@keyframes marketing-tour-orb {
+  0%, 100% { transform: translateY(0) rotate(-4deg); }
+  50% { transform: translateY(-10px) rotate(4deg); }
+}
+@keyframes marketing-tour-scroll-dot {
+  0% { opacity: 0; transform: translateY(0); }
+  25% { opacity: 1; }
+  75% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(11px); }
+}
+
+/* Landing AI conversation flow */
+.marketing-ai-card > .marketing-ai-thread {
+  min-height: 292px;
+  margin-top: 28px;
+  padding: 0;
+  position: relative;
+  display: grid;
+  align-content: start;
+  gap: 15px;
+  color: var(--mk-cream);
+  background: transparent;
+  border-radius: 0;
+}
+.marketing-ai-question {
+  max-width: 82%;
+  margin-left: auto;
+  padding: 13px 16px;
+  display: grid;
+  gap: 5px;
+  color: #c4c3ba;
+  background: rgba(255,255,255,.025);
+  border: 1px solid var(--mk-white-line);
+  border-radius: 16px 16px 4px 16px;
+  opacity: 0;
+  transform: translate3d(34px, 8px, 0);
+}
+.marketing-ai-question small,
+.marketing-ai-answer small {
+  color: #85847d;
+  font-family: Consolas, monospace;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: .12em;
+}
+.marketing-ai-question p { margin: 0; line-height: 1.45; }
+.marketing-ai-typing {
+  width: 60px;
+  padding: 12px 14px;
+  display: flex;
+  gap: 5px;
+  border: 1px solid var(--mk-white-line);
+  border-radius: 4px 15px 15px 15px;
+  opacity: 0;
+}
+.marketing-ai-typing i {
+  width: 6px;
+  height: 6px;
+  display: block;
+  background: #77766f;
+  border-radius: 50%;
+  animation: marketing-ai-dot .8s ease-in-out infinite alternate;
+}
+.marketing-ai-typing i:nth-child(2) { animation-delay: .16s; }
+.marketing-ai-typing i:nth-child(3) { animation-delay: .32s; }
+.marketing-ai-answer {
+  padding: 20px;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 14px;
+  color: var(--mk-ink);
+  background: var(--mk-lime);
+  border-radius: 4px 17px 17px 17px;
+  box-shadow: 0 24px 50px -30px rgba(200,255,0,.45);
+  opacity: 0;
+  transform: translate3d(-26px, 16px, 0) scale(.97);
+}
+.marketing-ai-answer > span {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  background: rgba(11,11,9,.09);
+  border-radius: 10px;
+}
+.marketing-ai-answer > div { display: grid; gap: 9px; }
+.marketing-ai-answer small { color: rgba(11,11,9,.56); }
+.marketing-ai-answer strong { line-height: 1.48; }
+.marketing-ai-insights { display: flex; gap: 7px; flex-wrap: wrap; }
+.marketing-ai-insights b {
+  padding: 6px 8px;
+  background: rgba(11,11,9,.08);
+  border: 1px solid rgba(11,11,9,.1);
+  border-radius: 999px;
+  font-family: Consolas, monospace;
+  font-size: 8px;
+  letter-spacing: .03em;
+}
+.marketing-reveal.is-visible .marketing-ai-question { animation: marketing-ai-question-in .55s .15s cubic-bezier(.22,.8,.3,1) forwards; }
+.marketing-reveal.is-visible .marketing-ai-typing { animation: marketing-ai-typing 1.3s .82s both; }
+.marketing-reveal.is-visible .marketing-ai-answer { animation: marketing-ai-answer-in .62s 1.82s cubic-bezier(.22,.8,.3,1) forwards; }
+.marketing-reveal.is-visible .marketing-ai-insights b { animation: marketing-ai-chip-in .35s 2.35s both; }
+.marketing-reveal.is-visible .marketing-ai-insights b:nth-child(2) { animation-delay: 2.52s; }
+
+@keyframes marketing-ai-question-in {
+  to { opacity: 1; transform: translate3d(0,0,0); }
+}
+@keyframes marketing-ai-typing {
+  0%, 100% { opacity: 0; transform: translateY(6px); }
+  18%, 82% { opacity: 1; transform: translateY(0); }
+}
+@keyframes marketing-ai-answer-in {
+  to { opacity: 1; transform: translate3d(0,0,0) scale(1); }
+}
+@keyframes marketing-ai-chip-in {
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes marketing-ai-dot {
+  to { opacity: .28; transform: translateY(-3px); }
+}
+
+@media (max-width: 900px) {
+  .marketing-tour-scene {
+    grid-template-columns: minmax(230px, .72fr) minmax(390px, 1.28fr);
+    gap: 30px;
+    padding-inline: 34px;
+  }
+}
+
+@media (max-width: 700px) {
+  .marketing-market-card { padding: 18px; border-radius: 19px; }
+  .marketing-market-accountant { padding: 18px; gap: 16px; }
+  .marketing-market-accountant__head {
+    grid-template-columns: auto minmax(0,1fr);
+    gap: 12px;
+  }
+  .marketing-market-accountant__avatar { width: 64px; height: 64px; }
+  .marketing-market-accountant__identity strong { font-size: 18px; }
+  .marketing-market-accountant__score {
+    width: fit-content;
+    grid-column: 1 / -1;
+  }
+  .marketing-market-accountant__facts {
+    padding: 12px 0;
+    align-items: stretch;
+  }
+  .marketing-market-accountant__facts span {
+    padding: 0 9px;
+    flex: 1;
+    justify-content: center;
+    font-size: 10px;
+  }
+  .marketing-market-accountant__facts span:first-child { padding-left: 0; justify-content: flex-start; }
+  .marketing-market-accountant__facts span:last-child { padding-right: 0; justify-content: flex-end; }
+  .marketing-market-accountant > .marketing-button { width: 100%; min-width: 0; }
+  .marketing-tour-scene {
+    padding: 22px 20px 26px;
+    grid-template-columns: 1fr;
+    align-content: center;
+    gap: 18px;
+  }
+  .marketing-tour-cube { width: 30px; height: 30px; left: 4%; top: 6%; }
+  .marketing-tour-cube i { width: 30px; height: 30px; }
+  .marketing-tour-cube i:nth-child(1) { transform: translateZ(15px); }
+  .marketing-tour-cube i:nth-child(2) { transform: rotateY(180deg) translateZ(15px); }
+  .marketing-tour-cube i:nth-child(3) { transform: rotateY(90deg) translateZ(15px); }
+  .marketing-tour-cube i:nth-child(4) { transform: rotateY(-90deg) translateZ(15px); }
+  .marketing-tour-cube i:nth-child(5) { transform: rotateX(90deg) translateZ(15px); }
+  .marketing-tour-cube i:nth-child(6) { transform: rotateX(-90deg) translateZ(15px); }
+  .marketing-tour-orb { width: 43px; height: 43px; right: 3%; bottom: 5%; }
+  .marketing-tour-scroll-hint { bottom: 8px; }
+  .marketing-tour-scroll-hint span { display: none; }
+  .marketing-ai-card > .marketing-ai-thread { min-height: 260px; margin-top: 22px; }
+  .marketing-ai-answer { padding: 16px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marketing-tour-cube { transform: rotateX(28deg) rotateY(38deg) !important; }
+  .marketing-tour-orb, .marketing-tour-scroll-hint i::after,
+  .marketing-ai-question, .marketing-ai-typing, .marketing-ai-answer,
+  .marketing-ai-insights b { animation: none !important; }
+  .marketing-ai-question, .marketing-ai-answer, .marketing-ai-insights b { opacity: 1; transform: none; }
+  .marketing-ai-typing { display: none; }
 }

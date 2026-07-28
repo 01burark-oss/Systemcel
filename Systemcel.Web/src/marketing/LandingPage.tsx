@@ -18,6 +18,7 @@ import {
   X,
 } from "lucide-react";
 import { useSystemcelAuth } from "../auth/SystemcelAuthProvider";
+import accountantAyseAvatar from "../assets/accountant-ayse-demirtas.jpg";
 import "./marketing.css";
 
 type Language = "tr" | "en";
@@ -133,7 +134,7 @@ export function LandingPage() {
   const auth = useSystemcelAuth();
   const pageRef = React.useRef<HTMLDivElement>(null);
   const progressRef = React.useRef<HTMLDivElement>(null);
-  const tourTouchStartRef = React.useRef<number | null>(null);
+  const tourViewportRef = React.useRef<HTMLDivElement>(null);
   const [language, setLanguage] = React.useState<Language>(() => window.localStorage.getItem("systemcel.language") === "en" ? "en" : "tr");
   const [billing, setBilling] = React.useState<Billing>("Aylik");
   const [plans, setPlans] = React.useState<PublicPlan[]>(fallbackPlans);
@@ -142,6 +143,7 @@ export function LandingPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
   const [tourOpen, setTourOpen] = React.useState(false);
   const [tourStep, setTourStep] = React.useState(0);
+  const [tourProgress, setTourProgress] = React.useState(0);
   const [marketSide, setMarketSide] = React.useState<"business" | "accountant">("business");
   const [activeSection, setActiveSection] = React.useState("top");
   const t = copy[language];
@@ -327,7 +329,9 @@ export function LandingPage() {
 
   function openTour() {
     setTourStep(0);
+    setTourProgress(0);
     setTourOpen(true);
+    window.requestAnimationFrame(() => tourViewportRef.current?.scrollTo({ top: 0 }));
   }
 
   function showTourSection(target: string) {
@@ -335,6 +339,30 @@ export function LandingPage() {
     window.requestAnimationFrame(() => {
       document.getElementById(target)?.scrollIntoView({ behavior: "smooth", block: "start" });
     });
+  }
+
+  function moveTourToStep(nextStep: number) {
+    const clampedStep = Math.min(tourSteps.length - 1, Math.max(0, nextStep));
+    const viewport = tourViewportRef.current;
+    setTourStep(clampedStep);
+    setTourProgress(clampedStep);
+    if (!viewport) return;
+    const maximumScroll = viewport.scrollHeight - viewport.clientHeight;
+    viewport.scrollTo({
+      top: tourSteps.length > 1 ? maximumScroll * clampedStep / (tourSteps.length - 1) : 0,
+      behavior: "smooth",
+    });
+  }
+
+  function handleTourScroll(event: React.UIEvent<HTMLDivElement>) {
+    const viewport = event.currentTarget;
+    const maximumScroll = viewport.scrollHeight - viewport.clientHeight;
+    const progress = maximumScroll > 0
+      ? viewport.scrollTop / maximumScroll * (tourSteps.length - 1)
+      : 0;
+    const nextStep = Math.min(tourSteps.length - 1, Math.max(0, Math.round(progress)));
+    setTourProgress(progress);
+    setTourStep((current) => current === nextStep ? current : nextStep);
   }
 
   return (
@@ -404,7 +432,27 @@ export function LandingPage() {
 
         <section id="ai" className="marketing-section marketing-section--dark marketing-grid-bg--dark">
           <div className="marketing-wrap marketing-feature-grid marketing-feature-grid--reverse marketing-reveal" data-reveal>
-            <div className="marketing-ai-card"><span><Sparkles size={16} /> SYSTEMCEL AI</span><p>{language === "tr" ? "Bu ay tahsilat performansım nasıl?" : "How is my collection performance this month?"}</p><div><Bot size={22} /><strong>{language === "tr" ? "Vadesi geçen alacakların toplamı azaldı; en yüksek risk iki cari hesapta yoğunlaşıyor." : "Overdue receivables decreased; the highest risk is concentrated in two accounts."}</strong></div></div>
+            <div className="marketing-ai-card marketing-ai-demo">
+              <span><Sparkles size={16} /> SYSTEMCEL AI</span>
+              <div className="marketing-ai-thread">
+                <div className="marketing-ai-question">
+                  <small>{language === "tr" ? "SİZ" : "YOU"}</small>
+                  <p>{language === "tr" ? "Bu ay tahsilat performansım nasıl?" : "How is my collection performance this month?"}</p>
+                </div>
+                <div className="marketing-ai-typing" aria-hidden="true"><i /><i /><i /></div>
+                <div className="marketing-ai-answer">
+                  <span><Bot size={20} /></span>
+                  <div>
+                    <small>{language === "tr" ? "ANALİZ TAMAMLANDI" : "ANALYSIS COMPLETE"}</small>
+                    <strong>{language === "tr" ? "Vadesi geçen alacakların toplamı azaldı; en yüksek risk iki cari hesapta yoğunlaşıyor." : "Overdue receivables decreased; the highest risk is concentrated in two accounts."}</strong>
+                    <div className="marketing-ai-insights">
+                      <b>{language === "tr" ? "Tahsilat ↑ %12" : "Collections ↑ 12%"}</b>
+                      <b>{language === "tr" ? "2 riskli cari" : "2 risky accounts"}</b>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
             <SectionCopy number="02" label={t.ai} title={t.section2} text={t.section2Text} dark />
           </div>
         </section>
@@ -417,8 +465,33 @@ export function LandingPage() {
                 <button type="button" className={marketSide === "business" ? "active" : ""} onClick={() => setMarketSide("business")}>{t.forBusiness}</button>
                 <button type="button" className={marketSide === "accountant" ? "active" : ""} onClick={() => setMarketSide("accountant")}>{t.forAccountant}</button>
               </div>
-              {marketSide === "business" ? <div className="marketing-market-profile marketing-market-profile--match" key={marketSide}><div className="marketing-market-profile__avatar">AD</div><div className="marketing-market-profile__copy"><strong>Ayşe Demirtaş</strong><span>{language === "tr" ? "SMMM · 12 yıl · E-ticaret · KDV" : "CPA · 12 years · E-commerce · VAT"}</span></div><b>%97 {language === "tr" ? "eşleşme" : "match"}</b></div> : <div className="marketing-market-profile" key={marketSide}><div><Users size={28} /></div><span>{language === "tr" ? "Profil · Talepler · Müşteri alanı" : "Profile · Requests · Client workspace"}</span><strong>{t.joinMarketplace}</strong></div>}
-              <a className="marketing-button marketing-button--ink" href={marketSide === "business" ? "/muhasebeciler" : "/kayit?hesapTipi=Muhasebeci&returnUrl=%2Fapp%2Fmuhasebeci"}>{marketSide === "business" ? t.findAccountant : t.joinMarketplace}<ArrowRight size={17} /></a>
+              {marketSide === "business" ? (
+                <div className="marketing-market-accountant" key={marketSide}>
+                  <div className="marketing-market-accountant__head">
+                    <div className="marketing-market-accountant__avatar">
+                      <img src={accountantAyseAvatar} alt="Ayşe Demirtaş" />
+                      <span aria-label={language === "tr" ? "Doğrulanmış profil" : "Verified profile"}><Check size={15} strokeWidth={3} /></span>
+                    </div>
+                    <div className="marketing-market-accountant__identity">
+                      <strong>Ayşe Demirtaş</strong>
+                      <span>{language === "tr" ? "Serbest Muhasebeci Mali Müşavir" : "Certified Public Accountant"}</span>
+                    </div>
+                    <b className="marketing-market-accountant__score"><Check size={14} strokeWidth={3} />%97 {language === "tr" ? "eşleşme" : "match"}</b>
+                  </div>
+                  <div className="marketing-market-accountant__facts">
+                    <span><ShieldCheck size={17} />{language === "tr" ? "12 yıl deneyim" : "12 years of experience"}</span>
+                    <span><WalletCards size={17} />{language === "tr" ? "E-ticaret" : "E-commerce"}</span>
+                    <span><FileText size={17} />KDV</span>
+                  </div>
+                  <p>{language === "tr" ? "E-ticaret ve KOBİ finans süreçlerinde uzman; işletme ihtiyaçlarınla yüksek oranda örtüşüyor." : "Specialized in e-commerce and SME finance, with a strong match for your business needs."}</p>
+                  <a className="marketing-button marketing-button--ink" href="/muhasebeciler">{t.findAccountant}<ArrowRight size={17} /></a>
+                </div>
+              ) : (
+                <>
+                  <div className="marketing-market-profile" key={marketSide}><div><Users size={28} /></div><span>{language === "tr" ? "Profil · Talepler · Müşteri alanı" : "Profile · Requests · Client workspace"}</span><strong>{t.joinMarketplace}</strong></div>
+                  <a className="marketing-button marketing-button--ink" href="/kayit?hesapTipi=Muhasebeci&returnUrl=%2Fapp%2Fmuhasebeci">{t.joinMarketplace}<ArrowRight size={17} /></a>
+                </>
+              )}
             </div>
           </div>
         </section>
@@ -461,7 +534,7 @@ export function LandingPage() {
                   key={step.target}
                   type="button"
                   className={index === tourStep ? "active" : index < tourStep ? "complete" : ""}
-                  onClick={() => setTourStep(index)}
+                  onClick={() => moveTourToStep(index)}
                   aria-label={`${index + 1}. ${step.eyebrow}`}
                   aria-current={index === tourStep ? "step" : undefined}
                 >
@@ -471,82 +544,102 @@ export function LandingPage() {
               ))}
             </nav>
 
-            <div
-              className="marketing-tour-viewport"
-              onTouchStart={(event) => {
-                tourTouchStartRef.current = event.touches[0]?.clientX ?? null;
-              }}
-              onTouchEnd={(event) => {
-                const start = tourTouchStartRef.current;
-                const end = event.changedTouches[0]?.clientX;
-                tourTouchStartRef.current = null;
-                if (start === null || end === undefined) return;
-                const distance = end - start;
-                if (distance < -50) setTourStep((step) => Math.min(tourSteps.length - 1, step + 1));
-                if (distance > 50) setTourStep((step) => Math.max(0, step - 1));
-              }}
-            >
-              <div className="marketing-tour-track" style={{ transform: `translate3d(-${tourStep * 100}%, 0, 0)` }}>
-                {tourSteps.map((step, index) => {
-                  const Icon = tourIcons[index] ?? Play;
-                  return (
-                    <article className={`marketing-tour-slide${index === tourStep ? " active" : ""}`} key={step.target} aria-hidden={index !== tourStep}>
-                      <div className="marketing-tour-slide__copy">
-                        <span>{step.number} — {step.eyebrow}</span>
-                        <h2 id={index === tourStep ? "tour-title" : undefined}>{step.title}</h2>
-                        <p>{step.text}</p>
-                        <button type="button" onClick={() => showTourSection(step.target)}>
-                          {language === "tr" ? "Landing’de bu bölümü gör" : "View this section on the landing page"}
-                          <ArrowRight size={17} />
-                        </button>
-                      </div>
-
-                      <div className={`marketing-tour-visual marketing-tour-visual--${index + 1}`} aria-hidden="true">
-                        <div className="marketing-tour-visual__glow" />
-                        <div className="marketing-tour-window">
-                          <header>
-                            <span><i /><i /><i /></span>
-                            <b>SYSTEMCEL / {step.number}</b>
-                            <small>{language === "tr" ? "CANLI" : "LIVE"}</small>
-                          </header>
-                          <div className="marketing-tour-window__body">
-                            <aside>
-                              <span className="active"><Icon size={17} /></span>
-                              <span /><span /><span /><span />
-                            </aside>
-                            <main>
-                              <div className="marketing-tour-window__title">
-                                <span>{step.metricLabel}</span>
-                                <strong>{step.metricValue}</strong>
-                              </div>
-                              <div className="marketing-tour-window__chart">
-                                <i /><i /><i /><i /><i /><i /><i />
-                              </div>
-                              <div className="marketing-tour-window__cards">
-                                {step.chips.map((chip, chipIndex) => (
-                                  <span key={chip}><b>{String(chipIndex + 1).padStart(2, "0")}</b>{chip}</span>
-                                ))}
-                              </div>
-                            </main>
+            <div className="marketing-tour-viewport" ref={tourViewportRef} onScroll={handleTourScroll}>
+              <div className="marketing-tour-scrollworld" style={{ height: `${tourSteps.length * 100}%` }}>
+                <div className="marketing-tour-stage" style={{ height: `${100 / tourSteps.length}%` }}>
+                  <div className="marketing-tour-camera">
+                    {tourSteps.map((step, index) => {
+                      const Icon = tourIcons[index] ?? Play;
+                      const distance = index - tourProgress;
+                      const absoluteDistance = Math.abs(distance);
+                      const sceneOpacity = Math.max(0, 1 - absoluteDistance * .72);
+                      const sceneScale = Math.max(.68, 1 - absoluteDistance * .16);
+                      const sceneTransform = [
+                        `translate3d(${distance * 8}%, ${distance * 72}%, ${-absoluteDistance * 620}px)`,
+                        `rotateX(${distance * -11}deg)`,
+                        `rotateY(${distance * 13}deg)`,
+                        `scale(${sceneScale})`,
+                      ].join(" ");
+                      return (
+                        <article
+                          className={`marketing-tour-scene${index === tourStep ? " active" : ""}`}
+                          key={step.target}
+                          aria-hidden={index !== tourStep}
+                          style={{
+                            opacity: sceneOpacity,
+                            transform: sceneTransform,
+                            zIndex: tourSteps.length - Math.round(absoluteDistance * 2),
+                          }}
+                        >
+                          <div className="marketing-tour-slide__copy">
+                            <span>{step.number} — {step.eyebrow}</span>
+                            <h2 id={index === tourStep ? "tour-title" : undefined}>{step.title}</h2>
+                            <p>{step.text}</p>
+                            <button type="button" onClick={() => showTourSection(step.target)}>
+                              {language === "tr" ? "Landing’de bu bölümü gör" : "View this section on the landing page"}
+                              <ArrowRight size={17} />
+                            </button>
                           </div>
-                        </div>
-                        <div className="marketing-tour-float marketing-tour-float--top"><Sparkles size={15} />{step.chips[0]}</div>
-                        <div className="marketing-tour-float marketing-tour-float--bottom"><Check size={15} />{step.metricValue}</div>
-                      </div>
-                    </article>
-                  );
-                })}
+
+                          <div className={`marketing-tour-visual marketing-tour-visual--${index + 1}`} aria-hidden="true">
+                            <div className="marketing-tour-visual__glow" />
+                            <div
+                              className="marketing-tour-cube"
+                              style={{ transform: `rotateX(${28 + tourProgress * 26}deg) rotateY(${38 + tourProgress * 42}deg)` }}
+                            >
+                              <i /><i /><i /><i /><i /><i />
+                            </div>
+                            <div className="marketing-tour-orb"><Icon size={20} /></div>
+                            <div className="marketing-tour-window">
+                              <header>
+                                <span><i /><i /><i /></span>
+                                <b>SYSTEMCEL / {step.number}</b>
+                                <small>{language === "tr" ? "CANLI" : "LIVE"}</small>
+                              </header>
+                              <div className="marketing-tour-window__body">
+                                <aside>
+                                  <span className="active"><Icon size={17} /></span>
+                                  <span /><span /><span /><span />
+                                </aside>
+                                <main>
+                                  <div className="marketing-tour-window__title">
+                                    <span>{step.metricLabel}</span>
+                                    <strong>{step.metricValue}</strong>
+                                  </div>
+                                  <div className="marketing-tour-window__chart">
+                                    <i /><i /><i /><i /><i /><i /><i />
+                                  </div>
+                                  <div className="marketing-tour-window__cards">
+                                    {step.chips.map((chip, chipIndex) => (
+                                      <span key={chip}><b>{String(chipIndex + 1).padStart(2, "0")}</b>{chip}</span>
+                                    ))}
+                                  </div>
+                                </main>
+                              </div>
+                            </div>
+                            <div className="marketing-tour-float marketing-tour-float--top"><Sparkles size={15} />{step.chips[0]}</div>
+                            <div className="marketing-tour-float marketing-tour-float--bottom"><Check size={15} />{step.metricValue}</div>
+                          </div>
+                        </article>
+                      );
+                    })}
+                  </div>
+                  <div className={`marketing-tour-scroll-hint${tourProgress > .2 ? " is-hidden" : ""}`} aria-hidden="true">
+                    <span>{language === "tr" ? "Aşağı kaydır" : "Scroll down"}</span>
+                    <i />
+                  </div>
+                </div>
               </div>
             </div>
 
             <footer className="marketing-tour-footer">
-              <span>{language === "tr" ? "Kaydırarak veya oklarla ilerle" : "Swipe or use the arrows"}</span>
+              <span>{language === "tr" ? "Aşağı kaydır; kamera ürünün içinde ilerlesin" : "Scroll down to move through the product"}</span>
               <div>
-                <button type="button" className="marketing-tour-nav marketing-tour-nav--secondary" onClick={() => setTourStep((step) => Math.max(0, step - 1))} disabled={tourStep === 0}>
+                <button type="button" className="marketing-tour-nav marketing-tour-nav--secondary" onClick={() => moveTourToStep(tourStep - 1)} disabled={tourStep === 0}>
                   {language === "tr" ? "Geri" : "Back"}
                 </button>
                 {tourStep < tourSteps.length - 1 ? (
-                  <button type="button" className="marketing-tour-nav marketing-tour-nav--primary" onClick={() => setTourStep((step) => Math.min(tourSteps.length - 1, step + 1))}>
+                  <button type="button" className="marketing-tour-nav marketing-tour-nav--primary" onClick={() => moveTourToStep(tourStep + 1)}>
                     {language === "tr" ? "İleri" : "Next"}<ArrowRight size={17} />
                   </button>
                 ) : (
