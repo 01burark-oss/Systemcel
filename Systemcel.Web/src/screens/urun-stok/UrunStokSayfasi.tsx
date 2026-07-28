@@ -511,11 +511,6 @@ export function UrunStokSayfasi({ yenileAnahtari }: UrunStokSayfasiProps) {
             <div className="stock-card__header">
               <h2>Ürün Listesi</h2>
               <div className="stock-list-tools">
-                <button type="button" className="quick-sale-launch" onClick={hizliSatisiAc}>
-                  <ShoppingCart size={17} />
-                  Hızlı satış
-                  {sepet.length > 0 ? <span>{sepet.reduce((total, row) => total + row.miktar, 0)}</span> : null}
-                </button>
                 <label className="stock-search">
                   <Search size={17} />
                   <input value={arama} onChange={(event) => setArama(event.target.value)} placeholder="Ürün adı, barkod ara..." />
@@ -635,11 +630,11 @@ export function UrunStokSayfasi({ yenileAnahtari }: UrunStokSayfasiProps) {
                 <span>Hızlı işlem</span>
                 <h2>İşlem Paneli</h2>
               </div>
-              {seciliUrun ? (
-                <small title={seciliUrun.ad}>{seciliUrun.ad}</small>
-              ) : (
-                <small>Yeni kart</small>
-              )}
+              <button type="button" className="quick-sale-launch stock-workbench__sale" onClick={hizliSatisiAc}>
+                <ShoppingCart size={17} />
+                Hızlı satış
+                {sepet.length > 0 ? <span>{sepet.reduce((total, row) => total + row.miktar, 0)}</span> : null}
+              </button>
             </header>
 
             <div className="stock-workbench__tabs" role="tablist" aria-label="Ürün ve stok işlemleri">
@@ -754,10 +749,12 @@ export function UrunStokSayfasi({ yenileAnahtari }: UrunStokSayfasiProps) {
                     <span>Açıklama</span>
                     <input value={stokFormu.aciklama} onChange={(event) => stokAlaniniGuncelle("aciklama", event.target.value)} disabled={!seciliId || seciliUrun?.tip !== "Urun"} placeholder="Hareket açıklaması" />
                   </label>
-                  <button type="button" className="stock-btn stock-btn--primary stock-btn--movement" onClick={() => void stokIsle()} disabled={islemde || !seciliId || seciliUrun?.tip !== "Urun"}>
-                    <PackagePlus size={16} />
-                    Stok hareketini kaydet
-                  </button>
+                  <div className="stock-movement-form__actions">
+                    <button type="button" className="stock-btn stock-btn--primary stock-btn--movement" onClick={() => void stokIsle()} disabled={islemde || !seciliId || seciliUrun?.tip !== "Urun"}>
+                      <PackagePlus size={16} />
+                      Stok hareketini kaydet
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
