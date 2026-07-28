@@ -61,8 +61,8 @@ interface Bildirim {
 const anaMenu: Array<{ href: string; label: string; icon: LucideIcon; adminOnly?: boolean }> = [
   { href: "/", label: "Ana Sayfa", icon: Home },
   { href: "/gelir-gider", label: "Gelir / Gider Kayıtları", icon: ArrowDownUp },
-  { href: "/cari-hesaplar", label: "Cari Hesaplar", icon: CreditCard },
   { href: "/urun-stok", label: "Ürün / Stok", icon: ShoppingCart },
+  { href: "/cari-hesaplar", label: "Cari Hesaplar", icon: CreditCard },
   { href: "/faturalar", label: "Faturalar", icon: FileText },
   { href: "/tahsilat-odeme", label: "Tahsilat / Ödeme", icon: WalletCards },
   { href: "/raporlar", label: "Raporlar", icon: BarChart3 },
