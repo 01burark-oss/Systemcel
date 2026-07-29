@@ -12,8 +12,6 @@ export interface RaporSecenek {
 export interface RaporPaket {
   varMi: boolean;
   ad: string;
-  yol: string;
-  klasor: string;
   donem: string;
   olusturmaZamani: string;
 }
@@ -22,7 +20,6 @@ export interface RaporlarEkranVerisi {
   aktifIsletme: string;
   bugun: string;
   varsayilanDonem: string;
-  varsayilanKlasor: string;
   formatlar: RaporSecim[];
   icerikler: RaporSecim[];
   yazdirmaSablonlari: RaporSecenek[];

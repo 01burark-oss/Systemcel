@@ -1,19 +1,17 @@
 import React from "react";
 import {
   Archive,
-  CalendarDays,
   CheckCircle2,
   ChevronUp,
-  ExternalLink,
   FileCode2,
   FileDown,
   FileText,
-  FolderOpen,
   PackageCheck,
   Printer,
   RefreshCw
 } from "lucide-react";
 import type { UstBarDurumu } from "../../shared/chrome";
+import { openAuthenticatedFile } from "../../shared/authenticatedFile";
 import { jsonOku } from "../../shared/json";
 import type { RaporlarEkranVerisi, RaporPaket, RaporYazdirFormu } from "./types";
 
@@ -26,10 +24,6 @@ interface RaporlarSayfasiProps {
 
 interface ApiMesaj {
   mesaj: string;
-}
-
-interface KlasorSecim {
-  yol: string;
 }
 
 function bugun() {
@@ -82,7 +76,6 @@ function bosYazdirFormu(): RaporYazdirFormu {
 export function RaporlarSayfasi({ yenileAnahtari }: RaporlarSayfasiProps) {
   const [ekran, setEkran] = React.useState<RaporlarEkranVerisi | null>(null);
   const [donem, setDonem] = React.useState(ayDegeri());
-  const [klasor, setKlasor] = React.useState("");
   const [formatlar, setFormatlar] = React.useState<string[]>([]);
   const [icerikler, setIcerikler] = React.useState<string[]>([]);
   const [sonPaket, setSonPaket] = React.useState<RaporPaket | null>(null);
@@ -97,7 +90,6 @@ export function RaporlarSayfasi({ yenileAnahtari }: RaporlarSayfasiProps) {
     const data = await jsonOku<RaporlarEkranVerisi>("/api/ekran/raporlar");
     setEkran(data);
     setDonem((current) => current || data.varsayilanDonem);
-    setKlasor((current) => current || data.varsayilanKlasor);
     setFormatlar(data.formatlar.filter((row) => row.secili).map((row) => row.deger));
     setIcerikler(data.icerikler.filter((row) => row.secili).map((row) => row.deger));
     setSonPaket(data.sonPaket);
@@ -115,25 +107,6 @@ export function RaporlarSayfasi({ yenileAnahtari }: RaporlarSayfasiProps) {
     setYazdirFormu((current) => ({ ...current, [key]: value }));
   };
 
-  const klasorSec = async () => {
-    try {
-      setIslemde(true);
-      setHata("");
-      const result = await jsonOku<KlasorSecim>("/api/ekran/raporlar/klasor-sec", {
-        method: "POST",
-        body: JSON.stringify({ yol: klasor })
-      });
-      if (result.yol) {
-        setKlasor(result.yol);
-        setDurum("Kayıt klasörü seçildi.");
-      }
-    } catch (error) {
-      setHata(error instanceof Error ? error.message : "Klasör seçilemedi.");
-    } finally {
-      setIslemde(false);
-    }
-  };
-
   const paketOlustur = async () => {
     try {
       if (formatlar.length === 0) {
@@ -145,7 +118,7 @@ export function RaporlarSayfasi({ yenileAnahtari }: RaporlarSayfasiProps) {
       setDurum("Rapor paketi oluşturuluyor...");
       const result = await jsonOku<RaporPaket>("/api/ekran/raporlar/paket", {
         method: "POST",
-        body: JSON.stringify({ donem, klasor, formatlar, icerikler })
+        body: JSON.stringify({ donem, formatlar, icerikler })
       });
       setSonPaket(result);
       setDurum(`${result.ad} oluşturuldu.`);
@@ -156,21 +129,24 @@ export function RaporlarSayfasi({ yenileAnahtari }: RaporlarSayfasiProps) {
     }
   };
 
-  const paketAksiyonu = async (aksiyon: "ac" | "klasor") => {
+  const paketIndir = async () => {
     try {
-      if (!sonPaket?.yol) {
+      if (!sonPaket?.varMi) {
         throw new Error("Önce rapor paketi oluşturun.");
       }
 
       setIslemde(true);
       setHata("");
-      const result = await jsonOku<ApiMesaj>(`/api/ekran/raporlar/paket/${aksiyon}`, {
-        method: "POST",
-        body: JSON.stringify({ yol: sonPaket.yol })
+      const fileName = sonPaket.ad.toLocaleLowerCase("tr-TR").endsWith(".zip")
+        ? sonPaket.ad
+        : `${sonPaket.ad}.zip`;
+      await openAuthenticatedFile("/api/ekran/raporlar/paket/indir", {
+        fileName,
+        contentType: "application/zip"
       });
-      setDurum(result.mesaj);
+      setDurum(`${fileName} indirildi.`);
     } catch (error) {
-      setHata(error instanceof Error ? error.message : "Rapor paketi açılamadı.");
+      setHata(error instanceof Error ? error.message : "Rapor paketi indirilemedi.");
     } finally {
       setIslemde(false);
     }
@@ -208,26 +184,17 @@ export function RaporlarSayfasi({ yenileAnahtari }: RaporlarSayfasiProps) {
                   Aylık Muhasebe Paketi
                 </span>
                 <h2>Rapor paketini oluştur</h2>
-                <p>Paket içeriği otomatik hazırlanır; formatları ihtiyaca göre seçin.</p>
               </div>
               <button className="reports-icon-btn" disabled={islemde} type="button" onClick={yenile}>
                 <RefreshCw size={19} />
               </button>
             </div>
 
-            <div className="reports-form-grid reports-form-grid--package">
+            <div className="reports-form-grid reports-form-grid--package reports-form-grid--period">
               <label className="reports-field">
                 <span>Dönem</span>
                 <input value={donem} onChange={(event) => setDonem(event.target.value)} type="month" />
               </label>
-              <label className="reports-field reports-field--folder">
-                <span>Kayıt Klasörü</span>
-                <input value={klasor} onChange={(event) => setKlasor(event.target.value)} />
-              </label>
-              <button className="reports-btn" disabled={islemde} type="button" onClick={klasorSec}>
-                <FolderOpen size={17} />
-                Klasör Seç
-              </button>
             </div>
 
             <SelectionGroup
@@ -245,10 +212,6 @@ export function RaporlarSayfasi({ yenileAnahtari }: RaporlarSayfasiProps) {
             />
 
             <div className="reports-actions reports-actions--package">
-              <button className="reports-btn" disabled={!sonPaket?.varMi || islemde} type="button" onClick={() => paketAksiyonu("klasor")}>
-                <FolderOpen size={17} />
-                Klasörü Aç
-              </button>
               <button className="reports-btn reports-btn--primary" disabled={islemde} type="button" onClick={paketOlustur}>
                 <PackageCheck size={18} />
                 Paketi Oluştur
@@ -272,19 +235,15 @@ export function RaporlarSayfasi({ yenileAnahtari }: RaporlarSayfasiProps) {
             <div className="reports-preview-box">
               <FileText size={42} />
               <div>
-                <strong>{sonPaket?.varMi ? sonPaket.yol : "Rapor paketi bekleniyor"}</strong>
-                <span>{sonPaket?.varMi ? sonPaket.klasor : "Excel, HTML ve ZIP çıktısı seçilen klasöre kaydedilecek."}</span>
+                <strong>{sonPaket?.varMi ? sonPaket.ad : "Rapor paketi bekleniyor"}</strong>
+                <span>{sonPaket?.varMi ? "ZIP paketi indirmeye hazır." : "Rapor formatlarını seçip paketi oluşturun."}</span>
               </div>
             </div>
 
             <div className="reports-actions">
-              <button className="reports-btn" disabled={!sonPaket?.varMi || islemde} type="button" onClick={() => paketAksiyonu("ac")}>
-                <ExternalLink size={17} />
-                Paketi Aç
-              </button>
-              <button className="reports-btn" disabled={!sonPaket?.varMi || islemde} type="button" onClick={() => paketAksiyonu("klasor")}>
-                <FolderOpen size={17} />
-                Klasörde Göster
+              <button className="reports-btn" disabled={!sonPaket?.varMi || islemde} type="button" onClick={paketIndir}>
+                <FileDown size={17} />
+                Paketi İndir
               </button>
               <button className="reports-btn reports-btn--primary" disabled={islemde} type="button" onClick={paketOlustur}>
                 <RefreshCw size={17} />
@@ -299,7 +258,6 @@ export function RaporlarSayfasi({ yenileAnahtari }: RaporlarSayfasiProps) {
             <div className="reports-card__header reports-card__header--compact">
               <div>
                 <h2>Yazdır / Dışa Aktar</h2>
-                <p>Mevcut yazdırma raporlarını Raporlar içinden üret.</p>
               </div>
               <ChevronUp size={21} />
             </div>
@@ -368,10 +326,6 @@ export function RaporlarSayfasi({ yenileAnahtari }: RaporlarSayfasiProps) {
               </button>
             </div>
 
-            <div className="reports-info-box">
-              <CalendarDays size={20} />
-              <p>PDF ve yazdırma işlemleri mevcut rapor şablonlarını kullanır. Paketleme ise muhasebe aktarım dosyalarını ZIP olarak hazırlar.</p>
-            </div>
           </section>
         </aside>
       </section>

@@ -1,8 +1,9 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Globalization;
-using System.Diagnostics;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -41,7 +42,7 @@ namespace Systemcel.Api.Api
         private readonly ISystemcelYonetimService? _yonetimService;
         private readonly IMuhasebeciPortalService? _muhasebeciPortalService;
         private readonly IMuhasebeciSohbetMerkeziService? _muhasebeciSohbetMerkeziService;
-        private RaporPaketDto? _lastReportPackage;
+        private readonly ConcurrentDictionary<int, ReportPackageState> _lastReportPackages = new();
 
         public ScreenApi(
             IKasaService kasaService,
@@ -537,41 +538,24 @@ namespace Systemcel.Api.Api
                     }
                 });
 
-                app.MapPost("/api/ekran/raporlar/klasor-sec", async (RaporYolIstek request) =>
+                app.MapGet("/api/ekran/raporlar/paket/indir", async () =>
                 {
                     try
                     {
-                        return Results.Ok(new RaporKlasorDto(await SelectReportFolderAsync(request.yol)));
-                    }
-                    catch (Exception ex)
-                    {
-                        return Results.BadRequest(new ApiHata($"Klasör seçilemedi: {ex.Message}"));
-                    }
-                });
+                        var activeBusinessId = await _isletmeService!.GetActiveIdAsync();
+                        if (!_lastReportPackages.TryGetValue(activeBusinessId, out var package))
+                            return Results.NotFound(new ApiHata("İndirilecek rapor paketi bulunamadı."));
 
-                app.MapPost("/api/ekran/raporlar/paket/ac", (RaporYolIstek request) =>
-                {
-                    try
-                    {
-                        OpenReportPath(request.yol, selectInFolder: false);
-                        return Results.Ok(new ApiMesaj("Rapor paketi açılıyor."));
+                        var download = PrepareReportPackageDownload(package);
+                        return Results.File(
+                            download.Path,
+                            "application/zip",
+                            download.FileName,
+                            enableRangeProcessing: true);
                     }
                     catch (Exception ex)
                     {
-                        return Results.BadRequest(new ApiHata($"Rapor paketi açılamadı: {ex.Message}"));
-                    }
-                });
-
-                app.MapPost("/api/ekran/raporlar/paket/klasor", (RaporYolIstek request) =>
-                {
-                    try
-                    {
-                        OpenReportPath(request.yol, selectInFolder: true);
-                        return Results.Ok(new ApiMesaj("Rapor klasörü açılıyor."));
-                    }
-                    catch (Exception ex)
-                    {
-                        return Results.BadRequest(new ApiHata($"Rapor klasörü açılamadı: {ex.Message}"));
+                        return Results.BadRequest(new ApiHata($"Rapor paketi indirilemedi: {ex.Message}"));
                     }
                 });
 
@@ -1855,6 +1839,7 @@ namespace Systemcel.Api.Api
         private async Task<RaporlarEkranDto> BuildReportsScreenAsync()
         {
             var activeBusiness = await _isletmeService!.GetActiveAsync();
+            var activeBusinessId = await _isletmeService.GetActiveIdAsync();
             var today = DateTime.Today;
 
             return new RaporlarEkranDto
@@ -1862,7 +1847,6 @@ namespace Systemcel.Api.Api
                 aktifIsletme = string.IsNullOrWhiteSpace(activeBusiness.Ad) ? "Bilinmiyor" : activeBusiness.Ad.Trim(),
                 bugun = today.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
                 varsayilanDonem = today.ToString("yyyy-MM", CultureInfo.InvariantCulture),
-                varsayilanKlasor = GetDefaultReportsFolder(),
                 formatlar = new List<RaporSecimDto>
                 {
                     new("excel", "Excel", false),
@@ -1883,7 +1867,9 @@ namespace Systemcel.Api.Api
                 tarihAraliklari = PrintRangeCatalog.CreateLocalizedOptions(today)
                     .Select(x => new SecenekDto(x.Code, x.Display))
                     .ToList(),
-                sonPaket = _lastReportPackage
+                sonPaket = _lastReportPackages.TryGetValue(activeBusinessId, out var lastPackage)
+                    ? ToReportPackageDto(lastPackage)
+                    : null
             };
         }
 
@@ -1896,14 +1882,14 @@ namespace Systemcel.Api.Api
                 throw new ArgumentException("Dönem yyyy-MM formatında olmalıdır.");
 
             var options = CreateMonthlyReportOptions(request);
-            var outputDirectory = string.IsNullOrWhiteSpace(request.klasor)
-                ? GetDefaultReportsFolder()
-                : request.klasor.Trim();
+            var outputDirectory = GetDefaultReportsFolder();
 
             Directory.CreateDirectory(outputDirectory);
             var reportPath = await _onMuhasebeReportService!.CreateMonthlyExportAsync(month, outputDirectory, options);
-            _lastReportPackage = ToReportPackageDto(reportPath, month);
-            return _lastReportPackage;
+            var package = ToReportPackageState(reportPath, month);
+            var activeBusinessId = await _isletmeService!.GetActiveIdAsync();
+            _lastReportPackages[activeBusinessId] = package;
+            return ToReportPackageDto(package);
         }
 
         private static MonthlyReportExportOptions CreateMonthlyReportOptions(RaporPaketOlusturIstek request)
@@ -1941,13 +1927,6 @@ namespace Systemcel.Api.Api
             var report = await BuildPrintReportAsync(request, recordLimit: null, isPreview: false);
             var path = SavePrintReportHtml(report);
             return new ApiMesaj($"Web host PDF yerine yazdırılabilir HTML raporu hazırladı: {path}");
-        }
-
-        private static Task<string> SelectReportFolderAsync(string? currentPath)
-        {
-            var selected = Directory.Exists(currentPath) ? currentPath! : GetDefaultReportsFolder();
-            Directory.CreateDirectory(selected);
-            return Task.FromResult(selected);
         }
 
         private async Task<ApiMesaj> ExportReportHtmlAsync(RaporYazdirIstek request)
@@ -2033,58 +2012,76 @@ namespace Systemcel.Api.Api
             return $"systemcel-{templateName}-{DateTime.Now:yyyyMMdd-HHmm}.{extension}";
         }
 
-        private static void OpenReportPath(string? rawPath, bool selectInFolder)
+        private static ReportPackageDownload PrepareReportPackageDownload(ReportPackageState package)
         {
-            var path = string.IsNullOrWhiteSpace(rawPath) ? string.Empty : rawPath.Trim();
-            if (string.IsNullOrWhiteSpace(path))
-                throw new ArgumentException("Açılacak rapor yolu bulunamadı.");
+            var reportsRoot = Path.GetFullPath(GetDefaultReportsFolder());
+            var packagePath = Path.GetFullPath(package.Path);
+            var relativePath = Path.GetRelativePath(reportsRoot, packagePath);
+            if (relativePath.StartsWith("..", StringComparison.Ordinal) || Path.IsPathRooted(relativePath))
+                throw new InvalidOperationException("Rapor paketi güvenli rapor klasörünün dışında.");
 
-            if (File.Exists(path))
+            if (File.Exists(packagePath))
             {
-                if (selectInFolder)
+                if (!string.Equals(Path.GetExtension(packagePath), ".zip", StringComparison.OrdinalIgnoreCase))
+                    throw new InvalidOperationException("Rapor paketi ZIP biçiminde değil.");
+
+                return new ReportPackageDownload(packagePath, Path.GetFileName(packagePath));
+            }
+
+            if (Directory.Exists(packagePath))
+            {
+                var zipPath = packagePath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + ".zip";
+                var temporaryZipPath = $"{zipPath}.{Guid.NewGuid():N}.tmp";
+                try
                 {
-                    Process.Start(new ProcessStartInfo("explorer.exe", $"/select,\"{path}\"") { UseShellExecute = true });
-                    return;
+                    ZipFile.CreateFromDirectory(packagePath, temporaryZipPath, CompressionLevel.Fastest, includeBaseDirectory: true);
+                    File.Move(temporaryZipPath, zipPath, overwrite: true);
+                }
+                finally
+                {
+                    if (File.Exists(temporaryZipPath))
+                        File.Delete(temporaryZipPath);
                 }
 
-                Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
-                return;
+                return new ReportPackageDownload(zipPath, $"{Path.GetFileName(packagePath)}.zip");
             }
 
-            if (Directory.Exists(path))
-            {
-                Process.Start(new ProcessStartInfo("explorer.exe", $"\"{path}\"") { UseShellExecute = true });
-                return;
-            }
-
-            throw new FileNotFoundException("Rapor yolu bulunamadı.", path);
+            throw new FileNotFoundException("Rapor paketi sunucuda bulunamadı.", packagePath);
         }
 
-        private static RaporPaketDto ToReportPackageDto(string zipPath, DateTime month)
+        private sealed record ReportPackageDownload(string Path, string FileName);
+        private sealed record ReportPackageState(string Path, string Name, string Period, DateTime CreatedAt, bool Exists);
+
+        private static ReportPackageState ToReportPackageState(string zipPath, DateTime month)
         {
             if (Directory.Exists(zipPath))
             {
                 var directory = new DirectoryInfo(zipPath);
-                return new RaporPaketDto
-                {
-                    varMi = true,
-                    ad = directory.Name,
-                    yol = directory.FullName,
-                    klasor = directory.Parent?.FullName ?? directory.FullName,
-                    donem = month.ToString("yyyy-MM", CultureInfo.InvariantCulture),
-                    olusturmaZamani = directory.LastWriteTime.ToString("dd.MM.yyyy HH:mm", CultureInfo.CurrentCulture)
-                };
+                return new ReportPackageState(
+                    directory.FullName,
+                    directory.Name,
+                    month.ToString("yyyy-MM", CultureInfo.InvariantCulture),
+                    directory.LastWriteTime,
+                    true);
             }
 
             var file = new FileInfo(zipPath);
+            return new ReportPackageState(
+                file.FullName,
+                file.Name,
+                month.ToString("yyyy-MM", CultureInfo.InvariantCulture),
+                file.Exists ? file.LastWriteTime : DateTime.Now,
+                file.Exists);
+        }
+
+        private static RaporPaketDto ToReportPackageDto(ReportPackageState package)
+        {
             return new RaporPaketDto
             {
-                varMi = file.Exists,
-                ad = file.Name,
-                yol = file.FullName,
-                klasor = file.DirectoryName ?? string.Empty,
-                donem = month.ToString("yyyy-MM", CultureInfo.InvariantCulture),
-                olusturmaZamani = DateTime.Now.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture)
+                varMi = package.Exists,
+                ad = package.Name,
+                donem = package.Period,
+                olusturmaZamani = package.CreatedAt.ToString("dd.MM.yyyy HH:mm", CultureInfo.CurrentCulture)
             };
         }
 
@@ -3530,7 +3527,6 @@ namespace Systemcel.Api.Api
             public string aktifIsletme { get; set; } = string.Empty;
             public string bugun { get; set; } = string.Empty;
             public string varsayilanDonem { get; set; } = string.Empty;
-            public string varsayilanKlasor { get; set; } = string.Empty;
             public List<RaporSecimDto> formatlar { get; set; } = new();
             public List<RaporSecimDto> icerikler { get; set; } = new();
             public List<SecenekDto> yazdirmaSablonlari { get; set; } = new();
@@ -3542,8 +3538,6 @@ namespace Systemcel.Api.Api
         {
             public bool varMi { get; set; }
             public string ad { get; set; } = string.Empty;
-            public string yol { get; set; } = string.Empty;
-            public string klasor { get; set; } = string.Empty;
             public string donem { get; set; } = string.Empty;
             public string olusturmaZamani { get; set; } = string.Empty;
         }
@@ -3551,17 +3545,9 @@ namespace Systemcel.Api.Api
         public sealed class RaporPaketOlusturIstek
         {
             public string? donem { get; set; }
-            public string? klasor { get; set; }
             public List<string> formatlar { get; set; } = new();
             public List<string> icerikler { get; set; } = new();
         }
-
-        public sealed class RaporYolIstek
-        {
-            public string? yol { get; set; }
-        }
-
-        public sealed record RaporKlasorDto(string yol);
 
         public sealed class RaporYazdirIstek
         {

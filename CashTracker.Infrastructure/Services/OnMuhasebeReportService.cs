@@ -30,7 +30,7 @@ namespace CashTracker.Infrastructure.Services
         public async Task<string> CreateMonthlyExportAsync(DateTime month, string outputDirectory, MonthlyReportExportOptions? options = null, CancellationToken ct = default)
         {
             if (string.IsNullOrWhiteSpace(outputDirectory))
-                throw new ArgumentException("Cikti klasoru secilmelidir.", nameof(outputDirectory));
+                throw new ArgumentException("Çıktı klasörü seçilmelidir.", nameof(outputDirectory));
 
             options ??= new MonthlyReportExportOptions();
             var activeIsletmeId = await _isletmeService.GetActiveIdAsync();
@@ -103,10 +103,10 @@ namespace CashTracker.Infrastructure.Services
                         new("Cari", 30),
                         new("Durum", 18),
                         new("Toplam", 18),
-                        new("Odenen", 18),
+                        new("Ödenen", 18),
                         new("Kalan", 18),
-                        new("Odeme", 18),
-                        new("Aciklama", 34)
+                        new("Ödeme", 18),
+                        new("Açıklama", 34)
                     ],
                     faturalar.Select(x => new[]
                     {
@@ -127,14 +127,14 @@ namespace CashTracker.Infrastructure.Services
                     Path.Combine(exportRoot, "fatura_satirlari.xlsx"),
                     [
                         new("Fatura No", 22),
-                        new("Urun / Hizmet", 28),
-                        new("Aciklama", 34),
+                        new("Ürün / Hizmet", 28),
+                        new("Açıklama", 34),
                         new("Miktar", 12),
                         new("Birim", 12),
                         new("Birim Fiyat", 18),
                         new("KDV %", 12),
-                        new("KDV Tutari", 18),
-                        new("Satir Toplami", 18)
+                        new("KDV Tutarı", 18),
+                        new("Satır Toplamı", 18)
                     ],
                     faturaSatirlari.Select(x => new[]
                     {
@@ -157,7 +157,7 @@ namespace CashTracker.Infrastructure.Services
                     Path.Combine(exportRoot, "cari_hareketler.xlsx"),
                     [
                         new("Tarih", 16),
-                        new("Islem", 20),
+                        new("İşlem", 20),
                         new("Tutar", 18),
                         new("Belge No", 24)
                     ],
@@ -189,7 +189,7 @@ namespace CashTracker.Infrastructure.Services
                         x.Eposta,
                         x.VergiNoTc,
                         x.VergiDairesi,
-                        x.Aktif ? "Evet" : "Hayir"
+                        x.Aktif ? "Evet" : "Hayır"
                     }),
                     ct);
             }
@@ -200,17 +200,17 @@ namespace CashTracker.Infrastructure.Services
                     Path.Combine(exportRoot, "stok_hareketleri.xlsx"),
                     [
                         new("Tarih", 16),
-                        new("Urun / Hizmet", 30),
-                        new("Islem", 16),
+                        new("Ürün / Hizmet", 30),
+                        new("İşlem", 16),
                         new("Miktar", 14),
                         new("Kaynak", 18),
                         new("Belge No", 24),
-                        new("Aciklama", 34)
+                        new("Açıklama", 34)
                     ],
                     stokHareketleri.Select(x => new[]
                     {
                         DateTr(x.Tarih),
-                        urunAdlari.TryGetValue(x.UrunHizmetId, out var urunAd) ? urunAd : "Urun / hizmet",
+                        urunAdlari.TryGetValue(x.UrunHizmetId, out var urunAd) ? urunAd : "Ürün / hizmet",
                         DisplayStockMovementType(x.HareketTipi),
                         Quantity(x.Miktar),
                         DisplaySource(x.Kaynak),
@@ -223,12 +223,12 @@ namespace CashTracker.Infrastructure.Services
                     Path.Combine(exportRoot, "urun_hizmetler.xlsx"),
                     [
                         new("Tip", 16),
-                        new("Urun / Hizmet", 30),
+                        new("Ürün / Hizmet", 30),
                         new("Barkod", 22),
                         new("Birim", 12),
                         new("KDV %", 12),
-                        new("Alis Fiyati", 18),
-                        new("Satis Fiyati", 18),
+                        new("Alış Fiyatı", 18),
+                        new("Satış Fiyatı", 18),
                         new("Kritik Stok", 16),
                         new("Durum", 14)
                     ],
@@ -242,7 +242,7 @@ namespace CashTracker.Infrastructure.Services
                         MoneyTl(x.AlisFiyati),
                         MoneyTl(x.SatisFiyati),
                         Quantity(x.KritikStok),
-                        x.Aktif ? "Evet" : "Hayir"
+                        x.Aktif ? "Evet" : "Hayır"
                     }),
                     ct);
             }
@@ -253,12 +253,12 @@ namespace CashTracker.Infrastructure.Services
                     Path.Combine(exportRoot, "gelir_gider.xlsx"),
                     [
                         new("Tarih", 16),
-                        new("Islem", 16),
+                        new("İşlem", 16),
                         new("Tutar", 18),
-                        new("Odeme Yontemi", 18),
+                        new("Ödeme Yöntemi", 18),
                         new("Kalem", 24),
-                        new("Gider Turu", 22),
-                        new("Aciklama", 34)
+                        new("Gider Türü", 22),
+                        new("Açıklama", 34)
                     ],
                     kasaKayitlari.Select(x => new[]
                     {
@@ -292,7 +292,7 @@ namespace CashTracker.Infrastructure.Services
                     Path.Combine(exportRoot, "kdv_ozeti.xlsx"),
                     [
                         new("Fatura Tipi", 18),
-                        new("KDV Orani", 14),
+                        new("KDV Oranı", 14),
                         new("Matrah", 18),
                         new("KDV", 18),
                         new("Toplam", 18)
@@ -315,7 +315,25 @@ namespace CashTracker.Infrastructure.Services
             }
 
             if (options.IncludeHtml)
-                await WriteSummaryHtmlAsync(Path.Combine(exportRoot, "ozet.html"), activeBusiness?.Ad ?? "Isletme", start, faturalar.Count, kasaKayitlari.Count, ct);
+            {
+                var gelirToplami = kasaKayitlari
+                    .Where(x => string.Equals(x.Tip, "Gelir", StringComparison.OrdinalIgnoreCase))
+                    .Sum(x => x.Tutar);
+                var giderToplami = kasaKayitlari
+                    .Where(x => string.Equals(x.Tip, "Gider", StringComparison.OrdinalIgnoreCase))
+                    .Sum(x => x.Tutar);
+                await WriteSummaryHtmlAsync(
+                    Path.Combine(exportRoot, "ozet.html"),
+                    activeBusiness?.Ad ?? "İşletme",
+                    start,
+                    faturalar.Count,
+                    faturalar.Sum(x => x.GenelToplam),
+                    faturalar.Sum(x => x.OdenenTutar),
+                    kasaKayitlari.Count,
+                    gelirToplami,
+                    giderToplami,
+                    ct);
+            }
 
             var zipPath = exportRoot + ".zip";
             if (File.Exists(zipPath))
@@ -414,30 +432,91 @@ namespace CashTracker.Infrastructure.Services
             return columnName;
         }
 
-        private static async Task WriteSummaryHtmlAsync(string path, string businessName, DateTime month, int invoiceCount, int cashCount, CancellationToken ct)
+        private static async Task WriteSummaryHtmlAsync(
+            string path,
+            string businessName,
+            DateTime month,
+            int invoiceCount,
+            decimal invoiceTotal,
+            decimal paidTotal,
+            int cashCount,
+            decimal incomeTotal,
+            decimal expenseTotal,
+            CancellationToken ct)
         {
             var html = $$"""
 <!doctype html>
 <html lang="tr">
 <head>
 <meta charset="utf-8">
-<title>Systemcel Rapor Ozeti</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Systemcel Aylık Rapor Özeti</title>
 <style>
-body { font-family: Arial, sans-serif; color: #162033; margin: 32px; }
-table { border-collapse: collapse; min-width: 520px; }
-td, th { border: 1px solid #ccd5e1; padding: 8px 10px; }
-th { background: #eef4fb; text-align: left; }
+:root { color-scheme: light; --ink: #0b0b09; --paper: #f7f5ed; --line: #d9d6ca; --lime: #baff00; --muted: #716f67; }
+* { box-sizing: border-box; }
+body { font-family: Inter, "Segoe UI", Arial, sans-serif; color: var(--ink); background: var(--paper); margin: 0; padding: 32px; }
+.report { max-width: 920px; margin: 0 auto; background: #fffefa; border: 1px solid var(--line); border-radius: 22px; overflow: hidden; }
+.header { display: flex; align-items: end; justify-content: space-between; gap: 24px; padding: 30px 32px; border-bottom: 1px solid var(--line); }
+.brand { font-size: 25px; font-weight: 850; letter-spacing: -.04em; }
+.eyebrow { color: #527000; font-size: 12px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
+h1 { margin: 8px 0 0; font-size: 34px; letter-spacing: -.035em; }
+.period { color: var(--muted); font-weight: 700; white-space: nowrap; }
+.metrics { display: grid; grid-template-columns: repeat(3, 1fr); border-bottom: 1px solid var(--line); }
+.metric { padding: 24px 26px; border-right: 1px solid var(--line); }
+.metric:last-child { border-right: 0; }
+.metric small { display: block; color: var(--muted); font-weight: 700; margin-bottom: 8px; }
+.metric strong { font-size: 26px; letter-spacing: -.025em; }
+.metric.net { background: var(--ink); color: #fff; }
+.metric.net small { color: #c9c7bd; }
+.metric.net strong { color: var(--lime); }
+.details { padding: 26px 32px 32px; }
+table { width: 100%; border-collapse: collapse; }
+td, th { border-bottom: 1px solid var(--line); padding: 13px 10px; text-align: left; }
+th { color: var(--muted); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; }
+td:last-child, th:last-child { text-align: right; }
+.footer { padding-top: 22px; color: var(--muted); font-size: 12px; }
+@media (max-width: 680px) {
+  body { padding: 12px; }
+  .header { align-items: flex-start; flex-direction: column; padding: 24px; }
+  .metrics { grid-template-columns: 1fr; }
+  .metric { border-right: 0; border-bottom: 1px solid var(--line); }
+  .details { padding: 22px 24px 26px; overflow-x: auto; }
+}
+@media print {
+  body { background: #fff; padding: 0; }
+  .report { max-width: none; border: 0; border-radius: 0; }
+}
 </style>
 </head>
 <body>
-<h1>Systemcel Rapor Ozeti</h1>
+<main class="report">
+<header class="header">
+  <div>
+    <div class="brand">systemcel</div>
+    <div class="eyebrow">Aylık muhasebe paketi</div>
+    <h1>{{EscapeHtml(businessName)}}</h1>
+  </div>
+  <div class="period">{{month.ToString("MMMM yyyy", CultureInfo.GetCultureInfo("tr-TR"))}}</div>
+</header>
+<section class="metrics">
+  <article class="metric"><small>Toplam gelir</small><strong>{{MoneyTl(incomeTotal)}}</strong></article>
+  <article class="metric"><small>Toplam gider</small><strong>{{MoneyTl(expenseTotal)}}</strong></article>
+  <article class="metric net"><small>Net sonuç</small><strong>{{MoneyTl(incomeTotal - expenseTotal)}}</strong></article>
+</section>
+<section class="details">
 <table>
-<tr><th>Isletme</th><td>{{EscapeHtml(businessName)}}</td></tr>
-<tr><th>Donem</th><td>{{month:yyyy-MM}}</td></tr>
-<tr><th>Fatura Sayisi</th><td>{{invoiceCount}}</td></tr>
-<tr><th>Gelir/Gider Kaydi</th><td>{{cashCount}}</td></tr>
+<thead><tr><th>Rapor kalemi</th><th>Değer</th></tr></thead>
+<tbody>
+<tr><td>Fatura sayısı</td><td>{{invoiceCount}}</td></tr>
+<tr><td>Fatura toplamı</td><td>{{MoneyTl(invoiceTotal)}}</td></tr>
+<tr><td>Tahsil edilen</td><td>{{MoneyTl(paidTotal)}}</td></tr>
+<tr><td>Bekleyen fatura bakiyesi</td><td>{{MoneyTl(Math.Max(0m, invoiceTotal - paidTotal))}}</td></tr>
+<tr><td>Gelir / gider kayıt sayısı</td><td>{{cashCount}}</td></tr>
+</tbody>
 </table>
-<p>Excel dosyalari sade ve okunabilir tablo formatinda hazirlandi. Varsa GIB PDF/XML belgeleri belge_dosyalari klasorune eklendi.</p>
+<div class="footer">Systemcel tarafından {{DateTime.Now.ToString("dd.MM.yyyy HH:mm", CultureInfo.GetCultureInfo("tr-TR"))}} tarihinde oluşturuldu.</div>
+</section>
+</main>
 </body>
 </html>
 """;
@@ -517,8 +596,8 @@ th { background: #eef4fb; text-align: left; }
         {
             return value switch
             {
-                "Satis" => "Satis",
-                "Alis" => "Alis",
+                "Satis" => "Satış",
+                "Alis" => "Alış",
                 _ => value
             };
         }
@@ -528,11 +607,11 @@ th { background: #eef4fb; text-align: left; }
             return value switch
             {
                 "YerelTaslak" => "Taslak",
-                "PortalTaslak" => "GIB Taslak",
+                "PortalTaslak" => "GİB Taslak",
                 "Kesildi" => "Kesildi",
-                "KismiOdendi" => "Kismi Odendi",
-                "Odendi" => "Odendi",
-                "Iptal" => "Iptal",
+                "KismiOdendi" => "Kısmi Ödendi",
+                "Odendi" => "Ödendi",
+                "Iptal" => "İptal",
                 _ => value
             };
         }
@@ -541,10 +620,10 @@ th { background: #eef4fb; text-align: left; }
         {
             return value switch
             {
-                "Borc" => "Borc",
+                "Borc" => "Borç",
                 "Alacak" => "Alacak",
                 "Tahsilat" => "Tahsilat",
-                "Odeme" => "Odeme",
+                "Odeme" => "Ödeme",
                 _ => value
             };
         }
@@ -553,8 +632,8 @@ th { background: #eef4fb; text-align: left; }
         {
             return value switch
             {
-                "Giris" => "Giris",
-                "Cikis" => "Cikis",
+                "Giris" => "Giriş",
+                "Cikis" => "Çıkış",
                 _ => value
             };
         }
@@ -563,7 +642,7 @@ th { background: #eef4fb; text-align: left; }
         {
             return value switch
             {
-                "Urun" => "Urun",
+                "Urun" => "Ürün",
                 "Hizmet" => "Hizmet",
                 _ => value
             };
@@ -573,9 +652,9 @@ th { background: #eef4fb; text-align: left; }
         {
             return value switch
             {
-                "Musteri" => "Musteri",
-                "Tedarikci" => "Tedarikci",
-                "HerIkisi" => "Musteri / Tedarikci",
+                "Musteri" => "Müşteri",
+                "Tedarikci" => "Tedarikçi",
+                "HerIkisi" => "Müşteri / Tedarikçi",
                 _ => value
             };
         }
@@ -595,8 +674,8 @@ th { background: #eef4fb; text-align: left; }
             return value switch
             {
                 "Nakit" => "Nakit",
-                "KrediKarti" => "Kredi Karti",
-                "OnlineOdeme" => "Online Odeme",
+                "KrediKarti" => "Kredi Kartı",
+                "OnlineOdeme" => "Online Ödeme",
                 "Havale" => "Havale",
                 _ => value
             };
@@ -608,7 +687,7 @@ th { background: #eef4fb; text-align: left; }
             {
                 "Manuel" => "Manuel",
                 "Fatura" => "Fatura",
-                "TahsilatOdeme" => "Tahsilat / Odeme",
+                "TahsilatOdeme" => "Tahsilat / Ödeme",
                 _ => value
             };
         }
