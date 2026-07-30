@@ -135,7 +135,12 @@ export function LandingPage() {
   const pageRef = React.useRef<HTMLDivElement>(null);
   const progressRef = React.useRef<HTMLDivElement>(null);
   const tourViewportRef = React.useRef<HTMLDivElement>(null);
-  const tourTouchStartRef = React.useRef<{ x: number; y: number } | null>(null);
+  const heroLedgerRef = React.useRef<HTMLDivElement>(null);
+  const heroTiltFrameRef = React.useRef(0);
+  const tourEaseFrameRef = React.useRef(0);
+  const tourProgressRef = React.useRef(0);
+  const tourProgressTargetRef = React.useRef(0);
+  const tourTouchStartRef = React.useRef<{ x: number; y: number; time: number } | null>(null);
   const [language, setLanguage] = React.useState<Language>(() => window.localStorage.getItem("systemcel.language") === "en" ? "en" : "tr");
   const [billing, setBilling] = React.useState<Billing>("Aylik");
   const [plans, setPlans] = React.useState<PublicPlan[]>(fallbackPlans);
@@ -258,6 +263,11 @@ export function LandingPage() {
     return () => query.removeEventListener("change", updateTourMode);
   }, []);
 
+  React.useEffect(() => () => {
+    if (heroTiltFrameRef.current) window.cancelAnimationFrame(heroTiltFrameRef.current);
+    if (tourEaseFrameRef.current) window.cancelAnimationFrame(tourEaseFrameRef.current);
+  }, []);
+
   React.useEffect(() => {
     if (!mobileMenuOpen && !tourOpen) return undefined;
     const page = pageRef.current;
@@ -340,8 +350,29 @@ export function LandingPage() {
   function openTour() {
     setTourStep(0);
     setTourProgress(0);
+    tourProgressRef.current = 0;
+    tourProgressTargetRef.current = 0;
     setTourOpen(true);
     window.requestAnimationFrame(() => tourViewportRef.current?.scrollTo({ top: 0 }));
+  }
+
+  function easeTourProgress() {
+    if (tourEaseFrameRef.current) return;
+    const tick = () => {
+      const current = tourProgressRef.current;
+      const target = tourProgressTargetRef.current;
+      const next = current + (target - current) * .14;
+      if (Math.abs(target - next) < .001) {
+        tourProgressRef.current = target;
+        setTourProgress(target);
+        tourEaseFrameRef.current = 0;
+        return;
+      }
+      tourProgressRef.current = next;
+      setTourProgress(next);
+      tourEaseFrameRef.current = window.requestAnimationFrame(tick);
+    };
+    tourEaseFrameRef.current = window.requestAnimationFrame(tick);
   }
 
   function showTourSection(target: string) {
@@ -357,8 +388,14 @@ export function LandingPage() {
     const clampedStep = Math.min(tourSteps.length - 1, Math.max(0, nextStep));
     const viewport = tourViewportRef.current;
     setTourStep(clampedStep);
-    setTourProgress(clampedStep);
-    if (!viewport || tourMobile) return;
+    tourProgressTargetRef.current = clampedStep;
+    if (tourMobile) {
+      tourProgressRef.current = clampedStep;
+      setTourProgress(clampedStep);
+      return;
+    }
+    easeTourProgress();
+    if (!viewport) return;
     const maximumScroll = viewport.scrollHeight - viewport.clientHeight;
     viewport.scrollTo({
       top: tourSteps.length > 1 ? maximumScroll * clampedStep / (tourSteps.length - 1) : 0,
@@ -374,13 +411,16 @@ export function LandingPage() {
       ? viewport.scrollTop / maximumScroll * (tourSteps.length - 1)
       : 0;
     const nextStep = Math.min(tourSteps.length - 1, Math.max(0, Math.round(progress)));
-    setTourProgress(progress);
+    tourProgressTargetRef.current = progress;
+    easeTourProgress();
     setTourStep((current) => current === nextStep ? current : nextStep);
   }
 
   function handleTourTouchStart(event: React.TouchEvent<HTMLDivElement>) {
     const touch = event.touches[0];
-    tourTouchStartRef.current = touch ? { x: touch.clientX, y: touch.clientY } : null;
+    tourTouchStartRef.current = touch
+      ? { x: touch.clientX, y: touch.clientY, time: event.timeStamp }
+      : null;
   }
 
   function handleTourTouchEnd(event: React.TouchEvent<HTMLDivElement>) {
@@ -391,8 +431,41 @@ export function LandingPage() {
 
     const deltaX = touch.clientX - start.x;
     const deltaY = touch.clientY - start.y;
-    if (Math.abs(deltaX) < 46 || Math.abs(deltaX) <= Math.abs(deltaY) * 1.15) return;
+    const elapsed = Math.max(1, event.timeStamp - start.time);
+    const velocityX = deltaX / elapsed;
+    const horizontalIntent = Math.abs(deltaX) > Math.abs(deltaY) * 1.15;
+    const committedSwipe = Math.abs(deltaX) >= 42 || Math.abs(velocityX) >= .38;
+    if (!horizontalIntent || !committedSwipe) return;
     moveTourToStep(tourStep + (deltaX < 0 ? 1 : -1));
+  }
+
+  function handleHeroPointerMove(event: React.PointerEvent<HTMLDivElement>) {
+    if (event.pointerType === "touch"
+      || !window.matchMedia("(hover: hover) and (pointer: fine)").matches
+      || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+    const card = heroLedgerRef.current;
+    if (!card) return;
+    const bounds = card.getBoundingClientRect();
+    const normalizedX = Math.min(1, Math.max(0, (event.clientX - bounds.left) / bounds.width));
+    const normalizedY = Math.min(1, Math.max(0, (event.clientY - bounds.top) / bounds.height));
+    if (heroTiltFrameRef.current) window.cancelAnimationFrame(heroTiltFrameRef.current);
+    heroTiltFrameRef.current = window.requestAnimationFrame(() => {
+      card.style.setProperty("--mk-shine-x", `${normalizedX * 100}%`);
+      card.style.setProperty("--mk-shine-y", `${normalizedY * 100}%`);
+      card.style.transform = `translate(${(normalizedX - 0.5) * 4}px, ${(normalizedY - 0.5) * 3 - 4}px)`;
+    });
+  }
+
+  function handleHeroPointerLeave() {
+    const card = heroLedgerRef.current;
+    if (!card) return;
+    if (heroTiltFrameRef.current) window.cancelAnimationFrame(heroTiltFrameRef.current);
+    heroTiltFrameRef.current = window.requestAnimationFrame(() => {
+      card.style.setProperty("--mk-shine-x", "50%");
+      card.style.setProperty("--mk-shine-y", "34%");
+      card.style.transform = "";
+    });
   }
 
   return (
@@ -424,7 +497,8 @@ export function LandingPage() {
       </header>
 
       <main id="main">
-        <section id="top" className="marketing-hero marketing-grid-bg">
+        <section id="top" className="marketing-hero">
+          <MarketingFlowField />
           <div className="marketing-wrap marketing-hero__grid">
             <div className="marketing-hero__copy">
               <span className="marketing-eyebrow"><i />{t.eyebrow}</span>
@@ -436,13 +510,17 @@ export function LandingPage() {
               </div>
               <div className="marketing-proof"><span>{t.setup}</span><i>·</i><span>{t.cancel}</span></div>
             </div>
-            <HeroLedger />
+            <HeroLedger
+              cardRef={heroLedgerRef}
+              onPointerMove={handleHeroPointerMove}
+              onPointerLeave={handleHeroPointerLeave}
+            />
           </div>
           <a className="marketing-scroll-cue" href="#on-muhasebe"><span>{language === "tr" ? "Keşfet" : "Explore"}</span><ChevronDown size={18} /></a>
         </section>
 
-        <section className="marketing-trust-strip marketing-reveal" data-reveal aria-label={language === "tr" ? "Ürün güvenceleri" : "Product assurances"}>
-          <div className="marketing-wrap marketing-trust-grid">
+        <section className="marketing-trust-strip" aria-label={language === "tr" ? "Ürün güvenceleri" : "Product assurances"}>
+          <div className="marketing-wrap marketing-trust-grid marketing-reveal" data-reveal>
             <Trust icon={<ShieldCheck />} title={language === "tr" ? "İşletme bazlı güvenli alan" : "Secure business workspace"} text={language === "tr" ? "Her kayıt yalnızca yetkili işletme üyelerine görünür." : "Every record is visible only to authorized business members."} />
             <Trust icon={<FileText />} title={language === "tr" ? "GİB e-Arşiv akışı" : "GİB e-Archive flow"} text={language === "tr" ? "Taslak, SMS onayı ve kesim adımlarını tek yerden yönet." : "Manage draft, SMS approval and issuing in one place."} />
             <Trust icon={<MessageCircle />} title={language === "tr" ? "Muhasebeciyle ortak çalışma" : "Accountant collaboration"} text={language === "tr" ? "Talep, sohbet ve veri paylaşımı aynı çalışma alanında." : "Requests, chat and data sharing in one workspace."} />
@@ -460,7 +538,7 @@ export function LandingPage() {
           </div>
         </section>
 
-        <section id="ai" className="marketing-section marketing-section--dark marketing-grid-bg--dark">
+        <section id="ai" className="marketing-section marketing-section--dark">
           <div className="marketing-wrap marketing-feature-grid marketing-feature-grid--reverse marketing-reveal" data-reveal>
             <div className="marketing-ai-card marketing-ai-demo">
               <span><Sparkles size={16} /> SYSTEMCEL AI</span>
@@ -580,6 +658,7 @@ export function LandingPage() {
               onScroll={handleTourScroll}
               onTouchStart={handleTourTouchStart}
               onTouchEnd={handleTourTouchEnd}
+              onTouchCancel={() => { tourTouchStartRef.current = null; }}
             >
               <div className="marketing-tour-scrollworld" style={{ height: `${tourSteps.length * 100}%` }}>
                 <div className="marketing-tour-stage" style={{ height: `${100 / tourSteps.length}%` }}>
@@ -593,12 +672,7 @@ export function LandingPage() {
                       const sceneStyle = {
                         "--tour-x": `${distance * 8}%`,
                         "--tour-y": `${distance * 72}%`,
-                        "--tour-z": `${-absoluteDistance * 620}px`,
-                        "--tour-rx": `${distance * -11}deg`,
-                        "--tour-ry": `${distance * 13}deg`,
-                        "--tour-mobile-x": `${distance * 86}%`,
-                        "--tour-mobile-z": `${-absoluteDistance * 120}px`,
-                        "--tour-mobile-ry": `${distance * -6}deg`,
+                        "--tour-mobile-x": `${distance * 96}%`,
                         "--tour-scene-opacity": sceneOpacity,
                         "--tour-mobile-opacity": Math.max(.2, 1 - absoluteDistance * .58),
                         "--tour-scene-scale": sceneScale,
@@ -606,7 +680,7 @@ export function LandingPage() {
                       } as React.CSSProperties;
                       return (
                         <article
-                          className={`marketing-tour-scene${index === tourStep ? " active" : ""}${absoluteDistance < .015 ? " is-settled" : ""}`}
+                          className={`marketing-tour-scene${index === tourStep ? " active" : ""}${absoluteDistance < 1.1 ? " is-near" : ""}${absoluteDistance < .015 ? " is-settled" : ""}`}
                           key={step.target}
                           aria-hidden={index !== tourStep}
                           style={sceneStyle}
@@ -831,8 +905,50 @@ function TourWindowHeader({ step, language }: { step: TourVisualStep; language: 
 
 function BrandMark() { return <span className="marketing-brand-mark" aria-hidden="true"><i /><i /><i /><i /></span>; }
 
-function HeroLedger() {
-  return <div className="marketing-hero-board"><div className="marketing-hero-board__head"><span>NAKİT AKIŞI — 2026</span><b>CANLI</b></div><div className="marketing-hero-board__numbers"><div><small>GELİR</small><strong>₺842.300</strong></div><div><small>GİDER</small><strong>₺517.940</strong></div></div><div className="marketing-chart" aria-hidden="true"><svg viewBox="0 0 560 150" preserveAspectRatio="none"><defs><linearGradient id="marketing-cashflow-area" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#c8ff00" stopOpacity=".32" /><stop offset="1" stopColor="#c8ff00" stopOpacity="0" /></linearGradient></defs><path className="marketing-chart__area" d="M0 124 C44 120 73 99 112 103 C157 108 177 76 222 78 C269 81 288 49 332 56 C380 64 401 34 450 40 C493 45 522 20 560 20 L560 150 L0 150 Z" /><path className="marketing-chart__line" pathLength="1" d="M0 124 C44 120 73 99 112 103 C157 108 177 76 222 78 C269 81 288 49 332 56 C380 64 401 34 450 40 C493 45 522 20 560 20" /><circle cx="560" cy="20" r="5" /></svg></div><div className="marketing-float marketing-float--ai">✦ 3 faturanın vadesi bu hafta doluyor</div><div className="marketing-float marketing-float--bank"><Landmark size={17} /><span><strong>Banka hareketi eşleşti</strong><small>İncelemeye hazır</small></span></div></div>;
+function MarketingFlowField() {
+  return (
+    <svg className="marketing-flow-field" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+      <defs>
+        <linearGradient id="marketing-flow-stroke" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#8aad00" stopOpacity="0" />
+          <stop offset="48%" stopColor="#8aad00" stopOpacity=".55" />
+          <stop offset="100%" stopColor="#c8ff00" stopOpacity="0" />
+        </linearGradient>
+        <radialGradient id="marketing-flow-node">
+          <stop offset="0%" stopColor="#c8ff00" stopOpacity=".95" />
+          <stop offset="35%" stopColor="#c8ff00" stopOpacity=".35" />
+          <stop offset="100%" stopColor="#c8ff00" stopOpacity="0" />
+        </radialGradient>
+      </defs>
+      <g className="marketing-flow-field__contours">
+        <path pathLength="1" d="M-80 662 C170 522 260 735 492 593 S846 400 1112 506 S1394 632 1534 462" />
+        <path pathLength="1" d="M-96 715 C160 575 288 781 522 638 S878 456 1132 555 S1390 670 1532 519" />
+        <path pathLength="1" d="M-116 768 C148 630 310 824 554 687 S907 516 1150 607 S1394 719 1542 575" />
+      </g>
+      <g className="marketing-flow-field__route">
+        <path className="marketing-flow-field__route-base" pathLength="1" d="M-42 610 C205 452 320 673 532 520 S858 318 1080 433 S1346 568 1498 382" />
+        <path className="marketing-flow-field__pulse marketing-flow-field__pulse--one" pathLength="1" d="M-42 610 C205 452 320 673 532 520 S858 318 1080 433 S1346 568 1498 382" />
+        <path className="marketing-flow-field__pulse marketing-flow-field__pulse--two" pathLength="1" d="M-42 610 C205 452 320 673 532 520 S858 318 1080 433 S1346 568 1498 382" />
+        <circle className="marketing-flow-field__traveler" r="5">
+          <animateMotion dur="4.8s" repeatCount="indefinite" path="M-42 610 C205 452 320 673 532 520 S858 318 1080 433 S1346 568 1498 382" />
+        </circle>
+        <circle className="marketing-flow-field__node marketing-flow-field__node--one" cx="532" cy="520" r="22" />
+        <circle className="marketing-flow-field__node marketing-flow-field__node--two" cx="1080" cy="433" r="22" />
+      </g>
+    </svg>
+  );
+}
+
+function HeroLedger({
+  cardRef,
+  onPointerMove,
+  onPointerLeave,
+}: {
+  cardRef: React.RefObject<HTMLDivElement | null>;
+  onPointerMove: (event: React.PointerEvent<HTMLDivElement>) => void;
+  onPointerLeave: () => void;
+}) {
+  return <div className="marketing-hero-board" ref={cardRef} onPointerMove={onPointerMove} onPointerLeave={onPointerLeave}><div className="marketing-hero-board__head"><span>NAKİT AKIŞI — 2026</span><b>CANLI</b></div><div className="marketing-hero-board__numbers"><div><small>GELİR</small><strong>₺842.300</strong></div><div><small>GİDER</small><strong>₺517.940</strong></div></div><div className="marketing-chart" aria-hidden="true"><svg viewBox="0 0 560 150" preserveAspectRatio="none"><defs><linearGradient id="marketing-cashflow-area" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#c8ff00" stopOpacity=".32" /><stop offset="1" stopColor="#c8ff00" stopOpacity="0" /></linearGradient></defs><path className="marketing-chart__area" d="M0 124 C44 120 73 99 112 103 C157 108 177 76 222 78 C269 81 288 49 332 56 C380 64 401 34 450 40 C493 45 522 20 560 20 L560 150 L0 150 Z" /><path className="marketing-chart__line" pathLength="1" d="M0 124 C44 120 73 99 112 103 C157 108 177 76 222 78 C269 81 288 49 332 56 C380 64 401 34 450 40 C493 45 522 20 560 20" /><path className="marketing-chart__pulse" pathLength="1" d="M0 124 C44 120 73 99 112 103 C157 108 177 76 222 78 C269 81 288 49 332 56 C380 64 401 34 450 40 C493 45 522 20 560 20" /><circle cx="560" cy="20" r="5" /></svg></div><div className="marketing-float marketing-float--ai">✦ 3 faturanın vadesi bu hafta doluyor</div><div className="marketing-float marketing-float--bank"><Landmark size={17} /><span><strong>Banka hareketi eşleşti</strong><small>İncelemeye hazır</small></span></div></div>;
 }
 
 function Trust({ icon, title, text }: { icon: React.ReactNode; title: string; text: string }) { return <article>{icon}<div><strong>{title}</strong><span>{text}</span></div></article>; }
