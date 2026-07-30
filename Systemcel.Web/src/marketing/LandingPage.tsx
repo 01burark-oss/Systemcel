@@ -453,7 +453,6 @@ export function LandingPage() {
     heroTiltFrameRef.current = window.requestAnimationFrame(() => {
       card.style.setProperty("--mk-shine-x", `${normalizedX * 100}%`);
       card.style.setProperty("--mk-shine-y", `${normalizedY * 100}%`);
-      card.style.transform = `translate(${(normalizedX - 0.5) * 4}px, ${(normalizedY - 0.5) * 3 - 4}px)`;
     });
   }
 
@@ -464,7 +463,6 @@ export function LandingPage() {
     heroTiltFrameRef.current = window.requestAnimationFrame(() => {
       card.style.setProperty("--mk-shine-x", "50%");
       card.style.setProperty("--mk-shine-y", "34%");
-      card.style.transform = "";
     });
   }
 
@@ -505,7 +503,7 @@ export function LandingPage() {
               <h1>{t.titleA}<br />{t.titleB}<br /><em>{t.titleC}</em></h1>
               <p>{t.lead}</p>
               <div className="marketing-hero__actions">
-                <a className="marketing-button marketing-button--ink marketing-button--large" href={trialHref()}>{t.trial}<ArrowRight size={18} /></a>
+                <a className="marketing-button marketing-button--hero-primary marketing-button--large" href={trialHref()}>{t.trial}<ArrowRight size={18} /></a>
                 <button className="marketing-button marketing-button--ghost marketing-button--large" type="button" onClick={openTour}><Play size={17} />{t.tour}</button>
               </div>
               <div className="marketing-proof"><span>{t.setup}</span><i>·</i><span>{t.cancel}</span></div>
@@ -948,7 +946,33 @@ function HeroLedger({
   onPointerMove: (event: React.PointerEvent<HTMLDivElement>) => void;
   onPointerLeave: () => void;
 }) {
-  return <div className="marketing-hero-board" ref={cardRef} onPointerMove={onPointerMove} onPointerLeave={onPointerLeave}><div className="marketing-hero-board__head"><span>NAKİT AKIŞI — 2026</span><b>CANLI</b></div><div className="marketing-hero-board__numbers"><div><small>GELİR</small><strong>₺842.300</strong></div><div><small>GİDER</small><strong>₺517.940</strong></div></div><div className="marketing-chart" aria-hidden="true"><svg viewBox="0 0 560 150" preserveAspectRatio="none"><defs><linearGradient id="marketing-cashflow-area" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#c8ff00" stopOpacity=".32" /><stop offset="1" stopColor="#c8ff00" stopOpacity="0" /></linearGradient></defs><path className="marketing-chart__area" d="M0 124 C44 120 73 99 112 103 C157 108 177 76 222 78 C269 81 288 49 332 56 C380 64 401 34 450 40 C493 45 522 20 560 20 L560 150 L0 150 Z" /><path className="marketing-chart__line" pathLength="1" d="M0 124 C44 120 73 99 112 103 C157 108 177 76 222 78 C269 81 288 49 332 56 C380 64 401 34 450 40 C493 45 522 20 560 20" /><path className="marketing-chart__pulse" pathLength="1" d="M0 124 C44 120 73 99 112 103 C157 108 177 76 222 78 C269 81 288 49 332 56 C380 64 401 34 450 40 C493 45 522 20 560 20" /><circle cx="560" cy="20" r="5" /></svg></div><div className="marketing-float marketing-float--ai">✦ 3 faturanın vadesi bu hafta doluyor</div><div className="marketing-float marketing-float--bank"><Landmark size={17} /><span><strong>Banka hareketi eşleşti</strong><small>İncelemeye hazır</small></span></div></div>;
+  return (
+    <div className="marketing-hero-board" ref={cardRef} onPointerMove={onPointerMove} onPointerLeave={onPointerLeave}>
+      <div className="marketing-hero-board__head">
+        <span>NAKİT AKIŞI — 2026</span>
+        <b>CANLI</b>
+      </div>
+      <div className="marketing-hero-board__numbers">
+        <div><small>GELİR</small><strong>₺842.300</strong></div>
+        <div><small>GİDER</small><strong>₺517.940</strong></div>
+      </div>
+      <div className="marketing-chart" aria-hidden="true">
+        <svg viewBox="0 0 560 150" preserveAspectRatio="none">
+          <defs>
+            <linearGradient id="marketing-cashflow-area" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stopColor="#c8ff00" stopOpacity=".24" />
+              <stop offset=".56" stopColor="#9fd000" stopOpacity=".1" />
+              <stop offset="1" stopColor="#0b0b09" stopOpacity="0" />
+            </linearGradient>
+          </defs>
+          <path className="marketing-chart__area" d="M-8 124 C44 120 73 99 112 103 C157 108 177 76 222 78 C269 81 288 49 332 56 C380 64 401 34 450 40 C493 45 522 20 552 20 C558 20 564 17 568 15 L568 150 L-8 150 Z" />
+          <path className="marketing-chart__line" pathLength="1" d="M-8 124 C44 120 73 99 112 103 C157 108 177 76 222 78 C269 81 288 49 332 56 C380 64 401 34 450 40 C493 45 522 20 552 20 C558 20 564 17 568 15" />
+          <path className="marketing-chart__pulse" pathLength="1" d="M-8 124 C44 120 73 99 112 103 C157 108 177 76 222 78 C269 81 288 49 332 56 C380 64 401 34 450 40 C493 45 522 20 552 20 C558 20 564 17 568 15" />
+          <circle cx="552" cy="20" r="4" />
+        </svg>
+      </div>
+    </div>
+  );
 }
 
 function Trust({ icon, title, text }: { icon: React.ReactNode; title: string; text: string }) { return <article>{icon}<div><strong>{title}</strong><span>{text}</span></div></article>; }
