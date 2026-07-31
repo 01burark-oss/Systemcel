@@ -965,11 +965,11 @@ function HeroLedger({
               <stop offset="1" stopColor="#0b0b09" stopOpacity="0" />
             </linearGradient>
           </defs>
-          <path className="marketing-chart__area" d="M-8 124 C44 120 73 99 112 103 C157 108 177 76 222 78 C269 81 288 49 332 56 C380 64 401 34 450 40 C493 45 522 20 552 20 C558 20 564 17 568 15 L568 150 L-8 150 Z" />
-          <path className="marketing-chart__line" pathLength="1" d="M-8 124 C44 120 73 99 112 103 C157 108 177 76 222 78 C269 81 288 49 332 56 C380 64 401 34 450 40 C493 45 522 20 552 20 C558 20 564 17 568 15" />
-          <path className="marketing-chart__pulse" pathLength="1" d="M-8 124 C44 120 73 99 112 103 C157 108 177 76 222 78 C269 81 288 49 332 56 C380 64 401 34 450 40 C493 45 522 20 552 20 C558 20 564 17 568 15" />
-          <circle cx="552" cy="20" r="4" />
+          <path className="marketing-chart__area" d="M-8 124 C44 120 73 99 112 103 C157 108 177 76 222 78 C269 81 288 49 332 56 C380 64 401 34 450 40 C493 45 522 20 552 20 L568 20 L568 150 L-8 150 Z" />
+          <path className="marketing-chart__line" pathLength="1" d="M-8 124 C44 120 73 99 112 103 C157 108 177 76 222 78 C269 81 288 49 332 56 C380 64 401 34 450 40 C493 45 522 20 552 20" />
+          <path className="marketing-chart__pulse" pathLength="1" d="M-8 124 C44 120 73 99 112 103 C157 108 177 76 222 78 C269 81 288 49 332 56 C380 64 401 34 450 40 C493 45 522 20 552 20" />
         </svg>
+        <span className="marketing-chart__node" />
       </div>
     </div>
   );

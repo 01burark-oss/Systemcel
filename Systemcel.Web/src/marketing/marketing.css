@@ -241,7 +241,17 @@
   filter: drop-shadow(0 0 3px rgba(200,255,0,.48));
   animation: marketing-chart-travel 4.4s 1.15s linear infinite;
 }
-.marketing-chart circle { fill: var(--mk-lime); stroke: rgba(200,255,0,.16); stroke-width: 10; vector-effect: non-scaling-stroke; animation: marketing-chart-node 2.6s var(--mk-ease-in-out) infinite; }
+.marketing-chart__node {
+  position: absolute;
+  left: calc(98.5714% - 4px);
+  top: calc(13.3333% - 4px);
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--mk-lime);
+  box-shadow: 0 0 0 5px rgba(200,255,0,.14);
+  animation: marketing-chart-node 2.6s var(--mk-ease-in-out) infinite;
+}
 .marketing-scroll-cue { position: absolute; left: 50%; bottom: 28px; display: inline-flex; flex-direction: column; align-items: center; gap: 2px; color: var(--mk-muted); font-family: Consolas, monospace; font-size: 9px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; transform: translateX(-50%); }
 .marketing-scroll-cue svg { animation: marketing-bob 1.8s ease-in-out infinite; }
 
@@ -576,8 +586,8 @@
   to { stroke-dashoffset: 0; }
 }
 @keyframes marketing-chart-node {
-  0%, 100% { opacity: .62; stroke-width: 10; }
-  50% { opacity: 1; stroke-width: 18; }
+  0%, 100% { opacity: .74; box-shadow: 0 0 0 4px rgba(200,255,0,.11); }
+  50% { opacity: 1; box-shadow: 0 0 0 6px rgba(200,255,0,.19); }
 }
 @keyframes marketing-plan-grid-in { from { opacity: .25; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
@@ -682,7 +692,7 @@
   .marketing-hero-board__numbers { gap: 20px; }
   .marketing-hero-board__numbers strong { font-size: 20px; }
   .marketing-chart { height: 138px; margin-top: 10px; }
-  .marketing-chart circle, .marketing-scroll-cue svg { animation: none; }
+  .marketing-chart__node, .marketing-scroll-cue svg { animation: none; }
   .marketing-trust-grid { grid-template-columns: 1fr; gap: 25px; }
   .marketing-trust-strip { padding: 54px 0 58px; }
   .marketing-trust-strip::before { width: 280px; height: 180px; right: -150px; top: -115px; }
