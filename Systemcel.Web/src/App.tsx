@@ -17,6 +17,7 @@ import { PinKilitSayfasi } from "./screens/pin/PinKilitSayfasi";
 import { RaporlarSayfasi } from "./screens/raporlar/RaporlarSayfasi";
 import { SohbetlerSayfasi } from "./screens/sohbetler/SohbetlerSayfasi";
 import { AyarlarSayfasi } from "./screens/ayarlar/AyarlarSayfasi";
+import { AbonelikSayfasi } from "./screens/billing/AbonelikSayfasi";
 import { TahsilatOdemeSayfasi } from "./screens/tahsilat-odeme/TahsilatOdemeSayfasi";
 import { HizliSatisSayfasi } from "./screens/urun-stok/HizliSatisSayfasi";
 import { UrunStokSayfasi } from "./screens/urun-stok/UrunStokSayfasi";
@@ -49,7 +50,12 @@ export function App() {
 
   const rawPath = normalizePath(window.location.pathname);
   const appPath = workspacePathFromPublicPath(rawPath);
-  const path = appPath === "/telegram" ? "/ayarlar" : appPath;
+  const planDevami = rawPath.startsWith("/app") && new URLSearchParams(window.location.search).has("plan");
+  const path = planDevami ? "/abonelik" : appPath === "/telegram" ? "/ayarlar" : appPath;
+
+  if (planDevami && !rawPath.startsWith("/app/abonelik")) {
+    window.history.replaceState(null, "", `/app/abonelik${window.location.search}`);
+  }
 
   if (rawPath === "/telegram" || rawPath === "/app/telegram") {
     window.history.replaceState(null, "", "/app/ayarlar?sekme=telegram");
@@ -329,7 +335,6 @@ function WorkspaceRoutes({ path }: { path: string }) {
   const [yenileAnahtari, setYenileAnahtari] = React.useState(0);
   const [kolayKurulum, setKolayKurulum] = React.useState<KolayKurulumEkran | null>(null);
   const [kurulumGizlendi, setKurulumGizlendi] = React.useState(false);
-  const trialAttemptedRef = React.useRef(false);
 
   const ustBarYukle = React.useCallback(async () => {
     setUstBarHata("");
@@ -342,32 +347,6 @@ function WorkspaceRoutes({ path }: { path: string }) {
     const data = await jsonOku<KolayKurulumEkran>("/api/ekran/kolay-kurulum");
     setKolayKurulum(data);
     return data;
-  }, []);
-
-  React.useEffect(() => {
-    if (trialAttemptedRef.current)
-      return;
-
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("trial") !== "1")
-      return;
-
-    const planKodu = params.get("plan") ?? "isletme_buyume";
-    const faturalamaDonemi = params.get("billing") === "Yillik" ? "Yillik" : "Aylik";
-    trialAttemptedRef.current = true;
-
-    jsonOku("/api/abonelik/deneme/baslat", {
-      method: "POST",
-      body: JSON.stringify({ planKodu, faturalamaDonemi })
-    }).catch((error: Error) => {
-      setUstBarHata(error.message);
-    }).finally(() => {
-      const next = new URL(window.location.href);
-      next.searchParams.delete("trial");
-      next.searchParams.delete("plan");
-      next.searchParams.delete("billing");
-      window.history.replaceState(null, "", `${next.pathname}${next.search}${next.hash}`);
-    });
   }, []);
 
   React.useEffect(() => {
@@ -448,7 +427,7 @@ function WorkspaceRoutes({ path }: { path: string }) {
 
   const muhasebeciCalismaAlani = ustBar?.hesapTipi === "Muhasebeci" && !ustBar.muhasebeciMusteriBaglami;
   const yonetimRoute = path === "/yonetim" || path.startsWith("/yonetim/");
-  const muhasebeciCalismaAlaniRoute = path === "/muhasebeci" || path === "/muhasebeciler" || path === "/sohbetler" || path === "/ayarlar";
+  const muhasebeciCalismaAlaniRoute = path === "/muhasebeci" || path === "/muhasebeciler" || path === "/sohbetler" || path === "/abonelik" || path === "/ayarlar";
   const routePath = muhasebeciCalismaAlani && !yonetimRoute && !muhasebeciCalismaAlaniRoute ? "/muhasebeci" : path === "/yonetim" ? "/yonetim/muhasebeci-basvurulari" : path;
 
   const shellUstAksiyon = !ustBar?.muhasebeciMusteriBaglami && !muhasebeciCalismaAlani && routePath !== "/muhasebeci" && !yonetimRoute ? (
@@ -492,6 +471,14 @@ function WorkspaceRoutes({ path }: { path: string }) {
     return (
       <MobileWorkspaceView active="muhasebeciler">
         <MuhasebecilerSayfasi mobileMode ustBar={ustBar} onUstBarYenile={ustBarYukle} />
+      </MobileWorkspaceView>
+    );
+  }
+
+  if (mobileWorkspace && routePath === "/abonelik") {
+    return (
+      <MobileWorkspaceView active="merkez">
+        <AbonelikSayfasi />
       </MobileWorkspaceView>
     );
   }
@@ -585,6 +572,8 @@ function WorkspaceRoutes({ path }: { path: string }) {
           yenileAnahtari={yenileAnahtari}
           onIsletmeDegistir={isletmeDegistir}
         />
+      ) : routePath === "/abonelik" ? (
+        <AbonelikSayfasi />
       ) : routePath === "/ayarlar" ? (
         <AyarlarSayfasi
           ustBar={ustBar}

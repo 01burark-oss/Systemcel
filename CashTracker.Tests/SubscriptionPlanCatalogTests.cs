@@ -8,22 +8,21 @@ namespace CashTracker.Tests
     {
         [Theory]
         [InlineData(0, 699)]
-        [InlineData(10, 699)]
-        [InlineData(11, 749)]
-        [InlineData(20, 1199)]
-        public void MuhasebeciStandartFiyati_MusteriSayisinaGoreHesaplanir(int musteriSayisi, decimal expected)
+        [InlineData(1, 749)]
+        [InlineData(10, 1199)]
+        public void MuhasebeciStandartFiyati_SatinAlinanKrediyeGoreHesaplanir(int ekMusteriKredisi, decimal expected)
         {
-            var actual = SubscriptionPlanCatalog.CalculateMuhasebeciStandartAylikTutar(musteriSayisi);
+            var actual = SubscriptionPlanCatalog.CalculateMuhasebeciStandartAylikTutar(ekMusteriKredisi);
 
             Assert.Equal(expected, actual);
         }
 
         [Theory]
-        [InlineData(19, false)]
-        [InlineData(20, true)]
-        public void MuhasebeciProOnerisi_StandartFiyatProyaEsitleninceBaslar(int musteriSayisi, bool expected)
+        [InlineData(9, false)]
+        [InlineData(10, true)]
+        public void MuhasebeciProOnerisi_StandartKredileriProFiyatinaEsitleninceBaslar(int ekMusteriKredisi, bool expected)
         {
-            var actual = SubscriptionPlanCatalog.ShouldRecommendMuhasebeciPro(musteriSayisi);
+            var actual = SubscriptionPlanCatalog.ShouldRecommendMuhasebeciPro(ekMusteriKredisi);
 
             Assert.Equal(expected, actual);
         }

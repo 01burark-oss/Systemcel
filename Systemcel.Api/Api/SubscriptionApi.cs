@@ -16,7 +16,6 @@ internal static class SubscriptionApi
                 .Where(x => x.Kod is PlanKodlari.IsletmeBaslangic
                     or PlanKodlari.IsletmeBuyume
                     or PlanKodlari.IsletmeKurumsal
-                    or PlanKodlari.MuhasebeciUcretsiz
                     or PlanKodlari.MuhasebeciStandart
                     or PlanKodlari.MuhasebeciPro)
                 .Select(x => new
@@ -39,7 +38,7 @@ internal static class SubscriptionApi
                     cokluParaBirimiAktif = x.CokluParaBirimiAktif,
                     apiErisimiAktif = x.ApiErisimiAktif,
                     oncelikliDestekAktif = x.OncelikliDestekAktif,
-                    denemeGunSayisi = 30
+                    denemeGunSayisi = x.HesapTipi == HesapTipleri.Muhasebeci ? 14 : 30
                 });
 
             return Results.Ok(plans);
@@ -69,38 +68,10 @@ internal static class SubscriptionApi
                 return Results.Ok(status);
             });
 
-        var startTrialEndpoint = app.MapPost(
-            "/api/abonelik/deneme/baslat",
-            async (
-                DenemeBaslatRequest request,
-                IIsletmeService isletmeService,
-                ISubscriptionEntitlementService entitlementService,
-                CancellationToken ct) =>
-            {
-                try
-                {
-                    var target = await isletmeService.GetActiveAsync();
-                    if (!string.Equals(target.TenantTipi, HesapTipleri.Isletme, StringComparison.OrdinalIgnoreCase))
-                        return Results.BadRequest(new { mesaj = "Ucretsiz deneme yalnizca isletme hesaplari icindir." });
-
-                    var status = await entitlementService.StartIsletmeTrialAsync(
-                        target.Id,
-                        request.PlanKodu,
-                        request.FaturalamaDonemi,
-                        ct: ct);
-                    return Results.Ok(status);
-                }
-                catch (InvalidOperationException ex)
-                {
-                    return Results.BadRequest(new { mesaj = ex.Message });
-                }
-            });
-
         var clerkOptions = app.Services.GetRequiredService<ClerkAuthenticationOptions>();
         if (clerkOptions.Enabled)
         {
             endpoint.RequireAuthorization();
-            startTrialEndpoint.RequireAuthorization();
         }
     }
 
@@ -113,5 +84,4 @@ internal static class SubscriptionApi
         return HesapTipleri.Isletme;
     }
 
-    internal sealed record DenemeBaslatRequest(string PlanKodu, string FaturalamaDonemi);
 }

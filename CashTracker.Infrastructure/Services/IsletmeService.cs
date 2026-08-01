@@ -805,6 +805,10 @@ namespace CashTracker.Infrastructure.Services
         private static void RemoveBusinessGraph(CashTrackerDbContext db, Isletme target)
         {
             var id = target.Id;
+            var paymentCheckoutKeys = db.OdemeIslemleri
+                .Where(x => x.IsletmeId == id)
+                .Select(x => x.CheckoutAnahtari);
+
             db.Kasalar.RemoveRange(db.Kasalar.Where(x => x.IsletmeId == id));
             db.KalemTanimlari.RemoveRange(db.KalemTanimlari.Where(x => x.IsletmeId == id));
             db.CariHareketleri.RemoveRange(db.CariHareketleri.Where(x => x.IsletmeId == id));
@@ -817,6 +821,9 @@ namespace CashTracker.Infrastructure.Services
             db.BelgeDosyalari.RemoveRange(db.BelgeDosyalari.Where(x => x.IsletmeId == id));
             db.GibPortalAyarlari.RemoveRange(db.GibPortalAyarlari.Where(x => x.IsletmeId == id));
             db.GibPortalIslemLoglari.RemoveRange(db.GibPortalIslemLoglari.Where(x => x.IsletmeId == id));
+            db.OdemeOlaylari.RemoveRange(db.OdemeOlaylari.Where(x => paymentCheckoutKeys.Contains(x.CheckoutAnahtari)));
+            db.AbonelikOnaylari.RemoveRange(db.AbonelikOnaylari.Where(x => x.IsletmeId == id));
+            db.OdemeIslemleri.RemoveRange(db.OdemeIslemleri.Where(x => x.IsletmeId == id));
             db.Abonelikler.RemoveRange(db.Abonelikler.Where(x => x.IsletmeId == id));
             db.IsletmeDenemeleri.RemoveRange(db.IsletmeDenemeleri.Where(x => x.IsletmeId == id));
             db.IsletmeEntitlementlari.RemoveRange(db.IsletmeEntitlementlari.Where(x => x.IsletmeId == id));

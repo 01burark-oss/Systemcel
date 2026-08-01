@@ -27,6 +27,7 @@ namespace CashTracker.Infrastructure.Services
             new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
             {
                 [PlanKodlari.MuhasebeciUcretsiz] = 0,
+                [PlanKodlari.MuhasebeciSaltOkunur] = 0,
                 [PlanKodlari.MuhasebeciStandart] = 10,
                 [PlanKodlari.MuhasebeciPro] = 20
             };
@@ -66,7 +67,7 @@ namespace CashTracker.Infrastructure.Services
                     kendiUcretliPlani.PlanKodu,
                     EntitlementKaynaklari.KendiAboneligi,
                     kendiUcretliPlani.DonemBaslangicAt,
-                    kendiUcretliPlani.DonemBitisAt,
+                    GetEffectiveEndAt(kendiUcretliPlani),
                     sponsorMuhasebeciIsletmeId: null,
                     paraBirimi: kendiUcretliPlani.ParaBirimi,
                     faturalamaDonemi: kendiUcretliPlani.FaturalamaDonemi,
@@ -79,6 +80,7 @@ namespace CashTracker.Infrastructure.Services
                 .ToListAsync(ct);
 
             var aktifDeneme = denemeler
+                .Where(x => StringEquals(x.HesapTipi, HesapTipleri.Isletme))
                 .Where(x => IsActiveTrial(x, current))
                 .OrderByDescending(x => x.BaslangicAt)
                 .FirstOrDefault();
@@ -138,20 +140,41 @@ namespace CashTracker.Infrastructure.Services
             var aktifPlan = abonelikler
                 .Where(x => IsActiveSubscription(x, current))
                 .Where(x => StringEquals(x.HesapTipi, HesapTipleri.Muhasebeci))
-                .Where(x => GetPlanRank(x.PlanKodu, MuhasebeciPlanSirasi) >= 0)
+                .Where(x => GetPlanRank(x.PlanKodu, MuhasebeciPlanSirasi) > 0)
                 .OrderByDescending(x => GetPlanRank(x.PlanKodu, MuhasebeciPlanSirasi))
                 .ThenByDescending(x => x.DonemBaslangicAt)
                 .FirstOrDefault();
 
-            var planKodu = aktifPlan?.PlanKodu ?? PlanKodlari.MuhasebeciUcretsiz;
-            var gecerliBaslangicAt = aktifPlan?.DonemBaslangicAt ?? current;
-            var gecerliBitisAt = aktifPlan?.DonemBitisAt;
+            var denemeler = await db.IsletmeDenemeleri
+                .AsNoTracking()
+                .Where(x => x.IsletmeId == muhasebeciIsletmeId && x.HesapTipi == HesapTipleri.Muhasebeci)
+                .ToListAsync(ct);
+            var aktifDeneme = denemeler
+                .Where(x => IsActiveTrial(x, current))
+                .OrderByDescending(x => x.BaslangicAt)
+                .FirstOrDefault();
+
+            var planKodu = aktifPlan?.PlanKodu
+                ?? aktifDeneme?.PlanKodu
+                ?? PlanKodlari.MuhasebeciSaltOkunur;
+            var kaynak = aktifPlan is not null
+                ? EntitlementKaynaklari.KendiAboneligi
+                : aktifDeneme is not null
+                    ? EntitlementKaynaklari.IsletmeDenemesi
+                    : EntitlementKaynaklari.Ucretsiz;
+            var saltOkunur = aktifPlan is null && aktifDeneme is null;
+            var gecerliBaslangicAt = aktifPlan?.DonemBaslangicAt ?? aktifDeneme?.BaslangicAt ?? current;
+            var gecerliBitisAt = aktifPlan is not null ? GetEffectiveEndAt(aktifPlan) : aktifDeneme?.BitisAt;
             var paraBirimi = aktifPlan?.ParaBirimi ?? "TRY";
-            var standartAylikTutar = SubscriptionPlanCatalog.CalculateMuhasebeciStandartAylikTutar(aktifMusteriSayisi);
+            var ekMusteriKredisi = StringEquals(planKodu, PlanKodlari.MuhasebeciStandart)
+                ? aktifPlan?.EkMusteriKredisi ?? aktifDeneme?.EkMusteriKredisi ?? 0
+                : 0;
+            var standartAylikTutar = SubscriptionPlanCatalog.CalculateMuhasebeciStandartAylikTutar(ekMusteriKredisi);
             var aylikTutar = StringEquals(planKodu, PlanKodlari.MuhasebeciStandart)
                 ? standartAylikTutar
                 : GetPlanDefinition(planKodu).AylikTutar;
-            var faturalamaDonemi = string.Equals(aktifPlan?.FaturalamaDonemi, "Yillik", StringComparison.OrdinalIgnoreCase) ? "Yillik" : "Aylik";
+            var selectedBillingPeriod = aktifPlan?.FaturalamaDonemi ?? aktifDeneme?.FaturalamaDonemi;
+            var faturalamaDonemi = string.Equals(selectedBillingPeriod, "Yillik", StringComparison.OrdinalIgnoreCase) ? "Yillik" : "Aylik";
             var donemTutari = aktifPlan?.DonemTutari > 0
                 ? aktifPlan.DonemTutari
                 : StringEquals(faturalamaDonemi, "Yillik")
@@ -164,57 +187,16 @@ namespace CashTracker.Infrastructure.Services
                 gecerliBaslangicAt,
                 gecerliBitisAt,
                 aktifMusteriSayisi,
+                ekMusteriKredisi,
                 standartAylikTutar,
-                SubscriptionPlanCatalog.ShouldRecommendMuhasebeciPro(aktifMusteriSayisi)
+                SubscriptionPlanCatalog.ShouldRecommendMuhasebeciPro(ekMusteriKredisi)
                     && !StringEquals(planKodu, PlanKodlari.MuhasebeciPro),
                 aylikTutar,
                 faturalamaDonemi,
                 donemTutari,
-                paraBirimi);
-        }
-
-        public async Task<SubscriptionEntitlementStatus> StartIsletmeTrialAsync(
-            int isletmeId,
-            string planKodu,
-            string faturalamaDonemi,
-            DateTime? now = null,
-            CancellationToken ct = default)
-        {
-            var current = now ?? DateTime.Now;
-            var plan = GetPlanDefinition(planKodu);
-            var normalizedBilling = StringEquals(faturalamaDonemi, "Yillik") ? "Yillik" : "Aylik";
-            if (!StringEquals(plan.HesapTipi, HesapTipleri.Isletme) ||
-                StringEquals(plan.Kod, PlanKodlari.IsletmeUcretsiz) ||
-                StringEquals(plan.Kod, PlanKodlari.IsletmeIsletme))
-                throw new InvalidOperationException("Deneme icin gecerli bir isletme plani secin.");
-
-            await using var db = await _dbFactory.CreateDbContextAsync(ct);
-            if (await db.IsletmeDenemeleri.AnyAsync(x => x.IsletmeId == isletmeId, ct))
-                throw new InvalidOperationException("Bu isletme daha once ucretsiz deneme kullandi.");
-
-            var trial = new IsletmeDeneme
-            {
-                IsletmeId = isletmeId,
-                PlanKodu = plan.Kod,
-                FaturalamaDonemi = normalizedBilling,
-                Durum = "Aktif",
-                BaslangicAt = current,
-                BitisAt = current.AddDays(30),
-                OdemeYontemiEklendi = false,
-                CreatedAt = current,
-                UpdatedAt = current
-            };
-            db.IsletmeDenemeleri.Add(trial);
-            await db.SaveChangesAsync(ct);
-
-            return BuildIsletmeStatus(
-                isletmeId,
-                plan.Kod,
-                EntitlementKaynaklari.IsletmeDenemesi,
-                trial.BaslangicAt,
-                trial.BitisAt,
-                sponsorMuhasebeciIsletmeId: null,
-                faturalamaDonemi: normalizedBilling);
+                paraBirimi,
+                kaynak,
+                saltOkunur);
         }
 
         private static async Task<MuhasebeciMusteri?> FindActiveSponsorAsync(
@@ -309,16 +291,22 @@ namespace CashTracker.Infrastructure.Services
             DateTime gecerliBaslangicAt,
             DateTime? gecerliBitisAt,
             int aktifMusteriSayisi,
+            int ekMusteriKredisi,
             decimal standartAylikTutar,
             bool proOnerilir,
             decimal aylikTutar,
             string faturalamaDonemi,
             decimal donemTutari,
-            string paraBirimi)
+            string paraBirimi,
+            string kaynak,
+            bool saltOkunur)
         {
             var plan = GetPlanDefinition(planKodu);
             var isPro = StringEquals(plan.Kod, PlanKodlari.MuhasebeciPro);
-            var aiAktif = !StringEquals(plan.Kod, PlanKodlari.MuhasebeciUcretsiz);
+            var aiAktif = !saltOkunur && !StringEquals(plan.Kod, PlanKodlari.MuhasebeciUcretsiz);
+            var musteriLimiti = StringEquals(plan.Kod, PlanKodlari.MuhasebeciStandart)
+                ? SubscriptionPlanCatalog.MuhasebeciStandartDahilMusteriSayisi + ekMusteriKredisi
+                : plan.MusteriLimiti;
 
             return new SubscriptionEntitlementStatus
             {
@@ -326,9 +314,7 @@ namespace CashTracker.Infrastructure.Services
                 HesapTipi = HesapTipleri.Muhasebeci,
                 PlanKodu = plan.Kod,
                 PlanAdi = plan.Ad,
-                Kaynak = StringEquals(plan.Kod, PlanKodlari.MuhasebeciUcretsiz)
-                    ? EntitlementKaynaklari.Ucretsiz
-                    : EntitlementKaynaklari.KendiAboneligi,
+                Kaynak = kaynak,
                 AylikTutar = aylikTutar,
                 YillikTutar = plan.YillikTutar,
                 FaturalamaDonemi = faturalamaDonemi,
@@ -337,14 +323,16 @@ namespace CashTracker.Infrastructure.Services
                 AiAktif = aiAktif,
                 AiMesajLimiti = plan.AiMesajLimiti,
                 KullaniciLimiti = plan.KullaniciLimiti,
-                MusteriLimiti = plan.MusteriLimiti,
+                MusteriLimiti = musteriLimiti,
                 MuhasebeciPaneliAktif = true,
+                SaltOkunur = saltOkunur,
                 OneCikmaAktif = isPro,
                 DonemOtomasyonuAktif = isPro,
                 MusteriSaglikSkoruAktif = isPro,
                 GecerliBaslangicAt = gecerliBaslangicAt,
                 GecerliBitisAt = gecerliBitisAt,
                 AktifMusteriSayisi = aktifMusteriSayisi,
+                EkMusteriKredisi = ekMusteriKredisi,
                 MuhasebeciStandartAylikTutar = standartAylikTutar,
                 MuhasebeciProOnerilir = proOnerilir
             };
@@ -352,10 +340,23 @@ namespace CashTracker.Infrastructure.Services
 
         private static bool IsActiveSubscription(Abonelik abonelik, DateTime current)
         {
+            var normalPeriodActive = abonelik.DonemBitisAt is null || abonelik.DonemBitisAt >= current;
+            var gracePeriodActive = abonelik.ToleransBitisAt is not null && abonelik.ToleransBitisAt >= current;
             return IsActiveStatus(abonelik.Durum)
                 && abonelik.DonemBaslangicAt <= current
-                && (abonelik.DonemBitisAt is null || abonelik.DonemBitisAt >= current)
-                && (abonelik.IptalAt is null || abonelik.IptalAt > current);
+                && (normalPeriodActive || gracePeriodActive)
+                && (abonelik.DonemSonundaIptal || abonelik.IptalAt is null || abonelik.IptalAt > current);
+        }
+
+        private static DateTime? GetEffectiveEndAt(Abonelik abonelik)
+        {
+            if (abonelik.ToleransBitisAt is null)
+                return abonelik.DonemBitisAt;
+            if (abonelik.DonemBitisAt is null)
+                return abonelik.ToleransBitisAt;
+            return abonelik.ToleransBitisAt > abonelik.DonemBitisAt
+                ? abonelik.ToleransBitisAt
+                : abonelik.DonemBitisAt;
         }
 
         private static bool IsActiveTrial(IsletmeDeneme deneme, DateTime current)

@@ -30,6 +30,7 @@ namespace CashTracker.Core.Models
         public bool ApiErisimiAktif { get; init; }
         public bool OncelikliDestekAktif { get; init; }
         public bool MuhasebeciPaneliAktif { get; init; }
+        public bool SaltOkunur { get; init; }
         public bool OneCikmaAktif { get; init; }
         public bool DonemOtomasyonuAktif { get; init; }
         public bool MusteriSaglikSkoruAktif { get; init; }
@@ -37,6 +38,7 @@ namespace CashTracker.Core.Models
         public DateTime GecerliBaslangicAt { get; init; }
         public DateTime? GecerliBitisAt { get; init; }
         public int? AktifMusteriSayisi { get; init; }
+        public int EkMusteriKredisi { get; init; }
         public decimal? MuhasebeciStandartAylikTutar { get; init; }
         public bool MuhasebeciProOnerilir { get; init; }
         public bool AiSinirsiz => AiAktif && AiMesajLimiti is null;

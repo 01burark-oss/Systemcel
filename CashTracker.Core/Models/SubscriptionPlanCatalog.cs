@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace CashTracker.Core.Models
 {
@@ -19,6 +20,7 @@ namespace CashTracker.Core.Models
         // Eski kayitlari okuyabilmek icin tutulur; yeni aboneliklerde kullanilmaz.
         public const string IsletmeIsletme = "isletme_isletme";
         public const string MuhasebeciUcretsiz = "muhasebeci_ucretsiz";
+        public const string MuhasebeciSaltOkunur = "muhasebeci_salt_okunur";
         public const string MuhasebeciStandart = "muhasebeci_standart";
         public const string MuhasebeciPro = "muhasebeci_pro";
     }
@@ -53,6 +55,10 @@ namespace CashTracker.Core.Models
 
     public static class SubscriptionPlanCatalog
     {
+        public const int MuhasebeciStandartDahilMusteriSayisi = 10;
+        public const decimal EkMusteriKredisiAylikTutar = 50m;
+        public const decimal EkMusteriKredisiYillikTutar = 504m;
+
         public static IReadOnlyList<SubscriptionPlanDefinition> Plans { get; } =
             new List<SubscriptionPlanDefinition>
             {
@@ -89,6 +95,7 @@ namespace CashTracker.Core.Models
                     MuhasebeciErisimiAktif = true
                 },
                 new(PlanKodlari.MuhasebeciUcretsiz, HesapTipleri.Muhasebeci, "Ücretsiz", 0, 0, 1, 3),
+                new(PlanKodlari.MuhasebeciSaltOkunur, HesapTipleri.Muhasebeci, "Salt okunur", 0, 0, 0, 0),
                 new(PlanKodlari.MuhasebeciStandart, HesapTipleri.Muhasebeci, "Standart", 699, 100, 1, 10)
                 {
                     YillikTutar = 7045.92m
@@ -99,17 +106,26 @@ namespace CashTracker.Core.Models
                 }
             };
 
-        public static decimal CalculateMuhasebeciStandartAylikTutar(int musteriSayisi)
+        public static decimal CalculateMuhasebeciStandartAylikTutar(int ekMusteriKredisi)
         {
-            if (musteriSayisi < 0)
-                throw new ArgumentOutOfRangeException(nameof(musteriSayisi), "Musteri sayisi negatif olamaz.");
+            if (ekMusteriKredisi < 0)
+                throw new ArgumentOutOfRangeException(nameof(ekMusteriKredisi), "Ek musteri kredisi negatif olamaz.");
 
-            return 699 + Math.Max(0, musteriSayisi - 10) * 50;
+            return 699 + ekMusteriKredisi * EkMusteriKredisiAylikTutar;
         }
 
-        public static bool ShouldRecommendMuhasebeciPro(int musteriSayisi)
+        public static decimal CalculateMuhasebeciStandartYillikTutar(int ekMusteriKredisi)
         {
-            return CalculateMuhasebeciStandartAylikTutar(musteriSayisi) >= 1199;
+            if (ekMusteriKredisi < 0)
+                throw new ArgumentOutOfRangeException(nameof(ekMusteriKredisi), "Ek musteri kredisi negatif olamaz.");
+
+            var plan = Plans.Single(x => x.Kod == PlanKodlari.MuhasebeciStandart);
+            return plan.YillikTutar + ekMusteriKredisi * EkMusteriKredisiYillikTutar;
+        }
+
+        public static bool ShouldRecommendMuhasebeciPro(int ekMusteriKredisi)
+        {
+            return CalculateMuhasebeciStandartAylikTutar(ekMusteriKredisi) >= 1199;
         }
     }
 }

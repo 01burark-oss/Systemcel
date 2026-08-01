@@ -1,7 +1,8 @@
 # ADR-001 — Ödeme sağlayıcısı seçimi
 
 - **Tarih:** 22 Temmuz 2026
-- **Durum:** PayTR seçildi; entegrasyon şirket kuruluşu ve üye işyeri onayına kadar beklemede.
+- **Son güncelleme:** 1 Ağustos 2026
+- **Durum:** PayTR seçildi; sağlayıcıdan bağımsız hazırlık ve sahte sağlayıcı testleri şirket kuruluşundan önce, gerçek PayTR doğrulaması üye işyeri hesabından sonra yapılacak.
 - **Karar sahibi:** Systemcel
 
 ## Bağlam
@@ -31,26 +32,33 @@ Entegrasyon aşağıdaki sınırlarla geliştirilecek:
   ortam değişkenlerinde saklanacak; repoya, istemci bundle'ına veya loglara
   yazılmayacak.
 
-## Şimdiden kesinleşen ürün kuralları
+## Kesinleşen ürün ve tahsilat kuralları
 
-- İşletmeler için mevcut kredi kartsız **30 günlük deneme** korunur.
-- Ücretsiz muhasebeci planı checkout gerektirmez.
+- İşletmeler için ücretli planlarda **30 günlük kartlı deneme** uygulanır.
+- Muhasebeciler için ücretli planlarda **14 günlük kartlı deneme** uygulanır.
+- Muhasebeciler için kalıcı ücretsiz plan sunulmaz. Mevcut ücretsiz kayıtlar veri kaybetmeden kısıtlı geçiş durumuna alınır.
 - Ücretli planların aylık/yıllık fiyatı mevcut plan kataloğundan gelir.
+- İlk kartlı deneme ve checkout yalnızca aylık faturalamayla başlatılır. Kullanıcı aboneliği başladıktan sonra yıllık döneme geçebilir.
+- Deneme başlangıcında karttan ücret çekilmez. Deneme bitiş tarihi, ilk çekilecek aylık plan tutarı, KDV ve iptal yolu ayrı onay metninde gösterilir.
+- Muhasebeci Standart plana 10 müşteri dahildir. 11. müşteri ve sonrası için muhasebecinin açıkça satın aldığı her `+1 müşteri kredisi` kapasiteyi bir artırır; kredi ana abonelikle birlikte yinelenir ve aylıkta kredi başına KDV hariç 50 TL'dir.
+- Yıllık plana sonradan geçildiğinde müşteri kredileri de Standart planla aynı %16 yıllık avantajla kredi başına KDV hariç 504 TL/yıl olarak yinelenir.
+- Deneme bitmeden 7 ve 3 gün önce uygulama içi ve e-posta hatırlatması gönderilir.
+- Deneme sırasında iptal edilen hesap deneme sonuna kadar kullanılır; deneme sonunda çekim yapılmaz.
+- Aylık plandan daha yüksek bir plana geçiş anında uygulanır. Kullanılmayan dönem bedeli gün bazında kredi olarak düşülür, yeni planın kalan dönem farkı tahsil edilir.
+- Yıllık plandan daha yüksek bir yıllık plana geçiş anında uygulanır ve aynı gün bazlı mahsup kuralı kullanılır.
+- Aylıktan yıllığa geçiş anında uygulanır; kullanılmayan aylık bedel yıllık toplamdan kredi olarak düşülür.
+- Daha düşük plana veya yıllıktan aylığa geçiş mevcut dönemin sonunda uygulanır. Dönem ortasında nakit iade yapılmaz.
+- İptal dönem sonunda etkili olur. Kullanıcı ödenmiş/deneme döneminin sonuna kadar erişimini korur; sonraki yenileme yapılmaz.
+- Başarısız tahsilatta 7 günlük tolerans süresi uygulanır. Otomatik denemeler 1, 3 ve 5. günlerde yapılır; başarı olmazsa hesap veri silinmeden kısıtlı moda alınır.
+- Plan fiyatları katalogda KDV hariç tutulur. Checkout ve onay metni KDV tutarını ve tahsil edilecek toplamı ayrı gösterir.
 - Canlı ödeme, PayTR sandbox ve üye işyeri erişimleri hazır olmadan açılmaz.
 
-## Entegrasyon öncesi netleştirilecek kurallar
+## Şirket ve sağlayıcı onayı bekleyen sınırlar
 
-Bu kararlar tahmin edilerek kodlanmayacak; PayTR entegrasyonu başlamadan önce
-ürün ve hukuk tarafında onaylanacak:
-
-1. Ücretli muhasebeci planlarında deneme uygulanıp uygulanmayacağı.
-2. Aylık/yıllık yükseltme, düşürme ve dönem ortası fark hesaplama kuralı.
-3. İptalin anında mı yoksa dönem sonunda mı etkili olacağı.
-4. Başarısız tahsilatta tolerans süresi ve yeniden deneme takvimi.
-5. İade/cayma akışı ile satış belgesi ve e-Arşiv sorumlulukları.
-6. KDV gösterimi, şirket unvanı ve resmi iletişim bilgileri.
-7. Standart muhasebeci planındaki müşteri başı fiyatlandırmanın varsa yıllık
-   tahsilat davranışı.
+- İade/cayma metninin nihai hukuk dili ile satış belgesi ve e-Arşiv sorumlulukları.
+- Şirket unvanı, vergi bilgileri, resmî iletişim kanalları ve sözleşme tarafı bilgileri.
+- PayTR'nin tekrarlayan ödeme/abonelik ürününde mağazaya tanımladığı kesin API ve webhook alanları.
+- Dönem içinde müşteri kredisi azaltılırken aktif müşteri sayısının yeni kapasiteyi aşması halinde uygulanacak kullanıcı deneyimi ve sağlayıcı mahsup ayrıntısı.
 
 ## Sonuçlar
 

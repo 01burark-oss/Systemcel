@@ -1,6 +1,7 @@
 using CashTracker.Core.Models;
 using CashTracker.Core.Services;
 using CashTracker.Infrastructure.Persistence;
+using CashTracker.Infrastructure.Payments;
 using CashTracker.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
@@ -26,6 +27,7 @@ var yonetimOptions = ResolveYonetimOptions(builder.Configuration);
 var telegramSettings = ResolveTelegramSettings(builder.Configuration, appDataPath);
 var deepSeekSettings = ResolveDeepSeekSettings(builder.Configuration);
 var receiptOcrSettings = builder.Configuration.GetSection("ReceiptOcr").Get<ReceiptOcrSettings>() ?? new ReceiptOcrSettings();
+var paymentOptions = ResolvePaymentOptions(builder.Configuration, builder.Environment);
 builder.Services.AddSingleton(databasePaths);
 builder.Services.AddSingleton(databaseOptions);
 builder.Services.AddSingleton(new AppRuntimeOptions { AppDataPath = appDataPath });
@@ -42,6 +44,7 @@ builder.Services.AddSingleton(telegramSettings);
 builder.Services.AddSingleton(yonetimOptions);
 builder.Services.AddSingleton(deepSeekSettings);
 builder.Services.AddSingleton(receiptOcrSettings);
+builder.Services.AddSingleton(paymentOptions);
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddSingleton<ICurrentUserContext, HttpCurrentUserContext>();
 
@@ -58,6 +61,12 @@ builder.Services.AddSingleton<IFaturaService, FaturaService>();
 builder.Services.AddSingleton<ITahsilatOdemeService, TahsilatOdemeService>();
 builder.Services.AddSingleton<IOnMuhasebeReportService, OnMuhasebeReportService>();
 builder.Services.AddSingleton<ISubscriptionEntitlementService, SubscriptionEntitlementService>();
+builder.Services.AddSingleton<IPaymentPricingService>(_ => new PaymentPricingService(paymentOptions.VatRate));
+builder.Services.AddSingleton<IPaymentProvider>(_ => paymentOptions.UsesFakeProvider
+    ? new FakePaymentProvider(paymentOptions.FakeSecret)
+    : new UnconfiguredPaymentProvider());
+builder.Services.AddSingleton<ISubscriptionLifecycleService, SubscriptionLifecycleService>();
+builder.Services.AddHostedService<SubscriptionLifecycleHostedService>();
 builder.Services.AddSingleton<IMuhasebeciPortalService, MuhasebeciPortalService>();
 builder.Services.AddSingleton<IMuhasebeciSohbetMerkeziService, MuhasebeciSohbetMerkeziService>();
 builder.Services.AddSingleton<ISystemcelYonetimService, SystemcelYonetimService>();
@@ -192,6 +201,7 @@ app.MapGet("/api/public/config", () => Results.Ok(new
 }));
 
 app.MapSubscriptionApi();
+app.MapBillingApi();
 app.MapDesktopImportApi();
 app.MapAiAssistantApi();
 app.MapMuhasebeciApi();
@@ -241,6 +251,46 @@ static DatabaseRuntimeOptions ResolveDatabaseOptions(IConfiguration configuratio
     {
         Provider = "PostgreSql",
         ConnectionString = connectionString
+    };
+}
+
+static PaymentRuntimeOptions ResolvePaymentOptions(IConfiguration configuration, IWebHostEnvironment environment)
+{
+    var configuredProvider = FirstNonEmpty(
+        Environment.GetEnvironmentVariable("SYSTEMCEL_PAYMENT_PROVIDER"),
+        configuration["Systemcel:Payment:Provider"]);
+    var provider = string.IsNullOrWhiteSpace(configuredProvider)
+        ? environment.IsDevelopment() ? "Fake" : "Unconfigured"
+        : configuredProvider.Trim();
+
+    var fakeSecret = FirstNonEmpty(
+        Environment.GetEnvironmentVariable("SYSTEMCEL_FAKE_PAYMENT_SECRET"),
+        configuration["Systemcel:Payment:FakeSecret"]);
+    if (string.Equals(provider, "Fake", StringComparison.OrdinalIgnoreCase) && string.IsNullOrWhiteSpace(fakeSecret))
+    {
+        if (environment.IsDevelopment())
+            fakeSecret = "systemcel-local-fake-payment-secret";
+        else
+            provider = "Unconfigured";
+    }
+
+    var vatRate = 20m;
+    var configuredVatRate = FirstNonEmpty(
+        Environment.GetEnvironmentVariable("SYSTEMCEL_PAYMENT_VAT_RATE"),
+        configuration["Systemcel:Payment:VatRate"]);
+    if (!string.IsNullOrWhiteSpace(configuredVatRate) &&
+        decimal.TryParse(configuredVatRate, System.Globalization.NumberStyles.Number,
+            System.Globalization.CultureInfo.InvariantCulture, out var parsedVatRate))
+        vatRate = parsedVatRate;
+
+    return new PaymentRuntimeOptions
+    {
+        Provider = provider,
+        FakeSecret = fakeSecret ?? string.Empty,
+        PublicBaseUrl = FirstNonEmpty(
+            Environment.GetEnvironmentVariable("SYSTEMCEL_PUBLIC_BASE_URL"),
+            configuration["Systemcel:PublicBaseUrl"]) ?? string.Empty,
+        VatRate = vatRate
     };
 }
 

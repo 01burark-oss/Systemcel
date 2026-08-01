@@ -70,6 +70,7 @@ const anaMenu: Array<{ href: string; label: string; icon: LucideIcon; adminOnly?
   { href: "/tahsilat-odeme", label: "Tahsilat / Ödeme", icon: WalletCards },
   { href: "/raporlar", label: "Raporlar", icon: BarChart3 },
   { href: "/sohbetler", label: "Sohbetler", icon: MessageCircle },
+  { href: "/abonelik", label: "Abonelik", icon: CalendarClock },
   { href: "/muhasebeci", label: "Muhasebeci Paneli", icon: BriefcaseBusiness },
   { href: "/muhasebeciler", label: "Muhasebeciler", icon: Search },
   { href: "/yonetim/muhasebeci-basvurulari", label: "Yönetim", icon: ShieldCheck, adminOnly: true },
@@ -80,7 +81,7 @@ function menuForWorkspace(ustBar: UstBarDurumu | null, musteriBaglami: boolean) 
   const visibleMenu = anaMenu.filter((item) => !item.adminOnly || ustBar?.yoneticiMi);
   const muhasebeciCalismaAlani = ustBar?.hesapTipi === "Muhasebeci" && !musteriBaglami;
   if (muhasebeciCalismaAlani) {
-    return visibleMenu.filter((item) => item.href === "/muhasebeci" || item.href === "/muhasebeciler" || item.href === "/sohbetler" || item.href === "/ayarlar" || item.adminOnly);
+    return visibleMenu.filter((item) => item.href === "/muhasebeci" || item.href === "/muhasebeciler" || item.href === "/sohbetler" || item.href === "/abonelik" || item.href === "/ayarlar" || item.adminOnly);
   }
 
   if (musteriBaglami) {
@@ -226,6 +227,15 @@ function workspacePageMeta(path: string, settingsTab: string): WorkspacePageMeta
       description: "Müşteri portföyünüzü, talepleri ve çalışma alanlarını tek panelden yönetin.",
       icon: BriefcaseBusiness,
       title: "Muhasebeci paneli"
+    };
+  }
+
+  if (path === "/abonelik") {
+    return {
+      category: "Plan ve faturalama",
+      description: "Planınızı, yenileme tarihinizi ve abonelik ödeme geçmişinizi yönetin.",
+      icon: CalendarClock,
+      title: "Abonelik"
     };
   }
 

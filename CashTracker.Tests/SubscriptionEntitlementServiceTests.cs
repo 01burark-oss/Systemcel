@@ -117,7 +117,7 @@ namespace CashTracker.Tests
         }
 
         [Fact]
-        public async Task MuhasebeciEntitlement_UcretsizFallbackMusteriLimitiniDondurur()
+        public async Task MuhasebeciEntitlement_AbonelikYokkenSaltOkunurDurumaDuser()
         {
             using var fixture = await SubscriptionFixture.CreateAsync();
             await fixture.SeedAsync(db =>
@@ -128,22 +128,26 @@ namespace CashTracker.Tests
 
             var actual = await fixture.Service.GetMuhasebeciEntitlementAsync(1, Now);
 
-            Assert.Equal(PlanKodlari.MuhasebeciUcretsiz, actual.PlanKodu);
+            Assert.Equal(PlanKodlari.MuhasebeciSaltOkunur, actual.PlanKodu);
             Assert.Equal(EntitlementKaynaklari.Ucretsiz, actual.Kaynak);
             Assert.Equal(2, actual.AktifMusteriSayisi);
-            Assert.Equal(3, actual.MusteriLimiti);
+            Assert.Equal(0, actual.MusteriLimiti);
             Assert.True(actual.MuhasebeciPaneliAktif);
+            Assert.True(actual.SaltOkunur);
             Assert.False(actual.AiAktif);
             Assert.False(actual.MuhasebeciProOnerilir);
         }
 
         [Fact]
-        public async Task MuhasebeciEntitlement_StandartFiyatiMusteriSayisinaGoreHesaplarVeProOnerir()
+        public async Task MuhasebeciEntitlement_StandartKredileriLimiteVeFiyataEkler()
         {
             using var fixture = await SubscriptionFixture.CreateAsync();
             await fixture.SeedAsync(db =>
             {
-                db.Abonelikler.Add(CreateAbonelik(1, HesapTipleri.Muhasebeci, PlanKodlari.MuhasebeciStandart));
+                var subscription = CreateAbonelik(1, HesapTipleri.Muhasebeci, PlanKodlari.MuhasebeciStandart);
+                subscription.EkMusteriKredisi = 10;
+                subscription.DonemTutari = 1199;
+                db.Abonelikler.Add(subscription);
 
                 foreach (var musteriId in Enumerable.Range(10, 20))
                     db.MuhasebeciMusterileri.Add(CreateMuhasebeciMusteri(1, musteriId));
@@ -157,10 +161,11 @@ namespace CashTracker.Tests
             Assert.Equal(20, actual.AktifMusteriSayisi);
             Assert.Equal(1199, actual.AylikTutar);
             Assert.Equal(1199, actual.MuhasebeciStandartAylikTutar);
+            Assert.Equal(10, actual.EkMusteriKredisi);
             Assert.True(actual.MuhasebeciProOnerilir);
             Assert.True(actual.AiAktif);
             Assert.Equal(100, actual.AiMesajLimiti);
-            Assert.Equal(10, actual.MusteriLimiti);
+            Assert.Equal(20, actual.MusteriLimiti);
         }
 
         [Fact]
@@ -192,37 +197,74 @@ namespace CashTracker.Tests
         }
 
         [Fact]
-        public async Task IsletmeDenemesi_KrediKartsizOtuzGunSecilenPlaniAcar()
+        public async Task MuhasebeciEntitlement_KartliDenemeSecilenPlaniOnDortGunAcar()
         {
             using var fixture = await SubscriptionFixture.CreateAsync();
+            await fixture.SeedAsync(db => db.IsletmeDenemeleri.Add(new IsletmeDeneme
+            {
+                IsletmeId = 1,
+                HesapTipi = HesapTipleri.Muhasebeci,
+                PlanKodu = PlanKodlari.MuhasebeciStandart,
+                FaturalamaDonemi = "Aylik",
+                EkMusteriKredisi = 2,
+                Durum = "Aktif",
+                BaslangicAt = Now,
+                BitisAt = Now.AddDays(14),
+                OdemeYontemiEklendi = true,
+                CreatedAt = Now,
+                UpdatedAt = Now
+            }));
 
-            var actual = await fixture.Service.StartIsletmeTrialAsync(
-                1,
-                PlanKodlari.IsletmeBuyume,
-                "Yillik",
-                Now);
+            var actual = await fixture.Service.GetMuhasebeciEntitlementAsync(1, Now.AddDays(1));
 
-            Assert.Equal(PlanKodlari.IsletmeBuyume, actual.PlanKodu);
+            Assert.Equal(PlanKodlari.MuhasebeciStandart, actual.PlanKodu);
             Assert.Equal(EntitlementKaynaklari.IsletmeDenemesi, actual.Kaynak);
-            Assert.Equal("Yillik", actual.FaturalamaDonemi);
-            Assert.Equal(9504, actual.DonemTutari);
-            Assert.Equal(Now.AddDays(30), actual.GecerliBitisAt);
-            Assert.True(actual.BankaMutabakatiAktif);
-            Assert.True(actual.AiSinirsiz);
-
-            await using var db = fixture.CreateDbContext();
-            var trial = await db.IsletmeDenemeleri.SingleAsync();
-            Assert.False(trial.OdemeYontemiEklendi);
+            Assert.Equal("Aylik", actual.FaturalamaDonemi);
+            Assert.Equal(799m, actual.DonemTutari);
+            Assert.Equal(12, actual.MusteriLimiti);
+            Assert.Equal(Now.AddDays(14), actual.GecerliBitisAt);
+            Assert.False(actual.SaltOkunur);
+            Assert.True(actual.AiAktif);
         }
 
         [Fact]
-        public async Task IsletmeDenemesi_IkinciKezBaslatilamaz()
+        public async Task IsletmeEntitlement_OdemeToleransiBiteneKadarUcretliHakkiKorur()
         {
             using var fixture = await SubscriptionFixture.CreateAsync();
-            await fixture.Service.StartIsletmeTrialAsync(1, PlanKodlari.IsletmeBaslangic, "Aylik", Now);
+            var subscription = CreateAbonelik(
+                1,
+                HesapTipleri.Isletme,
+                PlanKodlari.IsletmeBuyume,
+                donemBitisAt: Now.AddDays(-1));
+            subscription.OdemeSorunuAt = Now.AddDays(-1);
+            subscription.ToleransBitisAt = Now.AddDays(6);
+            await fixture.SeedAsync(db => db.Abonelikler.Add(subscription));
 
-            await Assert.ThrowsAsync<InvalidOperationException>(() =>
-                fixture.Service.StartIsletmeTrialAsync(1, PlanKodlari.IsletmeKurumsal, "Aylik", Now));
+            var actual = await fixture.Service.GetIsletmeEntitlementAsync(1, Now);
+
+            Assert.Equal(PlanKodlari.IsletmeBuyume, actual.PlanKodu);
+            Assert.Equal(Now.AddDays(6), actual.GecerliBitisAt);
+            Assert.True(actual.AiAktif);
+        }
+
+        [Fact]
+        public async Task IsletmeEntitlement_DonemSonuIptalTalebindeBitiseKadarUcretliHakkiKorur()
+        {
+            using var fixture = await SubscriptionFixture.CreateAsync();
+            var subscription = CreateAbonelik(
+                1,
+                HesapTipleri.Isletme,
+                PlanKodlari.IsletmeBuyume,
+                donemBitisAt: Now.AddDays(12));
+            subscription.DonemSonundaIptal = true;
+            subscription.IptalAt = Now.AddMinutes(-5);
+            await fixture.SeedAsync(db => db.Abonelikler.Add(subscription));
+
+            var actual = await fixture.Service.GetIsletmeEntitlementAsync(1, Now);
+
+            Assert.Equal(PlanKodlari.IsletmeBuyume, actual.PlanKodu);
+            Assert.Equal(Now.AddDays(12), actual.GecerliBitisAt);
+            Assert.True(actual.AiAktif);
         }
 
         private static Abonelik CreateAbonelik(

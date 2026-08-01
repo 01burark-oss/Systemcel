@@ -11,12 +11,15 @@ namespace CashTracker.Core.Entities
         public string Durum { get; set; } = "Aktif";
         public decimal AylikTutar { get; set; }
         public string FaturalamaDonemi { get; set; } = "Aylik";
+        public int EkMusteriKredisi { get; set; }
         public decimal DonemTutari { get; set; }
         public string ParaBirimi { get; set; } = "TRY";
         public DateTime DonemBaslangicAt { get; set; } = DateTime.Now;
         public DateTime? DonemBitisAt { get; set; }
         public bool DonemSonundaIptal { get; set; }
         public DateTime? IptalAt { get; set; }
+        public DateTime? OdemeSorunuAt { get; set; }
+        public DateTime? ToleransBitisAt { get; set; }
         public string OdemeSaglayici { get; set; } = string.Empty;
         public string SaglayiciMusteriId { get; set; } = string.Empty;
         public string SaglayiciAbonelikId { get; set; } = string.Empty;
