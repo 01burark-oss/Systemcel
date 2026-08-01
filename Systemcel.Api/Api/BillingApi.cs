@@ -11,7 +11,7 @@ namespace Systemcel.Api.Api;
 
 internal static class BillingApi
 {
-    private const string ConsentVersion = "abonelik-onayi-2026-08-v1";
+    private const string ConsentVersion = "abonelik-onayi-2026-08-v2";
 
     public static void MapBillingApi(this WebApplication app)
     {
@@ -243,7 +243,7 @@ internal static class BillingApi
                 {
                     return Results.BadRequest(new { mesaj = ex.Message });
                 }
-            });
+            }).RequireRateLimiting("sensitive");
 
         var cancelEndpoint = app.MapPost(
             "/api/abonelik/iptal",
@@ -266,7 +266,7 @@ internal static class BillingApi
                 {
                     return Results.BadRequest(new { mesaj = ex.Message });
                 }
-            });
+            }).RequireRateLimiting("sensitive");
 
         app.MapPost(
                 "/api/odeme/webhook",
@@ -278,7 +278,8 @@ internal static class BillingApi
                     var result = await lifecycle.ProcessWebhookAsync(envelope, ct);
                     return result.Accepted ? Results.Ok(result) : Results.BadRequest(result);
                 })
-            .AllowAnonymous();
+            .AllowAnonymous()
+            .RequireRateLimiting("sensitive");
 
         MapFakeCheckout(app);
 
@@ -398,14 +399,16 @@ internal static class BillingApi
         {
             return $"Ücretsiz deneme hakkımı daha önce kullandığım için {period} planın hemen başlamasını; " +
                    $"{net} TL + {vat} TL KDV, toplam {total} TL'nin kayıtlı ödeme yöntemimden tahsil edilmesini " +
-                   $"ve aboneliğin {period} olarak yenilenmesini onaylıyorum.{credits}";
+                   $"ve aboneliğin {period} olarak yenilenmesini onaylıyorum.{credits} İptalin mevcut ücretli dönemin " +
+                   "sonunda etkili olacağını; dönem sonu iptalin geçmiş tahsilatı kendiliğinden iade etmeyeceğini ve " +
+                   "emredici yasal haklarımın saklı olduğunu kabul ediyorum.";
         }
 
         return $"{quote.TrialDays} günlük deneme sonunda iptal etmediğim takdirde {period} plan için " +
                $"{net} TL + {vat} TL KDV, toplam {total} TL'nin kayıtlı ödeme yöntemimden tahsil edilmesini " +
                $"ve aboneliğin {period} olarak yenilenmesini onaylıyorum.{credits} Deneme bitmeden 7 ve 3 gün önce " +
                "bilgilendirileceğimi; iptalin mevcut ücretli dönemin sonunda etkili olacağını ve kullanılmış dönem için " +
-               "iade yapılmayacağını kabul ediyorum.";
+               "geçmiş tahsilatı kendiliğinden iade etmeyeceğini ve emredici yasal haklarımın saklı olduğunu kabul ediyorum.";
     }
 
     private static string BuildFakeCheckoutHtml(

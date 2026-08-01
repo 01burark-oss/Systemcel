@@ -208,6 +208,8 @@
 .billing-consent input:checked + span { border-color: #799300; background: #f5f9e6; }
 .billing-consent input:checked + span i { border-color: var(--billing-lime); color: var(--billing-ink); background: var(--billing-lime); }
 .billing-consent input:focus-visible + span { outline: 2px solid var(--billing-ink); outline-offset: 2px; }
+.billing-modal__legal-links { margin: 9px 0 0; color: var(--billing-muted); font-size: 11px; line-height: 1.5; }
+.billing-modal__legal-links a { color: #314200; font-weight: 760; text-underline-offset: 3px; }
 .billing-inline-error { display: flex; align-items: flex-start; gap: 8px; margin-top: 14px; padding: 12px; border-radius: 10px; color: var(--billing-danger); background: #fff0ed; font-size: 12px; line-height: 1.45; }
 .billing-inline-error svg { flex: 0 0 auto; }
 .billing-modal__actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }

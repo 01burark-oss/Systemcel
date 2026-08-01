@@ -414,7 +414,7 @@ export function YardimSayfasi() {
           <h2>Cevabını bulamadın mı?</h2>
           <p>Destek talebi, demo veya satış görüşmesi için ekibe ulaş.</p>
         </div>
-        <a href="mailto:iletisim@systemcel.com">İletişime geç</a>
+        <a href="mailto:merhaba@systemcel.app">İletişime geç</a>
       </section>
     </main>
   );

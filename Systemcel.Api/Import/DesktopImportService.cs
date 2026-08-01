@@ -11,6 +11,12 @@ namespace Systemcel.Api.Import;
 
 internal sealed class DesktopImportService
 {
+    private const long MaxPackageBytes = 50L * 1024 * 1024;
+    private const long MaxManifestBytes = 1024 * 1024;
+    private const long MaxEntryBytes = 64L * 1024 * 1024;
+    private const long MaxExpandedPackageBytes = 256L * 1024 * 1024;
+    private const int MaxArchiveEntries = 16;
+    private const double MaxCompressionRatio = 200d;
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
         PropertyNameCaseInsensitive = true
@@ -30,6 +36,7 @@ internal sealed class DesktopImportService
     public async Task<DesktopImportPackageResponse> AcceptPackageAsync(
         string code,
         IFormFile package,
+        string requestedBy,
         CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(code))
@@ -37,27 +44,47 @@ internal sealed class DesktopImportService
 
         if (package.Length <= 0)
             throw new DesktopImportValidationException("Bos paket yuklenemez.");
+        if (package.Length > MaxPackageBytes)
+            throw new DesktopImportValidationException("Aktarim paketi en fazla 50 MB olabilir.");
 
-        var codeRecord = _codeStore.RequireActive(code);
-        var data = await ReadPackageAsync(package, ct);
+        var codeRecord = await _codeStore.ClaimAsync(code, requestedBy, ct);
+        try
+        {
+            DesktopImportPackageData data;
+            try
+            {
+                data = await ReadPackageAsync(package, ct);
+            }
+            catch (InvalidDataException ex)
+            {
+                throw new DesktopImportValidationException($"Aktarim paketi gecerli bir ZIP degil: {ex.Message}");
+            }
+            catch (OverflowException)
+            {
+                throw new DesktopImportValidationException("Aktarim paketinin acilmis boyutu gecersiz.");
+            }
 
-        ValidateManifest(data.Manifest, codeRecord.Code);
-        ValidatePackage(data);
-
-        var response = await ImportPackageAsync(codeRecord, data, ct);
-        _codeStore.MarkUsed(codeRecord.Code, data.Manifest.PackageId, response.ImportedTotals);
-        return response;
+            ValidateManifest(data.Manifest, codeRecord);
+            ValidatePackage(data);
+            return await ImportPackageAsync(codeRecord, data, ct);
+        }
+        catch
+        {
+            await _codeStore.ReleaseClaimAsync(codeRecord, CancellationToken.None);
+            throw;
+        }
     }
 
     private static async Task<DesktopImportPackageData> ReadPackageAsync(IFormFile package, CancellationToken ct)
     {
         await using var packageStream = package.OpenReadStream();
         using var archive = new ZipArchive(packageStream, ZipArchiveMode.Read, leaveOpen: false);
+        ValidateArchiveLayout(archive);
 
         var manifestEntry = archive.GetEntry(DesktopImportContract.ManifestFileName)
             ?? throw new DesktopImportValidationException("Paket manifest.json icermiyor.");
 
-        await using var manifestStream = manifestEntry.Open();
+        await using var manifestStream = OpenLimitedEntry(manifestEntry, MaxManifestBytes);
         var manifest = await JsonSerializer.DeserializeAsync<DesktopImportManifest>(manifestStream, JsonOptions, ct)
             ?? throw new DesktopImportValidationException("manifest.json okunamadi.");
 
@@ -88,7 +115,7 @@ internal sealed class DesktopImportService
         var archiveEntry = archive.GetEntry(path)
             ?? throw new DesktopImportValidationException($"Paket {path} dosyasini icermiyor.");
 
-        var bytes = await ReadEntryBytesAsync(archiveEntry, ct);
+        var bytes = await ReadEntryBytesAsync(archiveEntry, MaxEntryBytes, ct);
         var sha256 = HashSha256(bytes);
         if (!string.Equals(fileEntry.Sha256, sha256, StringComparison.OrdinalIgnoreCase))
             throw new DesktopImportValidationException($"{path} hash dogrulamasi basarisiz.");
@@ -100,12 +127,72 @@ internal sealed class DesktopImportService
         return rows;
     }
 
-    private static async Task<byte[]> ReadEntryBytesAsync(ZipArchiveEntry entry, CancellationToken ct)
+    private static async Task<byte[]> ReadEntryBytesAsync(
+        ZipArchiveEntry entry,
+        long maxBytes,
+        CancellationToken ct)
     {
-        await using var stream = entry.Open();
-        using var memory = new MemoryStream();
-        await stream.CopyToAsync(memory, ct);
+        if (entry.Length > maxBytes)
+            throw new DesktopImportValidationException($"{entry.FullName} dosyasi izin verilen boyutu asti.");
+        await using var stream = OpenLimitedEntry(entry, maxBytes);
+        using var memory = new MemoryStream((int)Math.Min(entry.Length, int.MaxValue));
+        var buffer = new byte[64 * 1024];
+        long total = 0;
+        while (true)
+        {
+            var read = await stream.ReadAsync(buffer.AsMemory(), ct);
+            if (read == 0)
+                break;
+            total += read;
+            if (total > maxBytes)
+                throw new DesktopImportValidationException($"{entry.FullName} acilmis boyut sinirini asti.");
+            await memory.WriteAsync(buffer.AsMemory(0, read), ct);
+        }
         return memory.ToArray();
+    }
+
+    private static Stream OpenLimitedEntry(ZipArchiveEntry entry, long maxBytes)
+    {
+        if (entry.Length > maxBytes)
+            throw new DesktopImportValidationException($"{entry.FullName} dosyasi izin verilen boyutu asti.");
+        return entry.Open();
+    }
+
+    private static void ValidateArchiveLayout(ZipArchive archive)
+    {
+        if (archive.Entries.Count == 0 || archive.Entries.Count > MaxArchiveEntries)
+            throw new DesktopImportValidationException("Aktarim paketindeki dosya sayisi guvenlik sinirini asti.");
+
+        var allowed = DesktopImportContract.RequiredDataFiles
+            .Append(DesktopImportContract.ManifestFileName)
+            .Select(NormalizePath)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        long expanded = 0;
+        foreach (var entry in archive.Entries)
+        {
+            var normalized = NormalizePath(entry.FullName);
+            if (string.IsNullOrWhiteSpace(normalized) ||
+                normalized.Split('/').Any(x => x == "..") ||
+                !allowed.Contains(normalized))
+            {
+                throw new DesktopImportValidationException("Aktarim paketi izin verilmeyen bir dosya yolu iceriyor.");
+            }
+            if (!seen.Add(normalized))
+                throw new DesktopImportValidationException($"Aktarim paketinde yinelenen dosya var: {normalized}");
+
+            expanded = checked(expanded + entry.Length);
+            if (expanded > MaxExpandedPackageBytes)
+                throw new DesktopImportValidationException("Paketin acilmis toplam boyutu guvenlik sinirini asti.");
+            if (entry.Length > 0 && (entry.CompressedLength == 0 ||
+                entry.Length / (double)entry.CompressedLength > MaxCompressionRatio))
+            {
+                throw new DesktopImportValidationException("Paket supheli sikistirma orani nedeniyle reddedildi.");
+            }
+        }
+
+        if (!allowed.SetEquals(seen))
+            throw new DesktopImportValidationException("Aktarim paketi zorunlu dosyalarin tamamini icermiyor.");
     }
 
     private static DesktopImportFileEntry? FindManifestFile(DesktopImportManifest manifest, string path)
@@ -124,16 +211,25 @@ internal sealed class DesktopImportService
         return Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
     }
 
-    private static void ValidateManifest(DesktopImportManifest manifest, string code)
+    private static void ValidateManifest(DesktopImportManifest manifest, DesktopImportCodeRecord code)
     {
         if (!string.Equals(manifest.ManifestVersion, DesktopImportContract.ManifestVersion, StringComparison.Ordinal))
             throw new DesktopImportValidationException($"Desteklenmeyen manifestVersion: {manifest.ManifestVersion}");
 
         if (string.IsNullOrWhiteSpace(manifest.PackageId))
             throw new DesktopImportValidationException("Manifest packageId alanini icermiyor.");
+        if (manifest.PackageId.Length > 100 || manifest.Transfer is null || manifest.Files is null ||
+            manifest.Files.Count != DesktopImportContract.RequiredDataFiles.Length)
+            throw new DesktopImportValidationException("Manifest yapisi guvenlik sozlesmesiyle uyusmuyor.");
 
-        if (!string.Equals(manifest.Transfer.Code.Trim(), code.Trim(), StringComparison.OrdinalIgnoreCase))
+        if (!string.Equals(manifest.Transfer.Code.Trim(), code.Code.Trim(), StringComparison.OrdinalIgnoreCase))
             throw new DesktopImportValidationException("Manifest aktarim kodu ile yuklenen kod uyusmuyor.");
+        if (manifest.Transfer.TargetIsletmeId.HasValue &&
+            manifest.Transfer.TargetIsletmeId != code.TargetIsletmeId)
+            throw new DesktopImportValidationException("Manifest hedef isletmesi aktarim koduyla uyusmuyor.");
+        if (!string.IsNullOrWhiteSpace(manifest.Transfer.RequestedBy) &&
+            !string.Equals(manifest.Transfer.RequestedBy.Trim(), code.RequestedBy, StringComparison.Ordinal))
+            throw new DesktopImportValidationException("Manifest kullanicisi aktarim kodu sahibiyle uyusmuyor.");
 
         foreach (var requiredFile in DesktopImportContract.RequiredDataFiles)
         {
@@ -270,6 +366,17 @@ internal sealed class DesktopImportService
         await ImportFaturalarAsync(db, data, idMaps, importedTotals, ct);
         await ImportFaturaSatirlariAsync(db, data, idMaps, importedTotals, ct);
         await ImportTahsilatOdemelerAsync(db, data, idMaps, importedTotals, ct);
+
+        var claimedCode = await db.DesktopImportKodlari.SingleOrDefaultAsync(
+            x => x.Id == code.Id &&
+                 x.RequestedBy == code.RequestedBy &&
+                 x.Status == DesktopImportCodeStatus.Processing,
+            ct) ?? throw new DesktopImportValidationException("Aktarim kodu tek kullanim sozlesmesini kaybetti.");
+        claimedCode.Status = DesktopImportCodeStatus.Used;
+        claimedCode.UsedAtUtc = DateTime.UtcNow;
+        claimedCode.PackageId = data.Manifest.PackageId;
+        claimedCode.ImportedTotalsJson = JsonSerializer.Serialize(importedTotals, JsonOptions);
+        await db.SaveChangesAsync(ct);
 
         await transaction.CommitAsync(ct);
 

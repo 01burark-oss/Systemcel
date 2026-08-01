@@ -1,5 +1,5 @@
 export type AuthLanguage = "tr" | "en";
-export type LegalTextKey = "terms" | "privacy" | "kvkk";
+export type LegalTextKey = "terms" | "privacy" | "kvkk" | "subscription";
 
 export type LegalTextSection = {
   title: string;
@@ -142,6 +142,49 @@ export const legalTexts: Record<AuthLanguage, Record<LegalTextKey, LegalTextCont
             "İlgili kişiler, KVKK'nın 11. maddesi kapsamındaki haklarını kullanmak için ileride ilan edilecek resmi iletişim kanalları üzerinden başvuru yapabilir."
         }
       ]
+    },
+    subscription: {
+      linkLabel: "Abonelik Koşulları",
+      title: "Systemcel Abonelik, Yenileme, İptal ve İade Koşulları",
+      updatedAt: "1 Ağustos 2026",
+      updatedAtLabel: "Son güncelleme",
+      closeLabel: "Yasal metni kapat",
+      intro:
+        "Bu taslak, Systemcel ücretli planlarının deneme, tahsilat, otomatik yenileme, dönem sonu iptal ve iade yaklaşımını açıklar.",
+      note:
+        "Şirket unvanı, vergi/adres bilgileri ve ödeme kuruluşu alanları şirket kuruluşundan sonra doldurulacak; metin canlı tahsilattan önce hukuk danışmanı tarafından onaylanacaktır.",
+      sections: [
+        {
+          title: "1. Plan, Fiyat ve Faturalama Dönemi",
+          text:
+            "Seçilen plan, aylık net bedel, KDV, toplam tutar, deneme süresi ve varsa ek müşteri kredileri ödeme onayından hemen önce gösterilir. İlk checkout yalnız aylıktır; fiyat veya vergi değişikliği yeni dönemden önce kullanıcıya bildirilir."
+        },
+        {
+          title: "2. Deneme ve İlk Tahsilat",
+          text:
+            "Deneme hakkı hesap türü başına bir kez tanımlanır. Kullanıcı deneme bitmeden iptal etmezse onay ekranında gösterilen tutar kayıtlı ödeme yönteminden çekilir. Deneme hakkı daha önce kullanılmışsa abonelik ve tahsilat aynı gün başlar."
+        },
+        {
+          title: "3. Otomatik Yenileme ve Hatırlatma",
+          text:
+            "Aylık abonelik, dönem sonu iptal talebi bulunmadıkça aynı dönemle yenilenir. Deneme sonundan 7 ve 3 gün önce uygulama içi bildirim; yapılandırılmışsa e-posta hatırlatması gönderilir."
+        },
+        {
+          title: "4. İptal",
+          text:
+            "Kullanıcı abonelik ekranından dönem sonu iptal talebi verebilir. Erişim ödenmiş dönemin sonuna kadar sürer; iptal durumu ve erişim bitiş tarihi aynı ekranda gösterilir."
+        },
+        {
+          title: "5. İade ve Zorunlu Haklar",
+          text:
+            "Dönem sonu iptal geçmiş tahsilatı kendiliğinden iade etmez. Mükerrer veya hatalı tahsilat talepleri destek kanalı üzerinden incelenir. Emredici tüketici hükümleri ve kullanıcının vazgeçilemez yasal hakları saklıdır."
+        },
+        {
+          title: "6. Taslak Satıcı/Hizmet Sağlayıcı Bilgileri",
+          text:
+            "Hizmet sağlayıcı: [ŞİRKET UNVANI]; vergi/MERSİS: [VERGİ VE MERSİS]; adres: [AÇIK ADRES]; e-posta/KEP: [RESMÎ E-POSTA VE KEP]; destek: destek@systemcel.app."
+        }
+      ]
     }
   },
   en: {
@@ -266,6 +309,49 @@ export const legalTexts: Record<AuthLanguage, Record<LegalTextKey, LegalTextCont
           title: "6. Data Subject Rights",
           text:
             "Data subjects may exercise their rights under Article 11 of the KVKK through official contact channels to be announced later."
+        }
+      ]
+    },
+    subscription: {
+      linkLabel: "Subscription Terms",
+      title: "Systemcel Subscription, Renewal, Cancellation and Refund Terms",
+      updatedAt: "August 1, 2026",
+      updatedAtLabel: "Last updated",
+      closeLabel: "Close legal text",
+      intro:
+        "This draft describes trials, charges, automatic renewal, end-of-period cancellation and refunds for paid Systemcel plans.",
+      note:
+        "Company, tax/address and payment-provider details will be completed after incorporation, and legal counsel must approve this text before live charging.",
+      sections: [
+        {
+          title: "1. Plan, Price and Billing Period",
+          text:
+            "The selected plan, monthly net price, VAT, total amount, trial length and any extra customer credits are shown immediately before consent. Initial checkout is monthly only."
+        },
+        {
+          title: "2. Trial and First Charge",
+          text:
+            "A trial is granted once per account type. If it is not cancelled before it ends, the displayed amount is charged to the saved payment method. If the trial was already used, the subscription and charge start immediately."
+        },
+        {
+          title: "3. Renewal and Reminders",
+          text:
+            "The monthly subscription renews unless cancellation at period end is requested. In-app reminders are shown 7 and 3 days before a trial ends; email is also used when configured."
+        },
+        {
+          title: "4. Cancellation",
+          text:
+            "Users may request cancellation at period end from the subscription page. Access continues until the paid period ends, and the effective access end date remains visible."
+        },
+        {
+          title: "5. Refunds and Mandatory Rights",
+          text:
+            "End-of-period cancellation does not automatically refund a past charge. Duplicate or erroneous charges are reviewed through support. Mandatory statutory rights remain unaffected."
+        },
+        {
+          title: "6. Draft Provider Details",
+          text:
+            "Provider: [COMPANY TITLE]; tax/registry: [TAX AND REGISTRY]; address: [FULL ADDRESS]; official email/KEP: [OFFICIAL EMAIL AND KEP]; support: destek@systemcel.app."
         }
       ]
     }

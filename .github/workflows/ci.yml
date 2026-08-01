@@ -9,9 +9,14 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-test:
     runs-on: windows-latest
+    timeout-minutes: 30
 
     steps:
       - name: Checkout
@@ -40,6 +45,20 @@ jobs:
         shell: pwsh
         run: dotnet restore .\CashTracker.sln /p:Configuration=Release /p:RestoreUseStaticGraphEvaluation=true
 
+      - name: Audit npm dependencies
+        working-directory: Systemcel.Web
+        shell: pwsh
+        run: npm audit --audit-level=high
+
+      - name: Audit .NET dependencies
+        shell: pwsh
+        run: |
+          $audit = dotnet list .\CashTracker.sln package --vulnerable --include-transitive
+          $audit | Write-Output
+          if ($audit -match "has the following vulnerable packages") {
+            throw "High-confidence vulnerable NuGet dependency detected."
+          }
+
       - name: Build
         shell: pwsh
         run: dotnet build .\CashTracker.sln --no-restore --configuration Release --disable-parallel /p:BuildInParallel=false
@@ -47,3 +66,18 @@ jobs:
       - name: Test
         shell: pwsh
         run: dotnet test .\CashTracker.Tests\CashTracker.Tests.csproj --no-build --configuration Release --logger "console;verbosity=minimal"
+
+  secret-scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Scan committed history for secrets
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

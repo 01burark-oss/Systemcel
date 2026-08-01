@@ -71,7 +71,7 @@ export function HakkimizdaSayfasi() {
             TR
             <ChevronDown size={16} />
           </button>
-          <a className="product-contact" href="mailto:iletisim@systemcel.com">
+          <a className="product-contact" href="mailto:merhaba@systemcel.app">
             İletişim
           </a>
         </div>

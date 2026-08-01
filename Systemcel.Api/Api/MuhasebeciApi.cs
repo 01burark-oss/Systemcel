@@ -3,6 +3,7 @@ using CashTracker.Core.Services;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Systemcel.Api;
+using CashTracker.Infrastructure.Security;
 
 namespace Systemcel.Api.Api;
 
@@ -33,7 +34,10 @@ internal static class MuhasebeciApi
             if (string.IsNullOrWhiteSpace(safeName) || safeName != fileName)
                 return Results.NotFound();
 
-            var path = Path.Combine(GetAccountantProfileImageDirectory(runtimeOptions), safeName);
+            var directory = GetAccountantProfileImageDirectory(runtimeOptions);
+            var path = Path.Combine(directory, safeName);
+            if (!SecureFileInspector.IsPathInside(path, directory))
+                return Results.NotFound();
             if (!File.Exists(path))
                 return Results.NotFound();
 
@@ -117,6 +121,7 @@ internal static class MuhasebeciApi
         app.MapPost("/api/ekran/muhasebeci/profil-resmi", async (
             HttpContext context,
             AppRuntimeOptions runtimeOptions,
+            IIsletmeService isletmeService,
             CancellationToken ct) =>
         {
             try
@@ -124,25 +129,45 @@ internal static class MuhasebeciApi
                 if (!context.Request.HasFormContentType)
                     return Results.BadRequest(new ApiHata("Profil resmi multipart/form-data olarak gönderilmelidir."));
 
+                var activeBusiness = await isletmeService.GetActiveAsync();
+                if (!string.Equals(activeBusiness.TenantTipi, HesapTipleri.Muhasebeci, StringComparison.OrdinalIgnoreCase))
+                    return Results.Json(new ApiHata("Profil resmi yalnız muhasebeci hesabında yüklenebilir."), statusCode: StatusCodes.Status403Forbidden);
+
                 var form = await context.Request.ReadFormAsync(ct);
                 var file = form.Files.GetFile("file") ?? form.Files.FirstOrDefault();
                 if (file == null || file.Length == 0)
                     return Results.BadRequest(new ApiHata("Profil resmi seçilmedi."));
 
-                if (file.Length > 5 * 1024 * 1024)
-                    return Results.BadRequest(new ApiHata("Profil resmi en fazla 5 MB olabilir."));
-
-                var extension = ExtensionForImage(file);
-                if (string.IsNullOrWhiteSpace(extension))
-                    return Results.BadRequest(new ApiHata("Profil resmi JPG, PNG veya WEBP olmalıdır."));
+                await using var input = file.OpenReadStream();
+                var inspection = await SecureFileInspector.InspectAsync(
+                    input,
+                    file.FileName,
+                    file.Length,
+                    SecureFilePurpose.ProfileImage,
+                    ct);
 
                 var directory = GetAccountantProfileImageDirectory(runtimeOptions);
                 Directory.CreateDirectory(directory);
-                var fileName = $"{Guid.NewGuid():N}{extension}";
+                var fileName = $"{Guid.NewGuid():N}{inspection.Extension}";
                 var path = Path.Combine(directory, fileName);
 
-                await using var stream = File.Create(path);
-                await file.CopyToAsync(stream, ct);
+                try
+                {
+                    await using var output = new FileStream(
+                        path,
+                        FileMode.CreateNew,
+                        FileAccess.Write,
+                        FileShare.None,
+                        64 * 1024,
+                        FileOptions.Asynchronous | FileOptions.WriteThrough);
+                    await SecureFileInspector.CopyBoundedAsync(input, output, file.Length, 5L * 1024 * 1024, ct);
+                }
+                catch
+                {
+                    if (File.Exists(path))
+                        File.Delete(path);
+                    throw;
+                }
 
                 return Results.Ok(new ProfilResmiYukleSonuc($"/api/public/muhasebeciler/profil-resimleri/{fileName}"));
             }
@@ -150,7 +175,7 @@ internal static class MuhasebeciApi
             {
                 return Results.BadRequest(new ApiHata($"Profil resmi yüklenemedi: {ex.Message}"));
             }
-        });
+        }).RequireRateLimiting("upload");
 
         app.MapPut("/api/ekran/muhasebeci/profil", async (
             MuhasebeciProfilKaydetRequest request,
@@ -358,23 +383,6 @@ internal static class MuhasebeciApi
     private static string GetAccountantProfileImageDirectory(AppRuntimeOptions runtimeOptions)
     {
         return Path.Combine(runtimeOptions.AppDataPath, "uploads", "accountant-profiles");
-    }
-
-    private static string ExtensionForImage(IFormFile file)
-    {
-        var contentType = (file.ContentType ?? string.Empty).Trim().ToLowerInvariant();
-        var extension = Path.GetExtension(file.FileName ?? string.Empty).Trim().ToLowerInvariant();
-
-        return contentType switch
-        {
-            "image/jpeg" or "image/jpg" => ".jpg",
-            "image/png" => ".png",
-            "image/webp" => ".webp",
-            _ when extension is ".jpg" or ".jpeg" => ".jpg",
-            _ when extension is ".png" => ".png",
-            _ when extension is ".webp" => ".webp",
-            _ => string.Empty
-        };
     }
 
     private static string ContentTypeForImage(string path)

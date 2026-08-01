@@ -13,6 +13,7 @@ using CashTracker.Core.Entities;
 using CashTracker.Core.Models;
 using CashTracker.Core.Services;
 using CashTracker.Infrastructure.Persistence;
+using CashTracker.Infrastructure.Security;
 using Microsoft.EntityFrameworkCore;
 
 namespace CashTracker.Infrastructure.Services
@@ -23,12 +24,6 @@ namespace CashTracker.Infrastructure.Services
         private const int DefaultPageSize = 50;
         private const long MaxAttachmentBytes = 10 * 1024 * 1024;
         private const int MaxAttachmentsPerMessage = 5;
-        private static readonly HashSet<string> AllowedExtensions = new(StringComparer.OrdinalIgnoreCase)
-        {
-            ".pdf", ".xml", ".html", ".htm", ".xlsx", ".csv", ".zip", ".png", ".jpg", ".jpeg", ".webp",
-            ".webm", ".ogg", ".m4a", ".mp3", ".wav"
-        };
-
         private readonly IDbContextFactory<CashTrackerDbContext> _dbFactory;
         private readonly IIsletmeService _isletmeService;
         private readonly MuhasebeciSohbetStorageOptions _storageOptions;
@@ -142,31 +137,64 @@ namespace CashTracker.Infrastructure.Services
             await using var db = await _dbFactory.CreateDbContextAsync(ct);
             var viewerBusinessId = await GetViewerBusinessIdAsync(ct);
             var sohbet = await RequireConversationAsync(db, sohbetId, viewerBusinessId, ct);
-            ValidateUpload(upload);
+            var inspection = await SecureFileInspector.InspectAsync(
+                upload.Icerik,
+                upload.DosyaAdi,
+                upload.Boyut,
+                SecureFilePurpose.ChatAttachment,
+                ct);
 
             var directory = Path.Combine(GetStorageRoot(), "chat-attachments", sohbet.Id.ToString(CultureInfo.InvariantCulture));
             Directory.CreateDirectory(directory);
-            var extension = Path.GetExtension(upload.DosyaAdi);
-            var storedName = $"{Guid.NewGuid():N}{extension}";
+            var storedName = $"{Guid.NewGuid():N}{inspection.Extension}";
             var fullPath = Path.Combine(directory, storedName);
-            await using (var stream = File.Create(fullPath))
-                await upload.Icerik.CopyToAsync(stream, ct);
+            try
+            {
+                await using var stream = new FileStream(
+                    fullPath,
+                    FileMode.CreateNew,
+                    FileAccess.Write,
+                    FileShare.None,
+                    64 * 1024,
+                    FileOptions.Asynchronous | FileOptions.WriteThrough);
+                await SecureFileInspector.CopyBoundedAsync(
+                    upload.Icerik,
+                    stream,
+                    upload.Boyut,
+                    MaxAttachmentBytes,
+                    ct);
+            }
+            catch
+            {
+                if (File.Exists(fullPath))
+                    File.Delete(fullPath);
+                throw;
+            }
 
-            var message = await AddMessageAsync(db, sohbet, viewerBusinessId, MuhasebeciSohbetMesajTipleri.Dosya, $"Dosya eklendi: {Path.GetFileName(upload.DosyaAdi)}", string.Empty, ct);
+            var message = await AddMessageAsync(db, sohbet, viewerBusinessId, MuhasebeciSohbetMesajTipleri.Dosya, $"Dosya eklendi: {inspection.DisplayFileName}", string.Empty, ct);
             var attachment = new MuhasebeciSohbetEki
             {
                 SohbetId = sohbet.Id,
                 MesajId = message.Id,
                 YukleyenIsletmeId = viewerBusinessId,
                 EkTipi = MuhasebeciSohbetEkTipleri.Dosya,
-                DosyaAdi = Path.GetFileName(upload.DosyaAdi),
-                IcerikTipi = NormalizeContentType(upload.IcerikTipi, extension),
+                DosyaAdi = inspection.DisplayFileName,
+                IcerikTipi = inspection.ContentType,
                 DosyaYolu = fullPath,
                 Boyut = upload.Boyut,
-                CreatedAt = DateTime.Now
+                CreatedAt = DateTime.UtcNow
             };
-            db.MuhasebeciSohbetEkleri.Add(attachment);
-            await db.SaveChangesAsync(ct);
+            try
+            {
+                db.MuhasebeciSohbetEkleri.Add(attachment);
+                await db.SaveChangesAsync(ct);
+            }
+            catch
+            {
+                if (File.Exists(fullPath))
+                    File.Delete(fullPath);
+                throw;
+            }
             return ToAttachmentDto(attachment);
         }
 
@@ -182,9 +210,11 @@ namespace CashTracker.Infrastructure.Services
                 throw new FileNotFoundException("Dosya bulunamadi.", attachment.DosyaAdi);
 
             var absolutePath = Path.GetFullPath(attachment.DosyaYolu);
+            if (!SecureFileInspector.IsPathInside(absolutePath, GetStorageRoot()))
+                throw new UnauthorizedAccessException("Dosya depolama alani disinda.");
             return new SohbetDosyaIndirme
             {
-                DosyaAdi = attachment.DosyaAdi,
+                DosyaAdi = SecureFileInspector.SanitizeDisplayFileName(attachment.DosyaAdi),
                 IcerikTipi = string.IsNullOrWhiteSpace(attachment.IcerikTipi) ? "application/octet-stream" : attachment.IcerikTipi,
                 DosyaYolu = absolutePath
             };
@@ -1115,43 +1145,6 @@ namespace CashTracker.Infrastructure.Services
             return root;
         }
 
-        private static void ValidateUpload(SohbetDosyaYukleme upload)
-        {
-            if (upload == null || upload.Icerik == Stream.Null)
-                throw new InvalidOperationException("Dosya secilmedi.");
-            if (upload.Boyut <= 0)
-                throw new InvalidOperationException("Dosya bos olamaz.");
-            if (upload.Boyut > MaxAttachmentBytes)
-                throw new InvalidOperationException("Dosya en fazla 10 MB olabilir.");
-            var fileName = Path.GetFileName(upload.DosyaAdi ?? string.Empty);
-            var extension = Path.GetExtension(fileName);
-            if (string.IsNullOrWhiteSpace(fileName) || !AllowedExtensions.Contains(extension))
-                throw new InvalidOperationException("PDF, XML, HTML, XLSX, CSV, ZIP, gorsel veya ses dosyasi yukleyin.");
-        }
-
-        private static string NormalizeContentType(string contentType, string extension)
-        {
-            if (!string.IsNullOrWhiteSpace(contentType))
-                return contentType.Trim();
-            return extension.ToLowerInvariant() switch
-            {
-                ".pdf" => "application/pdf",
-                ".xml" => "application/xml",
-                ".html" or ".htm" => "text/html",
-                ".xlsx" => "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                ".csv" => "text/csv",
-                ".zip" => "application/zip",
-                ".png" => "image/png",
-                ".jpg" or ".jpeg" => "image/jpeg",
-                ".webp" => "image/webp",
-                ".webm" => "audio/webm",
-                ".ogg" => "audio/ogg",
-                ".m4a" => "audio/mp4",
-                ".mp3" => "audio/mpeg",
-                ".wav" => "audio/wav",
-                _ => "application/octet-stream"
-            };
-        }
 
         private static string BuildCsv(IEnumerable<Kasa> records)
         {

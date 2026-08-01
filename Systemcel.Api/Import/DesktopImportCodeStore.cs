@@ -1,170 +1,208 @@
 using System.Security.Cryptography;
 using System.Text.Json;
+using CashTracker.Core.Entities;
 using CashTracker.Core.Import;
+using CashTracker.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
 
 namespace Systemcel.Api.Import;
 
 internal sealed class DesktopImportCodeStore
 {
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
-    {
-        WriteIndented = true
-    };
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    private readonly IDbContextFactory<CashTrackerDbContext> _dbFactory;
 
-    private readonly string _storePath;
-    private readonly object _sync = new();
-
-    public DesktopImportCodeStore(AppRuntimeOptions runtimeOptions)
+    public DesktopImportCodeStore(IDbContextFactory<CashTrackerDbContext> dbFactory)
     {
-        _storePath = Path.Combine(runtimeOptions.AppDataPath, "import", "desktop-import-codes.json");
+        _dbFactory = dbFactory;
     }
 
-    public DesktopImportCodeRecord Create(int? targetIsletmeId, string requestedBy)
+    public async Task<DesktopImportCodeRecord> CreateAsync(
+        int targetIsletmeId,
+        string requestedBy,
+        CancellationToken ct = default)
     {
-        lock (_sync)
+        requestedBy = RequireIdentity(requestedBy);
+        for (var attempt = 0; attempt < 20; attempt++)
         {
-            var store = Load();
-            PruneExpired(store);
-
-            var code = CreateUniqueCode(store);
+            await using var db = await _dbFactory.CreateDbContextAsync(ct);
             var now = DateTime.UtcNow;
-            var record = new DesktopImportCodeRecord
+            var entity = new DesktopImportCode
             {
-                Code = code,
+                Code = $"MIG-{RandomNumberGenerator.GetInt32(0, 1_000_000):D6}",
                 Status = DesktopImportCodeStatus.Active,
                 CreatedAtUtc = now,
-                ExpiresAtUtc = now.AddHours(24),
+                ExpiresAtUtc = now.AddMinutes(30),
                 TargetIsletmeId = targetIsletmeId,
                 RequestedBy = requestedBy
             };
-
-            store.Codes.Add(record);
-            Save(store);
-            return record;
-        }
-    }
-
-    public DesktopImportCodeRecord? Find(string code)
-    {
-        lock (_sync)
-        {
-            var store = Load();
-            var record = store.Codes.FirstOrDefault(x => CodesEqual(x.Code, code));
-            if (record is null)
-                return null;
-
-            if (record.Status == DesktopImportCodeStatus.Active && record.ExpiresAtUtc <= DateTime.UtcNow)
+            db.DesktopImportKodlari.Add(entity);
+            try
             {
-                record.Status = DesktopImportCodeStatus.Expired;
-                Save(store);
+                await db.SaveChangesAsync(ct);
+                return ToRecord(entity);
             }
-
-            return record;
-        }
-    }
-
-    public DesktopImportCodeRecord RequireActive(string code)
-    {
-        var record = Find(code);
-        if (record is null)
-            throw new DesktopImportValidationException("Aktarim kodu bulunamadi.");
-
-        if (record.Status != DesktopImportCodeStatus.Active)
-            throw new DesktopImportValidationException($"Aktarim kodu aktif degil: {record.Status}.");
-
-        if (record.ExpiresAtUtc <= DateTime.UtcNow)
-            throw new DesktopImportValidationException("Aktarim kodunun suresi dolmus.");
-
-        return record;
-    }
-
-    public void MarkUsed(string code, string packageId, DesktopImportTotals importedTotals)
-    {
-        lock (_sync)
-        {
-            var store = Load();
-            var record = store.Codes.FirstOrDefault(x => CodesEqual(x.Code, code))
-                ?? throw new DesktopImportValidationException("Aktarim kodu bulunamadi.");
-
-            record.Status = DesktopImportCodeStatus.Used;
-            record.UsedAtUtc = DateTime.UtcNow;
-            record.PackageId = packageId;
-            record.ImportedTotals = importedTotals;
-            Save(store);
-        }
-    }
-
-    private static bool CodesEqual(string left, string right)
-    {
-        return string.Equals(NormalizeCode(left), NormalizeCode(right), StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static string NormalizeCode(string code)
-    {
-        return code.Trim().ToUpperInvariant();
-    }
-
-    private static string CreateUniqueCode(DesktopImportCodeStoreDocument store)
-    {
-        for (var i = 0; i < 20; i++)
-        {
-            var code = $"MIG-{RandomNumberGenerator.GetInt32(0, 1_000_000):D6}";
-            if (store.Codes.All(x => !CodesEqual(x.Code, code)))
-                return code;
+            catch (DbUpdateException) when (attempt < 19)
+            {
+                // Extremely rare random-code collision; retry with a fresh context.
+            }
         }
 
         throw new InvalidOperationException("Aktarim kodu uretilemedi.");
     }
 
-    private static void PruneExpired(DesktopImportCodeStoreDocument store)
+    public async Task<DesktopImportCodeRecord?> FindAsync(
+        string code,
+        string requestedBy,
+        CancellationToken ct = default)
     {
-        var now = DateTime.UtcNow;
-        foreach (var record in store.Codes)
+        var normalized = NormalizeCode(code);
+        requestedBy = RequireIdentity(requestedBy);
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+        var entity = await db.DesktopImportKodlari
+            .FirstOrDefaultAsync(x => x.Code == normalized && x.RequestedBy == requestedBy, ct);
+        if (entity is null)
+            return null;
+
+        if (entity.Status == DesktopImportCodeStatus.Active && entity.ExpiresAtUtc <= DateTime.UtcNow)
         {
-            if (record.Status == DesktopImportCodeStatus.Active && record.ExpiresAtUtc <= now)
-                record.Status = DesktopImportCodeStatus.Expired;
+            entity.Status = DesktopImportCodeStatus.Expired;
+            await db.SaveChangesAsync(ct);
         }
+        return ToRecord(entity);
     }
 
-    private DesktopImportCodeStoreDocument Load()
+    public async Task<DesktopImportCodeRecord> ClaimAsync(
+        string code,
+        string requestedBy,
+        CancellationToken ct = default)
     {
-        if (!File.Exists(_storePath))
-            return new DesktopImportCodeStoreDocument();
+        var normalized = NormalizeCode(code);
+        requestedBy = RequireIdentity(requestedBy);
+        var now = DateTime.UtcNow;
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+        var updated = await db.DesktopImportKodlari
+            .Where(x => x.Code == normalized &&
+                        x.RequestedBy == requestedBy &&
+                        x.Status == DesktopImportCodeStatus.Active &&
+                        x.ExpiresAtUtc > now)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(x => x.Status, DesktopImportCodeStatus.Processing)
+                .SetProperty(x => x.ClaimedAtUtc, now), ct);
+        if (updated == 1)
+        {
+            var claimed = await db.DesktopImportKodlari.AsNoTracking()
+                .SingleAsync(x => x.Code == normalized && x.RequestedBy == requestedBy, ct);
+            return ToRecord(claimed);
+        }
 
-        var json = File.ReadAllText(_storePath);
-        return JsonSerializer.Deserialize<DesktopImportCodeStoreDocument>(json, JsonOptions)
-            ?? new DesktopImportCodeStoreDocument();
+        var existing = await db.DesktopImportKodlari.AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Code == normalized && x.RequestedBy == requestedBy, ct);
+        if (existing is null)
+            throw new DesktopImportValidationException("Aktarim kodu bulunamadi veya bu kullaniciya ait degil.");
+        if (existing.ExpiresAtUtc <= now)
+            throw new DesktopImportValidationException("Aktarim kodunun suresi dolmus.");
+        throw new DesktopImportValidationException($"Aktarim kodu aktif degil: {existing.Status}.");
     }
 
-    private void Save(DesktopImportCodeStoreDocument store)
+    public async Task MarkUsedAsync(
+        DesktopImportCodeRecord record,
+        string packageId,
+        DesktopImportTotals importedTotals,
+        CancellationToken ct = default)
     {
-        var directory = Path.GetDirectoryName(_storePath);
-        if (!string.IsNullOrWhiteSpace(directory))
-            Directory.CreateDirectory(directory);
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+        var now = DateTime.UtcNow;
+        var totalsJson = JsonSerializer.Serialize(importedTotals, JsonOptions);
+        var updated = await db.DesktopImportKodlari
+            .Where(x => x.Id == record.Id &&
+                        x.RequestedBy == record.RequestedBy &&
+                        x.Status == DesktopImportCodeStatus.Processing)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(x => x.Status, DesktopImportCodeStatus.Used)
+                .SetProperty(x => x.UsedAtUtc, now)
+                .SetProperty(x => x.PackageId, packageId)
+                .SetProperty(x => x.ImportedTotalsJson, totalsJson), ct);
+        if (updated != 1)
+            throw new DesktopImportValidationException("Aktarim kodu tek kullanim sozlesmesini kaybetti.");
+    }
 
-        var json = JsonSerializer.Serialize(store, JsonOptions);
-        File.WriteAllText(_storePath, json);
+    public async Task ReleaseClaimAsync(DesktopImportCodeRecord record, CancellationToken ct = default)
+    {
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+        var now = DateTime.UtcNow;
+        await db.DesktopImportKodlari
+            .Where(x => x.Id == record.Id &&
+                        x.RequestedBy == record.RequestedBy &&
+                        x.Status == DesktopImportCodeStatus.Processing)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(x => x.Status, x => x.ExpiresAtUtc <= now
+                    ? DesktopImportCodeStatus.Expired
+                    : DesktopImportCodeStatus.Active)
+                .SetProperty(x => x.ClaimedAtUtc, (DateTime?)null), ct);
+    }
+
+    private static DesktopImportCodeRecord ToRecord(DesktopImportCode entity)
+    {
+        DesktopImportTotals totals;
+        try
+        {
+            totals = JsonSerializer.Deserialize<DesktopImportTotals>(entity.ImportedTotalsJson, JsonOptions) ?? new();
+        }
+        catch (JsonException)
+        {
+            totals = new DesktopImportTotals();
+        }
+
+        return new DesktopImportCodeRecord
+        {
+            Id = entity.Id,
+            Code = entity.Code,
+            Status = entity.Status,
+            CreatedAtUtc = entity.CreatedAtUtc,
+            ExpiresAtUtc = entity.ExpiresAtUtc,
+            ClaimedAtUtc = entity.ClaimedAtUtc,
+            UsedAtUtc = entity.UsedAtUtc,
+            TargetIsletmeId = entity.TargetIsletmeId,
+            RequestedBy = entity.RequestedBy,
+            PackageId = entity.PackageId,
+            ImportedTotals = totals
+        };
+    }
+
+    private static string RequireIdentity(string requestedBy)
+    {
+        var value = (requestedBy ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(value) || value.Length > 200)
+            throw new DesktopImportValidationException("Aktarim kodu icin gecerli kullanici kimligi gerekli.");
+        return value;
+    }
+
+    private static string NormalizeCode(string code)
+    {
+        var value = (code ?? string.Empty).Trim().ToUpperInvariant();
+        if (value.Length is < 5 or > 32)
+            throw new DesktopImportValidationException("Aktarim kodu bicimi gecersiz.");
+        return value;
     }
 }
 
 internal static class DesktopImportCodeStatus
 {
     public const string Active = "Active";
+    public const string Processing = "Processing";
     public const string Used = "Used";
     public const string Expired = "Expired";
 }
 
-internal sealed class DesktopImportCodeStoreDocument
-{
-    public List<DesktopImportCodeRecord> Codes { get; set; } = new();
-}
-
 internal sealed class DesktopImportCodeRecord
 {
+    public int Id { get; set; }
     public string Code { get; set; } = string.Empty;
     public string Status { get; set; } = DesktopImportCodeStatus.Active;
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
-    public DateTime ExpiresAtUtc { get; set; } = DateTime.UtcNow.AddHours(24);
+    public DateTime ExpiresAtUtc { get; set; } = DateTime.UtcNow.AddMinutes(30);
+    public DateTime? ClaimedAtUtc { get; set; }
     public DateTime? UsedAtUtc { get; set; }
     public int? TargetIsletmeId { get; set; }
     public string RequestedBy { get; set; } = string.Empty;

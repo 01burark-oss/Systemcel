@@ -129,6 +129,10 @@ export function App() {
     return <PublicContentPage kind="terms" />;
   }
 
+  if (path === "/abonelik-kosullari" || decodeURI(path) === "/abonelik-koşulları") {
+    return <PublicContentPage kind="subscription" />;
+  }
+
   if (path === "/cerezler" || decodeURI(path) === "/çerezler") {
     return <PublicContentPage kind="cookies" />;
   }

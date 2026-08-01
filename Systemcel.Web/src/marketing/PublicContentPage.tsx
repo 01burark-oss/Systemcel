@@ -7,7 +7,7 @@ export type PublicPageKind = "about" | "blog" | "careers" | "contact" | "cookies
 
 export function PublicContentPage({ kind }: { kind: PublicPageKind }) {
   const language = window.localStorage.getItem("systemcel.language") === "en" ? "en" : "tr";
-  const legalKey = kind === "terms" || kind === "privacy" || kind === "kvkk" ? kind : null;
+  const legalKey = kind === "terms" || kind === "privacy" || kind === "kvkk" || kind === "subscription" ? kind : null;
   const legal = legalKey ? legalTexts[language][legalKey] : null;
 
   React.useEffect(() => {
@@ -90,7 +90,14 @@ function ContactContent({ language }: { language: "tr" | "en" }) {
 function ContactCard({ icon, title, text, href }: { icon: React.ReactNode; title: string; text: string; href: string }) { return <a className="marketing-content-card marketing-contact-link" href={href}>{icon}<h2>{title}</h2><p>{text}</p><span>İletişime geç <ArrowRight size={16} /></span></a>; }
 
 function CookiesContent({ language }: { language: "tr" | "en" }) {
-  return <article className="marketing-legal-card"><section><h2>{language === "tr" ? "Zorunlu çerezler" : "Essential cookies"}</h2><p>{language === "tr" ? "Systemcel, oturumun ve güvenlik kontrollerinin çalışması için zorunlu teknik verileri kullanabilir. Bunlar hizmetin sunulması için gereklidir." : "Systemcel may use essential technical data for sessions and security controls. These are required to provide the service."}</p></section><section><h2>{language === "tr" ? "Tercihler" : "Preferences"}</h2><p>{language === "tr" ? "Dil ve tema gibi cihaz tercihleri tarayıcınızda saklanabilir. Pazarlama veya reklam çerezi şu anda kullanılmamaktadır." : "Device preferences such as language and theme may be stored in your browser. Marketing or advertising cookies are not currently used."}</p></section></article>;
+  const tr = language === "tr";
+  return <article className="marketing-legal-card">
+    <div className="marketing-legal-meta"><strong>{tr ? "Teknik envanter" : "Technical inventory"}</strong><span>{tr ? "1 Ağustos 2026" : "August 1, 2026"}</span></div>
+    <section><h2>{tr ? "Zorunlu oturum ve güvenlik verileri" : "Essential session and security data"}</h2><p>{tr ? "Clerk, oturum açma, kimlik doğrulama ve saldırı önleme için gerekli güvenli çerezleri veya eşdeğer tarayıcı tanımlayıcılarını kullanabilir. Bunlar hizmetin güvenli sunumu için zorunludur." : "Clerk may use secure cookies or equivalent browser identifiers required for sign-in, authentication and abuse prevention. These are essential to provide the service securely."}</p></section>
+    <section><h2>{tr ? "Yerel tercihler" : "Local preferences"}</h2><p>{tr ? "systemcel.language dil tercihini; systemcel.accountTypeIntent ise kayıt sırasında seçilen hesap türünü geçici olarak localStorage içinde saklar. Hesap türü niyeti kurulum tamamlandığında silinir; kullanıcı tarayıcı verilerini dilediği zaman temizleyebilir." : "systemcel.language stores the language preference; systemcel.accountTypeIntent temporarily stores the account type selected during registration in localStorage. The account intent is removed after setup, and users can clear browser data at any time."}</p></section>
+    <section><h2>{tr ? "Analitik ve reklam" : "Analytics and advertising"}</h2><p>{tr ? "Systemcel şu anda reklam, davranışsal pazarlama veya zorunlu olmayan analitik çerezi kullanmamaktadır. Böyle bir teknoloji eklenirse bu envanter güncellenecek ve gerekli tercih, teknoloji çalışmadan önce alınacaktır." : "Systemcel currently uses no advertising, behavioural marketing or non-essential analytics cookies. If such technology is introduced, this inventory will be updated and any required preference will be collected before it runs."}</p></section>
+    <aside>{tr ? "Şirket ve veri sorumlusu bilgileri kuruluş sonrasında hukuk onayıyla eklenecektir." : "Company and data-controller details will be added after incorporation and legal review."}</aside>
+  </article>;
 }
 
 function PublicFooter({ language }: { language: "tr" | "en" }) {
@@ -100,7 +107,7 @@ function PublicFooter({ language }: { language: "tr" | "en" }) {
       <div><a className="marketing-brand marketing-brand--dark" href="/"><BrandMark /><strong>systemcel</strong></a><p>{tr ? "Ön muhasebe, yapay zekâ ve muhasebeci pazaryeri — işletmenin finansal çalışma alanı." : "Accounting, AI and an accountant marketplace — your financial workspace."}</p></div>
       <FooterGroup title={tr ? "Ürün" : "Product"} links={[[tr ? "Ön Muhasebe" : "Accounting", "/#on-muhasebe"], [tr ? "AI Asistan" : "AI Assistant", "/#ai"], [tr ? "Pazaryeri" : "Marketplace", "/#pazaryeri"], [tr ? "Fiyatlandırma" : "Pricing", "/#fiyat"]]} />
       <FooterGroup title={tr ? "Şirket" : "Company"} links={[[tr ? "Hakkımızda" : "About", "/hakkimizda"], [tr ? "Kariyer" : "Careers", "/kariyer"], ["Blog", "/blog"], [tr ? "İletişim" : "Contact", "/iletisim"]]} />
-      <FooterGroup title={tr ? "Yasal" : "Legal"} links={[["KVKK", "/kvkk"], [tr ? "Gizlilik" : "Privacy", "/gizlilik"], [tr ? "Kullanım Şartları" : "Terms", "/kullanim-sartlari"], [tr ? "Çerezler" : "Cookies", "/cerezler"]]} />
+      <FooterGroup title={tr ? "Yasal" : "Legal"} links={[["KVKK", "/kvkk"], [tr ? "Gizlilik" : "Privacy", "/gizlilik"], [tr ? "Kullanım Şartları" : "Terms", "/kullanim-sartlari"], [tr ? "Abonelik Koşulları" : "Subscription Terms", "/abonelik-kosullari"], [tr ? "Çerezler" : "Cookies", "/cerezler"]]} />
     </div>
     <div className="marketing-wrap marketing-footer__bottom"><span>© 2026 SYSTEMCEL — İSTANBUL</span><span>{tr ? "TÜM HAKLARI SAKLIDIR" : "ALL RIGHTS RESERVED"}</span></div>
   </footer>;

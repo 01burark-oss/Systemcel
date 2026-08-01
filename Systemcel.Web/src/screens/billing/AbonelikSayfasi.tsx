@@ -452,6 +452,9 @@ export function AbonelikSayfasi() {
                       <input type="checkbox" checked={onaylandi} onChange={(event) => setOnaylandi(event.target.checked)} />
                       <span><i aria-hidden="true"><Check size={14} /></i><strong>{teklif.onayMetniSurumu}</strong>{teklif.onayMetni}</span>
                     </label>
+                    <p className="billing-modal__legal-links">
+                      Devam etmeden önce <a href="/abonelik-kosullari" target="_blank" rel="noreferrer">abonelik, iptal ve iade koşullarını</a> inceleyebilirsiniz.
+                    </p>
                   </>
                 ) : null}
                 {hata ? <div className="billing-inline-error" role="alert"><AlertCircle size={17} />{hata}</div> : null}

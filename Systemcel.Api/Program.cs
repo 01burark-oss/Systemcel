@@ -4,7 +4,11 @@ using CashTracker.Infrastructure.Persistence;
 using CashTracker.Infrastructure.Payments;
 using CashTracker.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.Extensions.FileProviders;
+using System.Security.Cryptography;
+using System.Threading.RateLimiting;
 using Systemcel.Api;
 using Systemcel.Api.Api;
 using Systemcel.Api.Hubs;
@@ -18,6 +22,7 @@ AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 var builder = WebApplication.CreateBuilder(args);
 builder.Logging.AddFilter("System.Net.Http.HttpClient.Telegram", LogLevel.None);
 builder.Logging.AddFilter("System.Net.Http.HttpClient.DeepSeek", LogLevel.Warning);
+builder.WebHost.ConfigureKestrel(options => options.AddServerHeader = false);
 
 var appDataPath = ResolveAppDataPath(builder.Configuration);
 Directory.CreateDirectory(appDataPath);
@@ -25,20 +30,79 @@ Directory.CreateDirectory(appDataPath);
 var databaseOptions = ResolveDatabaseOptions(builder.Configuration);
 var databasePaths = new DatabasePaths(string.Empty);
 var clerkAuthenticationOptions = ClerkAuthenticationSetup.Resolve(builder.Configuration);
+if (!builder.Environment.IsDevelopment() && !clerkAuthenticationOptions.Enabled)
+    throw new InvalidOperationException("Clerk authentication must be configured outside Development.");
 var systemcelEnvironmentName = ResolveEnvironmentName(builder.Configuration, builder.Environment);
-var allowedOrigins = ResolveAllowedOrigins(builder.Configuration);
+var allowedOrigins = ResolveAllowedOrigins(builder.Configuration, builder.Environment);
 var yonetimOptions = ResolveYonetimOptions(builder.Configuration);
 var telegramSettings = ResolveTelegramSettings(builder.Configuration, appDataPath);
 var deepSeekSettings = ResolveDeepSeekSettings(builder.Configuration);
 var receiptOcrSettings = builder.Configuration.GetSection("ReceiptOcr").Get<ReceiptOcrSettings>() ?? new ReceiptOcrSettings();
 var paymentOptions = ResolvePaymentOptions(builder.Configuration, builder.Environment);
 var reminderEmailOptions = ResolveSubscriptionReminderEmailOptions(builder.Configuration);
+var secretEncryptionKey = ResolveSecretEncryptionKey(builder.Configuration, builder.Environment, appDataPath);
 builder.Services.AddSingleton(databasePaths);
 builder.Services.AddSingleton(databaseOptions);
 builder.Services.AddSingleton(new AppRuntimeOptions { AppDataPath = appDataPath });
 builder.Services.AddSingleton(new MuhasebeciSohbetStorageOptions { AppDataPath = appDataPath });
 builder.Services.AddClerkAuthentication(clerkAuthenticationOptions);
 builder.Services.AddSignalR();
+builder.Services.AddProblemDetails();
+builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+builder.Services.Configure<FormOptions>(options =>
+{
+    options.MultipartBodyLengthLimit = 52L * 1024 * 1024;
+    options.MemoryBufferThreshold = 64 * 1024;
+});
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
+    {
+        if (!context.Request.Path.StartsWithSegments("/api"))
+            return RateLimitPartition.GetNoLimiter("non-api");
+
+        var subject = context.User.FindFirst("sub")?.Value;
+        var partition = !string.IsNullOrWhiteSpace(subject)
+            ? $"user:{subject}"
+            : $"ip:{context.Connection.RemoteIpAddress}";
+        return RateLimitPartition.GetFixedWindowLimiter(partition, _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = string.IsNullOrWhiteSpace(subject) ? 120 : 300,
+            Window = TimeSpan.FromMinutes(1),
+            QueueLimit = 0,
+            AutoReplenishment = true
+        });
+    });
+    options.AddPolicy("sensitive", context =>
+        RateLimitPartition.GetFixedWindowLimiter(BuildRateLimitPartition(context), _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 30,
+            Window = TimeSpan.FromMinutes(1),
+            QueueLimit = 0,
+            AutoReplenishment = true
+        }));
+    options.AddPolicy("upload", context =>
+        RateLimitPartition.GetFixedWindowLimiter(BuildRateLimitPartition(context), _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 10,
+            Window = TimeSpan.FromMinutes(1),
+            QueueLimit = 0,
+            AutoReplenishment = true
+        }));
+    options.OnRejected = async (context, cancellationToken) =>
+    {
+        context.HttpContext.Response.ContentType = "application/problem+json";
+        await context.HttpContext.Response.WriteAsJsonAsync(new
+        {
+            type = "https://systemcel.app/problems/rate-limit-exceeded",
+            title = "Çok fazla istek",
+            status = StatusCodes.Status429TooManyRequests,
+            detail = "Kısa sürede çok fazla istek gönderildi. Lütfen biraz bekleyip yeniden deneyin.",
+            traceId = context.HttpContext.TraceIdentifier
+        }, cancellationToken);
+    };
+});
 
 builder.Services.AddDbContextFactory<CashTrackerDbContext>(options =>
 {
@@ -88,10 +152,13 @@ builder.Services.AddSingleton<IAccountantApplicationNotifier>(sp =>
 });
 builder.Services.AddSingleton<IAiUsageQuotaService, AiUsageQuotaService>();
 builder.Services.AddSingleton<ITelegramMessageFooterProvider, TelegramMessageFooterProvider>();
-if (OperatingSystem.IsWindows())
+if (secretEncryptionKey is not null)
+    builder.Services.AddSingleton<ISecretProtector>(new AesGcmSecretProtector(secretEncryptionKey));
+else if (OperatingSystem.IsWindows() && builder.Environment.IsDevelopment())
     builder.Services.AddSingleton<ISecretProtector, DpapiSecretProtector>();
 else
-    builder.Services.AddSingleton<ISecretProtector, Base64SecretProtector>();
+    throw new InvalidOperationException("Production secret protector configuration is missing.");
+builder.Services.AddHostedService<LegacySecretMigrationHostedService>();
 builder.Services.AddSingleton<IGibPortalService, GibPortalService>();
 builder.Services.AddSingleton<IAppSecurityService, AppSecurityService>();
 builder.Services.AddSingleton<IDashboardSnapshotService, DashboardSnapshotService>();
@@ -173,6 +240,34 @@ using (var scope = app.Services.CreateScope())
     await db.Database.CloseConnectionAsync();
 }
 
+var forwardedHeadersOptions = new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedProto,
+    ForwardLimit = 1
+};
+forwardedHeadersOptions.KnownNetworks.Clear();
+forwardedHeadersOptions.KnownProxies.Clear();
+app.UseForwardedHeaders(forwardedHeadersOptions);
+app.UseExceptionHandler();
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHsts();
+    app.UseHttpsRedirection();
+}
+app.Use(async (context, next) =>
+{
+    context.Response.OnStarting(() =>
+    {
+        var headers = context.Response.Headers;
+        headers.TryAdd("X-Content-Type-Options", "nosniff");
+        headers.TryAdd("X-Frame-Options", "DENY");
+        headers.TryAdd("Referrer-Policy", "strict-origin-when-cross-origin");
+        headers.TryAdd("Permissions-Policy", "geolocation=(), usb=(), browsing-topics=()");
+        headers.TryAdd("Content-Security-Policy", "base-uri 'self'; object-src 'none'; frame-ancestors 'none'");
+        return Task.CompletedTask;
+    });
+    await next();
+});
 app.Use(async (context, next) =>
 {
     try
@@ -215,6 +310,7 @@ if (clerkAuthenticationOptions.Enabled)
         await next();
     });
 }
+app.UseRateLimiter();
 
 app.MapGet("/api/health", () => Results.Ok(new
 {
@@ -363,6 +459,59 @@ static SubscriptionReminderEmailOptions ResolveSubscriptionReminderEmailOptions(
     };
 }
 
+static byte[]? ResolveSecretEncryptionKey(
+    IConfiguration configuration,
+    IWebHostEnvironment environment,
+    string appDataPath)
+{
+    var configured = FirstNonEmpty(
+        Environment.GetEnvironmentVariable("SYSTEMCEL_SECRET_ENCRYPTION_KEY"),
+        configuration["Systemcel:Security:SecretEncryptionKey"]);
+    if (!string.IsNullOrWhiteSpace(configured))
+    {
+        try
+        {
+            var key = Convert.FromBase64String(configured.Trim());
+            if (key.Length != 32)
+                throw new InvalidOperationException("SYSTEMCEL_SECRET_ENCRYPTION_KEY must decode to exactly 32 bytes.");
+            return key;
+        }
+        catch (FormatException ex)
+        {
+            throw new InvalidOperationException(
+                "SYSTEMCEL_SECRET_ENCRYPTION_KEY must be a valid Base64 encoded 32-byte key.", ex);
+        }
+    }
+
+    if (!environment.IsDevelopment())
+    {
+        throw new InvalidOperationException(
+            "SYSTEMCEL_SECRET_ENCRYPTION_KEY is required outside Development. " +
+            "Store a stable Base64 encoded 32-byte key as an encrypted platform secret.");
+    }
+
+    if (OperatingSystem.IsWindows())
+        return null;
+
+    var keyDirectory = Path.Combine(appDataPath, "security");
+    var keyPath = Path.Combine(keyDirectory, "local-development-aes.key");
+    Directory.CreateDirectory(keyDirectory);
+    if (File.Exists(keyPath))
+        return Convert.FromBase64String(File.ReadAllText(keyPath).Trim());
+
+    var generated = RandomNumberGenerator.GetBytes(32);
+    File.WriteAllText(keyPath, Convert.ToBase64String(generated));
+    try
+    {
+        File.SetUnixFileMode(keyPath, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+    }
+    catch (PlatformNotSupportedException)
+    {
+        // Development-only fallback; production never reaches this branch.
+    }
+    return generated;
+}
+
 static string ResolveEnvironmentName(IConfiguration configuration, IWebHostEnvironment environment)
 {
     return FirstNonEmpty(
@@ -372,13 +521,26 @@ static string ResolveEnvironmentName(IConfiguration configuration, IWebHostEnvir
         "Production")!;
 }
 
-static string[] ResolveAllowedOrigins(IConfiguration configuration)
+static string[] ResolveAllowedOrigins(IConfiguration configuration, IWebHostEnvironment environment)
 {
     var origins = FirstNonEmpty(
         Environment.GetEnvironmentVariable("SYSTEMCEL_ALLOWED_ORIGINS"),
         configuration["Systemcel:AllowedOrigins"]);
 
-    return SplitCsv(origins);
+    var resolved = SplitCsv(origins)
+        .Select(x => x.TrimEnd('/'))
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .ToArray();
+    if (!environment.IsDevelopment() && resolved.Any(x =>
+            x.Contains('*', StringComparison.Ordinal) ||
+            !Uri.TryCreate(x, UriKind.Absolute, out var uri) ||
+            !string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase)))
+    {
+        throw new InvalidOperationException(
+            "SYSTEMCEL_ALLOWED_ORIGINS may contain only explicit HTTPS origins outside Development.");
+    }
+
+    return resolved;
 }
 
 static TelegramSettings ResolveTelegramSettings(IConfiguration configuration, string appDataPath)
@@ -442,6 +604,14 @@ static string[] SplitCsv(string? value)
 {
     return (value ?? string.Empty)
         .Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+}
+
+static string BuildRateLimitPartition(HttpContext context)
+{
+    var subject = context.User.FindFirst("sub")?.Value;
+    return !string.IsNullOrWhiteSpace(subject)
+        ? $"user:{subject}"
+        : $"ip:{context.Connection.RemoteIpAddress}";
 }
 
 static void MapReactStaticFiles(WebApplication app)

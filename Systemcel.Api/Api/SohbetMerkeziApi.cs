@@ -101,7 +101,7 @@ internal static class SohbetMerkeziApi
             {
                 return Results.BadRequest(new ApiHata($"Dosya yuklenemedi: {ex.Message}"));
             }
-        });
+        }).RequireRateLimiting("upload");
 
         app.MapGet("/api/ekran/sohbet-ekleri/{ekId:int}/indir", async (
             int ekId,

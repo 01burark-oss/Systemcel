@@ -46,6 +46,7 @@ namespace CashTracker.Infrastructure.Persistence
         public DbSet<BelgeDosya> BelgeDosyalari => Set<BelgeDosya>();
         public DbSet<GibPortalAyar> GibPortalAyarlari => Set<GibPortalAyar>();
         public DbSet<GibPortalIslemLog> GibPortalIslemLoglari => Set<GibPortalIslemLog>();
+        public DbSet<DesktopImportCode> DesktopImportKodlari => Set<DesktopImportCode>();
 
         public override int SaveChanges()
         {
@@ -509,6 +510,24 @@ namespace CashTracker.Infrastructure.Persistence
                 e.HasKey(x => x.Id);
                 e.HasIndex(x => x.IsletmeId);
                 e.HasIndex(x => new { x.IsletmeId, x.FaturaId, x.Tarih });
+            });
+
+            modelBuilder.Entity<DesktopImportCode>(e =>
+            {
+                e.ToTable("DesktopImportCode");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Code).IsRequired().HasMaxLength(32);
+                e.Property(x => x.Status).IsRequired().HasMaxLength(20);
+                e.Property(x => x.RequestedBy).IsRequired().HasMaxLength(200);
+                e.Property(x => x.PackageId).IsRequired().HasMaxLength(100);
+                e.Property(x => x.ImportedTotalsJson).IsRequired();
+                e.HasIndex(x => x.Code).IsUnique();
+                e.HasIndex(x => new { x.RequestedBy, x.Status, x.ExpiresAtUtc });
+                e.HasIndex(x => x.TargetIsletmeId);
+                e.HasOne<Isletme>()
+                    .WithMany()
+                    .HasForeignKey(x => x.TargetIsletmeId)
+                    .OnDelete(DeleteBehavior.Restrict);
             });
 
             ConfigureDateTimeColumns(modelBuilder);

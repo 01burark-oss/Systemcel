@@ -188,7 +188,7 @@ export function ProductSayfasi() {
             TR
             <ChevronDown size={16} />
           </button>
-          <a className="product-contact" href="mailto:iletisim@systemcel.com">
+          <a className="product-contact" href="mailto:merhaba@systemcel.app">
             İletişim
           </a>
         </div>
@@ -212,7 +212,7 @@ export function ProductSayfasi() {
               Ücretsiz başla
               <ArrowRight size={20} />
             </a>
-            <a className="product-btn product-btn--secondary" href="mailto:iletisim@systemcel.com">
+            <a className="product-btn product-btn--secondary" href="mailto:merhaba@systemcel.app">
               Demo talep et
             </a>
           </div>
@@ -371,7 +371,7 @@ export function ProductSayfasi() {
         </div>
         <div className="product-resource-row">
           {["Yardım Merkezi", "Kurulum Rehberleri", "GİB e-Arşiv Yardımı", "Sık Sorulan Sorular"].map((item) => (
-            <a key={item} href="mailto:iletisim@systemcel.com">
+            <a key={item} href="mailto:merhaba@systemcel.app">
               <FileText size={18} />
               {item}
             </a>
