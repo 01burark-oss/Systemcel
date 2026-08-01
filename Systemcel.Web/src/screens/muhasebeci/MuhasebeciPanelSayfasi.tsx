@@ -6,11 +6,9 @@ import {
   ExternalLink,
   Loader2,
   MessageCircle,
-  Send,
   ShieldCheck,
   Sparkles,
   UserPlus,
-  UsersRound,
   X
 } from "lucide-react";
 import { jsonOku } from "../../shared/json";

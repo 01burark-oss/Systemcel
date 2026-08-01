@@ -24,8 +24,24 @@ export default defineConfig({
       use: { ...devices["Desktop Chrome"], viewport: { width: 1366, height: 768 } }
     },
     {
-      name: "mobile-chromium",
+      name: "desktop-wide",
+      use: { ...devices["Desktop Chrome"], viewport: { width: 1920, height: 1080 } }
+    },
+    {
+      name: "tablet",
+      use: { ...devices["Desktop Chrome"], viewport: { width: 768, height: 1024 }, isMobile: true, hasTouch: true }
+    },
+    {
+      name: "mobile-small",
+      use: { ...devices["Pixel 5"], viewport: { width: 320, height: 568 } }
+    },
+    {
+      name: "mobile",
       use: { ...devices["Pixel 5"], viewport: { width: 390, height: 844 } }
+    },
+    {
+      name: "mobile-wide",
+      use: { ...devices["Pixel 5"], viewport: { width: 430, height: 932 } }
     },
     {
       name: "reduced-motion",

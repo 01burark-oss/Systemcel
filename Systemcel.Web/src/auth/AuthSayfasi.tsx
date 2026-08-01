@@ -629,7 +629,7 @@ function SystemcelAuthForm({
     await auth.clerk?.setActive({ session: sessionId });
 
     window.location.replace(completionReturnUrl);
-  }, [auth.clerk, completionReturnUrl, language, mode]);
+  }, [auth.clerk, completionReturnUrl, language]);
 
   const sifreSifirlamayaBasla = () => {
     setStep("forgot-request");

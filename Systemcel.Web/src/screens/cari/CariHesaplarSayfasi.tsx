@@ -101,7 +101,7 @@ export function CariHesaplarSayfasi({
   const [detay, setDetay] = React.useState<CariDetay | null>(null);
   const [kartFormu, setKartFormu] = React.useState<CariKartFormu>(() => bosKartFormu());
   const [hareketFormu, setHareketFormu] = React.useState<CariHareketFormu>(() => bosHareketFormu());
-  const [durum, setDurum] = React.useState("Cari hesaplar yükleniyor...");
+  const [, setDurum] = React.useState("Cari hesaplar yükleniyor...");
   const [hata, setHata] = React.useState("");
   const [islemde, setIslemde] = React.useState(false);
   const ekranRef = React.useRef<CariEkranVerisi | null>(null);

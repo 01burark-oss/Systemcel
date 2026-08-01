@@ -146,7 +146,8 @@ test("monthly checkout shows recurring credits, VAT and explicit consent", async
 
   const continueButton = page.getByRole("button", { name: "Kartı güvenle ekle" });
   await expect(continueButton).toBeDisabled();
-  await page.getByRole("checkbox").check();
+  await page.getByRole("checkbox").focus();
+  await page.keyboard.press("Space");
   await expect(continueButton).toBeEnabled();
   await continueButton.click();
   await expect(page).toHaveURL(/\/checkout-sent$/);

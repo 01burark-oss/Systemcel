@@ -157,8 +157,8 @@ const settingsText = {
   }
 };
 
-function textForLanguage(_language: string) {
-  return settingsText.tr;
+function textForLanguage(language: string) {
+  return settingsText[language as keyof typeof settingsText] ?? settingsText.tr;
 }
 
 type AyarlarSekmesi = "isletme" | "gib" | "telegram";

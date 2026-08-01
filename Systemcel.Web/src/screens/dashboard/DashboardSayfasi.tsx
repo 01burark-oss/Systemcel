@@ -177,16 +177,16 @@ function DonutChart({ odemeler }: { odemeler: OdemeDagilim[] }) {
   const oranlar = odemeler.map((item) => (toplam > 0 ? item.toplam / toplam : 1 / Math.max(odemeler.length, 1)));
   const cevre = 2 * Math.PI * 68;
 
-  let offset = 0;
   const segments = oranlar.map((oran, index) => {
     const uzunluk = cevre * oran;
-    const segment = {
+    const offset = oranlar
+      .slice(0, index)
+      .reduce((sum, previousRatio) => sum + cevre * previousRatio, 0);
+    return {
       color: ODEME_RENKLERI[index % ODEME_RENKLERI.length],
       dasharray: `${Math.max(uzunluk - 4, 0)} ${cevre}`,
       dashoffset: -offset
     };
-    offset += uzunluk;
-    return segment;
   });
 
   return (

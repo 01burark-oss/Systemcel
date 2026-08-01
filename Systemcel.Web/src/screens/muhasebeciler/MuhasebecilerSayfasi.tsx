@@ -105,7 +105,7 @@ export function MuhasebecilerSayfasi({ mobileMode = false, publicMode = false, u
   const [davetKodu, setDavetKodu] = React.useState(urlDavetKodu);
   const [davetYetki, setDavetYetki] = React.useState<YetkiSeviyesi>("OkumaRapor");
   const [davetIslemde, setDavetIslemde] = React.useState(false);
-  const [sohbetIslemde, setSohbetIslemde] = React.useState(false);
+  const [, setSohbetIslemde] = React.useState(false);
   const [sehirFiltresi, setSehirFiltresi] = React.useState("");
   const [ilceFiltresi, setIlceFiltresi] = React.useState("");
   const [uzmanlikFiltresi, setUzmanlikFiltresi] = React.useState("");
@@ -249,7 +249,8 @@ export function MuhasebecilerSayfasi({ mobileMode = false, publicMode = false, u
     }
   }
 
-  const profiller = veri?.profiller ?? [];
+  const profiller = React.useMemo(() => veri?.profiller ?? [], [veri?.profiller]);
+  const gelismisFiltreAktif = import.meta.env.VITE_MARKETPLACE_FILTERS_ENABLED === "true";
   const profilKonumlari = React.useMemo(
     () => profiller.map((profil) => konumuAyir(profil.konum)),
     [profiller]
@@ -349,7 +350,7 @@ export function MuhasebecilerSayfasi({ mobileMode = false, publicMode = false, u
         </section>
       ) : null}
 
-      {false ? (
+      {gelismisFiltreAktif ? (
       <section className="accountant-marketplace__search-panel">
         <form className="accountant-marketplace__search-row" onSubmit={(event) => { event.preventDefault(); setAktifArama(arama); }}>
           <label>

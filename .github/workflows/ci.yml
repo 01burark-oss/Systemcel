@@ -39,6 +39,7 @@ jobs:
         shell: pwsh
         run: |
           npm ci
+          npm run lint
           npm run typecheck
           npm test
           npm run build

@@ -17,8 +17,7 @@ import { jsonOku } from "../../shared/json";
 import type {
   FaturaDetay,
   FaturaEkranVerisi,
-  FaturaFormu,
-  FaturaListeKaydi
+  FaturaFormu
 } from "./types";
 
 interface FaturalarSayfasiProps {

@@ -139,7 +139,7 @@ export function TahsilatOdemeSayfasi({ yenileAnahtari }: TahsilatOdemeSayfasiPro
   const [baslangic] = React.useState(ayBasi());
   const [bitis] = React.useState(bugun());
   const [hata, setHata] = React.useState("");
-  const [durum, setDurum] = React.useState("Tahsilat/ödeme verileri yükleniyor...");
+  const [, setDurum] = React.useState("Tahsilat/ödeme verileri yükleniyor...");
   const [islemde, setIslemde] = React.useState(false);
   const [formPaneliAcik, setFormPaneliAcik] = React.useState(true);
 

@@ -139,7 +139,7 @@ export function UrunStokSayfasi({ yenileAnahtari }: UrunStokSayfasiProps) {
   const [arama, setArama] = React.useState("");
   const [tipFiltresi, setTipFiltresi] = React.useState("Tumu");
   const [durumFiltresi, setDurumFiltresi] = React.useState("Aktif");
-  const [durum, setDurum] = React.useState("Ürün/Stok yükleniyor...");
+  const [, setDurum] = React.useState("Ürün/Stok yükleniyor...");
   const [hata, setHata] = React.useState("");
   const [islemde, setIslemde] = React.useState(false);
   const [barkodPaneliAcik, setBarkodPaneliAcik] = React.useState(false);
