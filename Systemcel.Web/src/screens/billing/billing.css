@@ -75,6 +75,7 @@
 
 .billing-notice,
 .billing-cancelled,
+.billing-expired,
 .billing-loading {
   display: flex;
   align-items: center;
@@ -138,6 +139,12 @@
 .billing-cancelled > svg { flex: 0 0 auto; color: #526800; }
 .billing-cancelled strong { display: block; margin-bottom: 3px; }
 .billing-cancelled p { margin: 0; color: #596047; font-size: 13px; line-height: 1.5; }
+.billing-expired { margin-top: 16px; border-color: color-mix(in srgb, var(--billing-danger) 30%, var(--billing-line)); background: #fff6f2; }
+.billing-expired > svg { flex: 0 0 auto; color: var(--billing-danger); }
+.billing-expired > div:nth-child(2) { flex: 1; }
+.billing-expired strong { display: block; margin-bottom: 3px; }
+.billing-expired p { margin: 0; color: var(--billing-muted); font-size: 13px; line-height: 1.5; }
+.billing-expired__actions { display: flex; gap: 8px; }
 
 .billing-history-card { width: min(100%, 1180px); margin: 16px auto 0; overflow: hidden; }
 .billing-history-card > header { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 20px 22px; border-bottom: 1px solid var(--billing-line); }
@@ -235,6 +242,9 @@
   .billing-plan-fields { grid-template-columns: 1fr; }
   .billing-modal__actions { display: grid; }
   .billing-modal__actions .billing-button--primary, .billing-modal__actions .billing-button--danger { order: -1; }
+  .billing-expired { align-items: flex-start; flex-wrap: wrap; }
+  .billing-expired__actions { width: 100%; }
+  .billing-expired__actions .billing-button { flex: 1; }
 }
 
 @media (prefers-reduced-motion: reduce) {

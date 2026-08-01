@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Data;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -21,6 +22,7 @@ namespace CashTracker.Infrastructure.Services
         private readonly IDbContextFactory<CashTrackerDbContext> _dbFactory;
         private readonly ICurrentUserContext _currentUserContext;
         private readonly IAccountantApplicationNotifier? _accountantApplicationNotifier;
+        private readonly IEntitlementGuard? _entitlementGuard;
         private static readonly ConcurrentDictionary<string, SemaphoreSlim> ProvisioningLocks = new(StringComparer.Ordinal);
 
         public IsletmeService(IDbContextFactory<CashTrackerDbContext> dbFactory)
@@ -31,11 +33,13 @@ namespace CashTracker.Infrastructure.Services
         public IsletmeService(
             IDbContextFactory<CashTrackerDbContext> dbFactory,
             ICurrentUserContext currentUserContext,
-            IAccountantApplicationNotifier? accountantApplicationNotifier = null)
+            IAccountantApplicationNotifier? accountantApplicationNotifier = null,
+            IEntitlementGuard? entitlementGuard = null)
         {
             _dbFactory = dbFactory;
             _currentUserContext = currentUserContext;
             _accountantApplicationNotifier = accountantApplicationNotifier;
+            _entitlementGuard = entitlementGuard;
         }
 
         public async Task<List<Isletme>> GetAllAsync()
@@ -121,9 +125,34 @@ namespace CashTracker.Infrastructure.Services
                 return await CreateLegacyAsync(db, normalizedName, makeActive);
 
             await AdoptLegacyBusinessesForFirstUserAsync(db, user);
+            await using var transaction = _entitlementGuard is null
+                ? null
+                : await db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
             var hasBusiness = await db.IsletmeUyelikleri.AnyAsync(x =>
                 x.KullaniciId == user.Id &&
                 x.Durum == "Aktif");
+
+            if (hasBusiness && _entitlementGuard is not null)
+            {
+                var businessIds = await GetActiveMembershipBusinessIdsAsync(db, user.Id);
+                var ownedBusinessIds = await db.Isletmeler
+                    .Where(x => businessIds.Contains(x.Id) && x.TenantTipi == HesapTipleri.Isletme)
+                    .Select(x => x.Id)
+                    .ToListAsync();
+                if (ownedBusinessIds.Count > 0)
+                {
+                    var activeBusinessId = await GetUserActiveBusinessIdAsync(db, user.Id);
+                    var entitlementBusinessId = activeBusinessId.HasValue && ownedBusinessIds.Contains(activeBusinessId.Value)
+                        ? activeBusinessId.Value
+                        : ownedBusinessIds[0];
+                    var entitlement = await _entitlementGuard.GetAsync(entitlementBusinessId, HesapTipleri.Isletme);
+                    _entitlementGuard.EnsureWritable(entitlement);
+                    _entitlementGuard.EnsureLimit(
+                        entitlement,
+                        EntitlementLimits.Business,
+                        ownedBusinessIds.Count);
+                }
+            }
 
             var entity = new Isletme
             {
@@ -157,6 +186,9 @@ namespace CashTracker.Infrastructure.Services
             await EnsureDefaultKalemlerAsync(db, entity.Id);
             if (makeActive || !hasBusiness)
                 await SetUserActiveBusinessAsync(db, user.Id, entity.Id);
+
+            if (transaction is not null)
+                await transaction.CommitAsync();
 
             return entity.Id;
         }

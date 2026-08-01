@@ -1,8 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Linq;
 using System.Threading.Tasks;
 using CashTracker.Core.Entities;
+using CashTracker.Core.Models;
 using CashTracker.Core.Services;
 using CashTracker.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -13,13 +15,23 @@ namespace CashTracker.Infrastructure.Services
     {
         private readonly IDbContextFactory<CashTrackerDbContext> _dbFactory;
         private readonly IIsletmeService _isletmeService;
+        private readonly IEntitlementGuard? _entitlementGuard;
 
         public KasaService(
             IDbContextFactory<CashTrackerDbContext> dbFactory,
             IIsletmeService isletmeService)
+            : this(dbFactory, isletmeService, null)
+        {
+        }
+
+        public KasaService(
+            IDbContextFactory<CashTrackerDbContext> dbFactory,
+            IIsletmeService isletmeService,
+            IEntitlementGuard? entitlementGuard)
         {
             _dbFactory = dbFactory;
             _isletmeService = isletmeService;
+            _entitlementGuard = entitlementGuard;
         }
 
         public async Task<List<Kasa>> GetAllAsync(DateTime? from = null, DateTime? to = null)
@@ -53,6 +65,23 @@ namespace CashTracker.Infrastructure.Services
         {
             var activeIsletmeId = await _isletmeService.GetActiveIdAsync();
             await using var db = await _dbFactory.CreateDbContextAsync();
+            await using var transaction = _entitlementGuard is null
+                ? null
+                : await db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
+
+            if (kasa.Tarih == default)
+                kasa.Tarih = DateTime.Now;
+
+            if (_entitlementGuard is not null)
+            {
+                var entitlement = await _entitlementGuard.GetAsync(activeIsletmeId, HesapTipleri.Isletme);
+                _entitlementGuard.EnsureWritable(entitlement);
+                var periodStart = new DateTime(kasa.Tarih.Year, kasa.Tarih.Month, 1);
+                var periodEnd = periodStart.AddMonths(1);
+                var currentCount = await db.Kasalar.CountAsync(x =>
+                    x.IsletmeId == activeIsletmeId && x.Tarih >= periodStart && x.Tarih < periodEnd);
+                _entitlementGuard.EnsureLimit(entitlement, EntitlementLimits.CashTransaction, currentCount);
+            }
 
             kasa.IsletmeId = activeIsletmeId;
             kasa.Tip = NormalizeTip(kasa.Tip);
@@ -62,17 +91,44 @@ namespace CashTracker.Infrastructure.Services
             kasa.CreatedAt = DateTime.Now;
             db.Kasalar.Add(kasa);
             await db.SaveChangesAsync();
+            if (transaction is not null)
+                await transaction.CommitAsync();
 
             return kasa.Id;
         }
 
         public async Task<List<int>> CreateManyAsync(IEnumerable<Kasa> rows)
         {
+            var rowList = rows.ToList();
             var activeIsletmeId = await _isletmeService.GetActiveIdAsync();
             await using var db = await _dbFactory.CreateDbContextAsync();
+            await using var transaction = _entitlementGuard is null
+                ? null
+                : await db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
+
+            foreach (var row in rowList.Where(x => x.Tarih == default))
+                row.Tarih = DateTime.Now;
+
+            if (_entitlementGuard is not null && rowList.Count > 0)
+            {
+                var entitlement = await _entitlementGuard.GetAsync(activeIsletmeId, HesapTipleri.Isletme);
+                _entitlementGuard.EnsureWritable(entitlement);
+                foreach (var group in rowList.GroupBy(x => new { x.Tarih.Year, x.Tarih.Month }))
+                {
+                    var periodStart = new DateTime(group.Key.Year, group.Key.Month, 1);
+                    var periodEnd = periodStart.AddMonths(1);
+                    var currentCount = await db.Kasalar.CountAsync(x =>
+                        x.IsletmeId == activeIsletmeId && x.Tarih >= periodStart && x.Tarih < periodEnd);
+                    _entitlementGuard.EnsureLimit(
+                        entitlement,
+                        EntitlementLimits.CashTransaction,
+                        currentCount,
+                        group.Count());
+                }
+            }
 
             var createdIds = new List<int>();
-            foreach (var kasa in rows)
+            foreach (var kasa in rowList)
             {
                 kasa.IsletmeId = activeIsletmeId;
                 kasa.Tip = NormalizeTip(kasa.Tip);
@@ -84,8 +140,10 @@ namespace CashTracker.Infrastructure.Services
             }
 
             await db.SaveChangesAsync();
+            if (transaction is not null)
+                await transaction.CommitAsync();
 
-            foreach (var row in rows)
+            foreach (var row in rowList)
                 createdIds.Add(row.Id);
 
             return createdIds;

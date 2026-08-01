@@ -32,6 +32,7 @@ var telegramSettings = ResolveTelegramSettings(builder.Configuration, appDataPat
 var deepSeekSettings = ResolveDeepSeekSettings(builder.Configuration);
 var receiptOcrSettings = builder.Configuration.GetSection("ReceiptOcr").Get<ReceiptOcrSettings>() ?? new ReceiptOcrSettings();
 var paymentOptions = ResolvePaymentOptions(builder.Configuration, builder.Environment);
+var reminderEmailOptions = ResolveSubscriptionReminderEmailOptions(builder.Configuration);
 builder.Services.AddSingleton(databasePaths);
 builder.Services.AddSingleton(databaseOptions);
 builder.Services.AddSingleton(new AppRuntimeOptions { AppDataPath = appDataPath });
@@ -49,6 +50,7 @@ builder.Services.AddSingleton(yonetimOptions);
 builder.Services.AddSingleton(deepSeekSettings);
 builder.Services.AddSingleton(receiptOcrSettings);
 builder.Services.AddSingleton(paymentOptions);
+builder.Services.AddSingleton(reminderEmailOptions);
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddSingleton<ICurrentUserContext, HttpCurrentUserContext>();
 
@@ -65,11 +67,15 @@ builder.Services.AddSingleton<IFaturaService, FaturaService>();
 builder.Services.AddSingleton<ITahsilatOdemeService, TahsilatOdemeService>();
 builder.Services.AddSingleton<IOnMuhasebeReportService, OnMuhasebeReportService>();
 builder.Services.AddSingleton<ISubscriptionEntitlementService, SubscriptionEntitlementService>();
+builder.Services.AddSingleton<IEntitlementGuard, EntitlementGuard>();
 builder.Services.AddSingleton<IPaymentPricingService>(_ => new PaymentPricingService(paymentOptions.VatRate));
 builder.Services.AddSingleton<IPaymentProvider>(_ => paymentOptions.UsesFakeProvider
     ? new FakePaymentProvider(paymentOptions.FakeSecret)
     : new UnconfiguredPaymentProvider());
 builder.Services.AddSingleton<ISubscriptionLifecycleService, SubscriptionLifecycleService>();
+builder.Services.AddSingleton<ISubscriptionReminderSender>(_ => reminderEmailOptions.IsConfigured
+    ? new SmtpSubscriptionReminderSender(reminderEmailOptions)
+    : new UnconfiguredSubscriptionReminderSender());
 builder.Services.AddHostedService<SubscriptionLifecycleHostedService>();
 builder.Services.AddSingleton<IMuhasebeciPortalService, MuhasebeciPortalService>();
 builder.Services.AddSingleton<IMuhasebeciSohbetMerkeziService, MuhasebeciSohbetMerkeziService>();
@@ -167,6 +173,31 @@ using (var scope = app.Services.CreateScope())
     await db.Database.CloseConnectionAsync();
 }
 
+app.Use(async (context, next) =>
+{
+    try
+    {
+        await next();
+    }
+    catch (EntitlementViolationException ex)
+    {
+        context.Response.StatusCode = StatusCodes.Status409Conflict;
+        context.Response.ContentType = "application/problem+json";
+        await context.Response.WriteAsJsonAsync(new
+        {
+            type = $"https://systemcel.app/problems/{ex.Code}",
+            title = "Plan sınırı",
+            status = StatusCodes.Status409Conflict,
+            detail = ex.Message,
+            code = ex.Code,
+            limitName = ex.LimitName,
+            limit = ex.Limit,
+            current = ex.Current,
+            suggestedPlanCode = ex.SuggestedPlanCode,
+            traceId = context.TraceIdentifier
+        });
+    }
+});
 app.UseCors("ConfiguredOrigins");
 if (clerkAuthenticationOptions.Enabled)
 {
@@ -295,6 +326,40 @@ static PaymentRuntimeOptions ResolvePaymentOptions(IConfiguration configuration,
             Environment.GetEnvironmentVariable("SYSTEMCEL_PUBLIC_BASE_URL"),
             configuration["Systemcel:PublicBaseUrl"]) ?? string.Empty,
         VatRate = vatRate
+    };
+}
+
+static SubscriptionReminderEmailOptions ResolveSubscriptionReminderEmailOptions(IConfiguration configuration)
+{
+    var configuredPort = FirstNonEmpty(
+        Environment.GetEnvironmentVariable("SYSTEMCEL_SMTP_PORT"),
+        configuration["Systemcel:Email:Smtp:Port"]);
+    var configuredSsl = FirstNonEmpty(
+        Environment.GetEnvironmentVariable("SYSTEMCEL_SMTP_ENABLE_SSL"),
+        configuration["Systemcel:Email:Smtp:EnableSsl"]);
+
+    return new SubscriptionReminderEmailOptions
+    {
+        Host = FirstNonEmpty(
+            Environment.GetEnvironmentVariable("SYSTEMCEL_SMTP_HOST"),
+            configuration["Systemcel:Email:Smtp:Host"]) ?? string.Empty,
+        Port = int.TryParse(configuredPort, out var port) && port is > 0 and <= 65535 ? port : 587,
+        EnableSsl = !bool.TryParse(configuredSsl, out var enableSsl) || enableSsl,
+        UserName = FirstNonEmpty(
+            Environment.GetEnvironmentVariable("SYSTEMCEL_SMTP_USERNAME"),
+            configuration["Systemcel:Email:Smtp:UserName"]) ?? string.Empty,
+        Password = FirstNonEmpty(
+            Environment.GetEnvironmentVariable("SYSTEMCEL_SMTP_PASSWORD"),
+            configuration["Systemcel:Email:Smtp:Password"]) ?? string.Empty,
+        FromAddress = FirstNonEmpty(
+            Environment.GetEnvironmentVariable("SYSTEMCEL_SMTP_FROM_ADDRESS"),
+            configuration["Systemcel:Email:Smtp:FromAddress"]) ?? string.Empty,
+        FromName = FirstNonEmpty(
+            Environment.GetEnvironmentVariable("SYSTEMCEL_SMTP_FROM_NAME"),
+            configuration["Systemcel:Email:Smtp:FromName"]) ?? "Systemcel",
+        PublicBaseUrl = FirstNonEmpty(
+            Environment.GetEnvironmentVariable("SYSTEMCEL_PUBLIC_BASE_URL"),
+            configuration["Systemcel:PublicBaseUrl"]) ?? "https://systemcel.app"
     };
 }
 

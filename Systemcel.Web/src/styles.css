@@ -2808,6 +2808,108 @@ select:disabled {
   overflow: visible;
 }
 
+.entitlement-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1800;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.48);
+  backdrop-filter: blur(5px);
+}
+
+.entitlement-modal {
+  width: min(460px, 100%);
+  padding: 26px;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 22px;
+  background: #fff;
+  box-shadow: 0 28px 80px rgba(15, 23, 42, 0.28);
+  color: #172033;
+}
+
+.entitlement-modal__icon {
+  display: grid;
+  width: 46px;
+  height: 46px;
+  place-items: center;
+  margin-bottom: 18px;
+  border-radius: 14px;
+  background: #fff4e8;
+  color: #c05a00;
+}
+
+.entitlement-modal__copy h2 {
+  margin: 0 0 8px;
+  font-size: 1.25rem;
+}
+
+.entitlement-modal__copy p {
+  margin: 0;
+  color: #5f6b7d;
+  line-height: 1.6;
+}
+
+.entitlement-modal__usage {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 18px;
+  padding: 13px 15px;
+  border-radius: 12px;
+  background: #f4f7fb;
+  color: #516074;
+}
+
+.entitlement-modal__usage strong {
+  color: #172033;
+}
+
+.entitlement-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+.entitlement-modal__actions button,
+.entitlement-modal__actions a {
+  min-height: 42px;
+  padding: 0 17px;
+  border-radius: 11px;
+  font: inherit;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.entitlement-modal__actions button {
+  border: 1px solid #d8dee8;
+  background: #fff;
+  color: #46546a;
+}
+
+.entitlement-modal__actions a {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid #172033;
+  background: #172033;
+  color: #fff;
+}
+
+@media (max-width: 520px) {
+  .entitlement-modal__actions {
+    flex-direction: column-reverse;
+  }
+
+  .entitlement-modal__actions button,
+  .entitlement-modal__actions a {
+    justify-content: center;
+    width: 100%;
+  }
+}
+
 .react-topbar__spacer,
 .react-topbar__title-slot {
   flex: 1;

@@ -22,15 +22,18 @@ public sealed class SubscriptionLifecycleService : ISubscriptionLifecycleService
     private readonly IDbContextFactory<CashTrackerDbContext> _dbFactory;
     private readonly IPaymentProvider _provider;
     private readonly IPaymentPricingService _pricing;
+    private readonly ISubscriptionReminderSender? _reminderSender;
 
     public SubscriptionLifecycleService(
         IDbContextFactory<CashTrackerDbContext> dbFactory,
         IPaymentProvider provider,
-        IPaymentPricingService pricing)
+        IPaymentPricingService pricing,
+        ISubscriptionReminderSender? reminderSender = null)
     {
         _dbFactory = dbFactory;
         _provider = provider;
         _pricing = pricing;
+        _reminderSender = reminderSender;
     }
 
     public async Task<SubscriptionCheckoutResult> BeginCheckoutAsync(
@@ -56,10 +59,18 @@ public sealed class SubscriptionLifecycleService : ISubscriptionLifecycleService
             .SingleOrDefaultAsync(x => x.IsletmeId == command.BusinessId && x.CheckoutAnahtari == checkoutKey, ct);
         if (existing is not null)
         {
+            if (string.Equals(existing.IslemTipi, "AbonelikBaslatma", StringComparison.Ordinal))
+                quote = quote with { TrialDays = 0 };
             EnsureCheckoutSelectionMatches(existing, quote);
             if (TryBuildExistingResult(existing, quote, out var existingResult))
                 return existingResult;
         }
+
+        var trialAlreadyUsed = existing is null && await db.IsletmeDenemeleri.AsNoTracking().AnyAsync(
+            x => x.IsletmeId == command.BusinessId && x.HesapTipi == quote.AccountType,
+            ct);
+        if (trialAlreadyUsed)
+            quote = quote with { TrialDays = 0 };
 
         var now = DateTime.UtcNow;
         var payment = existing ?? new OdemeIslemi
@@ -70,7 +81,7 @@ public sealed class SubscriptionLifecycleService : ISubscriptionLifecycleService
             PlanKodu = quote.PlanCode,
             FaturalamaDonemi = quote.BillingPeriod,
             EkMusteriKredisi = quote.ExtraCustomerCredits,
-            IslemTipi = "DenemeKartYetkilendirme",
+            IslemTipi = quote.TrialDays > 0 ? "DenemeKartYetkilendirme" : "AbonelikBaslatma",
             Durum = PaymentTransactionStates.Preparing,
             OdemeSaglayici = _provider.Name,
             NetTutar = quote.NetAmount,
@@ -282,6 +293,8 @@ public sealed class SubscriptionLifecycleService : ISubscriptionLifecycleService
         var current = EnsureUtc(now);
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
+        var (sevenDayReminders, threeDayReminders) = await SendDueTrialRemindersAsync(db, current, ct);
+
         var expiredTrials = 0;
         var trials = await db.IsletmeDenemeleri
             .Where(x => x.Durum == "Aktif" && x.BitisAt <= current)
@@ -327,7 +340,96 @@ public sealed class SubscriptionLifecycleService : ISubscriptionLifecycleService
             expiredTrials,
             expiredSubscriptions,
             cancelledSubscriptions,
-            gracePeriodsEnded);
+            gracePeriodsEnded,
+            sevenDayReminders,
+            threeDayReminders);
+    }
+
+    private async Task<(int SevenDay, int ThreeDay)> SendDueTrialRemindersAsync(
+        CashTrackerDbContext db,
+        DateTime current,
+        CancellationToken ct)
+    {
+        if (_reminderSender is null)
+            return (0, 0);
+
+        var trials = await db.IsletmeDenemeleri
+            .Where(x => x.Durum == "Aktif" && !x.DonemSonundaIptal && x.BitisAt > current)
+            .Where(x => x.YediGunHatirlatmaAt == null || x.UcGunHatirlatmaAt == null)
+            .ToListAsync(ct);
+        var sevenDay = 0;
+        var threeDay = 0;
+
+        foreach (var trial in trials)
+        {
+            var endsAt = EnsureUtc(trial.BitisAt);
+            var daysRemaining = current >= endsAt.AddDays(-3)
+                ? 3
+                : current >= endsAt.AddDays(-7)
+                    ? 7
+                    : 0;
+            if (daysRemaining == 0 || (daysRemaining == 3 && trial.UcGunHatirlatmaAt is not null) ||
+                (daysRemaining == 7 && trial.YediGunHatirlatmaAt is not null))
+            {
+                continue;
+            }
+
+            var email = await db.IsletmeUyelikleri.AsNoTracking()
+                .Where(x => x.IsletmeId == trial.IsletmeId && x.Durum == "Aktif" && x.KullaniciId != null)
+                .Join(
+                    db.Kullanicilar.AsNoTracking(),
+                    membership => membership.KullaniciId,
+                    user => user.Id,
+                    (membership, user) => new { membership.Rol, user.Eposta })
+                .Where(x => x.Eposta != string.Empty)
+                .OrderByDescending(x => x.Rol == "isletme_sahibi")
+                .Select(x => x.Eposta)
+                .FirstOrDefaultAsync(ct);
+            if (string.IsNullOrWhiteSpace(email))
+                continue;
+
+            var quote = _pricing.CreateQuote(
+                trial.PlanKodu,
+                trial.HesapTipi,
+                PaymentBillingPeriods.Monthly,
+                trial.EkMusteriKredisi);
+            var planName = SubscriptionPlanCatalog.Plans
+                .Single(x => string.Equals(x.Kod, trial.PlanKodu, StringComparison.OrdinalIgnoreCase))
+                .Ad;
+            var sent = await _reminderSender.SendTrialEndingAsync(
+                new SubscriptionTrialReminder(
+                    trial.IsletmeId,
+                    trial.HesapTipi,
+                    email,
+                    planName,
+                    daysRemaining,
+                    endsAt,
+                    quote.NetAmount,
+                    quote.VatAmount,
+                    quote.TotalAmount,
+                    quote.Currency,
+                    "/app/abonelik"),
+                ct);
+            if (!sent)
+                continue;
+
+            if (daysRemaining == 3)
+            {
+                trial.YediGunHatirlatmaAt ??= current;
+                trial.UcGunHatirlatmaAt = current;
+                threeDay++;
+            }
+            else
+            {
+                trial.YediGunHatirlatmaAt = current;
+                sevenDay++;
+            }
+        }
+
+        if (sevenDay + threeDay > 0)
+            await db.SaveChangesAsync(ct);
+
+        return (sevenDay, threeDay);
     }
 
     private static bool ApplyEvent(

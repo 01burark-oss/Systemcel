@@ -23,6 +23,7 @@ internal static class BillingApi
                 int? ekMusteriKredisi,
                 IIsletmeService isletmeService,
                 IPaymentPricingService pricing,
+                IDbContextFactory<CashTrackerDbContext> dbFactory,
                 CancellationToken ct) =>
             {
                 try
@@ -34,6 +35,10 @@ internal static class BillingApi
                         business.TenantTipi,
                         PaymentBillingPeriods.Monthly,
                         ekMusteriKredisi ?? 0);
+                    await using var db = await dbFactory.CreateDbContextAsync(ct);
+                    if (await db.IsletmeDenemeleri.AsNoTracking().AnyAsync(
+                            x => x.IsletmeId == business.Id && x.HesapTipi == business.TenantTipi, ct))
+                        quote = quote with { TrialDays = 0 };
                     return Results.Ok(new
                     {
                         fiyat = quote,
@@ -194,6 +199,12 @@ internal static class BillingApi
                         business.TenantTipi,
                         PaymentBillingPeriods.Monthly,
                         request.EkMusteriKredisi);
+                    await using (var trialDb = await dbFactory.CreateDbContextAsync(ct))
+                    {
+                        if (await trialDb.IsletmeDenemeleri.AsNoTracking().AnyAsync(
+                                x => x.IsletmeId == business.Id && x.HesapTipi == business.TenantTipi, ct))
+                            quote = quote with { TrialDays = 0 };
+                    }
                     var consentText = BuildConsentText(quote);
                     var result = await lifecycle.BeginCheckoutAsync(new SubscriptionCheckoutCommand(
                         business.Id,
@@ -304,7 +315,12 @@ internal static class BillingApi
 
                     var action = $"/api/odeme/test/checkout/{Uri.EscapeDataString(sessionId)}/complete" +
                                  $"?merchantReference={Uri.EscapeDataString(merchantReference)}";
-                    var html = BuildFakeCheckoutHtml(payment.PlanKodu, payment.ToplamTutar, payment.ParaBirimi, action);
+                    var html = BuildFakeCheckoutHtml(
+                        payment.PlanKodu,
+                        payment.ToplamTutar,
+                        payment.ParaBirimi,
+                        action,
+                        string.Equals(payment.IslemTipi, "DenemeKartYetkilendirme", StringComparison.Ordinal));
                     return Results.Content(html, "text/html; charset=utf-8");
                 })
             .AllowAnonymous();
@@ -331,14 +347,17 @@ internal static class BillingApi
                         return Results.NotFound();
 
                     var succeeded = !string.Equals(result, "fail", StringComparison.OrdinalIgnoreCase);
-                    var eventType = succeeded ? PaymentEventTypes.TrialAuthorized : PaymentEventTypes.PaymentFailed;
+                    var startsPaidSubscription = string.Equals(payment.IslemTipi, "AbonelikBaslatma", StringComparison.Ordinal);
+                    var eventType = succeeded
+                        ? startsPaidSubscription ? PaymentEventTypes.PaymentSucceeded : PaymentEventTypes.TrialAuthorized
+                        : PaymentEventTypes.PaymentFailed;
                     var payload = JsonSerializer.Serialize(new
                     {
                         eventId = $"fake-{eventType}-{sessionId}",
                         eventType,
                         merchantReference,
                         providerTransactionId = $"fake-tx-{sessionId}",
-                        amount = 0m,
+                        amount = succeeded && startsPaidSubscription ? payment.ToplamTutar : 0m,
                         currency = payment.ParaBirimi,
                         occurredAt = DateTime.UtcNow
                     });
@@ -375,6 +394,13 @@ internal static class BillingApi
             ? $" Buna Standart plana dahil 10 müşteriye ek olarak yinelenen {quote.ExtraCustomerCredits} adet +1 müşteri kredisi dahildir."
             : string.Empty;
 
+        if (quote.TrialDays <= 0)
+        {
+            return $"Ücretsiz deneme hakkımı daha önce kullandığım için {period} planın hemen başlamasını; " +
+                   $"{net} TL + {vat} TL KDV, toplam {total} TL'nin kayıtlı ödeme yöntemimden tahsil edilmesini " +
+                   $"ve aboneliğin {period} olarak yenilenmesini onaylıyorum.{credits}";
+        }
+
         return $"{quote.TrialDays} günlük deneme sonunda iptal etmediğim takdirde {period} plan için " +
                $"{net} TL + {vat} TL KDV, toplam {total} TL'nin kayıtlı ödeme yöntemimden tahsil edilmesini " +
                $"ve aboneliğin {period} olarak yenilenmesini onaylıyorum.{credits} Deneme bitmeden 7 ve 3 gün önce " +
@@ -382,11 +408,17 @@ internal static class BillingApi
                "iade yapılmayacağını kabul ediyorum.";
     }
 
-    private static string BuildFakeCheckoutHtml(string planCode, decimal total, string currency, string action)
+    private static string BuildFakeCheckoutHtml(
+        string planCode,
+        decimal total,
+        string currency,
+        string action,
+        bool startsTrial)
     {
         var safePlan = WebUtility.HtmlEncode(planCode);
         var safeTotal = WebUtility.HtmlEncode($"{total:N2} {currency}");
         var safeAction = WebUtility.HtmlEncode(action);
+        var safeActionLabel = startsTrial ? "Kartı doğrula ve denemeyi başlat" : "Ödemeyi onayla ve aboneliği başlat";
         return $$"""
             <!doctype html>
             <html lang="tr">
@@ -398,7 +430,7 @@ internal static class BillingApi
                 *{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;background:#f4f1e7;color:#090a08;font:16px system-ui,sans-serif}.card{width:min(92vw,520px);padding:32px;border:1px solid #cfcdbf;border-radius:24px;background:#fffefa;box-shadow:0 24px 70px #171a0d20}.tag{font:700 12px ui-monospace,monospace;letter-spacing:.12em;color:#617700}.price{font-size:36px;font-weight:800;margin:12px 0 28px}.actions{display:grid;gap:12px}button{min-height:54px;border:1px solid #161712;border-radius:999px;font-weight:800;font-size:16px;cursor:pointer}.ok{background:#baff00}.fail{background:transparent;color:#8c2f28}
               </style>
             </head>
-            <body><main class="card"><div class="tag">SAHTE SAĞLAYICI · YALNIZCA GELİŞTİRME</div><h1>{{safePlan}}</h1><div class="price">{{safeTotal}}</div><div class="actions"><form method="post" action="{{safeAction}}"><button class="ok" type="submit">Kartı doğrula ve denemeyi başlat</button></form><form method="post" action="{{safeAction}}&amp;result=fail"><button class="fail" type="submit">Başarısız ödemeyi simüle et</button></form></div></main></body>
+            <body><main class="card"><div class="tag">SAHTE SAĞLAYICI · YALNIZCA GELİŞTİRME</div><h1>{{safePlan}}</h1><div class="price">{{safeTotal}}</div><div class="actions"><form method="post" action="{{safeAction}}"><button class="ok" type="submit">{{safeActionLabel}}</button></form><form method="post" action="{{safeAction}}&amp;result=fail"><button class="fail" type="submit">Başarısız ödemeyi simüle et</button></form></div></main></body>
             </html>
             """;
     }

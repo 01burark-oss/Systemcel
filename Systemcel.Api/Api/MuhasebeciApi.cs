@@ -178,6 +178,10 @@ internal static class MuhasebeciApi
                 var baseUrl = $"{context.Request.Scheme}://{context.Request.Host}";
                 return Results.Ok(await service.CreateInviteAsync(request, baseUrl, ct));
             }
+            catch (EntitlementViolationException)
+            {
+                throw;
+            }
             catch (Exception ex)
             {
                 return Results.BadRequest(new ApiHata($"Davet olusturulamadi: {ex.Message}"));
@@ -192,6 +196,10 @@ internal static class MuhasebeciApi
             try
             {
                 return Results.Ok(await service.AcceptInviteAsync(request, ct));
+            }
+            catch (EntitlementViolationException)
+            {
+                throw;
             }
             catch (Exception ex)
             {
@@ -208,6 +216,10 @@ internal static class MuhasebeciApi
             try
             {
                 return Results.Ok(await service.AcceptRequestAsync(talepId, request, ct));
+            }
+            catch (EntitlementViolationException)
+            {
+                throw;
             }
             catch (Exception ex)
             {

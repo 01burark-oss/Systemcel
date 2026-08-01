@@ -44,6 +44,10 @@ namespace CashTracker.Core.Models
     {
         public decimal YillikTutar { get; init; }
         public int? FaturaLimiti { get; init; }
+        public int? IsletmeLimiti { get; init; }
+        public int? GelirGiderIslemLimiti { get; init; }
+        public int? CariKartLimiti { get; init; }
+        public int? UrunHizmetLimiti { get; init; }
         public bool BankaMutabakatiAktif { get; init; }
         public bool StokRaporAktif { get; init; }
         public bool MuhasebeciErisimiAktif { get; init; }
@@ -62,7 +66,14 @@ namespace CashTracker.Core.Models
         public static IReadOnlyList<SubscriptionPlanDefinition> Plans { get; } =
             new List<SubscriptionPlanDefinition>
             {
-                new(PlanKodlari.IsletmeUcretsiz, HesapTipleri.Isletme, "Ücretsiz", 0, 0, 1, null),
+                new(PlanKodlari.IsletmeUcretsiz, HesapTipleri.Isletme, "Ücretsiz", 0, 0, 1, null)
+                {
+                    FaturaLimiti = 0,
+                    IsletmeLimiti = 1,
+                    GelirGiderIslemLimiti = 100,
+                    CariKartLimiti = 20,
+                    UrunHizmetLimiti = 50
+                },
                 new(PlanKodlari.IsletmeBaslangic, HesapTipleri.Isletme, "Başlangıç", 490, 100, 1, null)
                 {
                     YillikTutar = 4704,

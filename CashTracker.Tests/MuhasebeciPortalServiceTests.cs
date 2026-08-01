@@ -196,6 +196,79 @@ namespace CashTracker.Tests
         }
 
         [Fact]
+        public async Task StandartPlan_EkMusteriKredisiKadarDavetKapasitesiVerir()
+        {
+            using var fixture = await MuhasebeciPortalFixture.CreateAsync();
+            var ids = await fixture.CreateAccountantAndCustomerAsync();
+            var now = DateTime.UtcNow;
+            await using (var db = fixture.CreateDbContext())
+            {
+                db.Abonelikler.Add(new Abonelik
+                {
+                    IsletmeId = ids.AccountantId,
+                    HesapTipi = HesapTipleri.Muhasebeci,
+                    PlanKodu = PlanKodlari.MuhasebeciStandart,
+                    Durum = "Aktif",
+                    FaturalamaDonemi = PaymentBillingPeriods.Monthly,
+                    EkMusteriKredisi = 2,
+                    AylikTutar = 799m,
+                    DonemTutari = 799m,
+                    DonemBaslangicAt = now.AddDays(-1),
+                    DonemBitisAt = now.AddMonths(1),
+                    CreatedAt = now.AddDays(-1),
+                    UpdatedAt = now
+                });
+
+                for (var index = 0; index < 12; index++)
+                {
+                    var customer = new Isletme
+                    {
+                        Ad = $"Limit müşteri {index + 1}",
+                        TenantTipi = HesapTipleri.Isletme,
+                        IsAktif = false,
+                        CreatedAt = now,
+                        UpdatedAt = now
+                    };
+                    db.Isletmeler.Add(customer);
+                    await db.SaveChangesAsync();
+                    db.MuhasebeciMusterileri.Add(new MuhasebeciMusteri
+                    {
+                        MuhasebeciIsletmeId = ids.AccountantId,
+                        MusteriIsletmeId = customer.Id,
+                        Durum = "Aktif",
+                        YetkiSeviyesi = MuhasebeciYetkiSeviyeleri.OkumaRapor,
+                        BaslangicAt = now,
+                        CreatedAt = now,
+                        UpdatedAt = now
+                    });
+                }
+                await db.SaveChangesAsync();
+            }
+
+            fixture.CurrentUser.Set("accountant", "accountant@example.com", "Ada Muhasebe");
+            var factory = new SingleDbContextFactory(fixture.Options);
+            var portal = new MuhasebeciPortalService(
+                factory,
+                fixture.CurrentUser,
+                fixture.IsletmeService,
+                fixture.EntitlementService,
+                new EntitlementGuard(fixture.EntitlementService));
+
+            var error = await Assert.ThrowsAsync<EntitlementViolationException>(() => portal.CreateInviteAsync(
+                new MuhasebeciTalepOlusturRequest
+                {
+                    YetkiSeviyesi = MuhasebeciYetkiSeviyeleri.OkumaRapor,
+                    Mesaj = "Kapasite kontrolü"
+                },
+                "https://systemcel.test"));
+
+            Assert.Equal(EntitlementLimits.AccountantCustomer, error.LimitName);
+            Assert.Equal(12, error.Limit);
+            Assert.Equal(12, error.Current);
+            Assert.Equal(PlanKodlari.MuhasebeciPro, error.SuggestedPlanCode);
+        }
+
+        [Fact]
         public async Task MusteriBaglami_YetkiSeviyesineGoreYazmaHakkiDondurur()
         {
             using var fixture = await MuhasebeciPortalFixture.CreateAsync();

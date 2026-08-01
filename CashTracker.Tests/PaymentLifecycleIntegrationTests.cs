@@ -155,6 +155,51 @@ public sealed class PaymentLifecycleIntegrationTests
     }
 
     [Fact]
+    public async Task UsedTrial_StartsPaidSubscriptionWithoutGrantingAnotherTrial()
+    {
+        using var fixture = new PaymentFixture(HesapTipleri.Isletme);
+        var now = new DateTime(2026, 8, 1, 9, 0, 0, DateTimeKind.Utc);
+        await using (var db = fixture.Factory.CreateDbContext())
+        {
+            db.IsletmeDenemeleri.Add(new IsletmeDeneme
+            {
+                IsletmeId = fixture.BusinessId,
+                HesapTipi = HesapTipleri.Isletme,
+                PlanKodu = PlanKodlari.IsletmeBaslangic,
+                FaturalamaDonemi = PaymentBillingPeriods.Monthly,
+                Durum = "SonaErdi",
+                BaslangicAt = now.AddDays(-31),
+                BitisAt = now.AddDays(-1),
+                OdemeYontemiEklendi = true,
+                CreatedAt = now.AddDays(-31),
+                UpdatedAt = now.AddDays(-1)
+            });
+            await db.SaveChangesAsync();
+        }
+
+        var checkout = await fixture.Service.BeginCheckoutAsync(
+            fixture.CreateCommand("checkout-after-trial", PlanKodlari.IsletmeBaslangic));
+
+        Assert.Equal(0, checkout.Quote.TrialDays);
+        await using (var db = fixture.Factory.CreateDbContext())
+            Assert.Equal("AbonelikBaslatma", (await db.OdemeIslemleri.SingleAsync()).IslemTipi);
+
+        var paid = await fixture.SendEventAsync(
+            "evt-after-trial-paid",
+            PaymentEventTypes.PaymentSucceeded,
+            "checkout-after-trial",
+            "subscription-after-trial",
+            checkout.Quote.TotalAmount,
+            now);
+
+        Assert.True(paid.Accepted);
+        await using var verified = fixture.Factory.CreateDbContext();
+        Assert.Single(await verified.IsletmeDenemeleri.ToListAsync());
+        Assert.Equal("SonaErdi", (await verified.IsletmeDenemeleri.SingleAsync()).Durum);
+        Assert.Equal("Aktif", (await verified.Abonelikler.SingleAsync()).Durum);
+    }
+
+    [Fact]
     public async Task FailedRenewal_OpensSevenDayGrace_ThenCancellationAndRefundAreRecorded()
     {
         using var fixture = new PaymentFixture(HesapTipleri.Isletme);
@@ -283,12 +328,77 @@ public sealed class PaymentLifecycleIntegrationTests
         Assert.Contains(await verified.Abonelikler.ToListAsync(), x => x.Durum == "OdemeBasarisiz");
     }
 
+    [Fact]
+    public async Task Reconcile_SendsSevenAndThreeDayRemindersOnce()
+    {
+        var sender = new FakeReminderSender();
+        using var fixture = new PaymentFixture(HesapTipleri.Isletme, reminderSender: sender);
+        var now = new DateTime(2026, 8, 1, 9, 0, 0, DateTimeKind.Utc);
+
+        await using (var db = fixture.Factory.CreateDbContext())
+        {
+            var user = new Kullanici
+            {
+                AuthProviderUserId = "reminder-user",
+                Eposta = "reminder@systemcel.local",
+                AdSoyad = "Reminder User",
+                HesapTipi = HesapTipleri.Isletme,
+                CreatedAt = now,
+                UpdatedAt = now
+            };
+            db.Kullanicilar.Add(user);
+            await db.SaveChangesAsync();
+            db.IsletmeUyelikleri.Add(new IsletmeUyelik
+            {
+                IsletmeId = fixture.BusinessId,
+                KullaniciId = user.Id,
+                Rol = "isletme_sahibi",
+                Durum = "Aktif",
+                DavetEposta = user.Eposta,
+                CreatedAt = now,
+                UpdatedAt = now
+            });
+            db.IsletmeDenemeleri.Add(new IsletmeDeneme
+            {
+                IsletmeId = fixture.BusinessId,
+                HesapTipi = HesapTipleri.Isletme,
+                PlanKodu = PlanKodlari.IsletmeBaslangic,
+                FaturalamaDonemi = PaymentBillingPeriods.Monthly,
+                Durum = "Aktif",
+                BaslangicAt = now.AddDays(-23),
+                BitisAt = now.AddDays(7),
+                OdemeYontemiEklendi = true,
+                CreatedAt = now.AddDays(-23),
+                UpdatedAt = now.AddDays(-23)
+            });
+            await db.SaveChangesAsync();
+        }
+
+        var sevenDay = await fixture.Service.ReconcileAsync(now);
+        var threeDay = await fixture.Service.ReconcileAsync(now.AddDays(4));
+        var duplicate = await fixture.Service.ReconcileAsync(now.AddDays(4).AddMinutes(15));
+
+        Assert.Equal(1, sevenDay.SevenDayReminders);
+        Assert.Equal(1, threeDay.ThreeDayReminders);
+        Assert.Equal(0, duplicate.SevenDayReminders + duplicate.ThreeDayReminders);
+        Assert.Equal(new[] { 7, 3 }, sender.Reminders.Select(x => x.DaysRemaining));
+        Assert.All(sender.Reminders, x => Assert.Equal("reminder@systemcel.local", x.Email));
+        Assert.Equal(588m, sender.Reminders[0].TotalAmount);
+        await using var verified = fixture.Factory.CreateDbContext();
+        var trial = await verified.IsletmeDenemeleri.SingleAsync();
+        Assert.NotNull(trial.YediGunHatirlatmaAt);
+        Assert.NotNull(trial.UcGunHatirlatmaAt);
+    }
+
     private sealed class PaymentFixture : IDisposable
     {
         private readonly string _dbPath;
         private readonly FakePaymentProvider _fakeProvider = new(Secret);
 
-        public PaymentFixture(string accountType, IPaymentProvider? provider = null)
+        public PaymentFixture(
+            string accountType,
+            IPaymentProvider? provider = null,
+            ISubscriptionReminderSender? reminderSender = null)
         {
             _dbPath = Path.Combine(Path.GetTempPath(), $"systemcel_payment_{Guid.NewGuid():N}.db");
             Factory = new TestDbContextFactory(_dbPath);
@@ -308,7 +418,8 @@ public sealed class PaymentLifecycleIntegrationTests
             Service = new SubscriptionLifecycleService(
                 Factory,
                 provider ?? _fakeProvider,
-                new PaymentPricingService());
+                new PaymentPricingService(),
+                reminderSender);
         }
 
         public int BusinessId { get; }
@@ -363,6 +474,19 @@ public sealed class PaymentLifecycleIntegrationTests
             catch
             {
             }
+        }
+    }
+
+    private sealed class FakeReminderSender : ISubscriptionReminderSender
+    {
+        public List<SubscriptionTrialReminder> Reminders { get; } = new();
+
+        public Task<bool> SendTrialEndingAsync(
+            SubscriptionTrialReminder reminder,
+            CancellationToken ct = default)
+        {
+            Reminders.Add(reminder);
+            return Task.FromResult(true);
         }
     }
 

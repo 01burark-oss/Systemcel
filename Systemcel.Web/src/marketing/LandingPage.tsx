@@ -71,13 +71,6 @@ const fallbackPlans: PublicPlan[] = [
 
 const fallbackAccountantPlans: PublicPlan[] = [
   {
-    kod: "muhasebeci_ucretsiz", ad: "Ücretsiz", hesapTipi: "Muhasebeci", aylikTutar: 0, yillikTutar: null,
-    yillikEfektifAylikTutar: null, aiMesajLimiti: 0, kullaniciLimiti: 1, musteriLimiti: 3, faturaLimiti: null,
-    bankaMutabakatiAktif: false, stokRaporAktif: false, muhasebeciErisimiAktif: false,
-    cokluSubeAktif: false, cokluParaBirimiAktif: false, apiErisimiAktif: false,
-    oncelikliDestekAktif: false, denemeGunSayisi: 0,
-  },
-  {
     kod: "muhasebeci_standart", ad: "Standart", hesapTipi: "Muhasebeci", aylikTutar: 699, yillikTutar: 7045.92,
     yillikEfektifAylikTutar: 587.16, aiMesajLimiti: 100, kullaniciLimiti: 1, musteriLimiti: 10, faturaLimiti: null,
     bankaMutabakatiAktif: false, stokRaporAktif: false, muhasebeciErisimiAktif: false,
@@ -250,7 +243,7 @@ export function LandingPage() {
         const businessPlans = data.filter((plan) => plan.hesapTipi === "Isletme");
         const publicAccountantPlans = data.filter((plan) => plan.hesapTipi === "Muhasebeci");
         if (businessPlans.length === 3) setPlans(businessPlans);
-        if (publicAccountantPlans.length === 3) setAccountantPlans(publicAccountantPlans);
+        if (publicAccountantPlans.length === 2) setAccountantPlans(publicAccountantPlans);
       })
       .catch(() => undefined);
   }, [language]);
@@ -991,15 +984,13 @@ function PlanCard({ plan, billing, language, popular, href }: { plan: PublicPlan
 function AccountantPlanCard({ plan, billing, language, popular, href }: { plan: PublicPlan; billing: Billing; language: Language; popular: boolean; href: string }) {
   const tr = language === "tr";
   const features = accountantPlanFeatures(plan, language);
-  const planName = tr ? plan.ad : plan.kod === "muhasebeci_ucretsiz" ? "Free" : plan.kod === "muhasebeci_standart" ? "Standard" : "Pro";
-  const cta = plan.kod === "muhasebeci_ucretsiz" ? (tr ? "Ücretsiz başla" : "Start free") : (tr ? `${planName} ile başla` : `Start with ${planName}`);
+  const planName = tr ? plan.ad : plan.kod === "muhasebeci_standart" ? "Standard" : "Pro";
+  const cta = tr ? `${planName} ile başla` : `Start with ${planName}`;
   const annual = billing === "Yillik" && plan.aylikTutar > 0;
   const annualTotal = plan.yillikTutar && plan.yillikTutar > 0 ? plan.yillikTutar : plan.aylikTutar * 12 * 0.84;
   const annualMonthly = plan.yillikEfektifAylikTutar && plan.yillikEfektifAylikTutar > 0 ? plan.yillikEfektifAylikTutar : annualTotal / 12;
   const price = annual ? annualMonthly : plan.aylikTutar;
-  const priceNote = plan.aylikTutar === 0
-    ? (tr ? "Süresiz ücretsiz" : "Free forever")
-    : annual
+  const priceNote = annual
       ? (tr ? `Yıllık toplam: ₺${annualTotal.toLocaleString("tr-TR")} · %16 avantaj` : `Annual total: ₺${annualTotal.toLocaleString("tr-TR")} · Save 16%`)
       : plan.kod === "muhasebeci_standart"
         ? (tr ? "10 müşteri dahil" : "10 clients included")
@@ -1010,15 +1001,14 @@ function AccountantPlanCard({ plan, billing, language, popular, href }: { plan: 
 function planFeatures(plan: PublicPlan, language: Language) {
   const tr = language === "tr";
   if (plan.kod === "isletme_baslangic") return [tr ? "Gelir-gider ve cari takibi" : "Income, expenses and accounts", tr ? "Ayda 50 e-Arşiv fatura" : "50 e-Archive invoices/month", tr ? "AI asistan · 100 soru/ay" : "AI assistant · 100 questions/month", tr ? "Tek kullanıcı" : "One user"];
-  if (plan.kod === "isletme_buyume") return [tr ? "Sınırsız fatura" : "Unlimited invoices", tr ? "Banka hareketi eşleştirme" : "Bank transaction matching", tr ? "Sınırsız AI" : "Unlimited AI", tr ? "3 kullanıcı + muhasebeci erişimi" : "3 users + accountant access", tr ? "Stok ve raporlar" : "Inventory and reports"];
-  return [tr ? "Çoklu şube ve para birimi" : "Multiple branches and currencies", tr ? "Özel entegrasyon API'leri" : "Custom integration APIs", tr ? "Öncelikli destek" : "Priority support", tr ? "Sınırsız kullanıcı" : "Unlimited users", tr ? "Büyüme planındaki her şey" : "Everything in Growth"];
+  if (plan.kod === "isletme_buyume") return [tr ? "Sınırsız fatura" : "Unlimited invoices", tr ? "Banka hareketi eşleştirme — yakında" : "Bank transaction matching — coming soon", tr ? "Sınırsız AI" : "Unlimited AI", tr ? "3 kullanıcı + muhasebeci erişimi" : "3 users + accountant access", tr ? "Stok ve raporlar" : "Inventory and reports"];
+  return [tr ? "Çoklu şube ve para birimi — yakında" : "Multiple branches and currencies — coming soon", tr ? "Entegrasyon API'leri — yakında" : "Integration APIs — coming soon", tr ? "Öncelikli destek" : "Priority support", tr ? "Sınırsız kullanıcı" : "Unlimited users", tr ? "Büyüme planındaki her şey" : "Everything in Growth"];
 }
 
 function accountantPlanFeatures(plan: PublicPlan, language: Language) {
   const tr = language === "tr";
-  if (plan.kod === "muhasebeci_ucretsiz") return [tr ? "3 müşteriye kadar yönetim" : "Manage up to 3 clients", tr ? "Muhasebeci çalışma paneli" : "Accountant workspace", tr ? "Talep ve sohbet akışı" : "Requests and messaging", tr ? "Pazaryeri profili" : "Marketplace profile"];
   if (plan.kod === "muhasebeci_standart") return [tr ? "10 müşteri dahil" : "10 clients included", tr ? "Sonraki müşteri +₺50/ay" : "₺50/mo per extra client", tr ? "AI asistan · 100 soru/ay" : "AI assistant · 100 questions/month", tr ? "Müşteri çalışma alanları" : "Client workspaces", tr ? "Pazaryeri profili" : "Marketplace profile"];
-  return [tr ? "Sınırsız müşteri" : "Unlimited clients", tr ? "Sınırsız AI asistan" : "Unlimited AI assistant", tr ? "Pazaryerinde öne çıkma" : "Featured marketplace placement", tr ? "Dönem otomasyonu" : "Period automation", tr ? "Müşteri sağlık skoru" : "Client health score"];
+  return [tr ? "Sınırsız müşteri" : "Unlimited clients", tr ? "Sınırsız AI asistan" : "Unlimited AI assistant", tr ? "Pazaryerinde öne çıkma" : "Featured marketplace placement", tr ? "Dönem otomasyonu — yakında" : "Period automation — coming soon", tr ? "Müşteri sağlık skoru — yakında" : "Client health score — coming soon"];
 }
 
 function FooterGroup({ title, links }: { title: string; links: string[][] }) { return <div className="marketing-footer__group"><strong>{title}</strong>{links.map(([label, href]) => <a key={href} href={href}>{label}</a>)}</div>; }

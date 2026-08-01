@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -15,13 +16,23 @@ namespace CashTracker.Infrastructure.Services
     {
         private readonly IDbContextFactory<CashTrackerDbContext> _dbFactory;
         private readonly IIsletmeService _isletmeService;
+        private readonly IEntitlementGuard? _entitlementGuard;
 
         public UrunHizmetService(
             IDbContextFactory<CashTrackerDbContext> dbFactory,
             IIsletmeService isletmeService)
+            : this(dbFactory, isletmeService, null)
+        {
+        }
+
+        public UrunHizmetService(
+            IDbContextFactory<CashTrackerDbContext> dbFactory,
+            IIsletmeService isletmeService,
+            IEntitlementGuard? entitlementGuard)
         {
             _dbFactory = dbFactory;
             _isletmeService = isletmeService;
+            _entitlementGuard = entitlementGuard;
         }
 
         public async Task<List<UrunHizmet>> GetAllAsync(CancellationToken ct = default)
@@ -72,6 +83,17 @@ namespace CashTracker.Infrastructure.Services
             var activeIsletmeId = await _isletmeService.GetActiveIdAsync();
             var barcode = NormalizeOptional(request.Barkod);
             await using var db = await _dbFactory.CreateDbContextAsync(ct);
+            await using var transaction = _entitlementGuard is null
+                ? null
+                : await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
+
+            if (_entitlementGuard is not null)
+            {
+                var entitlement = await _entitlementGuard.GetAsync(activeIsletmeId, HesapTipleri.Isletme, ct);
+                _entitlementGuard.EnsureWritable(entitlement);
+                var currentCount = await db.UrunHizmetleri.CountAsync(x => x.IsletmeId == activeIsletmeId, ct);
+                _entitlementGuard.EnsureLimit(entitlement, EntitlementLimits.ProductOrService, currentCount);
+            }
 
             if (!string.IsNullOrWhiteSpace(barcode))
             {
@@ -102,6 +124,8 @@ namespace CashTracker.Infrastructure.Services
 
             db.UrunHizmetleri.Add(row);
             await db.SaveChangesAsync(ct);
+            if (transaction is not null)
+                await transaction.CommitAsync(ct);
             return row.Id;
         }
 

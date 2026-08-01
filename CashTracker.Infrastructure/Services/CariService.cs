@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using CashTracker.Core.Entities;
+using CashTracker.Core.Models;
 using CashTracker.Core.Services;
 using CashTracker.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -14,13 +16,23 @@ namespace CashTracker.Infrastructure.Services
     {
         private readonly IDbContextFactory<CashTrackerDbContext> _dbFactory;
         private readonly IIsletmeService _isletmeService;
+        private readonly IEntitlementGuard? _entitlementGuard;
 
         public CariService(
             IDbContextFactory<CashTrackerDbContext> dbFactory,
             IIsletmeService isletmeService)
+            : this(dbFactory, isletmeService, null)
+        {
+        }
+
+        public CariService(
+            IDbContextFactory<CashTrackerDbContext> dbFactory,
+            IIsletmeService isletmeService,
+            IEntitlementGuard? entitlementGuard)
         {
             _dbFactory = dbFactory;
             _isletmeService = isletmeService;
+            _entitlementGuard = entitlementGuard;
         }
 
         public async Task<List<CariKart>> GetAllAsync(CancellationToken ct = default)
@@ -52,6 +64,17 @@ namespace CashTracker.Infrastructure.Services
 
             var activeIsletmeId = await _isletmeService.GetActiveIdAsync();
             await using var db = await _dbFactory.CreateDbContextAsync(ct);
+            await using var transaction = _entitlementGuard is null
+                ? null
+                : await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
+
+            if (_entitlementGuard is not null)
+            {
+                var entitlement = await _entitlementGuard.GetAsync(activeIsletmeId, HesapTipleri.Isletme, ct);
+                _entitlementGuard.EnsureWritable(entitlement);
+                var currentCount = await db.CariKartlari.CountAsync(x => x.IsletmeId == activeIsletmeId, ct);
+                _entitlementGuard.EnsureLimit(entitlement, EntitlementLimits.CurrentAccount, currentCount);
+            }
 
             cariKart.IsletmeId = activeIsletmeId;
             Normalize(cariKart);
@@ -60,6 +83,8 @@ namespace CashTracker.Infrastructure.Services
 
             db.CariKartlari.Add(cariKart);
             await db.SaveChangesAsync(ct);
+            if (transaction is not null)
+                await transaction.CommitAsync(ct);
             return cariKart.Id;
         }
 

@@ -99,6 +99,8 @@ namespace CashTracker.Infrastructure.Services
                 };
             }
 
+            EnsureAiUsageAllowed(usage);
+
             if (!_settings.IsConfigured)
             {
                 return new AiAssistantChatResponse
@@ -113,18 +115,7 @@ namespace CashTracker.Infrastructure.Services
             }
 
             usage = await _usageQuotaService.ConsumeAsync(ct);
-            if (!usage.IzinVerildi)
-            {
-                return new AiAssistantChatResponse
-                {
-                    Configured = true,
-                    Mode = mode,
-                    Model = model,
-                    Answer = usage.Mesaj,
-                    Suggestions = suggestions,
-                    Usage = usage
-                };
-            }
+            EnsureAiUsageAllowed(usage);
 
             try
             {
@@ -171,6 +162,7 @@ namespace CashTracker.Infrastructure.Services
             var suggestions = BuildRuleBasedSuggestions(context);
             var model = _settings.EffectiveProModel;
             var usage = await _usageQuotaService.GetStatusAsync(ct);
+            EnsureAiUsageAllowed(usage);
 
             if (!_settings.IsConfigured)
             {
@@ -185,17 +177,7 @@ namespace CashTracker.Infrastructure.Services
             }
 
             usage = await _usageQuotaService.ConsumeAsync(ct);
-            if (!usage.IzinVerildi)
-            {
-                return new AiBusinessSuggestionsResponse
-                {
-                    Configured = true,
-                    Model = model,
-                    Summary = usage.Mesaj,
-                    Suggestions = suggestions,
-                    Usage = usage
-                };
-            }
+            EnsureAiUsageAllowed(usage);
 
             try
             {
@@ -229,6 +211,31 @@ namespace CashTracker.Infrastructure.Services
                     Suggestions = suggestions,
                     Usage = usage
                 };
+            }
+        }
+
+        private static void EnsureAiUsageAllowed(AiUsageStatus usage)
+        {
+            if (!usage.AiAktif)
+            {
+                throw new EntitlementViolationException(
+                    EntitlementErrorCodes.FeatureNotAvailable,
+                    usage.Mesaj,
+                    suggestedPlanCode: PlanKodlari.IsletmeBaslangic);
+            }
+
+            if (!usage.IzinVerildi)
+            {
+                var suggestedPlan = string.Equals(usage.PlanKodu, PlanKodlari.IsletmeBaslangic, StringComparison.Ordinal)
+                    ? PlanKodlari.IsletmeBuyume
+                    : PlanKodlari.IsletmeKurumsal;
+                throw new EntitlementViolationException(
+                    EntitlementErrorCodes.LimitReached,
+                    usage.Mesaj,
+                    EntitlementLimits.AiMessage,
+                    usage.Limit,
+                    usage.Kullanilan,
+                    suggestedPlan);
             }
         }
 

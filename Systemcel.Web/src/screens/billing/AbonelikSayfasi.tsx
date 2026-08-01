@@ -36,6 +36,8 @@ const durumEtiketleri: Record<string, string> = {
   Hazirlaniyor: "Hazırlanıyor",
   IadeEdildi: "İade edildi",
   IptalEdildi: "İptal edildi",
+  SonaErdi: "Sona erdi",
+  OdemeBasarisiz: "Ödeme gerekli",
   Tolerans: "Ödeme bekleniyor"
 };
 
@@ -255,6 +257,14 @@ export function AbonelikSayfasi() {
   const seciliPlan = planlar.find((plan) => plan.kod === planKodu);
   const bitisAt = ozet?.deneme?.bitisAt ?? ozet?.abonelik?.donemBitisAt ?? ozet?.sonrakiYenilemeAt;
   const planTutari = ozet?.haklar.donemTutari ?? 0;
+  const denemeSonaErdi = ozet?.deneme?.durum === "SonaErdi" || ozet?.deneme?.durum === "IptalEdildi";
+  const odemeDuzeltmeGerekli = ozet?.abonelik?.durum === "OdemeBasarisiz";
+
+  const planModaliniAc = () => {
+    idempotencyRef.current = yeniIdempotencyKey();
+    setOnaylandi(false);
+    setModal("onay");
+  };
 
   return (
     <main className="billing-page">
@@ -306,11 +316,7 @@ export function AbonelikSayfasi() {
                 </div>
               </div>
               <div className="billing-plan-card__actions">
-                <button className="billing-button billing-button--primary" type="button" onClick={() => {
-                  idempotencyRef.current = yeniIdempotencyKey();
-                  setOnaylandi(false);
-                  setModal("onay");
-                }}>
+                <button className="billing-button billing-button--primary" type="button" onClick={planModaliniAc}>
                   Planları görüntüle <ArrowRight size={16} />
                 </button>
                 {ozet.iptalEdilebilir ? (
@@ -322,7 +328,7 @@ export function AbonelikSayfasi() {
             <div className="billing-facts">
               <article>
                 <span className="billing-fact-icon"><CalendarClock size={20} /></span>
-                <div><small>{ozet.donemSonundaIptal ? "ERİŞİM BİTİŞİ" : ozet.deneme ? "DENEME BİTİŞİ" : "SONRAKİ YENİLEME"}</small><strong>{tarihBic(bitisAt)}</strong></div>
+                <div><small>{ozet.donemSonundaIptal || denemeSonaErdi ? "ERİŞİM BİTİŞİ" : ozet.deneme ? "DENEME BİTİŞİ" : "SONRAKİ YENİLEME"}</small><strong>{tarihBic(bitisAt)}</strong></div>
                 <p>{ozet.donemSonundaIptal ? "Bu tarihe kadar tüm haklarınız devam eder." : "Yenileme öncesinde bilgilendirileceksiniz."}</p>
               </article>
               <article>
@@ -342,6 +348,20 @@ export function AbonelikSayfasi() {
             <section className="billing-cancelled" aria-label="Dönem sonu iptal durumu">
               <FileCheck2 size={22} />
               <div><strong>İptal talebiniz kaydedildi</strong><p>Aboneliğiniz {tarihBic(bitisAt)} tarihine kadar aktif; bu tarihten sonra yeni tahsilat yapılmayacak.</p></div>
+            </section>
+          ) : null}
+
+          {denemeSonaErdi || odemeDuzeltmeGerekli ? (
+            <section className="billing-expired" aria-label="Plan veya ödeme işlemi gerekli">
+              <AlertCircle size={24} />
+              <div>
+                <strong>{denemeSonaErdi ? "Deneme süreniz sona erdi" : "Ödeme yönteminizi düzeltmeniz gerekiyor"}</strong>
+                <p>{denemeSonaErdi ? "Verileriniz korunuyor; çalışma alanınız uygun plan seçilene kadar kısıtlıdır." : "Tolerans süresi sona erdi. Aboneliğinizi yeniden etkinleştirmek için ödeme adımını tamamlayın."}</p>
+              </div>
+              <div className="billing-expired__actions">
+                <button className="billing-button billing-button--primary" type="button" onClick={planModaliniAc}>Plan seç</button>
+                <button className="billing-button billing-button--secondary" type="button" onClick={planModaliniAc}>Ödeme yöntemi ekle</button>
+              </div>
             </section>
           ) : null}
 
@@ -392,7 +412,11 @@ export function AbonelikSayfasi() {
                 <span className="billing-modal__icon"><FileCheck2 size={24} /></span>
                 <p className="billing-modal__eyebrow">AÇIK ONAY</p>
                 <h2 id="billing-modal-title" ref={modalBaslikRef} tabIndex={-1}>Planınızı seçin ve koşulları onaylayın</h2>
-                <p className="billing-modal__lead">Kartınız bugün ücretlendirilmez. Deneme bitişi ve ilk tahsilat tutarı onay metninde açıkça gösterilir.</p>
+                <p className="billing-modal__lead">
+                  {teklif?.fiyat.trialDays === 0
+                    ? "Deneme hakkınız daha önce kullanıldığı için seçtiğiniz plan bugün başlar. Tahsilat tutarı onay metninde açıkça gösterilir."
+                    : "Kartınız bugün ücretlendirilmez. Deneme bitişi ve ilk tahsilat tutarı onay metninde açıkça gösterilir."}
+                </p>
 
                 <div className="billing-plan-fields">
                   <label><span>Plan</span><select value={planKodu} onChange={(event) => {
@@ -412,12 +436,15 @@ export function AbonelikSayfasi() {
                 {teklifYukleniyor ? <div className="billing-quote-loading"><Loader2 className="spin" size={21} /> Teklif hazırlanıyor…</div> : teklif ? (
                   <>
                     <div className="billing-quote">
-                      <div><small>{teklif.fiyat.trialDays} GÜNLÜK DENEME</small><strong>Bugün {paraBic(0, teklif.fiyat.currency)}</strong></div>
+                      <div>
+                        <small>{teklif.fiyat.trialDays > 0 ? `${teklif.fiyat.trialDays} GÜNLÜK DENEME` : "DOĞRUDAN ABONELİK"}</small>
+                        <strong>Bugün {paraBic(teklif.fiyat.trialDays > 0 ? 0 : teklif.fiyat.totalAmount, teklif.fiyat.currency)}</strong>
+                      </div>
                       <dl>
                         <div><dt>Plan bedeli</dt><dd>{paraBic(teklif.fiyat.netAmount, teklif.fiyat.currency)}</dd></div>
                         {teklif.fiyat.extraCustomerCredits > 0 ? <div><dt>Müşteri kapasitesi</dt><dd>{teklif.fiyat.includedCustomerCount + teklif.fiyat.extraCustomerCredits} müşteri</dd></div> : null}
                         <div><dt>KDV (%{Math.round(teklif.fiyat.vatRate)})</dt><dd>{paraBic(teklif.fiyat.vatAmount, teklif.fiyat.currency)}</dd></div>
-                        <div><dt>Deneme sonrası toplam</dt><dd>{paraBic(teklif.fiyat.totalAmount, teklif.fiyat.currency)}</dd></div>
+                        <div><dt>{teklif.fiyat.trialDays > 0 ? "Deneme sonrası toplam" : "Bugünkü toplam"}</dt><dd>{paraBic(teklif.fiyat.totalAmount, teklif.fiyat.currency)}</dd></div>
                       </dl>
                     </div>
                     <label className="billing-email"><span>E-posta <small>(hesabınızda yoksa)</small></span><input type="email" autoComplete="email" value={eposta} onChange={(event) => setEposta(event.target.value)} placeholder="ornek@isletme.com" /></label>
@@ -430,9 +457,9 @@ export function AbonelikSayfasi() {
                 {hata ? <div className="billing-inline-error" role="alert"><AlertCircle size={17} />{hata}</div> : null}
                 <div className="billing-modal__actions">
                   <button className="billing-button billing-button--secondary" type="button" onClick={modalKapat} disabled={islemde}>Daha sonra</button>
-                  <button className="billing-button billing-button--primary" type="button" onClick={checkoutBaslat} disabled={!onaylandi || !teklif || islemde || teklifYukleniyor}>{islemde ? <Loader2 className="spin" size={17} /> : <ShieldCheck size={17} />} Kartı güvenle ekle</button>
+                  <button className="billing-button billing-button--primary" type="button" onClick={checkoutBaslat} disabled={!onaylandi || !teklif || islemde || teklifYukleniyor}>{islemde ? <Loader2 className="spin" size={17} /> : <ShieldCheck size={17} />} {teklif?.fiyat.trialDays === 0 ? "Öde ve aboneliği başlat" : "Kartı güvenle ekle"}</button>
                 </div>
-                {seciliPlan ? <p className="billing-modal__footnote">{seciliPlan.ad} · {seciliPlan.denemeGunSayisi} gün deneme · İstediğiniz zaman dönem sonuna iptal</p> : null}
+                {seciliPlan ? <p className="billing-modal__footnote">{seciliPlan.ad} · {teklif?.fiyat.trialDays === 0 ? "hemen başlayan aylık abonelik" : `${seciliPlan.denemeGunSayisi} gün deneme`} · İstediğiniz zaman dönem sonuna iptal</p> : null}
               </>
             )}
           </section>

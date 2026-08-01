@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -19,17 +20,20 @@ namespace CashTracker.Infrastructure.Services
         private readonly ICurrentUserContext _currentUserContext;
         private readonly IIsletmeService _isletmeService;
         private readonly ISubscriptionEntitlementService _entitlementService;
+        private readonly IEntitlementGuard? _entitlementGuard;
 
         public MuhasebeciPortalService(
             IDbContextFactory<CashTrackerDbContext> dbFactory,
             ICurrentUserContext currentUserContext,
             IIsletmeService isletmeService,
-            ISubscriptionEntitlementService entitlementService)
+            ISubscriptionEntitlementService entitlementService,
+            IEntitlementGuard? entitlementGuard = null)
         {
             _dbFactory = dbFactory;
             _currentUserContext = currentUserContext;
             _isletmeService = isletmeService;
             _entitlementService = entitlementService;
+            _entitlementGuard = entitlementGuard;
         }
 
         public async Task<MuhasebeciPazaryeriDto> GetPublicMarketplaceAsync(string? arama = null, CancellationToken ct = default)
@@ -187,6 +191,10 @@ namespace CashTracker.Infrastructure.Services
             var user = await EnsureCurrentUserAsync(db, ct);
             var accountant = await RequireCurrentAccountantBusinessAsync(db, user, ct);
             RequireApprovedAccountantUser(user);
+            await using var transaction = _entitlementGuard is null
+                ? null
+                : await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
+            await EnsureCustomerCapacityAsync(db, accountant.Id, null, ct);
             var now = DateTime.Now;
             var code = await GenerateInviteCodeAsync(db, ct);
             var talep = new MuhasebeciMusteriTalebi
@@ -204,6 +212,8 @@ namespace CashTracker.Infrastructure.Services
 
             db.MuhasebeciMusteriTalepleri.Add(talep);
             await db.SaveChangesAsync(ct);
+            if (transaction is not null)
+                await transaction.CommitAsync(ct);
             return BuildTalepDto(talep, accountant, null, publicBaseUrl);
         }
 
@@ -247,6 +257,9 @@ namespace CashTracker.Infrastructure.Services
         public async Task<MuhasebeciTalepDto> AcceptInviteAsync(MuhasebeciDavetKabulRequest request, CancellationToken ct = default)
         {
             await using var db = await _dbFactory.CreateDbContextAsync(ct);
+            await using var transaction = _entitlementGuard is null
+                ? null
+                : await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
             await EnsureCurrentUserAsync(db, ct);
             var customer = await _isletmeService.GetActiveAsync();
             if (!string.Equals(customer.TenantTipi, HesapTipleri.Isletme, StringComparison.OrdinalIgnoreCase))
@@ -261,7 +274,11 @@ namespace CashTracker.Infrastructure.Services
 
             talep.MusteriIsletmeId = customer.Id;
             talep.YetkiSeviyesi = NormalizeYetki(request.YetkiSeviyesi);
+            await EnsureCustomerCapacityAsync(db, talep.MuhasebeciIsletmeId, customer.Id, ct);
             await AcceptTalepAsync(db, talep, customer.Id, talep.YetkiSeviyesi, ct);
+
+            if (transaction is not null)
+                await transaction.CommitAsync(ct);
 
             var accountant = await db.Isletmeler.AsNoTracking().FirstAsync(x => x.Id == talep.MuhasebeciIsletmeId, ct);
             return BuildTalepDto(talep, accountant, customer);
@@ -270,6 +287,9 @@ namespace CashTracker.Infrastructure.Services
         public async Task<MuhasebeciTalepDto> AcceptRequestAsync(int talepId, MuhasebeciTalepKararRequest request, CancellationToken ct = default)
         {
             await using var db = await _dbFactory.CreateDbContextAsync(ct);
+            await using var transaction = _entitlementGuard is null
+                ? null
+                : await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
             var user = await EnsureCurrentUserAsync(db, ct);
             var talep = await RequirePendingRequestAsync(db, talepId, ct);
             if (!talep.MusteriIsletmeId.HasValue)
@@ -281,7 +301,11 @@ namespace CashTracker.Infrastructure.Services
                 await RequireAccountantParticipantAsync(db, user.Id, talep.MuhasebeciIsletmeId, ct);
             RequireApprovedAccountantUser(user);
             talep.YetkiSeviyesi = NormalizeYetki(request.YetkiSeviyesi);
+            await EnsureCustomerCapacityAsync(db, talep.MuhasebeciIsletmeId, talep.MusteriIsletmeId.Value, ct);
             await AcceptTalepAsync(db, talep, talep.MusteriIsletmeId.Value, talep.YetkiSeviyesi, ct);
+
+            if (transaction is not null)
+                await transaction.CommitAsync(ct);
 
             return await BuildTalepDtoAsync(db, talep, ct);
         }
@@ -889,6 +913,37 @@ namespace CashTracker.Infrastructure.Services
                     CreatedAt = x.CreatedAt
                 }).ToList()
             };
+        }
+
+        private async Task EnsureCustomerCapacityAsync(
+            CashTrackerDbContext db,
+            int accountantBusinessId,
+            int? customerBusinessId,
+            CancellationToken ct)
+        {
+            if (_entitlementGuard is null)
+                return;
+
+            if (customerBusinessId.HasValue)
+            {
+                var existingActiveRelation = await db.MuhasebeciMusterileri.AnyAsync(x =>
+                    x.MuhasebeciIsletmeId == accountantBusinessId &&
+                    x.MusteriIsletmeId == customerBusinessId.Value &&
+                    x.Durum == "Aktif" &&
+                    (x.BitisAt == null || x.BitisAt >= DateTime.Now), ct);
+                if (existingActiveRelation)
+                    return;
+            }
+
+            var entitlement = await _entitlementGuard.GetAsync(
+                accountantBusinessId,
+                HesapTipleri.Muhasebeci,
+                ct);
+            _entitlementGuard.EnsureWritable(entitlement);
+            _entitlementGuard.EnsureLimit(
+                entitlement,
+                EntitlementLimits.AccountantCustomer,
+                entitlement.AktifMusteriSayisi ?? 0);
         }
 
         private static async Task AcceptTalepAsync(

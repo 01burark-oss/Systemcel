@@ -16,19 +16,22 @@ namespace CashTracker.Infrastructure.Services
         private readonly ISecretProtector _secretProtector;
         private readonly IGibPortalClient _client;
         private readonly IFaturaService _faturaService;
+        private readonly IEntitlementGuard? _entitlementGuard;
 
         public GibPortalService(
             IDbContextFactory<CashTrackerDbContext> dbFactory,
             IIsletmeService isletmeService,
             ISecretProtector secretProtector,
             IGibPortalClient client,
-            IFaturaService faturaService)
+            IFaturaService faturaService,
+            IEntitlementGuard? entitlementGuard = null)
         {
             _dbFactory = dbFactory;
             _isletmeService = isletmeService;
             _secretProtector = secretProtector;
             _client = client;
             _faturaService = faturaService;
+            _entitlementGuard = entitlementGuard;
         }
 
         public async Task<GibPortalSettingsModel?> GetSettingsAsync(CancellationToken ct = default)
@@ -49,6 +52,7 @@ namespace CashTracker.Infrastructure.Services
 
         public async Task SaveSettingsAsync(GibPortalSaveSettingsRequest request, CancellationToken ct = default)
         {
+            await EnsureOfficialEInvoiceAsync(ct);
             ArgumentNullException.ThrowIfNull(request);
             if (string.IsNullOrWhiteSpace(request.KullaniciKodu))
                 throw new ArgumentException("GİB kullanıcı kodu boş olamaz.", nameof(request));
@@ -80,6 +84,7 @@ namespace CashTracker.Infrastructure.Services
 
         public async Task<GibPortalResult> TestConnectionAsync(CancellationToken ct = default)
         {
+            await EnsureOfficialEInvoiceAsync(ct);
             var settings = await LoadSettingsWithSecretAsync(ct);
             if (settings == null)
                 return GibPortalResult.Fail("GİB Portal ayarları eksik.");
@@ -91,6 +96,7 @@ namespace CashTracker.Infrastructure.Services
 
         public async Task<GibPortalResult> CreatePortalDraftAsync(int faturaId, CancellationToken ct = default)
         {
+            await EnsureOfficialEInvoiceAsync(ct);
             var settings = await LoadSettingsWithSecretAsync(ct);
             if (settings == null)
                 return GibPortalResult.Fail("GİB Portal ayarları eksik veya şifre çözümlenemedi.");
@@ -109,6 +115,7 @@ namespace CashTracker.Infrastructure.Services
 
         public async Task<GibPortalResult> StartSmsApprovalAsync(int faturaId, CancellationToken ct = default)
         {
+            await EnsureOfficialEInvoiceAsync(ct);
             var settings = await LoadSettingsWithSecretAsync(ct);
             if (settings == null)
                 return GibPortalResult.Fail("GİB Portal ayarları eksik veya şifre çözümlenemedi.");
@@ -132,6 +139,7 @@ namespace CashTracker.Infrastructure.Services
 
         public async Task<GibPortalResult> CompleteSmsApprovalAsync(int faturaId, string operationId, string smsCode, CancellationToken ct = default)
         {
+            await EnsureOfficialEInvoiceAsync(ct);
             var settings = await LoadSettingsWithSecretAsync(ct);
             if (settings == null)
                 return GibPortalResult.Fail("GİB Portal ayarları eksik veya şifre çözümlenemedi.");
@@ -156,6 +164,16 @@ namespace CashTracker.Infrastructure.Services
 
             await LogAsync(faturaId, "CompleteSmsApproval", result, ct);
             return result;
+        }
+
+        private async Task EnsureOfficialEInvoiceAsync(CancellationToken ct)
+        {
+            if (_entitlementGuard is null)
+                return;
+
+            var businessId = await _isletmeService.GetActiveIdAsync();
+            var entitlement = await _entitlementGuard.GetAsync(businessId, HesapTipleri.Isletme, ct);
+            _entitlementGuard.EnsureFeature(entitlement, EntitlementFeatures.OfficialEInvoice);
         }
 
         private async Task<ResolvedSettings?> LoadSettingsWithSecretAsync(CancellationToken ct)

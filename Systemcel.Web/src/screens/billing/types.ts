@@ -11,6 +11,10 @@ export interface AbonelikHaklari {
   aiMesajLimiti: number | null;
   kullaniciLimiti: number | null;
   faturaLimiti: number | null;
+  isletmeLimiti: number | null;
+  gelirGiderIslemLimiti: number | null;
+  cariKartLimiti: number | null;
+  urunHizmetLimiti: number | null;
   musteriLimiti: number | null;
   ekMusteriKredisi: number;
   saltOkunur: boolean;
@@ -81,6 +85,12 @@ export interface PublicPlan {
   yillikEfektifAylikTutar: number | null;
   paraBirimi: string;
   denemeGunSayisi: number;
+}
+
+export interface EntitlementProblem {
+  code?: string;
+  detail?: string;
+  suggestedPlanCode?: string;
 }
 
 export interface PaymentQuote {

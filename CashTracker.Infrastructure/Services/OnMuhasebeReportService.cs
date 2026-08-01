@@ -8,6 +8,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using CashTracker.Core.Entities;
+using CashTracker.Core.Models;
 using CashTracker.Core.Services;
 using CashTracker.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -18,13 +19,16 @@ namespace CashTracker.Infrastructure.Services
     {
         private readonly IDbContextFactory<CashTrackerDbContext> _dbFactory;
         private readonly IIsletmeService _isletmeService;
+        private readonly IEntitlementGuard? _entitlementGuard;
 
         public OnMuhasebeReportService(
             IDbContextFactory<CashTrackerDbContext> dbFactory,
-            IIsletmeService isletmeService)
+            IIsletmeService isletmeService,
+            IEntitlementGuard? entitlementGuard = null)
         {
             _dbFactory = dbFactory;
             _isletmeService = isletmeService;
+            _entitlementGuard = entitlementGuard;
         }
 
         public async Task<string> CreateMonthlyExportAsync(DateTime month, string outputDirectory, MonthlyReportExportOptions? options = null, CancellationToken ct = default)
@@ -34,6 +38,11 @@ namespace CashTracker.Infrastructure.Services
 
             options ??= new MonthlyReportExportOptions();
             var activeIsletmeId = await _isletmeService.GetActiveIdAsync();
+            if (_entitlementGuard is not null)
+            {
+                var entitlement = await _entitlementGuard.GetAsync(activeIsletmeId, HesapTipleri.Isletme, ct);
+                _entitlementGuard.EnsureFeature(entitlement, EntitlementFeatures.AdvancedExport);
+            }
             var activeBusiness = await _isletmeService.GetActiveAsync();
             var start = new DateTime(month.Year, month.Month, 1);
             var end = start.AddMonths(1);

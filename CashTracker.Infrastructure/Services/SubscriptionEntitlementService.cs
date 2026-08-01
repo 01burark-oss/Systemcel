@@ -44,7 +44,7 @@ namespace CashTracker.Infrastructure.Services
             DateTime? now = null,
             CancellationToken ct = default)
         {
-            var current = now ?? DateTime.Now;
+            var current = now ?? DateTime.UtcNow;
 
             await using var db = await _dbFactory.CreateDbContextAsync(ct);
             var abonelikler = await db.Abonelikler
@@ -123,7 +123,7 @@ namespace CashTracker.Infrastructure.Services
             DateTime? now = null,
             CancellationToken ct = default)
         {
-            var current = now ?? DateTime.Now;
+            var current = now ?? DateTime.UtcNow;
 
             await using var db = await _dbFactory.CreateDbContextAsync(ct);
             var abonelikler = await db.Abonelikler
@@ -271,6 +271,10 @@ namespace CashTracker.Infrastructure.Services
                 AiMesajLimiti = plan.AiMesajLimiti,
                 KullaniciLimiti = plan.KullaniciLimiti,
                 FaturaLimiti = plan.FaturaLimiti,
+                IsletmeLimiti = plan.IsletmeLimiti,
+                GelirGiderIslemLimiti = plan.GelirGiderIslemLimiti,
+                CariKartLimiti = plan.CariKartLimiti,
+                UrunHizmetLimiti = plan.UrunHizmetLimiti,
                 MusteriLimiti = plan.MusteriLimiti,
                 BankaMutabakatiAktif = plan.BankaMutabakatiAktif,
                 StokRaporAktif = plan.StokRaporAktif,
@@ -279,6 +283,7 @@ namespace CashTracker.Infrastructure.Services
                 CokluParaBirimiAktif = plan.CokluParaBirimiAktif,
                 ApiErisimiAktif = plan.ApiErisimiAktif,
                 OncelikliDestekAktif = plan.OncelikliDestekAktif,
+                GelismisDisaAktarimAktif = paidBusinessFeatures,
                 SponsorMuhasebeciIsletmeId = sponsorMuhasebeciIsletmeId,
                 GecerliBaslangicAt = gecerliBaslangicAt,
                 GecerliBitisAt = gecerliBitisAt

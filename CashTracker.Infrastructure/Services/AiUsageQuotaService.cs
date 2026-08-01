@@ -40,7 +40,7 @@ namespace CashTracker.Infrastructure.Services
 
         private async Task<AiUsageStatus> ResolveAsync(bool consume, CancellationToken ct)
         {
-            var now = DateTime.Now;
+            var now = DateTime.UtcNow;
             var isletme = await _isletmeService.GetActiveAsync();
             var entitlement = await _entitlementService.GetIsletmeEntitlementAsync(isletme.Id, now, ct);
 

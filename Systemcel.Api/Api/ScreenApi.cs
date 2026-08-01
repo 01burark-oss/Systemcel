@@ -12,9 +12,11 @@ using Systemcel.Api.Services;
 using CashTracker.Core.Entities;
 using CashTracker.Core.Models;
 using CashTracker.Core.Services;
+using CashTracker.Infrastructure.Persistence;
 using CashTracker.Infrastructure.Services;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.EntityFrameworkCore;
 
 namespace Systemcel.Api.Api
 {
@@ -42,6 +44,9 @@ namespace Systemcel.Api.Api
         private readonly ISystemcelYonetimService? _yonetimService;
         private readonly IMuhasebeciPortalService? _muhasebeciPortalService;
         private readonly IMuhasebeciSohbetMerkeziService? _muhasebeciSohbetMerkeziService;
+        private readonly IEntitlementGuard? _entitlementGuard;
+        private readonly IDbContextFactory<CashTrackerDbContext>? _dbFactory;
+        private readonly IPaymentPricingService? _paymentPricingService;
         private readonly ConcurrentDictionary<int, ReportPackageState> _lastReportPackages = new();
 
         public ScreenApi(
@@ -66,7 +71,10 @@ namespace Systemcel.Api.Api
             PinReminderService? pinReminderService = null,
             ISystemcelYonetimService? yonetimService = null,
             IMuhasebeciPortalService? muhasebeciPortalService = null,
-            IMuhasebeciSohbetMerkeziService? muhasebeciSohbetMerkeziService = null)
+            IMuhasebeciSohbetMerkeziService? muhasebeciSohbetMerkeziService = null,
+            IEntitlementGuard? entitlementGuard = null,
+            IDbContextFactory<CashTrackerDbContext>? dbFactory = null,
+            IPaymentPricingService? paymentPricingService = null)
         {
             _kasaService = kasaService;
             _summaryService = summaryService;
@@ -90,6 +98,9 @@ namespace Systemcel.Api.Api
             _yonetimService = yonetimService;
             _muhasebeciPortalService = muhasebeciPortalService;
             _muhasebeciSohbetMerkeziService = muhasebeciSohbetMerkeziService;
+            _entitlementGuard = entitlementGuard;
+            _dbFactory = dbFactory;
+            _paymentPricingService = paymentPricingService;
         }
 
         public void MapApi(WebApplication app)
@@ -216,6 +227,10 @@ namespace Systemcel.Api.Api
                         var id = await _isletmeService!.CreateAsync(request?.ad ?? string.Empty, makeActive: true);
                         return Results.Ok(await BuildSettingsScreenAsync("Yeni işletme eklendi.", id));
                     }
+                    catch (EntitlementViolationException)
+                    {
+                        throw;
+                    }
                     catch (Exception ex)
                     {
                         return Results.BadRequest(new ApiHata($"İşletme eklenemedi: {ex.Message}"));
@@ -335,8 +350,9 @@ namespace Systemcel.Api.Api
                     }
                 });
 
-                app.MapPost("/api/ekran/telegram/baslat", () =>
+                app.MapPost("/api/ekran/telegram/baslat", async () =>
                 {
+                    await EnsureBusinessFeatureAsync(EntitlementFeatures.TelegramAutomation);
                     try
                     {
                         _telegramPairingService?.RenewCode();
@@ -365,6 +381,7 @@ namespace Systemcel.Api.Api
 
                 app.MapPost("/api/ekran/telegram/test", async () =>
                 {
+                    await EnsureBusinessFeatureAsync(EntitlementFeatures.TelegramAutomation);
                     if (_backupReportService is null || !_telegramSettings!.IsEnabled)
                         return Results.BadRequest(new ApiHata("Telegram bağlantısı aktif değil."));
 
@@ -433,6 +450,10 @@ namespace Systemcel.Api.Api
                         screen.mesaj = "GİB Portal ayarları kaydedildi.";
                         return Results.Ok(screen);
                     }
+                    catch (EntitlementViolationException)
+                    {
+                        throw;
+                    }
                     catch (Exception ex)
                     {
                         return Results.BadRequest(new ApiHata($"GİB Portal ayarları kaydedilemedi: {ex.Message}"));
@@ -458,6 +479,10 @@ namespace Systemcel.Api.Api
                         });
                         var result = await _gibPortalService.TestConnectionAsync();
                         return Results.Ok(new GibPortalTestSonucDto(result.Success, result.Message));
+                    }
+                    catch (EntitlementViolationException)
+                    {
+                        throw;
                     }
                     catch (Exception ex)
                     {
@@ -486,6 +511,7 @@ namespace Systemcel.Api.Api
 
                 app.MapPost("/api/ekran/anasayfa/paylas/telegram", async () =>
                 {
+                    await EnsureBusinessFeatureAsync(EntitlementFeatures.TelegramAutomation);
                     try
                     {
                         return Results.Ok(await SendDashboardSummaryToTelegramAsync());
@@ -528,6 +554,7 @@ namespace Systemcel.Api.Api
 
                 app.MapPost("/api/ekran/raporlar/paket", async (RaporPaketOlusturIstek request) =>
                 {
+                    await EnsureBusinessFeatureAsync(EntitlementFeatures.AdvancedExport);
                     try
                     {
                         return Results.Ok(await CreateReportPackageAsync(request));
@@ -540,6 +567,7 @@ namespace Systemcel.Api.Api
 
                 app.MapGet("/api/ekran/raporlar/paket/indir", async () =>
                 {
+                    await EnsureBusinessFeatureAsync(EntitlementFeatures.AdvancedExport);
                     try
                     {
                         var activeBusinessId = await _isletmeService!.GetActiveIdAsync();
@@ -561,6 +589,7 @@ namespace Systemcel.Api.Api
 
                 app.MapPost("/api/ekran/raporlar/yazdir/pdf", async (RaporYazdirIstek request) =>
                 {
+                    await EnsureBusinessFeatureAsync(EntitlementFeatures.AdvancedExport);
                     try
                     {
                         return Results.Ok(await SaveReportPdfAsync(request));
@@ -573,6 +602,7 @@ namespace Systemcel.Api.Api
 
                 app.MapPost("/api/ekran/raporlar/yazdir/html", async (RaporYazdirIstek request) =>
                 {
+                    await EnsureBusinessFeatureAsync(EntitlementFeatures.AdvancedExport);
                     try
                     {
                         return Results.Ok(await ExportReportHtmlAsync(request));
@@ -632,6 +662,10 @@ namespace Systemcel.Api.Api
                             await CreateStockMovementOrRollbackAsync(kayitId, request);
 
                         return Results.Ok(new ApiMesaj("Kayıt eklendi."));
+                    }
+                    catch (EntitlementViolationException)
+                    {
+                        throw;
                     }
                     catch (Exception ex)
                     {
@@ -720,6 +754,10 @@ namespace Systemcel.Api.Api
                     {
                         var id = await _cariService!.CreateAsync(ToDomainCari(request));
                         return Results.Ok(new KimlikliApiMesaj("Cari kart kaydedildi.", id));
+                    }
+                    catch (EntitlementViolationException)
+                    {
+                        throw;
                     }
                     catch (Exception ex)
                     {
@@ -828,6 +866,10 @@ namespace Systemcel.Api.Api
                     {
                         var id = await _urunHizmetService!.CreateAsync(ToProductCreateRequest(request));
                         return Results.Ok(new KimlikliApiMesaj("Ürün/hizmet kaydedildi.", id));
+                    }
+                    catch (EntitlementViolationException)
+                    {
+                        throw;
                     }
                     catch (Exception ex)
                     {
@@ -991,6 +1033,10 @@ namespace Systemcel.Api.Api
                         var id = await _faturaService!.CreateDraftAsync(ToInvoiceCreateRequest(request));
                         return Results.Ok(new KimlikliApiMesaj("Fatura taslağı oluşturuldu.", id));
                     }
+                    catch (EntitlementViolationException)
+                    {
+                        throw;
+                    }
                     catch (Exception ex)
                     {
                         return Results.BadRequest(new ApiHata($"Fatura taslağı oluşturulamadı: {ex.Message}"));
@@ -1034,6 +1080,10 @@ namespace Systemcel.Api.Api
                             ? Results.Ok(new ApiMesaj(result.Message))
                             : Results.BadRequest(new ApiHata(result.Message));
                     }
+                    catch (EntitlementViolationException)
+                    {
+                        throw;
+                    }
                     catch (Exception ex)
                     {
                         return Results.BadRequest(new ApiHata($"GİB taslak oluşturulamadı: {ex.Message}"));
@@ -1055,6 +1105,10 @@ namespace Systemcel.Api.Api
                         return result.Success
                             ? Results.Ok(new GibSmsBaslatDto(result.Message, result.OperationId))
                             : Results.BadRequest(new ApiHata(result.Message));
+                    }
+                    catch (EntitlementViolationException)
+                    {
+                        throw;
                     }
                     catch (Exception ex)
                     {
@@ -1080,6 +1134,10 @@ namespace Systemcel.Api.Api
                         return result.Success
                             ? Results.Ok(new ApiMesaj(result.Message))
                             : Results.BadRequest(new ApiHata(result.Message));
+                    }
+                    catch (EntitlementViolationException)
+                    {
+                        throw;
                     }
                     catch (Exception ex)
                     {
@@ -1332,6 +1390,19 @@ namespace Systemcel.Api.Api
             }
         }
 
+        private async Task EnsureBusinessFeatureAsync(string featureName)
+        {
+            if (_entitlementGuard is null || _isletmeService is null)
+                return;
+
+            var business = await _isletmeService.GetActiveAsync();
+            var entitlement = await _entitlementGuard.GetAsync(
+                business.Id,
+                business.TenantTipi,
+                CancellationToken.None);
+            _entitlementGuard.EnsureFeature(entitlement, featureName);
+        }
+
         private async Task<IResult?> RejectReadOnlyAccountantContextAsync()
         {
             if (_isletmeService is null)
@@ -1389,6 +1460,15 @@ namespace Systemcel.Api.Api
         private async Task<List<BildirimDto>> BuildNotificationsAsync()
         {
             var notifications = new List<BildirimDto>();
+
+            try
+            {
+                await AddSubscriptionReminderAsync(notifications);
+            }
+            catch
+            {
+                // Abonelik hatırlatıcısı, fatura ve cari bildirimlerinin tamamını engellememeli.
+            }
 
             if (_faturaService is null || _cariService is null)
                 return notifications;
@@ -1527,6 +1607,45 @@ namespace Systemcel.Api.Api
                 .ThenBy(x => x.baslik)
                 .Take(5)
                 .ToList();
+        }
+
+        private async Task AddSubscriptionReminderAsync(List<BildirimDto> notifications)
+        {
+            if (_dbFactory is null || _isletmeService is null || _paymentPricingService is null)
+                return;
+
+            var business = await _isletmeService.GetActiveAsync();
+            await using var db = await _dbFactory.CreateDbContextAsync();
+            var trial = await db.IsletmeDenemeleri.AsNoTracking()
+                .Where(x => x.IsletmeId == business.Id && x.HesapTipi == business.TenantTipi)
+                .Where(x => x.Durum == "Aktif" && !x.DonemSonundaIptal)
+                .OrderByDescending(x => x.BaslangicAt)
+                .FirstOrDefaultAsync();
+            if (trial is null)
+                return;
+
+            var daysRemaining = (trial.BitisAt.Date - DateTime.UtcNow.Date).Days;
+            if (daysRemaining is < 0 or > 7)
+                return;
+
+            var quote = _paymentPricingService.CreateQuote(
+                trial.PlanKodu,
+                trial.HesapTipi,
+                PaymentBillingPeriods.Monthly,
+                trial.EkMusteriKredisi);
+            var dayText = daysRemaining == 0 ? "bugün" : $"{daysRemaining} gün sonra";
+            notifications.Add(new BildirimDto
+            {
+                id = $"abonelik-deneme-{trial.Id}-{daysRemaining}",
+                tur = "abonelik",
+                onem = daysRemaining <= 3 ? "yuksek" : "orta",
+                baslik = daysRemaining == 0
+                    ? "Denemeniz bugün sona eriyor"
+                    : $"Denemenizin bitmesine {daysRemaining} gün kaldı",
+                mesaj = $"Deneme {dayText} biter. İptal etmezseniz aylık {FormatMoney(quote.NetAmount)} + {FormatMoney(quote.VatAmount)} KDV, toplam {FormatMoney(quote.TotalAmount)} tahsil edilir.",
+                aksiyon = "Plan ve iptal yolunu görüntüle",
+                url = "/app/abonelik"
+            });
         }
 
         private static bool IsInvoiceType(string? value, string expected)

@@ -31,7 +31,7 @@ import {
 import { AuthUserButton } from "../auth/AuthUserButton";
 import { AiAssistantPanel } from "./AiAssistantPanel";
 import type { UstBarDurumu } from "./chrome";
-import { jsonOku } from "./json";
+import { jsonOku, type EntitlementProblemDetail } from "./json";
 
 interface ReactWorkspaceShellProps {
   children: React.ReactNode;
@@ -299,6 +299,7 @@ export function ReactWorkspaceShell({ children, ustBar, baslik, sagAksiyon }: Re
   const [sohbetPaneliAcik, setSohbetPaneliAcik] = React.useState(false);
   const [baglamKapatiliyor, setBaglamKapatiliyor] = React.useState(false);
   const [mobilMenuAcik, setMobilMenuAcik] = React.useState(false);
+  const [planUyarisi, setPlanUyarisi] = React.useState<EntitlementProblemDetail | null>(null);
   const sohbetPanelRef = React.useRef<HTMLDivElement | null>(null);
   const bildirimPanelRef = React.useRef<HTMLDivElement | null>(null);
   const rawPath = normalizePath(window.location.pathname);
@@ -316,6 +317,21 @@ export function ReactWorkspaceShell({ children, ustBar, baslik, sagAksiyon }: Re
   React.useEffect(() => {
     const handle = window.setInterval(() => setNow(new Date()), 30_000);
     return () => window.clearInterval(handle);
+  }, []);
+
+  React.useEffect(() => {
+    const planUyarisiGoster = (event: Event) => {
+      setPlanUyarisi((event as CustomEvent<EntitlementProblemDetail>).detail);
+    };
+    const escapeIleKapat = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setPlanUyarisi(null);
+    };
+    window.addEventListener("systemcel:entitlement", planUyarisiGoster);
+    window.addEventListener("keydown", escapeIleKapat);
+    return () => {
+      window.removeEventListener("systemcel:entitlement", planUyarisiGoster);
+      window.removeEventListener("keydown", escapeIleKapat);
+    };
   }, []);
 
   React.useEffect(() => {
@@ -626,6 +642,37 @@ export function ReactWorkspaceShell({ children, ustBar, baslik, sagAksiyon }: Re
         <div className="react-shell__body">{children}</div>
         <AiAssistantPanel />
       </main>
+      {planUyarisi ? (
+        <div className="entitlement-modal-backdrop" role="presentation" onMouseDown={() => setPlanUyarisi(null)}>
+          <section
+            className="entitlement-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="entitlement-modal-title"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <span className="entitlement-modal__icon" aria-hidden="true"><AlertTriangle size={23} /></span>
+            <div className="entitlement-modal__copy">
+              <h2 id="entitlement-modal-title">
+                {planUyarisi.code === "limit_reached" ? "Plan limitine ulaştınız" : "Plan yükseltmesi gerekiyor"}
+              </h2>
+              <p>{planUyarisi.detail}</p>
+              {planUyarisi.limit != null ? (
+                <div className="entitlement-modal__usage">
+                  <span>Mevcut kullanım</span>
+                  <strong>{planUyarisi.current ?? planUyarisi.limit} / {planUyarisi.limit}</strong>
+                </div>
+              ) : null}
+            </div>
+            <div className="entitlement-modal__actions">
+              <button type="button" onClick={() => setPlanUyarisi(null)}>Şimdi değil</button>
+              <a href={`/app/abonelik${planUyarisi.suggestedPlanCode ? `?plan=${encodeURIComponent(planUyarisi.suggestedPlanCode)}` : ""}`}>
+                Planları incele
+              </a>
+            </div>
+          </section>
+        </div>
+      ) : null}
     </div>
   );
 }

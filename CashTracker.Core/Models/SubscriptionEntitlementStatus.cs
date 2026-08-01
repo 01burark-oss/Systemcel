@@ -21,6 +21,10 @@ namespace CashTracker.Core.Models
         public int? AiMesajLimiti { get; init; }
         public int? KullaniciLimiti { get; init; }
         public int? FaturaLimiti { get; init; }
+        public int? IsletmeLimiti { get; init; }
+        public int? GelirGiderIslemLimiti { get; init; }
+        public int? CariKartLimiti { get; init; }
+        public int? UrunHizmetLimiti { get; init; }
         public int? MusteriLimiti { get; init; }
         public bool BankaMutabakatiAktif { get; init; }
         public bool StokRaporAktif { get; init; }
@@ -29,6 +33,7 @@ namespace CashTracker.Core.Models
         public bool CokluParaBirimiAktif { get; init; }
         public bool ApiErisimiAktif { get; init; }
         public bool OncelikliDestekAktif { get; init; }
+        public bool GelismisDisaAktarimAktif { get; init; }
         public bool MuhasebeciPaneliAktif { get; init; }
         public bool SaltOkunur { get; init; }
         public bool OneCikmaAktif { get; init; }

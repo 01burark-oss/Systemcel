@@ -115,5 +115,7 @@ namespace CashTracker.Core.Models
         int ExpiredTrials,
         int ExpiredSubscriptions,
         int CancelledSubscriptions,
-        int GracePeriodsEnded);
+        int GracePeriodsEnded,
+        int SevenDayReminders = 0,
+        int ThreeDayReminders = 0);
 }

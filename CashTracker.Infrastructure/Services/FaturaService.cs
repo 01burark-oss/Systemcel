@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Globalization;
 using System.Linq;
 using System.Threading;
@@ -16,13 +17,23 @@ namespace CashTracker.Infrastructure.Services
     {
         private readonly IDbContextFactory<CashTrackerDbContext> _dbFactory;
         private readonly IIsletmeService _isletmeService;
+        private readonly IEntitlementGuard? _entitlementGuard;
 
         public FaturaService(
             IDbContextFactory<CashTrackerDbContext> dbFactory,
             IIsletmeService isletmeService)
+            : this(dbFactory, isletmeService, null)
+        {
+        }
+
+        public FaturaService(
+            IDbContextFactory<CashTrackerDbContext> dbFactory,
+            IIsletmeService isletmeService,
+            IEntitlementGuard? entitlementGuard)
         {
             _dbFactory = dbFactory;
             _isletmeService = isletmeService;
+            _entitlementGuard = entitlementGuard;
         }
 
         public async Task<List<Fatura>> GetAllAsync(CancellationToken ct = default)
@@ -82,6 +93,20 @@ namespace CashTracker.Infrastructure.Services
             ValidateRequest(request);
             var activeIsletmeId = await _isletmeService.GetActiveIdAsync();
             await using var db = await _dbFactory.CreateDbContextAsync(ct);
+            await using var transaction = _entitlementGuard is null
+                ? null
+                : await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
+
+            if (_entitlementGuard is not null)
+            {
+                var entitlement = await _entitlementGuard.GetAsync(activeIsletmeId, HesapTipleri.Isletme, ct);
+                _entitlementGuard.EnsureWritable(entitlement);
+                var periodStart = ResolveInvoicePeriodStart(entitlement, DateTime.UtcNow);
+                var currentCount = await db.Faturalar.CountAsync(x =>
+                    x.IsletmeId == activeIsletmeId && x.CreatedAt >= periodStart, ct);
+                _entitlementGuard.EnsureLimit(entitlement, EntitlementLimits.Invoice, currentCount);
+            }
+
             await EnsureCariExistsAsync(db, activeIsletmeId, request.CariKartId, ct);
 
             var calculated = request.Satirlar.Select(CalculateLine).ToList();
@@ -115,7 +140,17 @@ namespace CashTracker.Infrastructure.Services
             }
 
             await db.SaveChangesAsync(ct);
+            if (transaction is not null)
+                await transaction.CommitAsync(ct);
             return fatura.Id;
+        }
+
+        private static DateTime ResolveInvoicePeriodStart(SubscriptionEntitlementStatus entitlement, DateTime now)
+        {
+            if (entitlement.Kaynak == EntitlementKaynaklari.Ucretsiz)
+                return new DateTime(now.Year, now.Month, 1);
+
+            return entitlement.GecerliBaslangicAt;
         }
 
         public async Task UpdateDraftAsync(int id, FaturaCreateRequest request, CancellationToken ct = default)

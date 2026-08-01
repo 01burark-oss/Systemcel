@@ -24,14 +24,17 @@ internal sealed class SubscriptionLifecycleHostedService : BackgroundService
             {
                 var result = await _lifecycle.ReconcileAsync(DateTime.UtcNow, stoppingToken);
                 if (result.ExpiredTrials + result.ExpiredSubscriptions +
-                    result.CancelledSubscriptions + result.GracePeriodsEnded > 0)
+                    result.CancelledSubscriptions + result.GracePeriodsEnded +
+                    result.SevenDayReminders + result.ThreeDayReminders > 0)
                 {
                     _logger.LogInformation(
-                        "Subscription states reconciled. Trials={ExpiredTrials}, expired={ExpiredSubscriptions}, cancelled={CancelledSubscriptions}, graceEnded={GracePeriodsEnded}",
+                        "Subscription states reconciled. Trials={ExpiredTrials}, expired={ExpiredSubscriptions}, cancelled={CancelledSubscriptions}, graceEnded={GracePeriodsEnded}, reminder7={SevenDayReminders}, reminder3={ThreeDayReminders}",
                         result.ExpiredTrials,
                         result.ExpiredSubscriptions,
                         result.CancelledSubscriptions,
-                        result.GracePeriodsEnded);
+                        result.GracePeriodsEnded,
+                        result.SevenDayReminders,
+                        result.ThreeDayReminders);
                 }
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
