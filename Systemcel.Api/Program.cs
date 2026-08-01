@@ -312,13 +312,14 @@ if (clerkAuthenticationOptions.Enabled)
 }
 app.UseRateLimiter();
 
-app.MapGet("/api/health", () => Results.Ok(new
+app.MapGet("/api/health/live", () => Results.Ok(new
 {
     ad = "Systemcel.Api",
-    durum = "hazir",
-    veritabani = databaseOptions.Provider,
-    tarih = DateTimeOffset.Now
-}));
+    durum = "canli",
+    tarih = DateTimeOffset.UtcNow
+})).AllowAnonymous();
+app.MapGet("/api/health/ready", CheckReadinessAsync).AllowAnonymous();
+app.MapGet("/api/health", CheckReadinessAsync).AllowAnonymous();
 
 app.MapGet("/api/public/config", () => Results.Ok(new
 {
@@ -361,6 +362,43 @@ static string ResolveAppDataPath(IConfiguration configuration)
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "Systemcel",
         "Web");
+}
+
+static async Task<IResult> CheckReadinessAsync(
+    IDbContextFactory<CashTrackerDbContext> dbFactory,
+    DatabaseRuntimeOptions databaseOptions,
+    CancellationToken ct)
+{
+    try
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        if (!await db.Database.CanConnectAsync(ct))
+        {
+            return Results.Problem(
+                statusCode: StatusCodes.Status503ServiceUnavailable,
+                title: "Hizmet hazır değil",
+                detail: "Veritabanı bağlantısı kurulamadı.");
+        }
+
+        return Results.Ok(new
+        {
+            ad = "Systemcel.Api",
+            durum = "hazir",
+            veritabani = databaseOptions.Provider,
+            tarih = DateTimeOffset.UtcNow
+        });
+    }
+    catch (OperationCanceledException) when (ct.IsCancellationRequested)
+    {
+        throw;
+    }
+    catch
+    {
+        return Results.Problem(
+            statusCode: StatusCodes.Status503ServiceUnavailable,
+            title: "Hizmet hazır değil",
+            detail: "Veritabanı sağlık kontrolü tamamlanamadı.");
+    }
 }
 
 static DatabaseRuntimeOptions ResolveDatabaseOptions(IConfiguration configuration)

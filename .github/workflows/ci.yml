@@ -39,7 +39,29 @@ jobs:
         shell: pwsh
         run: |
           npm ci
+          npm run typecheck
+          npm test
           npm run build
+
+      - name: Install Playwright Chromium
+        working-directory: Systemcel.Web
+        shell: pwsh
+        run: npx playwright install chromium
+
+      - name: Run critical browser flows
+        working-directory: Systemcel.Web
+        shell: pwsh
+        run: npm run test:e2e
+
+      - name: Upload browser failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            Systemcel.Web/playwright-report
+            Systemcel.Web/test-results
+          if-no-files-found: ignore
 
       - name: Restore
         shell: pwsh
@@ -81,3 +103,91 @@ jobs:
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  postgres-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_DB: systemcel_ci
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: systemcel_ci_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d systemcel_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      ASPNETCORE_ENVIRONMENT: Development
+      SYSTEMCEL_CLERK_ENABLED: "false"
+      SYSTEMCEL_DATABASE_CONNECTION_STRING: Host=127.0.0.1;Port=5432;Database=systemcel_ci;Username=postgres;Password=systemcel_ci_password
+      SYSTEMCEL_APPDATA: ${{ github.workspace }}/.ci-appdata
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Restore and build API
+        run: |
+          dotnet restore ./Systemcel.Api/Systemcel.Api.csproj
+          dotnet build ./Systemcel.Api/Systemcel.Api.csproj --configuration Release --no-restore
+
+      - name: Validate and apply PostgreSQL migrations
+        run: |
+          dotnet tool install --global dotnet-ef --version 8.0.29
+          dotnet ef migrations has-pending-model-changes \
+            --project ./CashTracker.Infrastructure/CashTracker.Infrastructure.csproj \
+            --startup-project ./Systemcel.Api/Systemcel.Api.csproj \
+            --context CashTrackerDbContext \
+            --configuration Release \
+            --no-build
+          dotnet ef database update \
+            --project ./CashTracker.Infrastructure/CashTracker.Infrastructure.csproj \
+            --startup-project ./Systemcel.Api/Systemcel.Api.csproj \
+            --context CashTrackerDbContext \
+            --configuration Release \
+            --no-build
+
+      - name: Smoke API against PostgreSQL
+        shell: bash
+        run: |
+          set -euo pipefail
+          dotnet run --project ./Systemcel.Api/Systemcel.Api.csproj --configuration Release --no-build --urls http://127.0.0.1:5287 > api.log 2>&1 &
+          api_pid=$!
+          trap 'kill "$api_pid" 2>/dev/null || true' EXIT
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:5287/api/health > health.json; then
+              break
+            fi
+            sleep 1
+          done
+          curl --fail --silent http://127.0.0.1:5287/api/health | jq -e '.durum == "hazir" and .veritabani == "PostgreSql"'
+          curl --fail --silent http://127.0.0.1:5287/api/public/planlar | jq -e 'length == 5 and all(.[]; .aylikTutar > 0)'
+
+      - name: Upload API log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: postgres-api-log
+          path: api.log
+          if-no-files-found: ignore
+
+  docker-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build production image
+        run: docker build --tag systemcel-ci:${{ github.sha }} .
