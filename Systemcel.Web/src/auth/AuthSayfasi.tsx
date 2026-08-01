@@ -953,14 +953,15 @@ function SystemcelAuthForm({
               />
             </label>
 
-            <label className="auth-custom__field" htmlFor={`${formId}-password`}>
-              <span>
+            <div className="auth-custom__field">
+              <span id={`${formId}-password-label`}>
                 <ShieldCheck size={16} />
                 {copy.password}
               </span>
               <div className="auth-custom__password-wrap">
                 <input
                   id={`${formId}-password`}
+                  aria-labelledby={`${formId}-password-label`}
                   type={passwordVisible ? "text" : "password"}
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
@@ -976,7 +977,7 @@ function SystemcelAuthForm({
                   {passwordVisible ? <EyeOff size={22} /> : <Eye size={22} />}
                 </button>
               </div>
-            </label>
+            </div>
             {mode === "sign-in" ? (
               <button className="auth-custom__link-button" type="button" onClick={sifreSifirlamayaBasla}>
                 {copy.forgotLink}

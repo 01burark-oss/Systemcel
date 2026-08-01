@@ -495,14 +495,14 @@ function WorkspaceRoutes({ path }: { path: string }) {
           islemde={ustBarIslemde}
           calismaAlani={ustBar?.aktifIsletme ?? ""}
           sohbetSayisi={ustBar?.sohbet?.okunmamisMesajSayisi ?? 0}
-          onSignOut={() => {
-            const redirectUrl = "/";
+          onSignOut={async () => {
+            const redirectUrl = "/giris";
             if (auth.clerk?.signOut) {
-              auth.clerk.signOut({ redirectUrl });
+              await auth.clerk.signOut({ redirectUrl });
               return;
             }
 
-            window.location.href = redirectUrl;
+            window.location.replace(redirectUrl);
           }}
         />
       </MobileWorkspaceView>

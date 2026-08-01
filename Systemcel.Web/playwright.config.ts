@@ -36,6 +36,14 @@ export default defineConfig({
       use: { ...devices["Pixel 5"], viewport: { width: 320, height: 568 } }
     },
     {
+      name: "mobile-360",
+      use: { ...devices["Pixel 5"], viewport: { width: 360, height: 800 } }
+    },
+    {
+      name: "mobile-375",
+      use: { ...devices["Pixel 5"], viewport: { width: 375, height: 812 } }
+    },
+    {
       name: "mobile",
       use: { ...devices["Pixel 5"], viewport: { width: 390, height: 844 } }
     },
