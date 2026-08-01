@@ -11,6 +11,10 @@ using Systemcel.Api.Hubs;
 using Systemcel.Api.Import;
 using Systemcel.Api.Services;
 
+// Systemcel'in mevcut PostgreSQL semasi timestamp without time zone kullanir.
+// Npgsql veri kaynagini kurmadan once bu geriye uyumluluk sozlesmesini etkinlestir.
+AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
+
 var builder = WebApplication.CreateBuilder(args);
 builder.Logging.AddFilter("System.Net.Http.HttpClient.Telegram", LogLevel.None);
 builder.Logging.AddFilter("System.Net.Http.HttpClient.DeepSeek", LogLevel.Warning);

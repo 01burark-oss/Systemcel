@@ -34,6 +34,7 @@ public sealed class PaymentLifecycleIntegrationTests
         await using var db = fixture.Factory.CreateDbContext();
         Assert.Equal(1, await db.OdemeIslemleri.CountAsync());
         Assert.Equal(1, await db.AbonelikOnaylari.CountAsync());
+        Assert.Equal(DateTimeKind.Unspecified, (await db.OdemeIslemleri.SingleAsync()).CreatedAt.Kind);
         var consent = await db.AbonelikOnaylari.SingleAsync();
         Assert.NotEmpty(consent.MetinHash);
         Assert.NotEmpty(consent.IstemciIpHash);

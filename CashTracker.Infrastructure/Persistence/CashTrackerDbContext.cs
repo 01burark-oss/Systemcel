@@ -5,6 +5,14 @@ namespace CashTracker.Infrastructure.Persistence
 {
     public sealed class CashTrackerDbContext : DbContext
     {
+        static CashTrackerDbContext()
+        {
+            // Mevcut Systemcel semasi bilincli olarak "timestamp without time zone" kullanir.
+            // Npgsql 6+ UTC DateTime degerlerini bu tipe varsayilan olarak reddettigi icin,
+            // tum istemcilerde ayni legacy sema sozlesmesini context olusmadan once etkinlestir.
+            AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
+        }
+
         public CashTrackerDbContext(DbContextOptions<CashTrackerDbContext> options) : base(options) { }
 
         public DbSet<Kasa> Kasalar => Set<Kasa>();
@@ -38,6 +46,32 @@ namespace CashTracker.Infrastructure.Persistence
         public DbSet<BelgeDosya> BelgeDosyalari => Set<BelgeDosya>();
         public DbSet<GibPortalAyar> GibPortalAyarlari => Set<GibPortalAyar>();
         public DbSet<GibPortalIslemLog> GibPortalIslemLoglari => Set<GibPortalIslemLog>();
+
+        public override int SaveChanges()
+        {
+            NormalizeTimestampWithoutTimeZoneValues();
+            return base.SaveChanges();
+        }
+
+        public override int SaveChanges(bool acceptAllChangesOnSuccess)
+        {
+            NormalizeTimestampWithoutTimeZoneValues();
+            return base.SaveChanges(acceptAllChangesOnSuccess);
+        }
+
+        public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+        {
+            NormalizeTimestampWithoutTimeZoneValues();
+            return base.SaveChangesAsync(cancellationToken);
+        }
+
+        public override Task<int> SaveChangesAsync(
+            bool acceptAllChangesOnSuccess,
+            CancellationToken cancellationToken = default)
+        {
+            NormalizeTimestampWithoutTimeZoneValues();
+            return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+        }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -489,6 +523,26 @@ namespace CashTracker.Infrastructure.Persistence
                     var clrType = Nullable.GetUnderlyingType(property.ClrType) ?? property.ClrType;
                     if (clrType == typeof(DateTime))
                         property.SetColumnType("timestamp without time zone");
+                }
+            }
+        }
+
+        private void NormalizeTimestampWithoutTimeZoneValues()
+        {
+            foreach (var entry in ChangeTracker.Entries()
+                         .Where(x => x.State is EntityState.Added or EntityState.Modified))
+            {
+                foreach (var property in entry.Properties)
+                {
+                    var clrType = Nullable.GetUnderlyingType(property.Metadata.ClrType) ?? property.Metadata.ClrType;
+                    if (clrType != typeof(DateTime) ||
+                        property.CurrentValue is not DateTime value ||
+                        value.Kind == DateTimeKind.Unspecified)
+                    {
+                        continue;
+                    }
+
+                    property.CurrentValue = DateTime.SpecifyKind(value, DateTimeKind.Unspecified);
                 }
             }
         }
