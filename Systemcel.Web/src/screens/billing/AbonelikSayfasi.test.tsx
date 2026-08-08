@@ -1,6 +1,6 @@
-import { render, screen } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { jsonOku } from "../../shared/json";
 import { AbonelikSayfasi, resolvePaymentResult, resolvePrimaryCta } from "./AbonelikSayfasi";
 import type { AbonelikOzeti, OdemeKaydi, PublicPlan, TeklifYaniti } from "./types";
@@ -83,6 +83,7 @@ const quote: TeklifYaniti = {
 };
 
 describe("AbonelikSayfasi", () => {
+  afterEach(() => cleanup());
   beforeEach(() => {
     window.history.replaceState({}, "", "/app/abonelik?plan=muhasebeci_standart&credits=2");
     vi.mocked(jsonOku).mockImplementation(async (url) => {
@@ -107,7 +108,7 @@ describe("AbonelikSayfasi", () => {
 
     const continueButton = screen.getByRole("button", { name: "Kartı güvenle ekle" });
     expect(continueButton).toBeDisabled();
-    await user.click(screen.getByRole("checkbox"));
+    await user.click(await screen.findByRole("checkbox"));
     expect(continueButton).toBeEnabled();
   });
 
@@ -123,6 +124,24 @@ describe("AbonelikSayfasi", () => {
     expect(resolvePaymentResult("basarili", [payment("Basarili")])?.title).toBe("Ödeme doğrulandı");
     expect(resolvePaymentResult("basarili", [payment("Basarisiz")])?.tone).toBe("danger");
     expect(resolvePaymentResult("iptal", [])?.title).toBe("Checkout iptal edildi");
+  });
+
+  it("sends only one checkout request for same-task repeated clicks", async () => {
+    const user = userEvent.setup();
+    vi.mocked(jsonOku).mockImplementation(async (url) => {
+      if (url === "/api/abonelik/ozet") return summary;
+      if (url === "/api/public/planlar") return plans;
+      if (url.startsWith("/api/abonelik/teklif?")) return quote;
+      if (url === "/api/abonelik/checkout") return new Promise(() => undefined);
+      throw new Error(`Unexpected request: ${url}`);
+    });
+    render(<AbonelikSayfasi />);
+    await screen.findByRole("heading", { name: "Planınızı seçin ve koşulları onaylayın" });
+    await user.click(await screen.findByRole("checkbox"));
+    const button = screen.getByRole("button", { name: "Kartı güvenle ekle" });
+    button.click();
+    button.click();
+    await waitFor(() => expect(vi.mocked(jsonOku).mock.calls.filter(([url]) => url === "/api/abonelik/checkout")).toHaveLength(1));
   });
 });
 

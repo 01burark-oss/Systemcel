@@ -122,6 +122,7 @@ export function AbonelikSayfasi() {
   const modalRef = React.useRef<HTMLElement | null>(null);
   const oncekiOdakRef = React.useRef<HTMLElement | null>(null);
   const islemdeRef = React.useRef(false);
+  const checkoutIslemdeRef = React.useRef(false);
 
   React.useEffect(() => {
     islemdeRef.current = islemde;
@@ -214,7 +215,8 @@ export function AbonelikSayfasi() {
   };
 
   const checkoutBaslat = async () => {
-    if (!onaylandi || !teklif) return;
+    if (!onaylandi || !teklif || checkoutIslemdeRef.current) return;
+    checkoutIslemdeRef.current = true;
     try {
       setIslemde(true);
       setHata("");
@@ -234,6 +236,7 @@ export function AbonelikSayfasi() {
     } catch (error) {
       setHata(error instanceof Error ? error.message : "Ödeme adımı başlatılamadı.");
       setIslemde(false);
+      checkoutIslemdeRef.current = false;
     }
   };
 
@@ -261,6 +264,7 @@ export function AbonelikSayfasi() {
   const primaryCta = resolvePrimaryCta(ozet);
 
   const planModaliniAc = () => {
+    checkoutIslemdeRef.current = false;
     idempotencyRef.current = yeniIdempotencyKey();
     setOnaylandi(false);
     setModal("onay");
