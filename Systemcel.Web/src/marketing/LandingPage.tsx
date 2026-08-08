@@ -1,4 +1,5 @@
 import React from "react";
+import { buildSubscriptionStartHref } from "../shared/subscriptionIntent";
 import {
   ArrowRight,
   Bot,
@@ -331,13 +332,11 @@ export function LandingPage() {
   }
 
   function trialHref(planKod = "isletme_buyume") {
-    const returnUrl = `/app?trial=1&plan=${encodeURIComponent(planKod)}&billing=${billing}`;
-    return signedIn ? returnUrl : `/kayit?hesapTipi=Isletme&returnUrl=${encodeURIComponent(returnUrl)}`;
+    return buildSubscriptionStartHref({ signedIn, accountType: "Isletme", planCode: planKod, billing });
   }
 
   function accountantHref(planKod: string) {
-    const returnUrl = `/app/muhasebeci?plan=${encodeURIComponent(planKod)}&billing=${billing}`;
-    return signedIn ? returnUrl : `/kayit?hesapTipi=Muhasebeci&returnUrl=${encodeURIComponent(returnUrl)}`;
+    return buildSubscriptionStartHref({ signedIn, accountType: "Muhasebeci", planCode: planKod, billing });
   }
 
   function openTour() {

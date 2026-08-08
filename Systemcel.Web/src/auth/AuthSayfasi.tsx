@@ -21,6 +21,7 @@ import systemcelMark from "../assets/systemcel-mark.svg";
 import { legalTexts, type AuthLanguage, type LegalTextKey } from "./legalTexts";
 import { useSystemcelAuth } from "./SystemcelAuthProvider";
 import { AuthStatus } from "./AuthGate";
+import { sanitizeAppReturnUrl } from "../shared/subscriptionIntent";
 
 type AuthMode = "sign-in" | "sign-up";
 type AuthStep = "form" | "verify-sign-in" | "verify-sign-up" | "sign-up-complete" | "forgot-request" | "reset-password";
@@ -1142,12 +1143,7 @@ function getInitialLanguage(): AuthLanguage {
 
 function getSafeReturnUrl() {
   const params = new URLSearchParams(window.location.search);
-  const value = params.get("returnUrl");
-  if (!value || !value.startsWith("/") || value.startsWith("//")) {
-    return "/app";
-  }
-
-  return value;
+  return sanitizeAppReturnUrl(params.get("returnUrl"));
 }
 
 function getAccountTypeIntent(mode: AuthMode): "Isletme" | "Muhasebeci" | "" {
