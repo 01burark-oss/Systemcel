@@ -48,6 +48,8 @@ Required fail-closed variables outside Development:
 
 Run without displaying tokens or connection strings:
 
+Start the anonymous HTTP, header, CORS and plan gate with `pwsh ./scripts/Test-SystemcelStaging.ps1 -BaseUrl https://systemcel.app`. Continue with the authenticated and controlled-burst checks below only after this command passes.
+
 1. `GET /api/health/live` → `200`, `durum=canli`.
 2. `GET /api/health/ready` → `200`, `durum=hazir`, `veritabani=PostgreSql`.
 3. `GET /api/public/planlar` → exactly five public paid plans and non-zero monthly prices.
