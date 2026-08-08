@@ -40,6 +40,52 @@ test("mobile sign-out blocks browser-back access to the workspace", async ({ pag
   await expect(page.getByRole("button", { name: "Çıkış yap" })).toHaveCount(0);
 });
 
+test("every mobile workspace route keeps an accessible sign-out path", async ({ page, viewport }) => {
+  test.skip(!viewport || viewport.width > 430, "Mobile regression matrix only");
+  await mockClerk(page, true);
+  await mockWorkspace(page);
+
+  const dedicatedMobileRoutes = new Set(["/app/sohbetler", "/app/muhasebeciler", "/app/abonelik"]);
+  const routes = [
+    "/app",
+    "/app/gelir-gider",
+    "/app/hizli-satis",
+    "/app/cari-hesaplar",
+    "/app/urun-stok",
+    "/app/faturalar",
+    "/app/tahsilat-odeme",
+    "/app/raporlar",
+    "/app/muhasebeci",
+    "/app/yonetim/muhasebeci-basvurulari",
+    "/app/muhasebeciler",
+    "/app/sohbetler",
+    "/app/gib-portal",
+    "/app/abonelik",
+    "/app/ayarlar"
+  ];
+
+  for (const route of routes) {
+    await page.goto(route);
+    if (dedicatedMobileRoutes.has(route)) {
+      const accountMenu = page.getByRole("button", { name: "Hesap ve çıkış menüsü" });
+      await expect(accountMenu).toBeVisible();
+      await accountMenu.click();
+      await expect(page.getByRole("menuitem", { name: "Çıkış yap" })).toBeVisible();
+      await page.keyboard.press("Escape");
+    } else {
+      await expect(page.getByRole("button", { name: "Çıkış yap" })).toBeVisible();
+    }
+
+    const overflow = await page.evaluate(() => ({
+      viewport: window.innerWidth,
+      document: document.documentElement.scrollWidth,
+      body: document.body.scrollWidth
+    }));
+    expect(overflow.document, `${route} document overflow`).toBeLessThanOrEqual(overflow.viewport);
+    expect(overflow.body, `${route} body overflow`).toBeLessThanOrEqual(overflow.viewport);
+  }
+});
+
 async function mockClerk(page: Page, signedIn: boolean) {
   await page.route("**/api/public/config", (route) => json(route, {
     clerk: {
@@ -88,6 +134,21 @@ async function mockClerk(page: Page, signedIn: boolean) {
 }
 
 async function mockWorkspace(page: Page) {
+  await page.route("**/hubs/muhasebeci-sohbet/**", (route) => route.abort());
+  await page.route("**/api/ekran/sohbetler?**", (route) => json(route, {
+    sohbetler: [],
+    okunmamisMesajSayisi: 0
+  }));
+  await page.route("**/api/ekran/muhasebeciler", (route) => json(route, {
+    mesaj: "",
+    profiller: []
+  }));
+  await page.route("**/api/abonelik/ozet", (route) => route.fulfill({
+    status: 503,
+    contentType: "application/json",
+    body: JSON.stringify({ mesaj: "E2E mobil rota testi" })
+  }));
+  await page.route("**/api/public/planlar", (route) => json(route, []));
   await page.route("**/api/ekran/ust-bar", (route) => json(route, {
     aktifIsletmeId: 42,
     aktifIsletme: "Örnek İşletme",
