@@ -1,5 +1,6 @@
 using System.IO.Compression;
 using CashTracker.Core.Entities;
+using CashTracker.Core.Models;
 using CashTracker.Core.Services;
 using CashTracker.Infrastructure.Persistence;
 using CashTracker.Infrastructure.Security;
@@ -176,6 +177,57 @@ public sealed class SecurityHardeningTests
 
         try { Directory.Delete(root, true); } catch { }
         try { File.Delete(outside); } catch { }
+    }
+
+    [Fact]
+    public async Task ConversationArchive_RapidCycleKeepsSingleLatestParticipantState()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"systemcel_archive_cycle_{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+        var dbPath = Path.Combine(root, "archive.db");
+        var options = new DbContextOptionsBuilder<CashTrackerDbContext>()
+            .UseSqlite($"Data Source={dbPath}")
+            .Options;
+        var factory = new SingleDbContextFactory(options);
+        int conversationId;
+
+        await using (var db = new CashTrackerDbContext(options))
+        {
+            await db.Database.EnsureCreatedAsync();
+            db.Isletmeler.AddRange(Business(1, "Accountant", "Muhasebeci"), Business(2, "Customer", "Isletme"));
+            var conversation = new MuhasebeciSohbet
+            {
+                MuhasebeciIsletmeId = 1,
+                MusteriIsletmeId = 2,
+                Konu = "Archive cycle"
+            };
+            db.MuhasebeciSohbetleri.Add(conversation);
+            await db.SaveChangesAsync();
+            conversationId = conversation.Id;
+        }
+
+        var service = new MuhasebeciSohbetMerkeziService(
+            factory,
+            new FakeIsletmeService { Active = Business(2, "Customer", "Isletme") },
+            new MuhasebeciSohbetStorageOptions { AppDataPath = root });
+
+        Assert.True((await service.ArsivleAsync(conversationId, new MuhasebeciSohbetArsivRequest { Arsivlendi = true })).Arsivlendi);
+        Assert.False((await service.ArsivleAsync(conversationId, new MuhasebeciSohbetArsivRequest { Arsivlendi = false })).Arsivlendi);
+        Assert.True((await service.ArsivleAsync(conversationId, new MuhasebeciSohbetArsivRequest { Arsivlendi = true })).Arsivlendi);
+
+        var active = await service.GetSohbetlerAsync();
+        var includingArchived = await service.GetSohbetlerAsync(includeArchived: true);
+        Assert.DoesNotContain(active.Sohbetler, x => x.Id == conversationId);
+        Assert.Single(includingArchived.Sohbetler, x => x.Id == conversationId && x.Arsivlendi);
+
+        await using (var db = new CashTrackerDbContext(options))
+        {
+            var state = await db.MuhasebeciSohbetKatilimciDurumlari
+                .SingleAsync(x => x.SohbetId == conversationId && x.IsletmeId == 2);
+            Assert.True(state.Arsivlendi);
+        }
+
+        try { Directory.Delete(root, recursive: true); } catch { }
     }
 
     [Fact]

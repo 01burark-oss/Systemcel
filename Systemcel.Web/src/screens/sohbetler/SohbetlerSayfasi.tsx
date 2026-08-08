@@ -154,7 +154,9 @@ export function SohbetlerSayfasi({ mobileMode = false, ustBar, onUstBarYenile }:
   const messagesAtBottomRef = React.useRef(true);
   const onUstBarYenileRef = React.useRef(onUstBarYenile);
   const listeIstekSirasiRef = React.useRef(0);
+  const sohbetDurumSirasiRef = React.useRef(0);
   const mesajYuklemeRef = React.useRef<Map<number, Promise<void>>>(new Map());
+  const arsivIslemdeRef = React.useRef(false);
   const mediaRecorderRef = React.useRef<MediaRecorder | null>(null);
   const mediaStreamRef = React.useRef<MediaStream | null>(null);
   const audioChunksRef = React.useRef<Blob[]>([]);
@@ -253,6 +255,7 @@ export function SohbetlerSayfasi({ mobileMode = false, ustBar, onUstBarYenile }:
     if (ongoing)
       return ongoing;
 
+    const durumSirasi = sohbetDurumSirasiRef.current;
     const request = (async () => {
       if (yuklemeGoster)
         setMesajYukleniyor(true);
@@ -261,7 +264,8 @@ export function SohbetlerSayfasi({ mobileMode = false, ustBar, onUstBarYenile }:
         const data = await jsonOku<MesajSayfasi>(`/api/ekran/sohbetler/${sohbetId}/mesajlar?limit=${PAGE_SIZE}`);
         if (selectedRef.current !== sohbetId)
           return;
-        setAktifSohbet(data.sohbet);
+        if (durumSirasi === sohbetDurumSirasiRef.current)
+          setAktifSohbet(data.sohbet);
         setMesajlar(data.mesajlar);
         setHasMore(data.hasMore);
         setNextBeforeId(data.nextBeforeId ?? null);
@@ -467,17 +471,23 @@ export function SohbetlerSayfasi({ mobileMode = false, ustBar, onUstBarYenile }:
   }
 
   async function arsivle() {
-    if (!aktifSohbetId || !aktifSohbet || arsivIslemde)
+    if (!aktifSohbetId || !aktifSohbet || arsivIslemdeRef.current)
       return;
 
+    const sohbetId = aktifSohbetId;
+    const hedefArsivDurumu = !aktifSohbet.arsivlendi;
+    arsivIslemdeRef.current = true;
+    sohbetDurumSirasiRef.current += 1;
+    listeIstekSirasiRef.current += 1;
     setArsivIslemde(true);
     setHata("");
     try {
-      const updated = await jsonOku<SohbetOzet>(`/api/ekran/sohbetler/${aktifSohbetId}/arsiv`, {
+      const updated = await jsonOku<SohbetOzet>(`/api/ekran/sohbetler/${sohbetId}/arsiv`, {
         method: "PUT",
-        body: JSON.stringify({ arsivlendi: !aktifSohbet.arsivlendi })
+        body: JSON.stringify({ arsivlendi: hedefArsivDurumu })
       });
-      const mevcutGorunumdeKalacak = includeArchived ? updated.arsivlendi : !updated.arsivlendi;
+      sohbetDurumSirasiRef.current += 1;
+      const mevcutGorunumdeKalacak = includeArchivedRef.current ? updated.arsivlendi : !updated.arsivlendi;
       if (!mevcutGorunumdeKalacak) {
         selectedRef.current = 0;
         setAktifSohbetId(0);
@@ -488,8 +498,10 @@ export function SohbetlerSayfasi({ mobileMode = false, ustBar, onUstBarYenile }:
       }
       await listeYukle();
     } catch (error) {
+      sohbetDurumSirasiRef.current += 1;
       setHata(error instanceof Error ? error.message : "Arşiv durumu değiştirilemedi.");
     } finally {
+      arsivIslemdeRef.current = false;
       setArsivIslemde(false);
     }
   }
