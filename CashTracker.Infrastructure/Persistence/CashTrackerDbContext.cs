@@ -47,6 +47,7 @@ namespace CashTracker.Infrastructure.Persistence
         public DbSet<GibPortalAyar> GibPortalAyarlari => Set<GibPortalAyar>();
         public DbSet<GibPortalIslemLog> GibPortalIslemLoglari => Set<GibPortalIslemLog>();
         public DbSet<DesktopImportCode> DesktopImportKodlari => Set<DesktopImportCode>();
+        public DbSet<YonetimDenetimKaydi> YonetimDenetimKayitlari => Set<YonetimDenetimKaydi>();
 
         public override int SaveChanges()
         {
@@ -289,6 +290,20 @@ namespace CashTracker.Infrastructure.Persistence
                 e.HasIndex(x => x.IsletmeId);
                 e.HasIndex(x => new { x.IsletmeId, x.HesapTipi }).IsUnique();
                 e.HasIndex(x => x.Durum);
+            });
+
+            modelBuilder.Entity<YonetimDenetimKaydi>(e =>
+            {
+                e.ToTable("YonetimDenetimKaydi");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.AktorProviderKullaniciId).IsRequired();
+                e.Property(x => x.Islem).IsRequired();
+                e.Property(x => x.KaynakTuru).IsRequired();
+                e.Property(x => x.OncekiDeger).IsRequired();
+                e.Property(x => x.YeniDeger).IsRequired();
+                e.Property(x => x.Gerekce).IsRequired();
+                e.HasIndex(x => x.IsletmeId);
+                e.HasIndex(x => x.CreatedAt);
             });
 
             modelBuilder.Entity<AbonelikOnayi>(e =>

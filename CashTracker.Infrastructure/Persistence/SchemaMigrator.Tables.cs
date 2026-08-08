@@ -766,6 +766,19 @@ WHERE Id NOT IN (
     FROM IsletmeDeneme
     GROUP BY IsletmeId, HesapTipi
 );");
+
+            db.Database.ExecuteSqlRaw(@"
+CREATE TABLE IF NOT EXISTS YonetimDenetimKaydi (
+    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+    IsletmeId INTEGER NOT NULL,
+    AktorProviderKullaniciId TEXT NOT NULL DEFAULT '',
+    Islem TEXT NOT NULL DEFAULT '',
+    KaynakTuru TEXT NOT NULL DEFAULT '',
+    OncekiDeger TEXT NOT NULL DEFAULT '',
+    YeniDeger TEXT NOT NULL DEFAULT '',
+    Gerekce TEXT NOT NULL DEFAULT '',
+    CreatedAt TEXT NOT NULL
+);");
             db.Database.ExecuteSqlRaw("CREATE UNIQUE INDEX IF NOT EXISTS IX_IsletmeDeneme_IsletmeId_HesapTipi ON IsletmeDeneme(IsletmeId, HesapTipi);");
             db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS IX_IsletmeDeneme_Durum ON IsletmeDeneme(Durum);");
             db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS IX_AbonelikOnayi_IsletmeId ON AbonelikOnayi(IsletmeId);");
@@ -783,6 +796,8 @@ WHERE Id NOT IN (
             db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS IX_IsletmeEntitlement_SponsorMuhasebeciIsletmeId ON IsletmeEntitlement(SponsorMuhasebeciIsletmeId);");
             db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS IX_AiKullanimDonemi_IsletmeId ON AiKullanimDonemi(IsletmeId);");
             db.Database.ExecuteSqlRaw("CREATE UNIQUE INDEX IF NOT EXISTS IX_AiKullanimDonemi_IsletmeId_DonemAnahtari ON AiKullanimDonemi(IsletmeId, DonemAnahtari);");
+            db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS IX_YonetimDenetimKaydi_IsletmeId ON YonetimDenetimKaydi(IsletmeId);");
+            db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS IX_YonetimDenetimKaydi_CreatedAt ON YonetimDenetimKaydi(CreatedAt);");
             db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS IX_CariKart_IsletmeId ON CariKart(IsletmeId);");
             db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS IX_CariKart_IsletmeId_Unvan ON CariKart(IsletmeId, Unvan);");
             db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS IX_CariKart_IsletmeId_VergiNoTc ON CariKart(IsletmeId, VergiNoTc);");

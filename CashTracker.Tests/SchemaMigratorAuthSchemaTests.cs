@@ -34,6 +34,7 @@ namespace CashTracker.Tests
                 Assert.True(TableExists(conn, "OdemeOlayi"));
                 Assert.True(TableExists(conn, "IsletmeEntitlement"));
                 Assert.True(TableExists(conn, "AiKullanimDonemi"));
+                Assert.True(TableExists(conn, "YonetimDenetimKaydi"));
                 Assert.True(ColumnExists(conn, "Isletme", "TenantTipi"));
                 Assert.True(ColumnExists(conn, "Isletme", "ClerkOrganizationId"));
                 Assert.True(ColumnExists(conn, "Abonelik", "FaturalamaDonemi"));
@@ -53,6 +54,8 @@ namespace CashTracker.Tests
                 Assert.True(IndexExists(conn, "IX_AbonelikOnayi_IsletmeId_CheckoutAnahtari"));
                 Assert.True(IndexExists(conn, "IX_OdemeIslemi_IsletmeId_CheckoutAnahtari"));
                 Assert.True(IndexExists(conn, "IX_OdemeOlayi_OdemeSaglayici_OlayId"));
+                Assert.True(IndexExists(conn, "IX_YonetimDenetimKaydi_IsletmeId"));
+                Assert.True(IndexExists(conn, "IX_YonetimDenetimKaydi_CreatedAt"));
             }
             finally
             {

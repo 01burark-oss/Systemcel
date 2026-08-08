@@ -8,6 +8,7 @@ using CashTracker.Core.Models;
 using CashTracker.Core.Services;
 using CashTracker.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 
 namespace CashTracker.Infrastructure.Services
 {
@@ -245,6 +246,52 @@ namespace CashTracker.Infrastructure.Services
                 }).ToList()
             };
         }
+
+        public async Task<EntitlementOverrideResult> ApplyEntitlementOverrideAsync(int isletmeId, EntitlementOverrideRequest request, CancellationToken ct = default)
+        {
+            RequireAdmin();
+            if (string.IsNullOrWhiteSpace(request.Gerekce) || request.Gerekce.Trim().Length < 8)
+                throw new ArgumentException("Manuel hak degisikligi icin en az 8 karakterlik gerekce zorunludur.");
+            var requestedPlan = SubscriptionPlanCatalog.Plans.SingleOrDefault(x => string.Equals(x.Kod, request.PlanKodu, StringComparison.OrdinalIgnoreCase));
+            if (requestedPlan is null)
+                throw new ArgumentException("Gecersiz plan kodu.");
+            if (request.KullaniciLimiti < 1 || request.MusteriLimiti < 0 || request.AiMesajLimiti < 0)
+                throw new ArgumentException("Hak limitleri negatif olamaz; kullanici limiti en az 1 olmalidir.");
+
+            await using var db = await _dbFactory.CreateDbContextAsync(ct);
+            var business = await db.Isletmeler.SingleOrDefaultAsync(x => x.Id == isletmeId, ct)
+                ?? throw new InvalidOperationException("Isletme bulunamadi.");
+            if (!string.Equals(requestedPlan.HesapTipi, business.TenantTipi, StringComparison.OrdinalIgnoreCase))
+                throw new ArgumentException("Plan kodu isletmenin hesap tipiyle uyumlu degildir.");
+            var row = await db.IsletmeEntitlementlari.SingleOrDefaultAsync(x => x.IsletmeId == isletmeId, ct);
+            var before = row is null ? null : AuditValue(row);
+            row ??= new IsletmeEntitlement { IsletmeId = isletmeId, GecerliBaslangicAt = DateTime.UtcNow };
+            if (row.Id == 0) db.IsletmeEntitlementlari.Add(row);
+            row.PlanKodu = request.PlanKodu.Trim();
+            row.Kaynak = "YoneticiOverride";
+            row.AiAktif = request.AiAktif;
+            row.AiMesajLimiti = request.AiMesajLimiti;
+            row.KullaniciLimiti = request.KullaniciLimiti;
+            row.MusteriLimiti = request.MusteriLimiti;
+            row.UpdatedAt = DateTime.UtcNow;
+            var identity = _currentUserContext.GetCurrentUser()!;
+            var audit = new YonetimDenetimKaydi
+            {
+                IsletmeId = isletmeId,
+                AktorProviderKullaniciId = identity.ProviderUserId,
+                Islem = "EntitlementOverride",
+                KaynakTuru = nameof(IsletmeEntitlement),
+                OncekiDeger = JsonSerializer.Serialize(before),
+                YeniDeger = JsonSerializer.Serialize(AuditValue(row)),
+                Gerekce = request.Gerekce.Trim(),
+                CreatedAt = DateTime.UtcNow
+            };
+            db.YonetimDenetimKayitlari.Add(audit);
+            await db.SaveChangesAsync(ct);
+            return new EntitlementOverrideResult { IsletmeId = isletmeId, DenetimKaydiId = audit.Id, PlanKodu = row.PlanKodu, KullaniciLimiti = row.KullaniciLimiti, MusteriLimiti = row.MusteriLimiti };
+        }
+
+        private static object AuditValue(IsletmeEntitlement row) => new { row.PlanKodu, row.Kaynak, row.AiAktif, row.AiMesajLimiti, row.KullaniciLimiti, row.MusteriLimiti, row.GecerliBaslangicAt, row.GecerliBitisAt };
 
         private static string MaskReference(string? value)
         {

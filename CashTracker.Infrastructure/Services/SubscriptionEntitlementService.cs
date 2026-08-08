@@ -47,6 +47,18 @@ namespace CashTracker.Infrastructure.Services
             var current = now ?? DateTime.UtcNow;
 
             await using var db = await _dbFactory.CreateDbContextAsync(ct);
+            var manualOverride = await FindActiveManualOverrideAsync(db, isletmeId, current, ct);
+            if (manualOverride is not null)
+            {
+                return BuildIsletmeStatus(
+                    isletmeId,
+                    manualOverride.PlanKodu,
+                    manualOverride.Kaynak,
+                    manualOverride.GecerliBaslangicAt,
+                    manualOverride.GecerliBitisAt,
+                    manualOverride.SponsorMuhasebeciIsletmeId,
+                    entitlementOverride: manualOverride);
+            }
             var abonelikler = await db.Abonelikler
                 .AsNoTracking()
                 .Where(x => x.IsletmeId == isletmeId)
@@ -136,6 +148,28 @@ namespace CashTracker.Infrastructure.Services
                     .Where(x => x.MuhasebeciIsletmeId == muhasebeciIsletmeId)
                     .ToListAsync(ct))
                 .Count(x => IsActiveMuhasebeciMusteri(x, current));
+
+            var manualOverride = await FindActiveManualOverrideAsync(db, muhasebeciIsletmeId, current, ct);
+            if (manualOverride is not null)
+            {
+                var manualPlan = GetPlanDefinition(manualOverride.PlanKodu);
+                return BuildMuhasebeciStatus(
+                    muhasebeciIsletmeId,
+                    manualOverride.PlanKodu,
+                    manualOverride.GecerliBaslangicAt,
+                    manualOverride.GecerliBitisAt,
+                    aktifMusteriSayisi,
+                    0,
+                    manualPlan.AylikTutar,
+                    false,
+                    manualPlan.AylikTutar,
+                    "Aylik",
+                    manualPlan.AylikTutar,
+                    "TRY",
+                    manualOverride.Kaynak,
+                    false,
+                    manualOverride);
+            }
 
             var aktifPlan = abonelikler
                 .Where(x => IsActiveSubscription(x, current))
@@ -238,6 +272,19 @@ namespace CashTracker.Infrastructure.Services
             return aktifIliskiler.FirstOrDefault(x => proSponsorIds.Contains(x.MuhasebeciIsletmeId));
         }
 
+        private static Task<IsletmeEntitlement?> FindActiveManualOverrideAsync(
+            CashTrackerDbContext db,
+            int isletmeId,
+            DateTime current,
+            CancellationToken ct)
+        {
+            return db.IsletmeEntitlementlari.AsNoTracking().SingleOrDefaultAsync(x =>
+                x.IsletmeId == isletmeId &&
+                x.Kaynak == "YoneticiOverride" &&
+                x.GecerliBaslangicAt <= current &&
+                (x.GecerliBitisAt == null || x.GecerliBitisAt >= current), ct);
+        }
+
         private static SubscriptionEntitlementStatus BuildIsletmeStatus(
             int isletmeId,
             string planKodu,
@@ -247,7 +294,8 @@ namespace CashTracker.Infrastructure.Services
             int? sponsorMuhasebeciIsletmeId,
             string paraBirimi = "TRY",
             string faturalamaDonemi = "Aylik",
-            decimal donemTutari = 0)
+            decimal donemTutari = 0,
+            IsletmeEntitlement? entitlementOverride = null)
         {
             var plan = GetPlanDefinition(planKodu);
             var paidBusinessFeatures = !StringEquals(plan.Kod, PlanKodlari.IsletmeUcretsiz);
@@ -267,15 +315,15 @@ namespace CashTracker.Infrastructure.Services
                 OcrAktif = paidBusinessFeatures,
                 GibAktif = paidBusinessFeatures,
                 TelegramAktif = paidBusinessFeatures,
-                AiAktif = paidBusinessFeatures,
-                AiMesajLimiti = plan.AiMesajLimiti,
-                KullaniciLimiti = plan.KullaniciLimiti,
+                AiAktif = entitlementOverride?.AiAktif ?? paidBusinessFeatures,
+                AiMesajLimiti = entitlementOverride?.AiMesajLimiti ?? plan.AiMesajLimiti,
+                KullaniciLimiti = entitlementOverride?.KullaniciLimiti ?? plan.KullaniciLimiti,
                 FaturaLimiti = plan.FaturaLimiti,
                 IsletmeLimiti = plan.IsletmeLimiti,
                 GelirGiderIslemLimiti = plan.GelirGiderIslemLimiti,
                 CariKartLimiti = plan.CariKartLimiti,
                 UrunHizmetLimiti = plan.UrunHizmetLimiti,
-                MusteriLimiti = plan.MusteriLimiti,
+                MusteriLimiti = entitlementOverride?.MusteriLimiti ?? plan.MusteriLimiti,
                 BankaMutabakatiAktif = plan.BankaMutabakatiAktif,
                 StokRaporAktif = plan.StokRaporAktif,
                 MuhasebeciErisimiAktif = plan.MuhasebeciErisimiAktif,
@@ -304,7 +352,8 @@ namespace CashTracker.Infrastructure.Services
             decimal donemTutari,
             string paraBirimi,
             string kaynak,
-            bool saltOkunur)
+            bool saltOkunur,
+            IsletmeEntitlement? entitlementOverride = null)
         {
             var plan = GetPlanDefinition(planKodu);
             var isPro = StringEquals(plan.Kod, PlanKodlari.MuhasebeciPro);
@@ -325,10 +374,10 @@ namespace CashTracker.Infrastructure.Services
                 FaturalamaDonemi = faturalamaDonemi,
                 DonemTutari = donemTutari,
                 ParaBirimi = paraBirimi,
-                AiAktif = aiAktif,
-                AiMesajLimiti = plan.AiMesajLimiti,
-                KullaniciLimiti = plan.KullaniciLimiti,
-                MusteriLimiti = musteriLimiti,
+                AiAktif = entitlementOverride?.AiAktif ?? aiAktif,
+                AiMesajLimiti = entitlementOverride?.AiMesajLimiti ?? plan.AiMesajLimiti,
+                KullaniciLimiti = entitlementOverride?.KullaniciLimiti ?? plan.KullaniciLimiti,
+                MusteriLimiti = entitlementOverride?.MusteriLimiti ?? musteriLimiti,
                 MuhasebeciPaneliAktif = true,
                 SaltOkunur = saltOkunur,
                 OneCikmaAktif = isPro,

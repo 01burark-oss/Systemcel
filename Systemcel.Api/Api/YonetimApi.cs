@@ -9,6 +9,13 @@ internal static class YonetimApi
 {
     public static void MapYonetimApi(this WebApplication app)
     {
+        app.MapPut("/api/ekran/yonetim/isletmeler/{isletmeId:int}/haklar", async (int isletmeId, EntitlementOverrideRequest request, ISystemcelYonetimService service, CancellationToken ct) =>
+        {
+            try { return Results.Ok(await service.ApplyEntitlementOverrideAsync(isletmeId, request, ct)); }
+            catch (UnauthorizedAccessException ex) { return Results.Json(new ApiHata(ex.Message), statusCode: StatusCodes.Status403Forbidden); }
+            catch (Exception ex) { return Results.BadRequest(new ApiHata(ex.Message)); }
+        }).RequireRateLimiting("sensitive");
+
         app.MapGet("/api/ekran/yonetim/odemeler", async (
             string? durum,
             bool? sadeceHatalar,

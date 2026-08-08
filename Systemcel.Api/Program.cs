@@ -119,6 +119,7 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddSingleton<ICurrentUserContext, HttpCurrentUserContext>();
 
 builder.Services.AddSingleton<IIsletmeService, IsletmeService>();
+builder.Services.AddSingleton<IIsletmeUyelikService, IsletmeUyelikService>();
 builder.Services.AddSingleton<IKalemTanimiService, KalemTanimiService>();
 builder.Services.AddSingleton<IKasaService, KasaService>();
 builder.Services.AddSingleton<ISummaryService, SummaryService>();
@@ -341,6 +342,7 @@ app.MapAiAssistantApi();
 app.MapMuhasebeciApi();
 app.MapSohbetMerkeziApi();
 app.MapYonetimApi();
+app.MapUyelikApi();
 var sohbetHub = app.MapHub<MuhasebeciSohbetHub>("/hubs/muhasebeci-sohbet");
 if (clerkAuthenticationOptions.Enabled)
     sohbetHub.RequireAuthorization();
