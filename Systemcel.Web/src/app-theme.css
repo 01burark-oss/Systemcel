@@ -8724,3 +8724,70 @@
     animation: none;
   }
 }
+
+/* P0 tema kapısı: marka dışı hover/focus/disabled/loading durumları eski mavi palete dönmez. */
+:root[data-theme="light"] :is(
+  .accountant-primary-link,
+  .accountant-card__action,
+  .accountant-section > button:not(.accountant-danger-button),
+  .accountant-modal__primary,
+  .settings-btn--green,
+  .gib-btn--primary
+):hover:not(:disabled) {
+  color: var(--sc-ink);
+  border-color: var(--sc-ink);
+  background: #dcff66;
+  box-shadow: none;
+}
+
+:root[data-theme="light"] :is(
+  .settings-btn--navy,
+  .accountant-toolbar button,
+  .accountant-filter-search button
+):hover:not(:disabled) {
+  color: var(--sc-paper);
+  border-color: var(--sc-ink);
+  background: #24241f;
+  box-shadow: none;
+}
+
+:root[data-theme="light"] :is(
+  .settings-btn:not(.settings-btn--navy):not(.settings-btn--green):not(.settings-btn--danger),
+  .gib-btn:not(.gib-btn--primary),
+  .gib-icon-btn
+):hover:not(:disabled) {
+  color: var(--sc-ink);
+  border-color: var(--sc-ink);
+  background: var(--sc-paper);
+  box-shadow: none;
+}
+
+:root[data-theme="light"] :is(
+  .accountant-panel,
+  .accountant-marketplace,
+  .settings-page,
+  .gib-page
+) :is(button, a, input, select, textarea):focus-visible {
+  outline: 2px solid var(--sc-ink);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 3px rgba(200, 255, 0, .3);
+}
+
+:root[data-theme="light"] :is(
+  .accountant-panel,
+  .accountant-marketplace,
+  .settings-page,
+  .gib-page
+) :is(button, input, select, textarea):disabled {
+  filter: saturate(.72);
+  opacity: .55;
+}
+
+:root[data-theme="light"] :is(
+  .accountant-panel,
+  .accountant-marketplace,
+  .settings-page,
+  .gib-page
+) :is(.spin, .loading, [aria-busy="true"]) {
+  color: currentColor;
+}
