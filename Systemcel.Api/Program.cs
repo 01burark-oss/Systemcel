@@ -137,10 +137,12 @@ builder.Services.AddSingleton<IPaymentProvider>(_ => paymentOptions.UsesFakeProv
     ? new FakePaymentProvider(paymentOptions.FakeSecret)
     : new UnconfiguredPaymentProvider());
 builder.Services.AddSingleton<ISubscriptionLifecycleService, SubscriptionLifecycleService>();
+builder.Services.AddSingleton<IPaymentReconciliationService, PaymentReconciliationService>();
 builder.Services.AddSingleton<ISubscriptionReminderSender>(_ => reminderEmailOptions.IsConfigured
     ? new SmtpSubscriptionReminderSender(reminderEmailOptions)
     : new UnconfiguredSubscriptionReminderSender());
 builder.Services.AddHostedService<SubscriptionLifecycleHostedService>();
+builder.Services.AddHostedService<PaymentReconciliationHostedService>();
 builder.Services.AddSingleton<IMuhasebeciPortalService, MuhasebeciPortalService>();
 builder.Services.AddSingleton<IMuhasebeciSohbetMerkeziService, MuhasebeciSohbetMerkeziService>();
 builder.Services.AddSingleton<ISystemcelYonetimService, SystemcelYonetimService>();

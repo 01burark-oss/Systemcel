@@ -4,14 +4,16 @@ using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Collections.Concurrent;
 using CashTracker.Core.Models;
 using CashTracker.Core.Services;
 
 namespace CashTracker.Infrastructure.Payments
 {
-    public sealed class FakePaymentProvider : IPaymentProvider
+    public sealed class FakePaymentProvider : IPaymentProvider, IPaymentReconciliationProvider
     {
         private readonly byte[] _secret;
+        private readonly ConcurrentDictionary<string, ProviderSubscriptionSnapshot> _subscriptions = new(StringComparer.Ordinal);
 
         public FakePaymentProvider(string secret)
         {
@@ -95,6 +97,19 @@ namespace CashTracker.Infrastructure.Payments
         {
             using var hmac = new HMACSHA256(_secret);
             return Convert.ToBase64String(hmac.ComputeHash(Encoding.UTF8.GetBytes(payload)));
+        }
+
+        public void SetReconciliationSubscription(ProviderSubscriptionSnapshot subscription)
+        {
+            _subscriptions[subscription.ProviderSubscriptionId] = subscription;
+        }
+
+        public Task<ProviderSubscriptionLookupResult> GetSubscriptionAsync(string providerSubscriptionId, CancellationToken ct = default)
+        {
+            ct.ThrowIfCancellationRequested();
+            return Task.FromResult(_subscriptions.TryGetValue(providerSubscriptionId, out var subscription)
+                ? new ProviderSubscriptionLookupResult(true, subscription)
+                : new ProviderSubscriptionLookupResult(false, null, "Fake saglayici icin mutabakat kaydi yapilandirilmadi."));
         }
 
         private static string ComputeSha256(string value)

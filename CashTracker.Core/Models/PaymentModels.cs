@@ -118,4 +118,23 @@ namespace CashTracker.Core.Models
         int GracePeriodsEnded,
         int SevenDayReminders = 0,
         int ThreeDayReminders = 0);
+
+    public sealed record ProviderSubscriptionSnapshot(
+        string ProviderSubscriptionId,
+        string State,
+        string PlanCode,
+        DateTime? PeriodEndAt,
+        bool CancelAtPeriodEnd);
+
+    public sealed record ProviderSubscriptionLookupResult(
+        bool Available,
+        ProviderSubscriptionSnapshot? Subscription,
+        string Error = "");
+
+    public sealed record ProviderReconciliationResult(
+        bool ProviderAvailable,
+        int CheckedSubscriptions,
+        int DiscrepancyCount,
+        int RecordedFindings,
+        string Message = "");
 }
