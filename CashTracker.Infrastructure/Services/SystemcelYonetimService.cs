@@ -160,6 +160,104 @@ namespace CashTracker.Infrastructure.Services
             return BuildDto(user, businesses, profiles);
         }
 
+        public async Task<YonetimOdemeIncelemeDto> GetOdemeIncelemeAsync(
+            string? durum = null,
+            bool sadeceHatalar = false,
+            int limit = 100,
+            CancellationToken ct = default)
+        {
+            RequireAdmin();
+            await using var db = await _dbFactory.CreateDbContextAsync(ct);
+            var normalized = durum?.Trim() ?? string.Empty;
+            var safeLimit = Math.Clamp(limit, 1, 250);
+            var paymentsQuery = db.OdemeIslemleri.AsNoTracking();
+
+            var toplam = await paymentsQuery.CountAsync(ct);
+            var basarili = await paymentsQuery.CountAsync(x => x.Durum == "Basarili" || x.Durum == "Tamamlandi", ct);
+            var hatali = await paymentsQuery.CountAsync(x => x.HataKodu != "" || x.HataMesaji != "" || x.Durum == "Basarisiz", ct);
+            var islenemeyenOlay = await db.OdemeOlaylari.AsNoTracking()
+                .CountAsync(x => x.HataMesaji != "" || x.IslenmeDurumu == "Hata", ct);
+
+            if (!string.IsNullOrWhiteSpace(normalized))
+                paymentsQuery = paymentsQuery.Where(x => x.Durum == normalized);
+            if (sadeceHatalar)
+                paymentsQuery = paymentsQuery.Where(x => x.HataKodu != "" || x.HataMesaji != "" || x.Durum == "Basarisiz");
+
+            var payments = await paymentsQuery
+                .OrderByDescending(x => x.UpdatedAt)
+                .ThenByDescending(x => x.Id)
+                .Take(safeLimit)
+                .ToListAsync(ct);
+            var businessIds = payments.Select(x => x.IsletmeId).Distinct().ToList();
+            var businesses = await db.Isletmeler.AsNoTracking()
+                .Where(x => businessIds.Contains(x.Id))
+                .ToDictionaryAsync(x => x.Id, x => x.Ad, ct);
+            var checkoutKeys = payments.Select(x => x.CheckoutAnahtari).Where(x => x != "").Distinct().ToList();
+            var events = await db.OdemeOlaylari.AsNoTracking()
+                .Where(x => checkoutKeys.Contains(x.CheckoutAnahtari))
+                .OrderByDescending(x => x.AlindiAt)
+                .ToListAsync(ct);
+            var eventsByCheckout = events.GroupBy(x => x.CheckoutAnahtari).ToDictionary(x => x.Key, x => x.ToList());
+
+            return new YonetimOdemeIncelemeDto
+            {
+                YoneticiMi = true,
+                ToplamSayisi = toplam,
+                BasariliSayisi = basarili,
+                HataSayisi = hatali,
+                IslenemeyenOlaySayisi = islenemeyenOlay,
+                Islemler = payments.Select(payment =>
+                {
+                    eventsByCheckout.TryGetValue(payment.CheckoutAnahtari, out var paymentEvents);
+                    return new YonetimOdemeIslemiDto
+                    {
+                        Id = payment.Id,
+                        IsletmeId = payment.IsletmeId,
+                        IsletmeAdi = businesses.GetValueOrDefault(payment.IsletmeId, $"Isletme #{payment.IsletmeId}"),
+                        PlanKodu = payment.PlanKodu,
+                        HesapTipi = payment.HesapTipi,
+                        IslemTipi = payment.IslemTipi,
+                        Durum = payment.Durum,
+                        OdemeSaglayici = payment.OdemeSaglayici,
+                        SaglayiciOturumReferansi = MaskReference(payment.SaglayiciOturumId),
+                        SaglayiciIslemReferansi = MaskReference(payment.SaglayiciIslemId),
+                        ToplamTutar = payment.ToplamTutar,
+                        ParaBirimi = payment.ParaBirimi,
+                        HataKodu = payment.HataKodu,
+                        HataMesaji = payment.HataMesaji,
+                        CreatedAt = payment.CreatedAt,
+                        UpdatedAt = payment.UpdatedAt,
+                        SonOlayAt = payment.SonOlayAt,
+                        Olaylar = (paymentEvents ?? new List<OdemeOlayi>()).Select(olay => new YonetimOdemeOlayiDto
+                        {
+                            Id = olay.Id,
+                            OlayId = MaskReference(olay.OlayId),
+                            OlayTipi = olay.OlayTipi,
+                            IslenmeDurumu = olay.IslenmeDurumu,
+                            SaglayiciIslemReferansi = MaskReference(olay.SaglayiciIslemId),
+                            PayloadHash = MaskHash(olay.PayloadHash),
+                            HataMesaji = olay.HataMesaji,
+                            SaglayiciAt = olay.SaglayiciAt,
+                            AlindiAt = olay.AlindiAt,
+                            IslendiAt = olay.IslendiAt
+                        }).ToList()
+                    };
+                }).ToList()
+            };
+        }
+
+        private static string MaskReference(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return string.Empty;
+            return value.Length <= 8 ? "***" : $"{value[..4]}...{value[^4..]}";
+        }
+
+        private static string MaskHash(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return string.Empty;
+            return value.Length <= 12 ? "***" : $"{value[..12]}...";
+        }
+
         private bool IsAdmin(CurrentUserIdentity? identity)
         {
             if (identity == null)

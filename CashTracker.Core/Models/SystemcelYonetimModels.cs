@@ -47,4 +47,50 @@ namespace CashTracker.Core.Models
     {
         public string Sebep { get; init; } = string.Empty;
     }
+
+    public sealed class YonetimOdemeOlayiDto
+    {
+        public int Id { get; init; }
+        public string OlayId { get; init; } = string.Empty;
+        public string OlayTipi { get; init; } = string.Empty;
+        public string IslenmeDurumu { get; init; } = string.Empty;
+        public string SaglayiciIslemReferansi { get; init; } = string.Empty;
+        public string PayloadHash { get; init; } = string.Empty;
+        public string HataMesaji { get; init; } = string.Empty;
+        public DateTime SaglayiciAt { get; init; }
+        public DateTime AlindiAt { get; init; }
+        public DateTime? IslendiAt { get; init; }
+    }
+
+    public sealed class YonetimOdemeIslemiDto
+    {
+        public int Id { get; init; }
+        public int IsletmeId { get; init; }
+        public string IsletmeAdi { get; init; } = string.Empty;
+        public string PlanKodu { get; init; } = string.Empty;
+        public string HesapTipi { get; init; } = string.Empty;
+        public string IslemTipi { get; init; } = string.Empty;
+        public string Durum { get; init; } = string.Empty;
+        public string OdemeSaglayici { get; init; } = string.Empty;
+        public string SaglayiciOturumReferansi { get; init; } = string.Empty;
+        public string SaglayiciIslemReferansi { get; init; } = string.Empty;
+        public decimal ToplamTutar { get; init; }
+        public string ParaBirimi { get; init; } = string.Empty;
+        public string HataKodu { get; init; } = string.Empty;
+        public string HataMesaji { get; init; } = string.Empty;
+        public DateTime CreatedAt { get; init; }
+        public DateTime UpdatedAt { get; init; }
+        public DateTime? SonOlayAt { get; init; }
+        public List<YonetimOdemeOlayiDto> Olaylar { get; init; } = new();
+    }
+
+    public sealed class YonetimOdemeIncelemeDto
+    {
+        public bool YoneticiMi { get; init; }
+        public int ToplamSayisi { get; init; }
+        public int BasariliSayisi { get; init; }
+        public int HataSayisi { get; init; }
+        public int IslenemeyenOlaySayisi { get; init; }
+        public List<YonetimOdemeIslemiDto> Islemler { get; init; } = new();
+    }
 }

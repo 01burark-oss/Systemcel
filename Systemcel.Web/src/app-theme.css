@@ -19,6 +19,26 @@
   --sc-shadow: 0 26px 58px -46px rgba(11, 11, 9, .68);
 }
 
+/* Payment operations console */
+.admin-subnav { display: flex; gap: .5rem; flex-wrap: wrap; }
+.admin-subnav a { border: 1px solid var(--sc-border); border-radius: 999px; color: var(--sc-muted); padding: .55rem .85rem; text-decoration: none; font-weight: 700; }
+.admin-subnav a:hover, .admin-subnav a.active { background: var(--sc-ink); border-color: var(--sc-ink); color: #fff; }
+.admin-error-filter { align-items: center; color: var(--sc-ink); display: inline-flex; font-weight: 700; gap: .45rem; white-space: nowrap; }
+.admin-error-filter input { accent-color: var(--sc-lime); }
+.admin-row-toggle { align-items: center; background: transparent; border: 1px solid var(--sc-border); border-radius: 9px; color: var(--sc-ink); display: inline-flex; justify-content: center; padding: .45rem; }
+.payment-ops__detail td { background: color-mix(in srgb, var(--sc-surface) 86%, var(--sc-lime)); }
+.payment-ops__detail-grid { display: grid; gap: 1rem; grid-template-columns: repeat(2, minmax(0, 1fr)); padding: .5rem; }
+.payment-ops__detail-grid section { border: 1px solid var(--sc-border); border-radius: 12px; display: grid; gap: .45rem; padding: .85rem; }
+.payment-ops__detail-grid h3 { color: var(--sc-ink); font-size: .82rem; margin: 0; }
+.payment-ops__detail-grid code { color: var(--sc-muted); overflow-wrap: anywhere; }
+.payment-ops__detail-grid p { color: var(--sc-muted); margin: 0; }
+.payment-ops__events { grid-column: 1 / -1; }
+.payment-ops__events article { border-top: 1px solid var(--sc-border); display: grid; gap: .35rem; padding-top: .65rem; }
+.payment-ops__events article > div { display: flex; gap: .65rem; justify-content: space-between; }
+.admin-status--Basarili, .admin-status--Tamamlandi { background: color-mix(in srgb, var(--sc-lime) 28%, white); color: var(--sc-ink); }
+.admin-status--Basarisiz, .admin-status--Hata { background: #fee2e2; color: #991b1b; }
+@media (max-width: 720px) { .payment-ops__detail-grid { grid-template-columns: 1fr; } .payment-ops__events { grid-column: auto; } }
+
 :root[data-theme="light"] :is(button, a, input, select, textarea):focus-visible {
   outline: 2px solid var(--sc-ink);
   outline-offset: 2px;

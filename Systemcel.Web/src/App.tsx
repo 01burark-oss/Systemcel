@@ -24,6 +24,7 @@ import { UrunStokSayfasi } from "./screens/urun-stok/UrunStokSayfasi";
 import { WelcomeSayfasi } from "./screens/welcome/WelcomeSayfasi";
 import { PublicContentPage } from "./marketing/PublicContentPage";
 import { MuhasebeciBasvurulariSayfasi } from "./screens/yonetim/MuhasebeciBasvurulariSayfasi";
+import { OdemeIncelemeSayfasi } from "./screens/yonetim/OdemeIncelemeSayfasi";
 import { BusinessSelector } from "./shared/BusinessSelector";
 import type { UstBarDurumu } from "./shared/chrome";
 import { jsonOku } from "./shared/json";
@@ -565,6 +566,8 @@ function WorkspaceRoutes({ path }: { path: string }) {
         <MuhasebeciPanelSayfasi onUstBarYenile={ustBarYukle} />
       ) : routePath === "/yonetim/muhasebeci-basvurulari" ? (
         <MuhasebeciBasvurulariSayfasi onUstBarYenile={ustBarYukle} />
+      ) : routePath === "/yonetim/odemeler" ? (
+        <OdemeIncelemeSayfasi />
       ) : routePath === "/muhasebeciler" ? (
         <MuhasebecilerSayfasi ustBar={ustBar} onUstBarYenile={ustBarYukle} />
       ) : routePath === "/sohbetler" ? (

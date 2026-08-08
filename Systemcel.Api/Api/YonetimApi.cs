@@ -9,6 +9,27 @@ internal static class YonetimApi
 {
     public static void MapYonetimApi(this WebApplication app)
     {
+        app.MapGet("/api/ekran/yonetim/odemeler", async (
+            string? durum,
+            bool? sadeceHatalar,
+            int? limit,
+            ISystemcelYonetimService service,
+            CancellationToken ct) =>
+        {
+            try
+            {
+                return Results.Ok(await service.GetOdemeIncelemeAsync(durum, sadeceHatalar ?? false, limit ?? 100, ct));
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Results.Json(new ApiHata(ex.Message), statusCode: StatusCodes.Status403Forbidden);
+            }
+            catch (Exception ex)
+            {
+                return Results.BadRequest(new ApiHata($"Odeme kayitlari yuklenemedi: {ex.Message}"));
+            }
+        });
+
         app.MapGet("/api/ekran/yonetim/muhasebeci-basvurulari", async (
             string? durum,
             ISystemcelYonetimService service,
