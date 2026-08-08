@@ -25,6 +25,7 @@ import type {
 import "./billing.css";
 
 type Modal = "onay" | "iptal" | null;
+type ResultTone = "success" | "danger" | "warning";
 
 const durumEtiketleri: Record<string, string> = {
   Aktif: "Aktif",
@@ -114,11 +115,8 @@ export function AbonelikSayfasi() {
   const [teklifYukleniyor, setTeklifYukleniyor] = React.useState(false);
   const [islemde, setIslemde] = React.useState(false);
   const [hata, setHata] = React.useState("");
-  const [bildirim, setBildirim] = React.useState(() => {
-    if (ilkSecim.odemeSonucu.includes("basarili")) return "Ödeme doğrulaması tamamlandı. Abonelik durumunuz güncellendi.";
-    if (ilkSecim.odemeSonucu.includes("basarisiz")) return "Ödeme doğrulanamadı. Bilgilerinizi kontrol edip yeniden deneyin.";
-    return "";
-  });
+  const [bildirim, setBildirim] = React.useState("");
+  const [odemeSonucu, setOdemeSonucu] = React.useState(ilkSecim.odemeSonucu);
   const idempotencyRef = React.useRef(yeniIdempotencyKey());
   const modalBaslikRef = React.useRef<HTMLHeadingElement | null>(null);
   const modalRef = React.useRef<HTMLElement | null>(null);
@@ -259,6 +257,8 @@ export function AbonelikSayfasi() {
   const planTutari = ozet?.haklar.donemTutari ?? 0;
   const denemeSonaErdi = ozet?.deneme?.durum === "SonaErdi" || ozet?.deneme?.durum === "IptalEdildi";
   const odemeDuzeltmeGerekli = ozet?.abonelik?.durum === "OdemeBasarisiz";
+  const resultView = resolvePaymentResult(odemeSonucu, ozet?.odemeler ?? []);
+  const primaryCta = resolvePrimaryCta(ozet);
 
   const planModaliniAc = () => {
     idempotencyRef.current = yeniIdempotencyKey();
@@ -282,9 +282,23 @@ export function AbonelikSayfasi() {
         </button>
       </header>
 
+      {resultView ? (
+        <section className={`billing-result billing-result--${resultView.tone}`} role={resultView.tone === "danger" ? "alert" : "status"} aria-label="Checkout sonucu">
+          <span>{resultView.tone === "success" ? <CheckCircle2 size={24} /> : <AlertCircle size={24} />}</span>
+          <div><strong>{resultView.title}</strong><p>{resultView.message}</p></div>
+          {resultView.retry ? <button className="billing-button billing-button--primary" type="button" onClick={planModaliniAc}>Yeniden dene</button> : null}
+          <button className="billing-result__close" type="button" onClick={() => {
+            setOdemeSonucu("");
+            const url = new URL(window.location.href);
+            url.searchParams.delete("odeme");
+            window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
+          }} aria-label="Checkout sonucunu kapat"><X size={17} /></button>
+        </section>
+      ) : null}
+
       {bildirim ? (
-        <div className={`billing-notice ${ilkSecim.odemeSonucu.includes("basarisiz") ? "billing-notice--danger" : "billing-notice--success"}`} role="status">
-          {ilkSecim.odemeSonucu.includes("basarisiz") ? <AlertCircle size={19} /> : <CheckCircle2 size={19} />}
+        <div className="billing-notice billing-notice--success" role="status">
+          <CheckCircle2 size={19} />
           <span>{bildirim}</span>
           <button type="button" onClick={() => setBildirim("")} aria-label="Bildirimi kapat"><X size={16} /></button>
         </div>
@@ -317,7 +331,7 @@ export function AbonelikSayfasi() {
               </div>
               <div className="billing-plan-card__actions">
                 <button className="billing-button billing-button--primary" type="button" onClick={planModaliniAc}>
-                  Planları görüntüle <ArrowRight size={16} />
+                  {primaryCta} <ArrowRight size={16} />
                 </button>
                 {ozet.iptalEdilebilir ? (
                   <button className="billing-link-button" type="button" onClick={() => setModal("iptal")}>Aboneliği iptal et</button>
@@ -482,4 +496,29 @@ function OdemeSatiri({ odeme }: { odeme: OdemeKaydi }) {
       <td className="number"><strong>{paraBic(odeme.toplamTutar, odeme.paraBirimi)}</strong><small>{odeme.kdvTutar > 0 ? `${paraBic(odeme.kdvTutar, odeme.paraBirimi)} KDV` : "Kart doğrulama"}</small></td>
     </tr>
   );
+}
+
+export function resolvePrimaryCta(summary: AbonelikOzeti | null) {
+  if (!summary) return "Planları görüntüle";
+  if (summary.abonelik?.durum === "OdemeBasarisiz" || summary.abonelik?.durum === "Tolerans") return "Ödemeyi düzelt";
+  if (summary.durum === "Deneme") return "Deneme planını yönet";
+  if (summary.abonelik?.durum === "Aktif") return "Planı değiştir";
+  if (summary.haklar.kaynak === "Ucretsiz") return "Ücretli plana geç";
+  return "Planları görüntüle";
+}
+
+export function resolvePaymentResult(code: string, payments: OdemeKaydi[]): { tone: ResultTone; title: string; message: string; retry: boolean } | null {
+  if (!code) return null;
+  const normalized = code.toLocaleLowerCase("tr-TR");
+  if (normalized.includes("iptal"))
+    return { tone: "warning", title: "Checkout iptal edildi", message: "Herhangi bir plan değişikliği yapılmadı. Hazır olduğunuzda güvenle yeniden başlayabilirsiniz.", retry: true };
+  if (normalized.includes("basarisiz"))
+    return { tone: "danger", title: "Ödeme tamamlanamadı", message: "Kart veya ödeme bilgilerinizi kontrol edip yeniden deneyin. Aboneliğiniz yalnız doğrulanmış webhook sonrasında değişir.", retry: true };
+
+  const latest = payments[0];
+  if (latest && ["Basarili", "DenemeYetkilendirildi"].includes(latest.durum))
+    return { tone: "success", title: "Ödeme doğrulandı", message: "Sağlayıcı webhook’u doğrulandı ve abonelik durumunuz güncellendi.", retry: false };
+  if (latest?.durum === "Basarisiz")
+    return { tone: "danger", title: "Ödeme doğrulanamadı", message: "Sağlayıcı işlemi başarısız bildirdi. Bilgilerinizi kontrol edip yeniden deneyin.", retry: true };
+  return { tone: "warning", title: "Ödeme doğrulanıyor", message: "Checkout dönüşü alındı. Sağlayıcı webhook’u doğrulanana kadar aboneliğiniz değiştirilmeyecek.", retry: false };
 }

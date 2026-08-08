@@ -2,8 +2,8 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { jsonOku } from "../../shared/json";
-import { AbonelikSayfasi } from "./AbonelikSayfasi";
-import type { AbonelikOzeti, PublicPlan, TeklifYaniti } from "./types";
+import { AbonelikSayfasi, resolvePaymentResult, resolvePrimaryCta } from "./AbonelikSayfasi";
+import type { AbonelikOzeti, OdemeKaydi, PublicPlan, TeklifYaniti } from "./types";
 
 vi.mock("../../shared/json", () => ({ jsonOku: vi.fn() }));
 
@@ -110,4 +110,26 @@ describe("AbonelikSayfasi", () => {
     await user.click(screen.getByRole("checkbox"));
     expect(continueButton).toBeEnabled();
   });
+
+  it("separates trial, free, active and payment-repair actions", () => {
+    expect(resolvePrimaryCta(summary)).toBe("Deneme planını yönet");
+    expect(resolvePrimaryCta({ ...summary, durum: "Ucretsiz", deneme: null, haklar: { ...summary.haklar, kaynak: "Ucretsiz" } })).toBe("Ücretli plana geç");
+    expect(resolvePrimaryCta({ ...summary, durum: "Aktif", deneme: null, abonelik: subscription("Aktif") })).toBe("Planı değiştir");
+    expect(resolvePrimaryCta({ ...summary, durum: "OdemeBasarisiz", deneme: null, abonelik: subscription("OdemeBasarisiz") })).toBe("Ödemeyi düzelt");
+  });
+
+  it("trusts webhook-backed payment state instead of the callback query alone", () => {
+    expect(resolvePaymentResult("basarili", [])?.title).toBe("Ödeme doğrulanıyor");
+    expect(resolvePaymentResult("basarili", [payment("Basarili")])?.title).toBe("Ödeme doğrulandı");
+    expect(resolvePaymentResult("basarili", [payment("Basarisiz")])?.tone).toBe("danger");
+    expect(resolvePaymentResult("iptal", [])?.title).toBe("Checkout iptal edildi");
+  });
 });
+
+function subscription(durum: string) {
+  return { planKodu: "muhasebeci_standart", faturalamaDonemi: "Aylik", ekMusteriKredisi: 0, durum, donemTutari: 799, paraBirimi: "TRY", donemBaslangicAt: "2026-08-01T00:00:00Z", donemBitisAt: "2026-09-01T00:00:00Z", toleransBitisAt: null, donemSonundaIptal: false, iptalAt: null };
+}
+
+function payment(durum: string): OdemeKaydi {
+  return { id: 1, islemTipi: "Abonelik", durum, planKodu: "muhasebeci_standart", faturalamaDonemi: "Aylik", netTutar: 799, kdvTutar: 159.8, toplamTutar: 958.8, paraBirimi: "TRY", hataKodu: "", createdAt: "2026-08-09T00:00:00Z", tamamlandiAt: null };
+}
