@@ -409,6 +409,7 @@ static DatabaseRuntimeOptions ResolveDatabaseOptions(IConfiguration configuratio
 {
     var connectionString = FirstNonEmpty(
         Environment.GetEnvironmentVariable("SYSTEMCEL_DATABASE_CONNECTION_STRING"),
+        Environment.GetEnvironmentVariable("DATABASE_URL"),
         configuration.GetConnectionString("Systemcel"),
         configuration["Systemcel:Database:ConnectionString"]);
 
@@ -416,7 +417,7 @@ static DatabaseRuntimeOptions ResolveDatabaseOptions(IConfiguration configuratio
     {
         throw new InvalidOperationException(
             "Systemcel runtime PostgreSQL connection string bulunamadi. " +
-            "SYSTEMCEL_DATABASE_CONNECTION_STRING, ConnectionStrings:Systemcel veya " +
+            "SYSTEMCEL_DATABASE_CONNECTION_STRING, DATABASE_URL, ConnectionStrings:Systemcel veya " +
             "Systemcel:Database:ConnectionString ile tanimlayin.");
     }
 
