@@ -409,7 +409,8 @@ static DatabaseRuntimeOptions ResolveDatabaseOptions(IConfiguration configuratio
 {
     var connectionString = FirstNonEmpty(
         Environment.GetEnvironmentVariable("SYSTEMCEL_DATABASE_CONNECTION_STRING"),
-        Environment.GetEnvironmentVariable("DATABASE_URL"),
+        DatabaseConnectionStringNormalizer.NormalizeDatabaseUrl(
+            Environment.GetEnvironmentVariable("DATABASE_URL")),
         configuration.GetConnectionString("Systemcel"),
         configuration["Systemcel:Database:ConnectionString"]);
 
