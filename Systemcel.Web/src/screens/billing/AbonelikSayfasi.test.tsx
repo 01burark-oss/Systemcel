@@ -103,13 +103,30 @@ describe("AbonelikSayfasi", () => {
     expect(screen.getByRole("spinbutton", { name: /\+1 müşteri kredisi/i })).toHaveValue(2);
     expect(await screen.findByText("12 müşteri")).toBeVisible();
     expect(screen.getByText("KDV (%20)")).toBeVisible();
-    expect(screen.getByText(/abonelik-onayi-2026-08-v2/)).toBeVisible();
+    expect(screen.getByText("AYLIK ABONELİK ONAYI")).toBeVisible();
     expect(screen.getByText(/dönem sonu iptali/i)).toBeVisible();
 
     const continueButton = screen.getByRole("button", { name: "Kartı güvenle ekle" });
     expect(continueButton).toBeDisabled();
     await user.click(await screen.findByRole("checkbox"));
     expect(continueButton).toBeEnabled();
+  });
+
+  it("shows the period and detailed rights without a duplicate page heading or refresh control", async () => {
+    window.history.replaceState({}, "", "/app/abonelik");
+    render(<AbonelikSayfasi />);
+
+    expect(await screen.findByRole("heading", { name: "Standart" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Plan dönemi" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Plan hakları" })).toBeVisible();
+    expect(screen.getByText("01 Ağustos 2026")).toBeVisible();
+    expect(screen.getByText("15 Ağustos 2026")).toBeVisible();
+    expect(screen.getByText("Sınırsız AI mesajı")).toBeVisible();
+    expect(screen.getByText("12 müşteri")).toBeVisible();
+    expect(screen.getByText("Sınırsız fatura")).toBeVisible();
+    expect(screen.queryByRole("heading", { name: "Aboneliğiniz, tek bakışta." })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Yenile" })).not.toBeInTheDocument();
+    expect(screen.queryByText("ÖDEME YÖNTEMİ")).not.toBeInTheDocument();
   });
 
   it("separates trial, free, active and payment-repair actions", () => {
@@ -120,10 +137,11 @@ describe("AbonelikSayfasi", () => {
   });
 
   it("trusts webhook-backed payment state instead of the callback query alone", () => {
-    expect(resolvePaymentResult("basarili", [])?.title).toBe("Ödeme doğrulanıyor");
-    expect(resolvePaymentResult("basarili", [payment("Basarili")])?.title).toBe("Ödeme doğrulandı");
+    expect(resolvePaymentResult("basarili", [])?.title).toBe("Ödeme kontrol ediliyor");
+    expect(resolvePaymentResult("basarili", [payment("Basarili")])?.title).toBe("Ödeme tamamlandı");
     expect(resolvePaymentResult("basarili", [payment("Basarisiz")])?.tone).toBe("danger");
-    expect(resolvePaymentResult("iptal", [])?.title).toBe("Checkout iptal edildi");
+    expect(resolvePaymentResult("iptal", [])?.title).toBe("Ödeme adımı iptal edildi");
+    expect(resolvePaymentResult("basarili", [payment("Basarili")])?.message).not.toMatch(/webhook|sağlayıcı|checkout/i);
   });
 
   it("sends only one checkout request for same-task repeated clicks", async () => {

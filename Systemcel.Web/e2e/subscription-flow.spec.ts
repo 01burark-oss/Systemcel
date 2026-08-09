@@ -140,9 +140,9 @@ test("monthly checkout shows recurring credits, VAT and explicit consent", async
   await expect(page.getByRole("heading", { name: "Planınızı seçin ve koşulları onaylayın" })).toBeVisible();
   await expect(page.getByText("Aylık", { exact: true })).toBeVisible();
   await expect(page.getByRole("spinbutton", { name: /\+1 müşteri kredisi/i })).toHaveValue("2");
-  await expect(page.getByText("12 müşteri", { exact: true })).toBeVisible();
+  await expect(page.getByRole("dialog").getByText("12 müşteri", { exact: true })).toBeVisible();
   await expect(page.getByText("KDV (%20)")).toBeVisible();
-  await expect(page.getByText(/abonelik-onayi-2026-08-v2/)).toBeVisible();
+  await expect(page.getByText("AYLIK ABONELİK ONAYI")).toBeVisible();
 
   const continueButton = page.getByRole("button", { name: "Kartı güvenle ekle" });
   await expect(continueButton).toBeDisabled();
@@ -176,8 +176,11 @@ test("period-end cancellation remains visible until access ends", async ({ page 
   });
   await page.goto("/app/abonelik");
 
-  await expect(page.getByText("İptal talebiniz kaydedildi")).toBeVisible();
-  await expect(page.getByText(/tarihine kadar aktif; bu tarihten sonra yeni tahsilat yapılmayacak/i)).toBeVisible();
+  await expect(page.getByText("İptal talebi alındı")).toBeVisible();
+  await expect(page.getByText("Bu tarihe kadar plan haklarınızı kullanabilirsiniz.")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Plan hakları" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Yenile" })).toHaveCount(0);
+  await expect(page.getByText(/webhook|checkout|sağlayıcı/i)).toHaveCount(0);
 });
 
 async function json(route: Route, body: unknown, status = 200) {

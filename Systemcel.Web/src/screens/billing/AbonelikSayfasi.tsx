@@ -1,17 +1,22 @@
 import React from "react";
 import {
   AlertCircle,
+  ArrowDownUp,
   ArrowRight,
   CalendarClock,
   Check,
   CheckCircle2,
+  ContactRound,
   CreditCard,
   FileCheck2,
   History,
   Loader2,
-  RefreshCw,
+  MessageCircle,
+  Package2,
+  ReceiptText,
   ShieldCheck,
-  Sparkles,
+  UserRound,
+  UsersRound,
   X
 } from "lucide-react";
 import { jsonOku } from "../../shared/json";
@@ -43,10 +48,10 @@ const durumEtiketleri: Record<string, string> = {
 };
 
 const islemEtiketleri: Record<string, string> = {
-  Abonelik: "Abonelik ödemesi",
-  DenemeKartYetkilendirme: "Deneme kart doğrulaması",
+  Abonelik: "Plan ödemesi",
+  DenemeKartYetkilendirme: "Kart doğrulama",
   Iade: "İade",
-  Yenileme: "Abonelik yenileme"
+  Yenileme: "Plan yenileme"
 };
 
 const planEtiketleri: Record<string, string> = {
@@ -78,7 +83,21 @@ function tarihBic(value: string | null | undefined, saat = false) {
 }
 
 function durumEtiketi(value: string) {
-  return durumEtiketleri[value] ?? value;
+  return durumEtiketleri[value] ?? "İşleniyor";
+}
+
+function kullaniciHataMesaji(error: unknown, fallback: string) {
+  const message = error instanceof Error ? error.message.trim() : "";
+  if (!message) return fallback;
+  if (/e-?posta/i.test(message)) return "Geçerli bir e-posta adresi girin.";
+  if (/plan.*hesap tipi|hesap tipi.*plan/i.test(message)) return "Bu plan hesabınızla uyumlu değil.";
+  if (/checkout|webhook|callback|provider|sağlayıcı|saglayici|idempotency/i.test(message)) return fallback;
+  return message;
+}
+
+function limitMetni(limit: number | null, tekil: string, cogul = tekil) {
+  if (limit === null) return `Sınırsız ${cogul}`;
+  return `${limit} ${limit === 1 ? tekil : cogul}`;
 }
 
 function durumTonu(value: string) {
@@ -115,7 +134,6 @@ export function AbonelikSayfasi() {
   const [teklifYukleniyor, setTeklifYukleniyor] = React.useState(false);
   const [islemde, setIslemde] = React.useState(false);
   const [hata, setHata] = React.useState("");
-  const [bildirim, setBildirim] = React.useState("");
   const [odemeSonucu, setOdemeSonucu] = React.useState(ilkSecim.odemeSonucu);
   const idempotencyRef = React.useRef(yeniIdempotencyKey());
   const modalBaslikRef = React.useRef<HTMLHeadingElement | null>(null);
@@ -148,7 +166,7 @@ export function AbonelikSayfasi() {
       .then(() => {
         if (ilkSecim.planKodu) setModal("onay");
       })
-      .catch((error: Error) => setHata(error.message))
+      .catch((error: Error) => setHata(kullaniciHataMesaji(error, "Abonelik bilgileri yüklenemedi.")))
       .finally(() => setYukleniyor(false));
   }, [ilkSecim.planKodu, yukle]);
 
@@ -164,7 +182,7 @@ export function AbonelikSayfasi() {
         if (gecerli) setTeklif(yanit);
       })
       .catch((error: Error) => {
-        if (gecerli) setHata(error.message);
+        if (gecerli) setHata(kullaniciHataMesaji(error, "Plan bilgileri yüklenemedi."));
       })
       .finally(() => {
         if (gecerli) setTeklifYukleniyor(false);
@@ -234,7 +252,7 @@ export function AbonelikSayfasi() {
       });
       window.location.assign(result.checkoutUrl);
     } catch (error) {
-      setHata(error instanceof Error ? error.message : "Ödeme adımı başlatılamadı.");
+      setHata(kullaniciHataMesaji(error, "Ödeme işlemi başlatılamadı. Lütfen yeniden deneyin."));
       setIslemde(false);
       checkoutIslemdeRef.current = false;
     }
@@ -244,24 +262,40 @@ export function AbonelikSayfasi() {
     try {
       setIslemde(true);
       setHata("");
-      const result = await jsonOku<{ mesaj: string }>("/api/abonelik/iptal", { method: "POST" });
-      setBildirim(result.mesaj);
+      await jsonOku<{ mesaj: string }>("/api/abonelik/iptal", { method: "POST" });
       await yukle();
       setModal(null);
     } catch (error) {
-      setHata(error instanceof Error ? error.message : "İptal talebi kaydedilemedi.");
+      setHata(kullaniciHataMesaji(error, "İptal talebi kaydedilemedi."));
     } finally {
       setIslemde(false);
     }
   };
 
-  const seciliPlan = planlar.find((plan) => plan.kod === planKodu);
+  const baslangicAt = ozet?.deneme?.baslangicAt ?? ozet?.abonelik?.donemBaslangicAt;
   const bitisAt = ozet?.deneme?.bitisAt ?? ozet?.abonelik?.donemBitisAt ?? ozet?.sonrakiYenilemeAt;
   const planTutari = ozet?.haklar.donemTutari ?? 0;
   const denemeSonaErdi = ozet?.deneme?.durum === "SonaErdi" || ozet?.deneme?.durum === "IptalEdildi";
   const odemeDuzeltmeGerekli = ozet?.abonelik?.durum === "OdemeBasarisiz";
   const resultView = resolvePaymentResult(odemeSonucu, ozet?.odemeler ?? []);
   const primaryCta = resolvePrimaryCta(ozet);
+  const planHaklari = ozet ? [
+    {
+      icon: <MessageCircle size={20} />,
+      text: ozet.haklar.aiAktif
+        ? limitMetni(ozet.haklar.aiMesajLimiti, "AI mesajı")
+        : "AI mesajı dahil değil"
+    },
+    { icon: <UserRound size={20} />, text: limitMetni(ozet.haklar.kullaniciLimiti, "kullanıcı") },
+    ozet.hesapTipi === "Muhasebeci"
+      ? { icon: <UsersRound size={20} />, text: limitMetni(ozet.haklar.musteriLimiti, "müşteri") }
+      : { icon: <ReceiptText size={20} />, text: limitMetni(ozet.haklar.faturaLimiti, "fatura") },
+    { icon: <ArrowDownUp size={20} />, text: limitMetni(ozet.haklar.gelirGiderIslemLimiti, "gelir-gider kaydı") },
+    { icon: <ContactRound size={20} />, text: limitMetni(ozet.haklar.cariKartLimiti, "cari kart") },
+    ozet.hesapTipi === "Muhasebeci"
+      ? { icon: <ReceiptText size={20} />, text: limitMetni(ozet.haklar.faturaLimiti, "fatura") }
+      : { icon: <Package2 size={20} />, text: limitMetni(ozet.haklar.urunHizmetLimiti, "ürün / hizmet") }
+  ] : [];
 
   const planModaliniAc = () => {
     checkoutIslemdeRef.current = false;
@@ -272,40 +306,18 @@ export function AbonelikSayfasi() {
 
   return (
     <main className="billing-page">
-      <header className="billing-heading">
-        <div>
-          <span className="billing-eyebrow"><Sparkles size={14} /> ÜYELİK VE ÖDEMELER</span>
-          <h1>Aboneliğiniz, tek bakışta.</h1>
-          <p>Planınızı, yenileme tarihinizi ve ödeme hareketlerinizi buradan yönetin.</p>
-        </div>
-        <button className="billing-button billing-button--secondary" type="button" disabled={yukleniyor} onClick={() => {
-          setYukleniyor(true);
-          yukle().catch((error: Error) => setHata(error.message)).finally(() => setYukleniyor(false));
-        }}>
-          <RefreshCw size={16} className={yukleniyor ? "spin" : ""} /> Yenile
-        </button>
-      </header>
-
       {resultView ? (
-        <section className={`billing-result billing-result--${resultView.tone}`} role={resultView.tone === "danger" ? "alert" : "status"} aria-label="Checkout sonucu">
-          <span>{resultView.tone === "success" ? <CheckCircle2 size={24} /> : <AlertCircle size={24} />}</span>
-          <div><strong>{resultView.title}</strong><p>{resultView.message}</p></div>
-          {resultView.retry ? <button className="billing-button billing-button--primary" type="button" onClick={planModaliniAc}>Yeniden dene</button> : null}
+        <section className={`billing-feedback billing-feedback--${resultView.tone}`} role={resultView.tone === "danger" ? "alert" : "status"} aria-label="Ödeme sonucu">
+          <span>{resultView.tone === "success" ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}</span>
+          <strong>{resultView.title}</strong>
+          {resultView.retry ? <button className="billing-link-button" type="button" onClick={planModaliniAc}>Yeniden dene</button> : null}
           <button className="billing-result__close" type="button" onClick={() => {
             setOdemeSonucu("");
             const url = new URL(window.location.href);
             url.searchParams.delete("odeme");
             window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
-          }} aria-label="Checkout sonucunu kapat"><X size={17} /></button>
+          }} aria-label="Ödeme sonucunu kapat"><X size={16} /></button>
         </section>
-      ) : null}
-
-      {bildirim ? (
-        <div className="billing-notice billing-notice--success" role="status">
-          <CheckCircle2 size={19} />
-          <span>{bildirim}</span>
-          <button type="button" onClick={() => setBildirim("")} aria-label="Bildirimi kapat"><X size={16} /></button>
-        </div>
       ) : null}
 
       {hata && !modal ? (
@@ -319,12 +331,11 @@ export function AbonelikSayfasi() {
           <section className="billing-summary" aria-label="Abonelik özeti">
             <article className="billing-plan-card">
               <div className="billing-plan-card__top">
+                <small>MEVCUT PLAN</small>
                 <span className={`billing-status billing-status--${durumTonu(ozet.durum)}`}><i />{durumEtiketi(ozet.durum)}</span>
-                <span>{ozet.hesapTipi === "Muhasebeci" ? "Muhasebeci hesabı" : "İşletme hesabı"}</span>
               </div>
               <div className="billing-plan-card__body">
                 <div>
-                  <small>MEVCUT PLAN</small>
                   <h2>{ozet.haklar.planAdi}</h2>
                   <p>{ozet.isletmeAdi}</p>
                 </div>
@@ -343,38 +354,43 @@ export function AbonelikSayfasi() {
               </div>
             </article>
 
-            <div className="billing-facts">
-              <article>
+            <article className="billing-period-card">
+              <h2>Plan dönemi</h2>
+              <div className="billing-period-row">
                 <span className="billing-fact-icon"><CalendarClock size={20} /></span>
-                <div><small>{ozet.donemSonundaIptal || denemeSonaErdi ? "ERİŞİM BİTİŞİ" : ozet.deneme ? "DENEME BİTİŞİ" : "SONRAKİ YENİLEME"}</small><strong>{tarihBic(bitisAt)}</strong></div>
-                <p>{ozet.donemSonundaIptal ? "Bu tarihe kadar tüm haklarınız devam eder." : "Yenileme öncesinde bilgilendirileceksiniz."}</p>
-              </article>
-              <article>
-                <span className="billing-fact-icon"><CreditCard size={20} /></span>
-                <div><small>ÖDEME YÖNTEMİ</small><strong>{ozet.deneme?.odemeYontemiEklendi ? "Kart doğrulandı" : "Henüz eklenmedi"}</strong></div>
-                <p>{ozet.deneme?.odemeYontemiEklendi ? "Deneme sonundaki tahsilat için hazır." : "Checkout sırasında güvenle ekleyebilirsiniz."}</p>
-              </article>
-              <article>
-                <span className="billing-fact-icon"><ShieldCheck size={20} /></span>
-                <div><small>PLAN HAKLARI</small><strong>{ozet.haklar.saltOkunur ? "Salt okunur" : "Kullanıma açık"}</strong></div>
-                <p>{ozet.haklar.aiAktif ? (ozet.haklar.aiMesajLimiti ? `${ozet.haklar.aiMesajLimiti} AI mesajı` : "Sınırsız AI erişimi") : "Temel finans özellikleri"}</p>
-              </article>
-            </div>
+                <div><small>BAŞLANGIÇ</small><strong>{tarihBic(baslangicAt)}</strong></div>
+              </div>
+              <div className="billing-period-row">
+                <span className="billing-fact-icon"><CalendarClock size={20} /></span>
+                <div><small>BİTİŞ</small><strong>{tarihBic(bitisAt)}</strong></div>
+              </div>
+              <p>{ozet.donemSonundaIptal
+                ? "Bu tarihe kadar plan haklarınızı kullanabilirsiniz."
+                : ozet.deneme
+                  ? "Deneme süreniz bu tarihte sona erer."
+                  : "Planınız bu tarihte yenilenir."}</p>
+              {ozet.donemSonundaIptal ? <span className="billing-period-status"><FileCheck2 size={16} /> İptal talebi alındı</span> : null}
+            </article>
           </section>
 
-          {ozet.donemSonundaIptal ? (
-            <section className="billing-cancelled" aria-label="Dönem sonu iptal durumu">
-              <FileCheck2 size={22} />
-              <div><strong>İptal talebiniz kaydedildi</strong><p>Aboneliğiniz {tarihBic(bitisAt)} tarihine kadar aktif; bu tarihten sonra yeni tahsilat yapılmayacak.</p></div>
-            </section>
-          ) : null}
+          <section className="billing-rights-card" aria-label="Plan hakları">
+            <header><h2>Plan hakları</h2>{ozet.haklar.saltOkunur ? <span>Salt okunur</span> : null}</header>
+            <div className="billing-rights-grid">
+              {planHaklari.map((hak, index) => (
+                <div className="billing-right" key={`${hak.text}-${index}`}>
+                  <span>{hak.icon}</span>
+                  <strong>{hak.text}</strong>
+                </div>
+              ))}
+            </div>
+          </section>
 
           {denemeSonaErdi || odemeDuzeltmeGerekli ? (
             <section className="billing-expired" aria-label="Plan veya ödeme işlemi gerekli">
               <AlertCircle size={24} />
               <div>
                 <strong>{denemeSonaErdi ? "Deneme süreniz sona erdi" : "Ödeme yönteminizi düzeltmeniz gerekiyor"}</strong>
-                <p>{denemeSonaErdi ? "Verileriniz korunuyor; çalışma alanınız uygun plan seçilene kadar kısıtlıdır." : "Tolerans süresi sona erdi. Aboneliğinizi yeniden etkinleştirmek için ödeme adımını tamamlayın."}</p>
+                <p>{denemeSonaErdi ? "Plan seçene kadar verilerinizi görüntülemeye devam edebilirsiniz." : "Planınızı kullanmaya devam etmek için ödeme bilgilerinizi güncelleyin."}</p>
               </div>
               <div className="billing-expired__actions">
                 <button className="billing-button billing-button--primary" type="button" onClick={planModaliniAc}>Plan seç</button>
@@ -385,11 +401,11 @@ export function AbonelikSayfasi() {
 
           <section className="billing-history-card">
             <header>
-              <div><span className="billing-section-icon"><History size={20} /></span><div><h2>Ödeme geçmişi</h2><p>Son 20 abonelik ve kart doğrulama işlemi.</p></div></div>
+              <div><span className="billing-section-icon"><History size={20} /></span><div><h2>Ödeme geçmişi</h2></div></div>
               <span>{ozet.odemeler.length} işlem</span>
             </header>
             {ozet.odemeler.length === 0 ? (
-              <div className="billing-empty"><CreditCard size={28} /><strong>Henüz ödeme hareketi yok</strong><p>Plan checkout'u başladığında işlem burada görünecek.</p></div>
+              <div className="billing-empty"><CreditCard size={28} /><strong>Henüz ödeme yok</strong><p>Plan ödemeleriniz burada görünür.</p></div>
             ) : (
               <div className="billing-table-wrap">
                 <table className="billing-table">
@@ -451,7 +467,7 @@ export function AbonelikSayfasi() {
                   }} /><small>10 müşteri dahildir. Her kredi aboneliğinizle birlikte aylık yenilenir.</small></label> : null}
                 </div>
 
-                {teklifYukleniyor ? <div className="billing-quote-loading"><Loader2 className="spin" size={21} /> Teklif hazırlanıyor…</div> : teklif ? (
+                {teklifYukleniyor ? <div className="billing-quote-loading"><Loader2 className="spin" size={21} /> Plan bilgileri hazırlanıyor…</div> : teklif ? (
                   <>
                     <div className="billing-quote">
                       <div>
@@ -468,7 +484,7 @@ export function AbonelikSayfasi() {
                     <label className="billing-email"><span>E-posta <small>(hesabınızda yoksa)</small></span><input type="email" autoComplete="email" value={eposta} onChange={(event) => setEposta(event.target.value)} placeholder="ornek@isletme.com" /></label>
                     <label className="billing-consent">
                       <input type="checkbox" checked={onaylandi} onChange={(event) => setOnaylandi(event.target.checked)} />
-                      <span><i aria-hidden="true"><Check size={14} /></i><strong>{teklif.onayMetniSurumu}</strong>{teklif.onayMetni}</span>
+                      <span><i aria-hidden="true"><Check size={14} /></i><strong>AYLIK ABONELİK ONAYI</strong>{teklif.onayMetni}</span>
                     </label>
                     <p className="billing-modal__legal-links">
                       Devam etmeden önce <a href="/abonelik-kosullari" target="_blank" rel="noreferrer">abonelik, iptal ve iade koşullarını</a> inceleyebilirsiniz.
@@ -480,7 +496,6 @@ export function AbonelikSayfasi() {
                   <button className="billing-button billing-button--secondary" type="button" onClick={modalKapat} disabled={islemde}>Daha sonra</button>
                   <button className="billing-button billing-button--primary" type="button" onClick={checkoutBaslat} disabled={!onaylandi || !teklif || islemde || teklifYukleniyor}>{islemde ? <Loader2 className="spin" size={17} /> : <ShieldCheck size={17} />} {teklif?.fiyat.trialDays === 0 ? "Öde ve aboneliği başlat" : "Kartı güvenle ekle"}</button>
                 </div>
-                {seciliPlan ? <p className="billing-modal__footnote">{seciliPlan.ad} · {teklif?.fiyat.trialDays === 0 ? "hemen başlayan aylık abonelik" : `${seciliPlan.denemeGunSayisi} gün deneme`} · İstediğiniz zaman dönem sonuna iptal</p> : null}
               </>
             )}
           </section>
@@ -493,11 +508,11 @@ export function AbonelikSayfasi() {
 function OdemeSatiri({ odeme }: { odeme: OdemeKaydi }) {
   return (
     <tr>
-      <td><div className="billing-table__primary"><span><CreditCard size={17} /></span><div><strong>{islemEtiketleri[odeme.islemTipi] ?? odeme.islemTipi}</strong><small>#{odeme.id}</small></div></div></td>
-      <td><strong>{planEtiketleri[odeme.planKodu] ?? odeme.planKodu.replaceAll("_", " ")}</strong><small>{odeme.faturalamaDonemi === "Yillik" ? "Yıllık" : "Aylık"}</small></td>
+      <td><div className="billing-table__primary"><span><CreditCard size={17} /></span><div><strong>{islemEtiketleri[odeme.islemTipi] ?? "Ödeme"}</strong></div></div></td>
+      <td><strong>{planEtiketleri[odeme.planKodu] ?? "Plan"}</strong><small>{odeme.faturalamaDonemi === "Yillik" ? "Yıllık" : "Aylık"}</small></td>
       <td><strong>{tarihBic(odeme.tamamlandiAt ?? odeme.createdAt)}</strong><small>{tarihBic(odeme.createdAt, true).split(" ").slice(-1)[0]}</small></td>
-      <td><span className={`billing-status billing-status--${durumTonu(odeme.durum)}`}><i />{durumEtiketi(odeme.durum)}</span>{odeme.hataKodu ? <small>{odeme.hataKodu}</small> : null}</td>
-      <td className="number"><strong>{paraBic(odeme.toplamTutar, odeme.paraBirimi)}</strong><small>{odeme.kdvTutar > 0 ? `${paraBic(odeme.kdvTutar, odeme.paraBirimi)} KDV` : "Kart doğrulama"}</small></td>
+      <td><span className={`billing-status billing-status--${durumTonu(odeme.durum)}`}><i />{durumEtiketi(odeme.durum)}</span></td>
+      <td className="number"><strong>{paraBic(odeme.toplamTutar, odeme.paraBirimi)}</strong><small>{odeme.kdvTutar > 0 ? `${paraBic(odeme.kdvTutar, odeme.paraBirimi)} KDV` : "Ücret alınmadı"}</small></td>
     </tr>
   );
 }
@@ -515,14 +530,14 @@ export function resolvePaymentResult(code: string, payments: OdemeKaydi[]): { to
   if (!code) return null;
   const normalized = code.toLocaleLowerCase("tr-TR");
   if (normalized.includes("iptal"))
-    return { tone: "warning", title: "Checkout iptal edildi", message: "Herhangi bir plan değişikliği yapılmadı. Hazır olduğunuzda güvenle yeniden başlayabilirsiniz.", retry: true };
+    return { tone: "warning", title: "Ödeme adımı iptal edildi", message: "Planınız değişmedi.", retry: true };
   if (normalized.includes("basarisiz"))
-    return { tone: "danger", title: "Ödeme tamamlanamadı", message: "Kart veya ödeme bilgilerinizi kontrol edip yeniden deneyin. Aboneliğiniz yalnız doğrulanmış webhook sonrasında değişir.", retry: true };
+    return { tone: "danger", title: "Ödeme tamamlanamadı", message: "Bilgilerinizi kontrol edip yeniden deneyin.", retry: true };
 
   const latest = payments[0];
   if (latest && ["Basarili", "DenemeYetkilendirildi"].includes(latest.durum))
-    return { tone: "success", title: "Ödeme doğrulandı", message: "Sağlayıcı webhook’u doğrulandı ve abonelik durumunuz güncellendi.", retry: false };
+    return { tone: "success", title: "Ödeme tamamlandı", message: "Planınız güncellendi.", retry: false };
   if (latest?.durum === "Basarisiz")
-    return { tone: "danger", title: "Ödeme doğrulanamadı", message: "Sağlayıcı işlemi başarısız bildirdi. Bilgilerinizi kontrol edip yeniden deneyin.", retry: true };
-  return { tone: "warning", title: "Ödeme doğrulanıyor", message: "Checkout dönüşü alındı. Sağlayıcı webhook’u doğrulanana kadar aboneliğiniz değiştirilmeyecek.", retry: false };
+    return { tone: "danger", title: "Ödeme tamamlanamadı", message: "Bilgilerinizi kontrol edip yeniden deneyin.", retry: true };
+  return { tone: "warning", title: "Ödeme kontrol ediliyor", message: "Sonuç kısa süre içinde güncellenecek.", retry: false };
 }
