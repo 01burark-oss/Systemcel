@@ -157,7 +157,7 @@ export const legalTexts: Record<AuthLanguage, Record<LegalTextKey, LegalTextCont
         {
           title: "1. Plan, Fiyat ve Faturalama Dönemi",
           text:
-            "Seçilen plan, aylık net bedel, KDV, toplam tutar, deneme süresi ve varsa ek müşteri kredileri ödeme onayından hemen önce gösterilir. İlk checkout yalnız aylıktır; fiyat veya vergi değişikliği yeni dönemden önce kullanıcıya bildirilir."
+            "Seçilen plan, aylık net bedel, KDV, toplam tutar, deneme süresi ve varsa ek müşteri kredileri ödeme onayından hemen önce gösterilir. İlk abonelik dönemi yalnız aylıktır; fiyat veya vergi değişikliği yeni dönemden önce kullanıcıya bildirilir."
         },
         {
           title: "2. Deneme ve İlk Tahsilat",

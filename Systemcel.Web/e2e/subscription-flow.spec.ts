@@ -142,10 +142,16 @@ test("monthly checkout shows recurring credits, VAT and explicit consent", async
   await expect(page.getByRole("spinbutton", { name: /\+1 müşteri kredisi/i })).toHaveValue("2");
   await expect(page.getByRole("dialog").getByText("12 müşteri", { exact: true })).toBeVisible();
   await expect(page.getByText("KDV (%20)")).toBeVisible();
-  await expect(page.getByText("AYLIK ABONELİK ONAYI")).toBeVisible();
+  const contractButton = page.getByRole("button", { name: "Abonelik sözleşmesini" });
+  await expect(page.getByText(/dönem sonu iptali/i)).not.toBeVisible();
 
   const continueButton = page.getByRole("button", { name: "Kartı güvenle ekle" });
   await expect(continueButton).toBeDisabled();
+  await contractButton.click();
+  const contractWindow = page.getByRole("dialog", { name: "Systemcel Abonelik, Yenileme, İptal ve İade Koşulları" });
+  await expect(contractWindow).toBeVisible();
+  await page.getByRole("button", { name: "Sözleşme penceresini kapat" }).click();
+  await expect(contractWindow).not.toBeVisible();
   await page.getByRole("checkbox").focus();
   await page.keyboard.press("Space");
   await expect(continueButton).toBeEnabled();

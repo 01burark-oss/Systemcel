@@ -103,12 +103,18 @@ describe("AbonelikSayfasi", () => {
     expect(screen.getByRole("spinbutton", { name: /\+1 müşteri kredisi/i })).toHaveValue(2);
     expect(await screen.findByText("12 müşteri")).toBeVisible();
     expect(screen.getByText("KDV (%20)")).toBeVisible();
-    expect(screen.getByText("AYLIK ABONELİK ONAYI")).toBeVisible();
-    expect(screen.getByText(/dönem sonu iptali/i)).toBeVisible();
+    const consent = screen.getByRole("checkbox", { name: /abonelik sözleşmesini okudum ve aylık aboneliği onaylıyorum/i });
+    const contractButton = screen.getByRole("button", { name: "Abonelik sözleşmesini" });
+    expect(screen.queryByText(/dönem sonu iptali/i)).not.toBeInTheDocument();
 
     const continueButton = screen.getByRole("button", { name: "Kartı güvenle ekle" });
     expect(continueButton).toBeDisabled();
-    await user.click(await screen.findByRole("checkbox"));
+    await user.click(contractButton);
+    expect(screen.getByRole("dialog", { name: "Systemcel Abonelik, Yenileme, İptal ve İade Koşulları" })).toBeVisible();
+    expect(consent).not.toBeChecked();
+    await user.click(screen.getByRole("button", { name: "Sözleşme penceresini kapat" }));
+    expect(screen.queryByRole("dialog", { name: "Systemcel Abonelik, Yenileme, İptal ve İade Koşulları" })).not.toBeInTheDocument();
+    await user.click(consent);
     expect(continueButton).toBeEnabled();
   });
 

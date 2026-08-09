@@ -19,6 +19,7 @@ import {
   UsersRound,
   X
 } from "lucide-react";
+import { legalTexts } from "../../auth/legalTexts";
 import { jsonOku } from "../../shared/json";
 import type {
   AbonelikOzeti,
@@ -61,6 +62,8 @@ const planEtiketleri: Record<string, string> = {
   muhasebeci_standart: "Standart",
   muhasebeci_pro: "Pro"
 };
+
+const abonelikSozlesmesi = legalTexts.tr.subscription;
 
 function paraBic(tutar: number, paraBirimi = "TRY") {
   return new Intl.NumberFormat("tr-TR", {
@@ -128,6 +131,7 @@ export function AbonelikSayfasi() {
   const [ekMusteriKredisi, setEkMusteriKredisi] = React.useState(ilkSecim.ekMusteriKredisi);
   const [teklif, setTeklif] = React.useState<TeklifYaniti | null>(null);
   const [modal, setModal] = React.useState<Modal>(null);
+  const [sozlesmeAcik, setSozlesmeAcik] = React.useState(false);
   const [onaylandi, setOnaylandi] = React.useState(false);
   const [eposta, setEposta] = React.useState("");
   const [yukleniyor, setYukleniyor] = React.useState(true);
@@ -138,6 +142,10 @@ export function AbonelikSayfasi() {
   const idempotencyRef = React.useRef(yeniIdempotencyKey());
   const modalBaslikRef = React.useRef<HTMLHeadingElement | null>(null);
   const modalRef = React.useRef<HTMLElement | null>(null);
+  const sozlesmeBaslikRef = React.useRef<HTMLHeadingElement | null>(null);
+  const sozlesmeRef = React.useRef<HTMLElement | null>(null);
+  const sozlesmeTetikRef = React.useRef<HTMLButtonElement | null>(null);
+  const sozlesmeAcikRef = React.useRef(false);
   const oncekiOdakRef = React.useRef<HTMLElement | null>(null);
   const islemdeRef = React.useRef(false);
   const checkoutIslemdeRef = React.useRef(false);
@@ -145,6 +153,11 @@ export function AbonelikSayfasi() {
   React.useEffect(() => {
     islemdeRef.current = islemde;
   }, [islemde]);
+
+  React.useEffect(() => {
+    sozlesmeAcikRef.current = sozlesmeAcik;
+    if (sozlesmeAcik) window.requestAnimationFrame(() => sozlesmeBaslikRef.current?.focus());
+  }, [sozlesmeAcik]);
 
   const yukle = React.useCallback(async () => {
     setHata("");
@@ -198,12 +211,18 @@ export function AbonelikSayfasi() {
     window.requestAnimationFrame(() => modalBaslikRef.current?.focus());
     const escape = (event: KeyboardEvent) => {
       if (event.key === "Escape" && !islemdeRef.current) {
+        if (sozlesmeAcikRef.current) {
+          setSozlesmeAcik(false);
+          window.requestAnimationFrame(() => sozlesmeTetikRef.current?.focus());
+          return;
+        }
         setModal(null);
         return;
       }
 
-      if (event.key !== "Tab" || !modalRef.current) return;
-      const odaklanabilir = Array.from(modalRef.current.querySelectorAll<HTMLElement>(
+      const odakKapsami = sozlesmeAcikRef.current ? sozlesmeRef.current : modalRef.current;
+      if (event.key !== "Tab" || !odakKapsami) return;
+      const odaklanabilir = Array.from(odakKapsami.querySelectorAll<HTMLElement>(
         'button:not(:disabled), select:not(:disabled), input:not(:disabled), [tabindex]:not([tabindex="-1"])'
       )).filter((element) => element.offsetParent !== null);
       if (odaklanabilir.length === 0) return;
@@ -227,6 +246,7 @@ export function AbonelikSayfasi() {
 
   const modalKapat = () => {
     if (islemde) return;
+    setSozlesmeAcik(false);
     setModal(null);
     setOnaylandi(false);
     setTeklif(null);
@@ -302,6 +322,11 @@ export function AbonelikSayfasi() {
     idempotencyRef.current = yeniIdempotencyKey();
     setOnaylandi(false);
     setModal("onay");
+  };
+
+  const sozlesmeKapat = () => {
+    setSozlesmeAcik(false);
+    window.requestAnimationFrame(() => sozlesmeTetikRef.current?.focus());
   };
 
   return (
@@ -482,13 +507,13 @@ export function AbonelikSayfasi() {
                       </dl>
                     </div>
                     <label className="billing-email"><span>E-posta <small>(hesabınızda yoksa)</small></span><input type="email" autoComplete="email" value={eposta} onChange={(event) => setEposta(event.target.value)} placeholder="ornek@isletme.com" /></label>
-                    <label className="billing-consent">
-                      <input type="checkbox" checked={onaylandi} onChange={(event) => setOnaylandi(event.target.checked)} />
-                      <span><i aria-hidden="true"><Check size={14} /></i><strong>AYLIK ABONELİK ONAYI</strong>{teklif.onayMetni}</span>
-                    </label>
-                    <p className="billing-modal__legal-links">
-                      Devam etmeden önce <a href="/abonelik-kosullari" target="_blank" rel="noreferrer">abonelik, iptal ve iade koşullarını</a> inceleyebilirsiniz.
-                    </p>
+                    <div className="billing-consent">
+                      <input id="billing-monthly-consent" type="checkbox" checked={onaylandi} onChange={(event) => setOnaylandi(event.target.checked)} aria-labelledby="billing-consent-copy" />
+                      <label htmlFor="billing-monthly-consent" aria-label="Aylık abonelik onayını seç"><i aria-hidden="true"><Check size={14} /></i></label>
+                      <span id="billing-consent-copy" className="billing-consent__copy">
+                        <button ref={sozlesmeTetikRef} className="billing-consent__link" type="button" onClick={() => setSozlesmeAcik(true)}>Abonelik sözleşmesini</button> okudum ve aylık aboneliği onaylıyorum.
+                      </span>
+                    </div>
                   </>
                 ) : null}
                 {hata ? <div className="billing-inline-error" role="alert"><AlertCircle size={17} />{hata}</div> : null}
@@ -499,6 +524,31 @@ export function AbonelikSayfasi() {
               </>
             )}
           </section>
+          {sozlesmeAcik ? (
+            <div className="billing-contract-backdrop" role="presentation" onMouseDown={(event) => {
+              if (event.target === event.currentTarget) sozlesmeKapat();
+            }}>
+              <section ref={sozlesmeRef} className="billing-contract-window" role="dialog" aria-modal="true" aria-labelledby="billing-contract-title">
+                <button className="billing-contract-window__close" type="button" onClick={sozlesmeKapat} aria-label="Sözleşme penceresini kapat"><X size={18} /></button>
+                <p className="billing-modal__eyebrow">ABONELİK SÖZLEŞMESİ</p>
+                <h2 id="billing-contract-title" ref={sozlesmeBaslikRef} tabIndex={-1}>{abonelikSozlesmesi.title}</h2>
+                <p className="billing-contract-window__updated">{abonelikSozlesmesi.updatedAtLabel}: {abonelikSozlesmesi.updatedAt}</p>
+                <p className="billing-contract-window__intro">{abonelikSozlesmesi.intro}</p>
+                <div className="billing-contract-window__sections">
+                  {abonelikSozlesmesi.sections.map((section) => (
+                    <section key={section.title}>
+                      <h3>{section.title}</h3>
+                      <p>{section.text}</p>
+                    </section>
+                  ))}
+                </div>
+                <p className="billing-contract-window__note">{abonelikSozlesmesi.note}</p>
+                <div className="billing-contract-window__actions">
+                  <button className="billing-button billing-button--primary" type="button" onClick={sozlesmeKapat}>Kapat</button>
+                </div>
+              </section>
+            </div>
+          ) : null}
         </div>
       ) : null}
     </main>
