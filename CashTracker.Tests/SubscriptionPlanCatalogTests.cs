@@ -37,8 +37,10 @@ namespace CashTracker.Tests
             Assert.Equal(pro.AylikTutar * 12 * 0.84m, pro.YillikTutar);
             Assert.Equal(9061.92m, standart.YillikTutar);
             Assert.Equal(15109.92m, pro.YillikTutar);
-            Assert.Equal(7045.92m, standart.KurucuYillikTutar);
-            Assert.Equal(12085.92m, pro.KurucuYillikTutar);
+            Assert.Equal(8557.92m, standart.KurucuYillikTutar);
+            Assert.Equal(14353.92m, pro.KurucuYillikTutar);
+            Assert.Equal(standart.KurucuAylikTutar * 0.84m * 3 + standart.YillikTutar / 12 * 9, standart.KurucuYillikTutar);
+            Assert.Equal(pro.KurucuAylikTutar * 0.84m * 3 + pro.YillikTutar / 12 * 9, pro.KurucuYillikTutar);
         }
 
         [Fact]
@@ -49,7 +51,8 @@ namespace CashTracker.Tests
             Assert.Equal(690, plan.AylikTutar);
             Assert.Equal(6624, plan.YillikTutar);
             Assert.Equal(490, plan.KurucuAylikTutar);
-            Assert.Equal(4704, plan.KurucuYillikTutar);
+            Assert.Equal(6144, plan.KurucuYillikTutar);
+            Assert.Equal(plan.KurucuAylikTutar * 0.80m * 3 + plan.YillikTutar / 12 * 9, plan.KurucuYillikTutar);
             Assert.Equal(100, plan.AiMesajLimiti);
             Assert.Equal(50, plan.FaturaLimiti);
             Assert.Equal(HesapTipleri.Isletme, plan.HesapTipi);
@@ -64,13 +67,13 @@ namespace CashTracker.Tests
             Assert.Equal(1290, buyume.AylikTutar);
             Assert.Equal(12384, buyume.YillikTutar);
             Assert.Equal(990, buyume.KurucuAylikTutar);
-            Assert.Equal(9504, buyume.KurucuYillikTutar);
+            Assert.Equal(11664, buyume.KurucuYillikTutar);
             Assert.True(buyume.BankaMutabakatiAktif);
             Assert.True(buyume.MuhasebeciErisimiAktif);
             Assert.Equal(2490, kurumsal.AylikTutar);
             Assert.Equal(23904, kurumsal.YillikTutar);
             Assert.Equal(1990, kurumsal.KurucuAylikTutar);
-            Assert.Equal(19104, kurumsal.KurucuYillikTutar);
+            Assert.Equal(22704, kurumsal.KurucuYillikTutar);
             Assert.True(kurumsal.CokluSubeAktif);
             Assert.True(kurumsal.CokluParaBirimiAktif);
             Assert.True(kurumsal.ApiErisimiAktif);

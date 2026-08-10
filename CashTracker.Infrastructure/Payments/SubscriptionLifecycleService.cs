@@ -336,7 +336,7 @@ public sealed class SubscriptionLifecycleService : ISubscriptionLifecycleService
                 return true;
             }
 
-            throw new InvalidOperationException("Kurucu 100 hakki bu calisma alani icin daha once kullanildi.");
+            throw new InvalidOperationException("Lansman fiyati hakki bu calisma alani icin daha once kullanildi.");
         }
 
         var hasPreviousSubscription = await db.Abonelikler.AsNoTracking()
@@ -347,7 +347,7 @@ public sealed class SubscriptionLifecycleService : ISubscriptionLifecycleService
             x.IsletmeId == command.BusinessId &&
             (x.Durum == PaymentTransactionStates.Succeeded || x.Durum == PaymentTransactionStates.TrialAuthorized), ct);
         if (hasPreviousSubscription || hasPreviousTrial || hasCompletedPayment)
-            throw new InvalidOperationException("Kurucu 100 yalnizca ilk aboneligini baslatan yeni hesaplar icindir.");
+            throw new InvalidOperationException("Lansman fiyati yalnizca ilk aboneligini baslatan yeni hesaplar icindir.");
 
         var usedSlots = await db.KurucuKampanyaHaklari.AsNoTracking()
             .Where(x => x.KampanyaKodu == SubscriptionPlanCatalog.KurucuKampanyaKodu)
@@ -357,7 +357,7 @@ public sealed class SubscriptionLifecycleService : ISubscriptionLifecycleService
         var slot = Enumerable.Range(1, SubscriptionPlanCatalog.KurucuKampanyaKontenjani)
             .FirstOrDefault(x => !used.Contains(x));
         if (slot == 0)
-            throw new InvalidOperationException("Kurucu 100 kontenjani doldu. Guncel teklifi yenileyin.");
+            throw new InvalidOperationException("Lansman fiyati kontenjani doldu. Guncel teklifi yenileyin.");
 
         db.KurucuKampanyaHaklari.Add(new KurucuKampanyaHakki
         {

@@ -83,14 +83,14 @@ namespace CashTracker.Core.Models
                 {
                     YillikTutar = 6624,
                     KurucuAylikTutar = 490,
-                    KurucuYillikTutar = 4704,
+                    KurucuYillikTutar = 6144,
                     FaturaLimiti = 50
                 },
                 new(PlanKodlari.IsletmeBuyume, HesapTipleri.Isletme, "Büyüme", 1290, null, 3, null)
                 {
                     YillikTutar = 12384,
                     KurucuAylikTutar = 990,
-                    KurucuYillikTutar = 9504,
+                    KurucuYillikTutar = 11664,
                     BankaMutabakatiAktif = true,
                     StokRaporAktif = true,
                     MuhasebeciErisimiAktif = true
@@ -99,7 +99,7 @@ namespace CashTracker.Core.Models
                 {
                     YillikTutar = 23904,
                     KurucuAylikTutar = 1990,
-                    KurucuYillikTutar = 19104,
+                    KurucuYillikTutar = 22704,
                     BankaMutabakatiAktif = true,
                     StokRaporAktif = true,
                     MuhasebeciErisimiAktif = true,
@@ -122,13 +122,13 @@ namespace CashTracker.Core.Models
                 {
                     YillikTutar = 9061.92m,
                     KurucuAylikTutar = 699m,
-                    KurucuYillikTutar = 7045.92m
+                    KurucuYillikTutar = 8557.92m
                 },
                 new(PlanKodlari.MuhasebeciPro, HesapTipleri.Muhasebeci, "Pro", 1499, null, null, null)
                 {
                     YillikTutar = 15109.92m,
                     KurucuAylikTutar = 1199m,
-                    KurucuYillikTutar = 12085.92m
+                    KurucuYillikTutar = 14353.92m
                 }
             };
 

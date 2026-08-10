@@ -99,7 +99,7 @@ namespace CashTracker.Tests
             Assert.Equal(999m, monthly.ListNetAmount);
             Assert.Equal(3, monthly.DiscountedPeriodCount);
             Assert.Equal(SubscriptionPlanCatalog.KurucuKampanyaKodu, monthly.CampaignCode);
-            Assert.Equal(9504m, annual.NetAmount);
+            Assert.Equal(11664m, annual.NetAmount);
             Assert.Equal(12384m, annual.RenewalNetAmount);
             Assert.Equal(1, annual.DiscountedPeriodCount);
         }

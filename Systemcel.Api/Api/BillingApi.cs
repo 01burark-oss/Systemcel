@@ -11,7 +11,7 @@ namespace Systemcel.Api.Api;
 
 internal static class BillingApi
 {
-    private const string ConsentVersion = "abonelik-onayi-2026-08-v3";
+    private const string ConsentVersion = "abonelik-onayi-2026-08-v4";
 
     public static void MapBillingApi(this WebApplication app)
     {
@@ -64,6 +64,7 @@ internal static class BillingApi
             async (
                 IIsletmeService isletmeService,
                 ISubscriptionEntitlementService entitlementService,
+                IPaymentPricingService pricing,
                 IDbContextFactory<CashTrackerDbContext> dbFactory,
                 CancellationToken ct) =>
             {
@@ -114,6 +115,23 @@ internal static class BillingApi
                     : subscription?.Durum == "Aktif"
                         ? subscription.DonemBitisAt
                         : null;
+                var currentRenewalNetAmount = subscription?.YenilemeDonemTutari;
+                if (subscription is not null)
+                {
+                    try
+                    {
+                        currentRenewalNetAmount = pricing.CreateQuote(
+                            subscription.PlanKodu,
+                            subscription.HesapTipi,
+                            subscription.FaturalamaDonemi,
+                            subscription.EkMusteriKredisi,
+                            useFounderPrice: false).NetAmount;
+                    }
+                    catch (InvalidOperationException)
+                    {
+                        // Eski veya artık satışta olmayan planlarda kayıtlı yenileme tutarını koru.
+                    }
+                }
 
                 return Results.Ok(new
                 {
@@ -145,7 +163,7 @@ internal static class BillingApi
                         subscription.Durum,
                         subscription.DonemTutari,
                         subscription.KampanyaKodu,
-                        subscription.YenilemeDonemTutari,
+                        yenilemeDonemTutari = currentRenewalNetAmount,
                         subscription.IndirimliDonemKalan,
                         subscription.ParaBirimi,
                         subscription.DonemBaslangicAt,
@@ -417,7 +435,7 @@ internal static class BillingApi
             var renewalVat = renewalVatAmount.ToString("N2", culture);
             var renewalTotal = (quote.RenewalNetAmount + renewalVatAmount).ToString("N2", culture);
             var campaign = quote.IsFounderPrice
-                ? $" Kurucu 100 fiyatının {(quote.BillingPeriod == PaymentBillingPeriods.Annual ? "ilk yıllık dönem" : "ilk 3 aylık tahsilat")} için geçerli olduğunu; sonrasında {renewalNet} TL + {renewalVat} TL KDV, toplam {renewalTotal} TL normal dönem fiyatıyla yenileneceğini kabul ediyorum."
+                ? $" Lansman fiyatının ilk 3 ay için geçerli olduğunu; yıllık toplu ödemede yalnızca ilk 3 aylık kısma uygulandığını kabul ediyorum. Lansman bitiminden sonraki yenilemelerde yenileme tarihinde geçerli liste fiyatı uygulanır. Bugünkü {period} liste fiyatı {renewalNet} TL + {renewalVat} TL KDV, toplam {renewalTotal} TL'dir. Fiyat değişikliği en az 30 gün önce e-posta ve uygulama içinden bildirilir; yenilemeden önce dönem sonu iptal talebi verebilirim."
                 : $" Aboneliğin sonraki {period} dönemde {renewalNet} TL + {renewalVat} TL KDV, toplam {renewalTotal} TL üzerinden yenileneceğini kabul ediyorum.";
             return $"{period} planın hemen başlamasını; " +
                    $"{net} TL + {vat} TL KDV, toplam {total} TL'nin kayıtlı ödeme yöntemimden bugün tahsil edilmesini onaylıyorum.{credits}{campaign} İptalin mevcut ücretli dönemin " +

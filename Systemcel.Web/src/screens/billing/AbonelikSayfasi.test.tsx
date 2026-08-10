@@ -62,7 +62,7 @@ const plans: PublicPlan[] = [{
   normalAylikTutar: 899,
   normalYillikTutar: 9061.92,
   kurucuAylikTutar: 699,
-  kurucuYillikTutar: 7045.92,
+  kurucuYillikTutar: 8557.92,
   kampanyaKodu: "kurucu-100-2026",
   kurucuKontenjanKalan: 74,
   paraBirimi: "TRY",
@@ -90,8 +90,8 @@ const quote: TeklifYaniti = {
     discountedPeriodCount: 3
   },
   kampanyaKodu: "kurucu-100-2026",
-  onayMetniSurumu: "abonelik-onayi-2026-08-v3",
-  onayMetni: "Aylık planın hemen başlamasını ve Kurucu 100 sonrasında normal fiyatla yenilenmesini kabul ediyorum."
+  onayMetniSurumu: "abonelik-onayi-2026-08-v4",
+  onayMetni: "Aylık planın hemen başlamasını ve lansman bitiminde geçerli liste fiyatıyla yenilenmesini kabul ediyorum."
 };
 
 describe("AbonelikSayfasi", () => {
@@ -116,6 +116,8 @@ describe("AbonelikSayfasi", () => {
     expect(screen.getByRole("spinbutton", { name: /\+1 müşteri kredisi/i })).toHaveValue(2);
     expect(await screen.findByText("12 müşteri")).toBeVisible();
     expect(await screen.findByText("KDV (%20)")).toBeVisible();
+    expect(screen.getByText("LANSMANA ÖZEL")).toBeVisible();
+    expect(screen.getByText("Bugünkü liste fiyatı")).toBeVisible();
     const consent = screen.getByRole("checkbox", { name: /abonelik sözleşmesini okudum ve aylık aboneliği onaylıyorum/i });
     const contractButton = screen.getByRole("button", { name: "Abonelik sözleşmesini" });
     expect(screen.queryByText(/dönem sonu iptali/i)).not.toBeInTheDocument();

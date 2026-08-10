@@ -371,7 +371,7 @@ export function AbonelikSayfasi() {
                 <div className="billing-price">
                   <strong>{paraBic(planTutari, ozet.haklar.paraBirimi)}</strong>
                   <span>/{ozet.haklar.faturalamaDonemi === "Yillik" ? "yıl" : "ay"} + KDV</span>
-                  {ozet.abonelik?.kampanyaKodu ? <small>KURUCU 100</small> : null}
+                  {ozet.abonelik?.kampanyaKodu ? <small>LANSMANA ÖZEL</small> : null}
                 </div>
               </div>
               <div className="billing-plan-card__actions">
@@ -397,9 +397,9 @@ export function AbonelikSayfasi() {
               <p>{ozet.donemSonundaIptal
                 ? "Bu tarihe kadar plan haklarınızı kullanabilirsiniz."
                 : ozet.abonelik?.kampanyaKodu && ozet.abonelik.indirimliDonemKalan > 0
-                  ? `Kurucu fiyatınız ${ozet.abonelik.indirimliDonemKalan} tahsilat daha geçerli; ardından ${paraBic(ozet.abonelik.yenilemeDonemTutari, ozet.abonelik.paraBirimi)} + KDV.`
+                  ? `Lansman fiyatınız ${ozet.abonelik.indirimliDonemKalan} ay daha geçerli. Lansman bitiminde güncel liste fiyatı uygulanır.`
                   : ozet.abonelik?.kampanyaKodu
-                    ? `Sonraki yenileme ${paraBic(ozet.abonelik.yenilemeDonemTutari, ozet.abonelik.paraBirimi)} + KDV.`
+                    ? `Sonraki yenilemede geçerli liste fiyatı uygulanır. Bugünkü liste fiyatı ${paraBic(ozet.abonelik.yenilemeDonemTutari, ozet.abonelik.paraBirimi)} + KDV.`
                 : ozet.deneme
                   ? "Deneme süreniz bu tarihte sona erer."
                   : "Planınız bu tarihte yenilenir."}</p>
@@ -515,14 +515,14 @@ export function AbonelikSayfasi() {
                   <>
                     <div className="billing-quote">
                       <div>
-                        <small>{teklif.fiyat.isFounderPrice ? "KURUCU 100 FİYATI" : faturalamaDonemi === "Yillik" ? "YILLIK ABONELİK" : "AYLIK ABONELİK"}</small>
+                        <small>{teklif.fiyat.isFounderPrice ? "LANSMANA ÖZEL" : faturalamaDonemi === "Yillik" ? "YILLIK ABONELİK" : "AYLIK ABONELİK"}</small>
                         <strong>Bugün {paraBic(teklif.fiyat.totalAmount, teklif.fiyat.currency)}</strong>
                       </div>
                       <dl>
                         <div><dt>Plan bedeli</dt><dd>{paraBic(teklif.fiyat.netAmount, teklif.fiyat.currency)}</dd></div>
                         {teklif.fiyat.extraCustomerCredits > 0 ? <div><dt>Müşteri kapasitesi</dt><dd>{teklif.fiyat.includedCustomerCount + teklif.fiyat.extraCustomerCredits} müşteri</dd></div> : null}
                         <div><dt>KDV (%{Math.round(teklif.fiyat.vatRate)})</dt><dd>{paraBic(teklif.fiyat.vatAmount, teklif.fiyat.currency)}</dd></div>
-                        {teklif.fiyat.isFounderPrice ? <div><dt>Sonraki normal dönem</dt><dd>{paraBic(teklif.fiyat.renewalNetAmount, teklif.fiyat.currency)} + KDV</dd></div> : null}
+                        {teklif.fiyat.isFounderPrice ? <div><dt>Bugünkü liste fiyatı</dt><dd>{paraBic(teklif.fiyat.renewalNetAmount, teklif.fiyat.currency)} + KDV</dd></div> : null}
                         <div><dt>Bugünkü toplam</dt><dd>{paraBic(teklif.fiyat.totalAmount, teklif.fiyat.currency)}</dd></div>
                       </dl>
                     </div>

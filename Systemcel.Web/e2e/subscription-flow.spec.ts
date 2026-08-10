@@ -10,7 +10,7 @@ const plan = {
   normalAylikTutar: 899,
   normalYillikTutar: 9061.92,
   kurucuAylikTutar: 699,
-  kurucuYillikTutar: 7045.92,
+  kurucuYillikTutar: 8557.92,
   kampanyaKodu: "kurucu-100-2026",
   kurucuKontenjanKalan: 74,
   paraBirimi: "TRY",
@@ -101,8 +101,8 @@ async function mockWorkspace(page: Page, summary = baseSummary, expectedBilling:
       expect(new URL(request.url()).searchParams.get("faturalamaDonemi")).toBe(expectedBilling);
       expect(new URL(request.url()).searchParams.get("ekMusteriKredisi")).toBe("2");
       const annual = expectedBilling === "Yillik";
-      const netAmount = annual ? 8053.92 : 799;
-      const vatAmount = annual ? 1610.78 : 159.8;
+      const netAmount = annual ? 9565.92 : 799;
+      const vatAmount = annual ? 1913.18 : 159.8;
       return json(route, {
         fiyat: {
           planCode: "muhasebeci_standart",
@@ -124,7 +124,7 @@ async function mockWorkspace(page: Page, summary = baseSummary, expectedBilling:
           discountedPeriodCount: annual ? 1 : 3
         },
         kampanyaKodu: "kurucu-100-2026",
-        onayMetniSurumu: "abonelik-onayi-2026-08-v3",
+        onayMetniSurumu: "abonelik-onayi-2026-08-v4",
         onayMetni: "Aylık yenileme, dönem sonu iptal ve emredici yasal haklar saklıdır."
       });
     }
@@ -179,8 +179,8 @@ test("annual checkout carries the selected period through consent and checkout",
   await page.goto("/app/abonelik?plan=muhasebeci_standart&billing=Yillik&credits=2");
 
   await expect(page.getByRole("button", { name: "Yıllık" })).toHaveAttribute("aria-pressed", "true");
-  await expect(page.getByText("KURUCU 100 FİYATI")).toBeVisible();
-  await expect(page.getByText("Sonraki normal dönem")).toBeVisible();
+  await expect(page.getByText("LANSMANA ÖZEL")).toBeVisible();
+  await expect(page.getByText("Bugünkü liste fiyatı")).toBeVisible();
   await page.getByRole("checkbox").check();
   await page.getByRole("button", { name: "Öde ve aboneliği başlat" }).click();
   await expect(page).toHaveURL(/\/checkout-sent$/);

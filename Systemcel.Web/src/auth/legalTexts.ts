@@ -160,14 +160,14 @@ export const legalTexts: Record<AuthLanguage, Record<LegalTextKey, LegalTextCont
             "Seçilen plan, aylık veya yıllık dönem, net bedel, KDV, toplam tutar ve varsa ek müşteri kredileri ödeme onayından hemen önce gösterilir. Fiyat veya vergi değişikliği yeni dönemden önce kullanıcıya bildirilir."
         },
         {
-          title: "2. İlk Tahsilat ve Kurucu 100",
+          title: "2. İlk Tahsilat ve Lansman Fiyatı",
           text:
-            "Abonelik ve tahsilat onay gününde başlar. Kurucu 100 fiyatı aylık seçimde ilk üç tahsilat, yıllık seçimde ilk peşin yıl için geçerlidir. Sonraki yenilemenin normal dönem fiyatı ödeme onayından önce ayrıca gösterilir. Ek müşteri kredileri kampanya dışında, güncel liste fiyatıyla hesaplanır."
+            "Abonelik ve tahsilat onay gününde başlar. Lansman fiyatı ilk üç ay için geçerlidir; yıllık toplu ödemede yalnızca ilk üç aylık kısma uygulanır. Lansman bitiminden sonraki yenilemelerde yenileme tarihinde geçerli liste fiyatı uygulanır. Bugünkü liste fiyatı ödeme onayından önce referans olarak gösterilir. Ek müşteri kredileri kampanya dışında, güncel liste fiyatıyla hesaplanır."
         },
         {
           title: "3. Otomatik Yenileme ve Hatırlatma",
           text:
-            "Aylık veya yıllık abonelik, dönem sonu iptal talebi bulunmadıkça seçilen dönemle yenilenir. Yenileme tarihi ve geçerli yenileme tutarı abonelik ekranında gösterilir."
+            "Aylık veya yıllık abonelik, dönem sonu iptal talebi bulunmadıkça seçilen dönemle yenilenir. Fiyat değişikliği en az 30 gün önce e-posta ve uygulama içinden bildirilir. Kullanıcı yenilemeden önce dönem sonu iptal talebi verebilir."
         },
         {
           title: "4. İptal",
@@ -329,14 +329,14 @@ export const legalTexts: Record<AuthLanguage, Record<LegalTextKey, LegalTextCont
             "The selected plan, monthly or annual billing period, net price, VAT, total amount and any extra customer credits are shown immediately before consent."
         },
         {
-          title: "2. First Charge and Founder 100",
+          title: "2. First Charge and Launch Pricing",
           text:
-            "The subscription and charge start on the consent date. Founder 100 pricing applies to the first three monthly charges or the first prepaid annual term. The normal renewal price is shown before payment. Extra client credits remain at the current list price."
+            "The subscription and charge start on the consent date. Launch pricing applies to the first three months; for annual upfront payment it applies only to the first three-month portion. Renewals after the launch period use the list price effective on the renewal date. Today's list price is shown as a reference before payment. Extra client credits remain at the current list price."
         },
         {
           title: "3. Renewal and Reminders",
           text:
-            "The monthly or annual subscription renews on the selected cycle unless cancellation at period end is requested. The renewal date and applicable renewal price are shown in the subscription screen."
+            "The monthly or annual subscription renews on the selected cycle unless cancellation at period end is requested. Price changes are notified by email and in the app at least 30 days before renewal, and the user may cancel before renewal."
         },
         {
           title: "4. Cancellation",

@@ -54,22 +54,22 @@ type PublicPlan = {
 
 const fallbackPlans: PublicPlan[] = [
   {
-    kod: "isletme_baslangic", ad: "Başlangıç", hesapTipi: "Isletme", aylikTutar: 490, yillikTutar: 4704,
-    yillikEfektifAylikTutar: 392, normalAylikTutar: 690, normalYillikTutar: 6624, kurucuAylikTutar: 490, kurucuYillikTutar: 4704, kampanyaKodu: "kurucu-100-2026", kurucuKontenjanKalan: 100, aiMesajLimiti: 100, kullaniciLimiti: 1, musteriLimiti: null, faturaLimiti: 50,
+    kod: "isletme_baslangic", ad: "Başlangıç", hesapTipi: "Isletme", aylikTutar: 490, yillikTutar: 6144,
+    yillikEfektifAylikTutar: 512, normalAylikTutar: 690, normalYillikTutar: 6624, kurucuAylikTutar: 490, kurucuYillikTutar: 6144, kampanyaKodu: "kurucu-100-2026", kurucuKontenjanKalan: 100, aiMesajLimiti: 100, kullaniciLimiti: 1, musteriLimiti: null, faturaLimiti: 50,
     bankaMutabakatiAktif: false, stokRaporAktif: false, muhasebeciErisimiAktif: false,
     cokluSubeAktif: false, cokluParaBirimiAktif: false, apiErisimiAktif: false,
     oncelikliDestekAktif: false, denemeGunSayisi: 0,
   },
   {
-    kod: "isletme_buyume", ad: "Büyüme", hesapTipi: "Isletme", aylikTutar: 990, yillikTutar: 9504,
-    yillikEfektifAylikTutar: 792, normalAylikTutar: 1290, normalYillikTutar: 12384, kurucuAylikTutar: 990, kurucuYillikTutar: 9504, kampanyaKodu: "kurucu-100-2026", kurucuKontenjanKalan: 100, aiMesajLimiti: null, kullaniciLimiti: 3, musteriLimiti: null, faturaLimiti: null,
+    kod: "isletme_buyume", ad: "Büyüme", hesapTipi: "Isletme", aylikTutar: 990, yillikTutar: 11664,
+    yillikEfektifAylikTutar: 972, normalAylikTutar: 1290, normalYillikTutar: 12384, kurucuAylikTutar: 990, kurucuYillikTutar: 11664, kampanyaKodu: "kurucu-100-2026", kurucuKontenjanKalan: 100, aiMesajLimiti: null, kullaniciLimiti: 3, musteriLimiti: null, faturaLimiti: null,
     bankaMutabakatiAktif: true, stokRaporAktif: true, muhasebeciErisimiAktif: true,
     cokluSubeAktif: false, cokluParaBirimiAktif: false, apiErisimiAktif: false,
     oncelikliDestekAktif: false, denemeGunSayisi: 0,
   },
   {
-    kod: "isletme_kurumsal", ad: "Kurumsal", hesapTipi: "Isletme", aylikTutar: 1990, yillikTutar: 19104,
-    yillikEfektifAylikTutar: 1592, normalAylikTutar: 2490, normalYillikTutar: 23904, kurucuAylikTutar: 1990, kurucuYillikTutar: 19104, kampanyaKodu: "kurucu-100-2026", kurucuKontenjanKalan: 100, aiMesajLimiti: null, kullaniciLimiti: null, musteriLimiti: null, faturaLimiti: null,
+    kod: "isletme_kurumsal", ad: "Kurumsal", hesapTipi: "Isletme", aylikTutar: 1990, yillikTutar: 22704,
+    yillikEfektifAylikTutar: 1892, normalAylikTutar: 2490, normalYillikTutar: 23904, kurucuAylikTutar: 1990, kurucuYillikTutar: 22704, kampanyaKodu: "kurucu-100-2026", kurucuKontenjanKalan: 100, aiMesajLimiti: null, kullaniciLimiti: null, musteriLimiti: null, faturaLimiti: null,
     bankaMutabakatiAktif: true, stokRaporAktif: true, muhasebeciErisimiAktif: true,
     cokluSubeAktif: true, cokluParaBirimiAktif: true, apiErisimiAktif: true,
     oncelikliDestekAktif: true, denemeGunSayisi: 0,
@@ -78,15 +78,15 @@ const fallbackPlans: PublicPlan[] = [
 
 const fallbackAccountantPlans: PublicPlan[] = [
   {
-    kod: "muhasebeci_standart", ad: "Standart", hesapTipi: "Muhasebeci", aylikTutar: 699, yillikTutar: 7045.92,
-    yillikEfektifAylikTutar: 587.16, normalAylikTutar: 899, normalYillikTutar: 9061.92, kurucuAylikTutar: 699, kurucuYillikTutar: 7045.92, kampanyaKodu: "kurucu-100-2026", kurucuKontenjanKalan: 100, aiMesajLimiti: 100, kullaniciLimiti: 1, musteriLimiti: 10, faturaLimiti: null,
+    kod: "muhasebeci_standart", ad: "Standart", hesapTipi: "Muhasebeci", aylikTutar: 699, yillikTutar: 8557.92,
+    yillikEfektifAylikTutar: 713.16, normalAylikTutar: 899, normalYillikTutar: 9061.92, kurucuAylikTutar: 699, kurucuYillikTutar: 8557.92, kampanyaKodu: "kurucu-100-2026", kurucuKontenjanKalan: 100, aiMesajLimiti: 100, kullaniciLimiti: 1, musteriLimiti: 10, faturaLimiti: null,
     bankaMutabakatiAktif: false, stokRaporAktif: false, muhasebeciErisimiAktif: false,
     cokluSubeAktif: false, cokluParaBirimiAktif: false, apiErisimiAktif: false,
     oncelikliDestekAktif: false, denemeGunSayisi: 0,
   },
   {
-    kod: "muhasebeci_pro", ad: "Pro", hesapTipi: "Muhasebeci", aylikTutar: 1199, yillikTutar: 12085.92,
-    yillikEfektifAylikTutar: 1007.16, normalAylikTutar: 1499, normalYillikTutar: 15109.92, kurucuAylikTutar: 1199, kurucuYillikTutar: 12085.92, kampanyaKodu: "kurucu-100-2026", kurucuKontenjanKalan: 100, aiMesajLimiti: null, kullaniciLimiti: null, musteriLimiti: null, faturaLimiti: null,
+    kod: "muhasebeci_pro", ad: "Pro", hesapTipi: "Muhasebeci", aylikTutar: 1199, yillikTutar: 14353.92,
+    yillikEfektifAylikTutar: 1196.16, normalAylikTutar: 1499, normalYillikTutar: 15109.92, kurucuAylikTutar: 1199, kurucuYillikTutar: 14353.92, kampanyaKodu: "kurucu-100-2026", kurucuKontenjanKalan: 100, aiMesajLimiti: null, kullaniciLimiti: null, musteriLimiti: null, faturaLimiti: null,
     bankaMutabakatiAktif: false, stokRaporAktif: false, muhasebeciErisimiAktif: false,
     cokluSubeAktif: false, cokluParaBirimiAktif: false, apiErisimiAktif: false,
     oncelikliDestekAktif: true, denemeGunSayisi: 0,
@@ -97,16 +97,16 @@ const copy = {
   tr: {
     announcement: "Yeni — e-Arşiv fatura akışı Systemcel'de yayında",
     accounting: "Ön Muhasebe", ai: "AI Asistan", marketplace: "Pazaryeri", pricing: "Fiyatlandırma",
-    signIn: "Giriş Yap", start: "Kurucu fiyatıyla başla", eyebrow: "B2B FİNANS PLATFORMU — TR/2026",
+    signIn: "Giriş Yap", start: "Lansman fiyatıyla başla", eyebrow: "B2B FİNANS PLATFORMU — TR/2026",
     titleA: "Ön muhasebe,", titleB: "yapay zekâ, muhasebecin.", titleC: "Hepsi tek yerde.",
     lead: "Gelir-gider, cari, stok ve fatura akışını tek yerde yönet. Finansal verini anlayan AI asistanıyla çalış, ihtiyaç duyduğunda uzman muhasebecine ulaş.",
-    trial: "Kurucu fiyatıyla başla", tour: "Canlı tur", setup: "5 dk kurulum", cancel: "İstediğin an iptal",
+    trial: "Lansman fiyatıyla başla", tour: "Canlı tur", setup: "5 dk kurulum", cancel: "İstediğin an iptal",
     section1: "Defter seni değil, sen defteri yönet.", section1Text: "Kasa, cari hesap, stok ve faturalar tek akışta birleşir. Tekrarlayan işleri azaltır, karar vermen gereken noktaları görünür kılarız.",
     section2: "Defterine soru sor, yanıtını al.", section2Text: "Systemcel AI, işletme verilerine göre gelir, gider, stok, cari, tahsilat ve rapor sorularına kısa ve uygulanabilir yanıtlar hazırlar.",
     section3: "Muhasebecin bir tık uzağında.", section3Business: "İhtiyacını ve uzmanlık alanlarını belirt; Systemcel, muhasebecileri uzmanlık alanlarının örtüşmesine göre şeffaf bir eşleşme skoru ile sıralar.",
     section3Accountant: "Profilini oluştur, uzmanlığını göster, işletmelerden gelen talepleri yönet ve müşterilerinle güvenli biçimde çalış.",
     forBusiness: "İşletmeler için", forAccountant: "Muhasebeciler için", findAccountant: "Muhasebecini bul", joinMarketplace: "Pazaryerine katıl",
-    pricingTitle: "Şeffaf fiyat, sürpriz yok.", monthly: "Aylık", yearly: "Yıllık", discount: "Kurucu 100", popular: "Popüler", perMonth: "/ay", billedYearly: "yıllık ödemede", yearlyTotal: "Yıllık toplam", planCta: "Kurucu fiyatıyla başla",
+    pricingTitle: "Şeffaf fiyat, sürpriz yok.", monthly: "Aylık", yearly: "Yıllık", discount: "Lansmana özel", popular: "Popüler", perMonth: "/ay", billedYearly: "yıllık ödemede", yearlyTotal: "Yıllık toplam", planCta: "Lansman fiyatıyla başla",
     finalTitle: "İlk hücreni bugün doldur.", sales: "Satış ekibimizle görüş", footerText: "Ön muhasebe, yapay zekâ ve muhasebeci pazaryeri — işletmenin finansal çalışma alanı.",
     product: "Ürün", company: "Şirket", legal: "Yasal", about: "Hakkımızda", careers: "Kariyer", blog: "Blog", contact: "İletişim", privacy: "Gizlilik", terms: "Kullanım Şartları", cookies: "Çerezler",
     tourTitle: "Systemcel canlı tur", tourText: "Gelir-gider kaydı, cari ve stok takibi, fatura akışı, AI asistanı ve muhasebeci bağlantısı tek çalışma alanında buluşur.", tourAction: "Hesabını oluştur", close: "Kapat",
@@ -114,16 +114,16 @@ const copy = {
   en: {
     announcement: "New — e-Archive invoice flow is live in Systemcel",
     accounting: "Accounting", ai: "AI Assistant", marketplace: "Marketplace", pricing: "Pricing",
-    signIn: "Sign in", start: "Start with founder pricing", eyebrow: "B2B FINANCE PLATFORM — TR/2026",
+    signIn: "Sign in", start: "Start with launch pricing", eyebrow: "B2B FINANCE PLATFORM — TR/2026",
     titleA: "Accounting,", titleB: "AI and your accountant.", titleC: "All in one place.",
     lead: "Manage income, expenses, accounts, inventory and invoices in one place. Work with an AI assistant that understands your financial data and reach an expert accountant when needed.",
-    trial: "Start with founder pricing", tour: "Live tour", setup: "5-minute setup", cancel: "Cancel anytime",
+    trial: "Start with launch pricing", tour: "Live tour", setup: "5-minute setup", cancel: "Cancel anytime",
     section1: "You run the books — not the other way around.", section1Text: "Cash, accounts, inventory and invoices come together in one flow. Reduce repetitive work and make decisions visible.",
     section2: "Ask your books and get an answer.", section2Text: "Systemcel AI prepares concise, actionable answers about income, expenses, inventory, accounts, collections and reports.",
     section3: "Your accountant is one click away.", section3Business: "Share your needs and areas of expertise; Systemcel ranks accountants with a transparent score based on expertise overlap.",
     section3Accountant: "Create your profile, showcase your expertise, manage business requests and work securely with your clients.",
     forBusiness: "For businesses", forAccountant: "For accountants", findAccountant: "Find an accountant", joinMarketplace: "Join marketplace",
-    pricingTitle: "Transparent pricing. No surprises.", monthly: "Monthly", yearly: "Yearly", discount: "Founder 100", popular: "Popular", perMonth: "/mo", billedYearly: "with annual billing", yearlyTotal: "Annual total", planCta: "Start with founder pricing",
+    pricingTitle: "Transparent pricing. No surprises.", monthly: "Monthly", yearly: "Yearly", discount: "Launch offer", popular: "Popular", perMonth: "/mo", billedYearly: "with annual billing", yearlyTotal: "Annual total", planCta: "Start with launch pricing",
     finalTitle: "Fill your first cell today.", sales: "Talk to sales", footerText: "Accounting, AI and an accountant marketplace — your financial workspace.",
     product: "Product", company: "Company", legal: "Legal", about: "About", careers: "Careers", blog: "Blog", contact: "Contact", privacy: "Privacy", terms: "Terms", cookies: "Cookies",
     tourTitle: "Systemcel live tour", tourText: "Income and expense records, accounts, inventory, invoices, AI assistance and accountant collaboration meet in one workspace.", tourAction: "Create your account", close: "Close",
@@ -982,13 +982,12 @@ function PlanCard({ plan, billing, language, popular, href }: { plan: PublicPlan
   const price = billing === "Yillik" ? (plan.yillikEfektifAylikTutar ?? plan.aylikTutar) : plan.aylikTutar;
   const yearlyTotal = plan.yillikTutar ?? plan.aylikTutar * 12;
   const founderActive = Boolean(plan.kampanyaKodu && plan.kurucuKontenjanKalan > 0);
-  const renewal = billing === "Yillik" ? (plan.normalYillikTutar ?? plan.normalAylikTutar * 12) : plan.normalAylikTutar;
   const features = planFeatures(plan, language);
   const planName = language === "tr" ? plan.ad : plan.kod === "isletme_baslangic" ? "Starter" : plan.kod === "isletme_buyume" ? "Growth" : "Enterprise";
   const priceNote = founderActive
     ? billing === "Yillik"
-      ? (language === "tr" ? `Kurucu fiyatı · ilk yıl ₺${yearlyTotal.toLocaleString("tr-TR")} · sonraki yıl ₺${renewal.toLocaleString("tr-TR")}` : `Founder price · first year ₺${yearlyTotal.toLocaleString("tr-TR")} · then ₺${renewal.toLocaleString("tr-TR")}`)
-      : (language === "tr" ? `Kurucu fiyatı · ilk 3 tahsilat · ardından ₺${renewal.toLocaleString("tr-TR")}/ay` : `Founder price · first 3 charges · then ₺${renewal.toLocaleString("tr-TR")}/mo`)
+      ? (language === "tr" ? `Lansman fiyatı · ilk 3 ay indirimli · yıllık toplam ₺${yearlyTotal.toLocaleString("tr-TR")}` : `Launch price · first 3 months discounted · annual total ₺${yearlyTotal.toLocaleString("tr-TR")}`)
+      : (language === "tr" ? `Lansman fiyatı · ilk 3 ay · lansman bitiminde güncel liste fiyatı` : `Launch price · first 3 months · current list price after launch`)
     : billing === "Yillik"
       ? `${t.yearlyTotal}: ₺${yearlyTotal.toLocaleString("tr-TR")}`
       : (language === "tr" ? "Aylık tahsilat" : "Billed monthly");
@@ -1005,11 +1004,10 @@ function AccountantPlanCard({ plan, billing, language, popular, href }: { plan: 
   const annualMonthly = plan.yillikEfektifAylikTutar && plan.yillikEfektifAylikTutar > 0 ? plan.yillikEfektifAylikTutar : annualTotal / 12;
   const price = annual ? annualMonthly : plan.aylikTutar;
   const founderActive = Boolean(plan.kampanyaKodu && plan.kurucuKontenjanKalan > 0);
-  const renewal = annual ? (plan.normalYillikTutar ?? plan.normalAylikTutar * 12) : plan.normalAylikTutar;
   const priceNote = founderActive
     ? annual
-      ? (tr ? `Kurucu fiyatı · ilk yıl ₺${annualTotal.toLocaleString("tr-TR")} · sonraki yıl ₺${renewal.toLocaleString("tr-TR")}` : `Founder price · first year ₺${annualTotal.toLocaleString("tr-TR")} · then ₺${renewal.toLocaleString("tr-TR")}`)
-      : (tr ? `Kurucu fiyatı · ilk 3 tahsilat · ardından ₺${renewal.toLocaleString("tr-TR")}/ay` : `Founder price · first 3 charges · then ₺${renewal.toLocaleString("tr-TR")}/mo`)
+      ? (tr ? `Lansman fiyatı · ilk 3 ay indirimli · yıllık toplam ₺${annualTotal.toLocaleString("tr-TR")}` : `Launch price · first 3 months discounted · annual total ₺${annualTotal.toLocaleString("tr-TR")}`)
+      : (tr ? `Lansman fiyatı · ilk 3 ay · lansman bitiminde güncel liste fiyatı` : `Launch price · first 3 months · current list price after launch`)
     : annual
       ? (tr ? `Yıllık toplam: ₺${annualTotal.toLocaleString("tr-TR")}` : `Annual total: ₺${annualTotal.toLocaleString("tr-TR")}`)
       : plan.kod === "muhasebeci_standart"
