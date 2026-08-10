@@ -18465,11 +18465,23 @@ tbody tr.secili {
   border-radius: 9px;
 }
 
+:root[data-theme="light"] .react-sidebar__sublink svg {
+  color: var(--app-muted);
+}
+
 :root[data-theme="light"] .react-sidebar__sublink:hover,
 :root[data-theme="light"] .react-sidebar__sublink.active {
   color: var(--app-ink);
   border-color: var(--app-line);
   background: var(--app-paper);
+}
+
+:root[data-theme="light"] .react-sidebar__sublink:hover svg {
+  color: var(--app-ink);
+}
+
+:root[data-theme="light"] .react-sidebar__sublink.active svg {
+  color: #718800;
 }
 
 :root[data-theme="light"] .react-sidebar__footer {
