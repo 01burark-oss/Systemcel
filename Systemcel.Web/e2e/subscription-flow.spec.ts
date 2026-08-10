@@ -7,8 +7,14 @@ const plan = {
   aylikTutar: 799,
   yillikTutar: null,
   yillikEfektifAylikTutar: null,
+  normalAylikTutar: 899,
+  normalYillikTutar: 9061.92,
+  kurucuAylikTutar: 699,
+  kurucuYillikTutar: 7045.92,
+  kampanyaKodu: "kurucu-100-2026",
+  kurucuKontenjanKalan: 74,
   paraBirimi: "TRY",
-  denemeGunSayisi: 14
+  denemeGunSayisi: 0
 };
 
 const baseSummary = {
@@ -56,7 +62,7 @@ const baseSummary = {
   odemeler: []
 };
 
-async function mockWorkspace(page: Page, summary = baseSummary) {
+async function mockWorkspace(page: Page, summary = baseSummary, expectedBilling: "Aylik" | "Yillik" = "Aylik") {
   await page.route("**/api/**", async (route) => {
     const request = route.request();
     const path = new URL(request.url()).pathname;
@@ -92,24 +98,33 @@ async function mockWorkspace(page: Page, summary = baseSummary) {
     if (path === "/api/abonelik/ozet") return json(route, summary);
     if (path === "/api/public/planlar") return json(route, [plan]);
     if (path === "/api/abonelik/teklif") {
-      expect(new URL(request.url()).searchParams.get("faturalamaDonemi")).toBe("Aylik");
+      expect(new URL(request.url()).searchParams.get("faturalamaDonemi")).toBe(expectedBilling);
       expect(new URL(request.url()).searchParams.get("ekMusteriKredisi")).toBe("2");
+      const annual = expectedBilling === "Yillik";
+      const netAmount = annual ? 8053.92 : 799;
+      const vatAmount = annual ? 1610.78 : 159.8;
       return json(route, {
         fiyat: {
           planCode: "muhasebeci_standart",
           accountType: "Muhasebeci",
-          billingPeriod: "Aylik",
+          billingPeriod: expectedBilling,
           currency: "TRY",
-          netAmount: 799,
+          netAmount,
           vatRate: 20,
-          vatAmount: 159.8,
-          totalAmount: 958.8,
-          trialDays: 14,
+          vatAmount,
+          totalAmount: netAmount + vatAmount,
+          trialDays: 0,
           extraCustomerCredits: 2,
           includedCustomerCount: 10,
-          customerCreditUnitAmount: 0
+          customerCreditUnitAmount: annual ? 504 : 50,
+          campaignCode: "kurucu-100-2026",
+          isFounderPrice: true,
+          listNetAmount: annual ? 10069.92 : 999,
+          renewalNetAmount: annual ? 10069.92 : 999,
+          discountedPeriodCount: annual ? 1 : 3
         },
-        onayMetniSurumu: "abonelik-onayi-2026-08-v2",
+        kampanyaKodu: "kurucu-100-2026",
+        onayMetniSurumu: "abonelik-onayi-2026-08-v3",
         onayMetni: "Aylık yenileme, dönem sonu iptal ve emredici yasal haklar saklıdır."
       });
     }
@@ -117,8 +132,9 @@ async function mockWorkspace(page: Page, summary = baseSummary) {
       const payload = request.postDataJSON();
       expect(payload).toMatchObject({
         planKodu: "muhasebeci_standart",
-        faturalamaDonemi: "Aylik",
+        faturalamaDonemi: expectedBilling,
         ekMusteriKredisi: 2,
+        kampanyaKodu: "kurucu-100-2026",
         onaylandi: true
       });
       return json(route, {
@@ -145,17 +161,28 @@ test("monthly checkout shows recurring credits, VAT and explicit consent", async
   const contractButton = page.getByRole("button", { name: "Abonelik sözleşmesini" });
   await expect(page.getByText(/dönem sonu iptali/i)).not.toBeVisible();
 
-  const continueButton = page.getByRole("button", { name: "Kartı güvenle ekle" });
+  const continueButton = page.getByRole("button", { name: "Öde ve aboneliği başlat" });
   await expect(continueButton).toBeDisabled();
   await contractButton.click();
   const contractWindow = page.getByRole("dialog", { name: "Systemcel Abonelik, Yenileme, İptal ve İade Koşulları" });
   await expect(contractWindow).toBeVisible();
   await page.getByRole("button", { name: "Sözleşme penceresini kapat" }).click();
   await expect(contractWindow).not.toBeVisible();
-  await page.getByRole("checkbox").focus();
-  await page.keyboard.press("Space");
+  await page.getByRole("checkbox").press("Space");
   await expect(continueButton).toBeEnabled();
   await continueButton.click();
+  await expect(page).toHaveURL(/\/checkout-sent$/);
+});
+
+test("annual checkout carries the selected period through consent and checkout", async ({ page }) => {
+  await mockWorkspace(page, baseSummary, "Yillik");
+  await page.goto("/app/abonelik?plan=muhasebeci_standart&billing=Yillik&credits=2");
+
+  await expect(page.getByRole("button", { name: "Yıllık" })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByText("KURUCU 100 FİYATI")).toBeVisible();
+  await expect(page.getByText("Sonraki normal dönem")).toBeVisible();
+  await page.getByRole("checkbox").check();
+  await page.getByRole("button", { name: "Öde ve aboneliği başlat" }).click();
   await expect(page).toHaveURL(/\/checkout-sent$/);
 });
 
@@ -172,6 +199,9 @@ test("period-end cancellation remains visible until access ends", async ({ page 
       ekMusteriKredisi: 2,
       durum: "Aktif",
       donemTutari: 799,
+      kampanyaKodu: "kurucu-100-2026",
+      yenilemeDonemTutari: 999,
+      indirimliDonemKalan: 2,
       paraBirimi: "TRY",
       donemBaslangicAt: "2026-08-01T12:00:00Z",
       donemBitisAt: "2026-09-01T12:00:00Z",

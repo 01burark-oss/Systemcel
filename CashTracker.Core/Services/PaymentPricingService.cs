@@ -16,7 +16,12 @@ namespace CashTracker.Core.Services
             _vatRate = vatRate;
         }
 
-        public PaymentQuote CreateQuote(string planCode, string accountType, string billingPeriod, int extraCustomerCredits = 0)
+        public PaymentQuote CreateQuote(
+            string planCode,
+            string accountType,
+            string billingPeriod,
+            int extraCustomerCredits = 0,
+            bool useFounderPrice = false)
         {
             if (string.IsNullOrWhiteSpace(planCode))
                 throw new ArgumentException("Plan kodu zorunludur.", nameof(planCode));
@@ -42,20 +47,26 @@ namespace CashTracker.Core.Services
                     ? PaymentBillingPeriods.Monthly
                     : throw new InvalidOperationException("Gecersiz faturalama donemi.");
 
-            var netAmount = normalizedPeriod == PaymentBillingPeriods.Annual
+            var listNetAmount = normalizedPeriod == PaymentBillingPeriods.Annual
                 ? plan.Kod == PlanKodlari.MuhasebeciStandart
                     ? SubscriptionPlanCatalog.CalculateMuhasebeciStandartYillikTutar(extraCustomerCredits)
                     : plan.YillikTutar
                 : plan.Kod == PlanKodlari.MuhasebeciStandart
                     ? SubscriptionPlanCatalog.CalculateMuhasebeciStandartAylikTutar(extraCustomerCredits)
                     : plan.AylikTutar;
+            var founderNetAmount = normalizedPeriod == PaymentBillingPeriods.Annual
+                ? plan.Kod == PlanKodlari.MuhasebeciStandart
+                    ? SubscriptionPlanCatalog.CalculateMuhasebeciStandartKurucuYillikTutar(extraCustomerCredits)
+                    : plan.KurucuYillikTutar
+                : plan.Kod == PlanKodlari.MuhasebeciStandart
+                    ? SubscriptionPlanCatalog.CalculateMuhasebeciStandartKurucuAylikTutar(extraCustomerCredits)
+                    : plan.KurucuAylikTutar;
+            var netAmount = useFounderPrice ? founderNetAmount : listNetAmount;
             if (netAmount <= 0)
                 throw new InvalidOperationException("Secilen donem icin katalog fiyati tanimli degil.");
 
             var vatAmount = decimal.Round(netAmount * _vatRate / 100m, 2, MidpointRounding.AwayFromZero);
-            var trialDays = string.Equals(plan.HesapTipi, HesapTipleri.Muhasebeci, StringComparison.OrdinalIgnoreCase)
-                ? 14
-                : 30;
+            const int trialDays = 0;
 
             return new PaymentQuote(
                 plan.Kod,
@@ -73,7 +84,14 @@ namespace CashTracker.Core.Services
                     : 0,
                 normalizedPeriod == PaymentBillingPeriods.Annual
                     ? SubscriptionPlanCatalog.EkMusteriKredisiYillikTutar
-                    : SubscriptionPlanCatalog.EkMusteriKredisiAylikTutar);
+                    : SubscriptionPlanCatalog.EkMusteriKredisiAylikTutar,
+                useFounderPrice ? SubscriptionPlanCatalog.KurucuKampanyaKodu : string.Empty,
+                useFounderPrice,
+                listNetAmount,
+                listNetAmount,
+                useFounderPrice && normalizedPeriod == PaymentBillingPeriods.Monthly
+                    ? SubscriptionPlanCatalog.KurucuAylikDonemSayisi
+                    : useFounderPrice ? 1 : 0);
         }
     }
 }

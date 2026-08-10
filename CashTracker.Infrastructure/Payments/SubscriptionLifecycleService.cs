@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using System.Data;
 using CashTracker.Core.Entities;
 using CashTracker.Core.Models;
 using CashTracker.Core.Services;
@@ -41,22 +42,26 @@ public sealed class SubscriptionLifecycleService : ISubscriptionLifecycleService
         CancellationToken ct = default)
     {
         ValidateCheckoutCommand(command);
-        var quote = _pricing.CreateQuote(
-            command.PlanCode,
-            command.AccountType,
-            command.BillingPeriod,
-            command.ExtraCustomerCredits);
         var checkoutKey = command.IdempotencyKey.Trim();
 
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
         var business = await db.Isletmeler.AsNoTracking()
             .SingleOrDefaultAsync(x => x.Id == command.BusinessId, ct)
             ?? throw new InvalidOperationException("Isletme bulunamadi.");
+        var existing = await db.OdemeIslemleri
+            .SingleOrDefaultAsync(x => x.IsletmeId == command.BusinessId && x.CheckoutAnahtari == checkoutKey, ct);
+        var useFounderPrice = existing is not null
+            ? string.Equals(existing.KampanyaKodu, SubscriptionPlanCatalog.KurucuKampanyaKodu, StringComparison.Ordinal)
+            : await ReserveFounderSlotAsync(command, checkoutKey, ct);
+        var quote = _pricing.CreateQuote(
+            command.PlanCode,
+            command.AccountType,
+            command.BillingPeriod,
+            command.ExtraCustomerCredits,
+            useFounderPrice);
         if (!string.Equals(business.TenantTipi, quote.AccountType, StringComparison.OrdinalIgnoreCase))
             throw new InvalidOperationException("Plan, aktif calisma alaninin hesap tipiyle uyumlu degil.");
 
-        var existing = await db.OdemeIslemleri
-            .SingleOrDefaultAsync(x => x.IsletmeId == command.BusinessId && x.CheckoutAnahtari == checkoutKey, ct);
         if (existing is not null)
         {
             if (string.Equals(existing.IslemTipi, "AbonelikBaslatma", StringComparison.Ordinal))
@@ -81,6 +86,10 @@ public sealed class SubscriptionLifecycleService : ISubscriptionLifecycleService
             PlanKodu = quote.PlanCode,
             FaturalamaDonemi = quote.BillingPeriod,
             EkMusteriKredisi = quote.ExtraCustomerCredits,
+            KampanyaKodu = quote.CampaignCode,
+            ListeNetTutar = quote.ListNetAmount,
+            YenilemeNetTutar = quote.RenewalNetAmount,
+            IndirimliDonemSayisi = quote.DiscountedPeriodCount,
             IslemTipi = quote.TrialDays > 0 ? "DenemeKartYetkilendirme" : "AbonelikBaslatma",
             Durum = PaymentTransactionStates.Preparing,
             OdemeSaglayici = _provider.Name,
@@ -105,6 +114,9 @@ public sealed class SubscriptionLifecycleService : ISubscriptionLifecycleService
                 PlanKodu = quote.PlanCode,
                 FaturalamaDonemi = quote.BillingPeriod,
                 EkMusteriKredisi = quote.ExtraCustomerCredits,
+                KampanyaKodu = quote.CampaignCode,
+                ListeNetTutar = quote.ListNetAmount,
+                YenilemeNetTutar = quote.RenewalNetAmount,
                 MetinSurumu = command.ConsentTextVersion.Trim(),
                 MetinHash = Sha256(command.ConsentText),
                 IstemciIpHash = Sha256(command.ClientIp),
@@ -152,7 +164,9 @@ public sealed class SubscriptionLifecycleService : ISubscriptionLifecycleService
                     ["accountType"] = quote.AccountType,
                     ["planCode"] = quote.PlanCode,
                     ["billingPeriod"] = quote.BillingPeriod,
-                    ["extraCustomerCredits"] = quote.ExtraCustomerCredits.ToString()
+                    ["extraCustomerCredits"] = quote.ExtraCustomerCredits.ToString(),
+                    ["campaignCode"] = quote.CampaignCode,
+                    ["renewalNetAmount"] = quote.RenewalNetAmount.ToString(System.Globalization.CultureInfo.InvariantCulture)
                 }), ct);
 
             payment.OdemeSaglayici = session.Provider;
@@ -284,6 +298,81 @@ public sealed class SubscriptionLifecycleService : ISubscriptionLifecycleService
         }
 
         await db.SaveChangesAsync(ct);
+    }
+
+    private async Task<bool> ReserveFounderSlotAsync(
+        SubscriptionCheckoutCommand command,
+        string checkoutKey,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(command.CampaignCode))
+            return false;
+        if (!string.Equals(command.CampaignCode, SubscriptionPlanCatalog.KurucuKampanyaKodu, StringComparison.Ordinal))
+            throw new InvalidOperationException("Gecersiz kampanya kodu.");
+
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+        await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
+        var now = DateTime.UtcNow;
+        var expired = await db.KurucuKampanyaHaklari
+            .Where(x => x.KampanyaKodu == SubscriptionPlanCatalog.KurucuKampanyaKodu &&
+                        x.Durum == "Rezerve" && x.RezervasyonBitisAt <= now)
+            .ToListAsync(ct);
+        if (expired.Count > 0)
+        {
+            db.KurucuKampanyaHaklari.RemoveRange(expired);
+            await db.SaveChangesAsync(ct);
+        }
+
+        var existingRight = await db.KurucuKampanyaHaklari.SingleOrDefaultAsync(x =>
+            x.KampanyaKodu == SubscriptionPlanCatalog.KurucuKampanyaKodu &&
+            x.IsletmeId == command.BusinessId, ct);
+        if (existingRight is not null)
+        {
+            if (existingRight.Durum == "Rezerve" &&
+                string.Equals(existingRight.CheckoutAnahtari, checkoutKey, StringComparison.Ordinal))
+            {
+                await db.SaveChangesAsync(ct);
+                await transaction.CommitAsync(ct);
+                return true;
+            }
+
+            throw new InvalidOperationException("Kurucu 100 hakki bu calisma alani icin daha once kullanildi.");
+        }
+
+        var hasPreviousSubscription = await db.Abonelikler.AsNoTracking()
+            .AnyAsync(x => x.IsletmeId == command.BusinessId, ct);
+        var hasPreviousTrial = await db.IsletmeDenemeleri.AsNoTracking()
+            .AnyAsync(x => x.IsletmeId == command.BusinessId, ct);
+        var hasCompletedPayment = await db.OdemeIslemleri.AsNoTracking().AnyAsync(x =>
+            x.IsletmeId == command.BusinessId &&
+            (x.Durum == PaymentTransactionStates.Succeeded || x.Durum == PaymentTransactionStates.TrialAuthorized), ct);
+        if (hasPreviousSubscription || hasPreviousTrial || hasCompletedPayment)
+            throw new InvalidOperationException("Kurucu 100 yalnizca ilk aboneligini baslatan yeni hesaplar icindir.");
+
+        var usedSlots = await db.KurucuKampanyaHaklari.AsNoTracking()
+            .Where(x => x.KampanyaKodu == SubscriptionPlanCatalog.KurucuKampanyaKodu)
+            .Select(x => x.SiraNo)
+            .ToListAsync(ct);
+        var used = usedSlots.ToHashSet();
+        var slot = Enumerable.Range(1, SubscriptionPlanCatalog.KurucuKampanyaKontenjani)
+            .FirstOrDefault(x => !used.Contains(x));
+        if (slot == 0)
+            throw new InvalidOperationException("Kurucu 100 kontenjani doldu. Guncel teklifi yenileyin.");
+
+        db.KurucuKampanyaHaklari.Add(new KurucuKampanyaHakki
+        {
+            IsletmeId = command.BusinessId,
+            KampanyaKodu = SubscriptionPlanCatalog.KurucuKampanyaKodu,
+            SiraNo = slot,
+            CheckoutAnahtari = checkoutKey,
+            Durum = "Rezerve",
+            RezerveAt = now,
+            RezervasyonBitisAt = now.AddMinutes(30),
+            UpdatedAt = now
+        });
+        await db.SaveChangesAsync(ct);
+        await transaction.CommitAsync(ct);
+        return true;
     }
 
     public async Task<SubscriptionReconciliationResult> ReconcileAsync(
@@ -548,6 +637,16 @@ public sealed class SubscriptionLifecycleService : ISubscriptionLifecycleService
         if (alreadyCreated)
             return;
 
+        var founderRight = db.KurucuKampanyaHaklari.SingleOrDefault(x =>
+            x.CheckoutAnahtari == payment.CheckoutAnahtari &&
+            x.KampanyaKodu == payment.KampanyaKodu);
+        if (founderRight is not null)
+        {
+            founderRight.Durum = "Kazanildi";
+            founderRight.KazanildiAt = occurredAt;
+            founderRight.UpdatedAt = occurredAt;
+        }
+
         var activeSubscriptions = db.Abonelikler
             .Where(x => x.IsletmeId == payment.IsletmeId && x.HesapTipi == payment.HesapTipi && x.Durum == "Aktif")
             .ToList();
@@ -580,6 +679,11 @@ public sealed class SubscriptionLifecycleService : ISubscriptionLifecycleService
                 : payment.NetTutar,
             FaturalamaDonemi = payment.FaturalamaDonemi,
             EkMusteriKredisi = payment.EkMusteriKredisi,
+            KampanyaKodu = payment.KampanyaKodu,
+            YenilemeDonemTutari = payment.YenilemeNetTutar,
+            IndirimliDonemKalan = string.Equals(payment.FaturalamaDonemi, PaymentBillingPeriods.Monthly, StringComparison.Ordinal)
+                ? Math.Max(0, payment.IndirimliDonemSayisi - 1)
+                : 0,
             DonemTutari = payment.NetTutar,
             ParaBirimi = payment.ParaBirimi,
             DonemBaslangicAt = occurredAt,
@@ -700,8 +804,9 @@ public sealed class SubscriptionLifecycleService : ISubscriptionLifecycleService
     {
         if (command.BusinessId <= 0)
             throw new ArgumentOutOfRangeException(nameof(command.BusinessId));
-        if (!string.Equals(command.BillingPeriod, PaymentBillingPeriods.Monthly, StringComparison.OrdinalIgnoreCase))
-            throw new InvalidOperationException("Ilk deneme ve checkout yalnizca aylik faturalamayla baslatilabilir.");
+        if (!string.Equals(command.BillingPeriod, PaymentBillingPeriods.Monthly, StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(command.BillingPeriod, PaymentBillingPeriods.Annual, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("Faturalama donemi aylik veya yillik olmalidir.");
         if (command.ExtraCustomerCredits is < 0 or > 10000)
             throw new ArgumentOutOfRangeException(nameof(command.ExtraCustomerCredits), "Ek musteri kredisi 0 ile 10000 arasinda olmalidir.");
         if (string.IsNullOrWhiteSpace(command.IdempotencyKey) || command.IdempotencyKey.Trim().Length is < 8 or > 100)

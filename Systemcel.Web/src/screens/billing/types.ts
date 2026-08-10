@@ -39,6 +39,9 @@ export interface AbonelikKaydi {
   ekMusteriKredisi: number;
   durum: string;
   donemTutari: number;
+  kampanyaKodu: string;
+  yenilemeDonemTutari: number;
+  indirimliDonemKalan: number;
   paraBirimi: string;
   donemBaslangicAt: string;
   donemBitisAt: string;
@@ -53,7 +56,10 @@ export interface OdemeKaydi {
   durum: string;
   planKodu: string;
   faturalamaDonemi: string;
+  kampanyaKodu: string;
   netTutar: number;
+  listeNetTutar: number;
+  yenilemeNetTutar: number;
   kdvTutar: number;
   toplamTutar: number;
   paraBirimi: string;
@@ -83,6 +89,12 @@ export interface PublicPlan {
   aylikTutar: number;
   yillikTutar: number | null;
   yillikEfektifAylikTutar: number | null;
+  normalAylikTutar: number;
+  normalYillikTutar: number | null;
+  kurucuAylikTutar: number;
+  kurucuYillikTutar: number | null;
+  kampanyaKodu: string;
+  kurucuKontenjanKalan: number;
   paraBirimi: string;
   denemeGunSayisi: number;
 }
@@ -106,10 +118,16 @@ export interface PaymentQuote {
   extraCustomerCredits: number;
   includedCustomerCount: number;
   customerCreditUnitAmount: number;
+  campaignCode: string;
+  isFounderPrice: boolean;
+  listNetAmount: number;
+  renewalNetAmount: number;
+  discountedPeriodCount: number;
 }
 
 export interface TeklifYaniti {
   fiyat: PaymentQuote;
+  kampanyaKodu: string;
   onayMetniSurumu: string;
   onayMetni: string;
 }

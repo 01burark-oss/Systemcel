@@ -186,6 +186,10 @@
 .billing-period-lock > span, .billing-period-lock > small { display: block; color: var(--billing-muted); font-size: 11px; }
 .billing-period-lock > strong { display: block; margin: 3px 0; font-size: 14px; }
 .billing-plan-fields fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
+.billing-period-choice legend { margin-bottom: 7px; color: var(--billing-muted); font-size: 11px; font-weight: 760; }
+.billing-period-choice > div { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; height: 44px; padding: 4px; border: 1px solid var(--billing-line); border-radius: 11px; background: var(--billing-paper-soft); }
+.billing-period-choice button { border: 0; border-radius: 8px; color: var(--billing-muted); background: transparent; font-weight: 760; cursor: pointer; }
+.billing-period-choice button.active { color: var(--billing-ink); background: var(--billing-paper); box-shadow: 0 1px 4px rgba(9, 10, 8, .1); }
 .billing-segmented { display: grid; grid-template-columns: 1fr 1fr; padding: 3px; border: 1px solid var(--billing-line); border-radius: 12px; background: var(--billing-paper-soft); }
 .billing-segmented button { min-height: 36px; border: 0; border-radius: 9px; color: var(--billing-muted); background: transparent; font-size: 12px; font-weight: 760; }
 .billing-segmented button.active { color: var(--billing-ink); background: var(--billing-lime); }

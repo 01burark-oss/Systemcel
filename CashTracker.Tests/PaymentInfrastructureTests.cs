@@ -22,10 +22,11 @@ namespace CashTracker.Tests
                 HesapTipleri.Isletme,
                 PaymentBillingPeriods.Annual);
 
-            Assert.Equal(9504m, quote.NetAmount);
-            Assert.Equal(1900.80m, quote.VatAmount);
-            Assert.Equal(11404.80m, quote.TotalAmount);
-            Assert.Equal(30, quote.TrialDays);
+            Assert.Equal(12384m, quote.NetAmount);
+            Assert.Equal(2476.80m, quote.VatAmount);
+            Assert.Equal(14860.80m, quote.TotalAmount);
+            Assert.Equal(0, quote.TrialDays);
+            Assert.False(quote.IsFounderPrice);
         }
 
         [Fact]
@@ -44,15 +45,15 @@ namespace CashTracker.Tests
         }
 
         [Fact]
-        public void Pricing_UsesFourteenDayTrialForAccountants()
+        public void Pricing_StartsAccountantSubscriptionWithoutTrial()
         {
             var quote = new PaymentPricingService().CreateQuote(
                 PlanKodlari.MuhasebeciPro,
                 HesapTipleri.Muhasebeci,
                 PaymentBillingPeriods.Monthly);
 
-            Assert.Equal(14, quote.TrialDays);
-            Assert.Equal(1199m, quote.NetAmount);
+            Assert.Equal(0, quote.TrialDays);
+            Assert.Equal(1499m, quote.NetAmount);
         }
 
         [Fact]
@@ -66,7 +67,7 @@ namespace CashTracker.Tests
                 PaymentBillingPeriods.Monthly,
                 extraCustomerCredits: 2);
 
-            Assert.Equal(799m, quote.NetAmount);
+            Assert.Equal(999m, quote.NetAmount);
             Assert.Equal(2, quote.ExtraCustomerCredits);
             Assert.Equal(10, quote.IncludedCustomerCount);
             Assert.Equal(50m, quote.CustomerCreditUnitAmount);
@@ -75,6 +76,32 @@ namespace CashTracker.Tests
                 HesapTipleri.Muhasebeci,
                 PaymentBillingPeriods.Monthly,
                 extraCustomerCredits: 1));
+        }
+
+        [Fact]
+        public void Pricing_FounderPriceKeepsAddOnCreditsAtListPrice()
+        {
+            var service = new PaymentPricingService();
+
+            var monthly = service.CreateQuote(
+                PlanKodlari.MuhasebeciStandart,
+                HesapTipleri.Muhasebeci,
+                PaymentBillingPeriods.Monthly,
+                extraCustomerCredits: 2,
+                useFounderPrice: true);
+            var annual = service.CreateQuote(
+                PlanKodlari.IsletmeBuyume,
+                HesapTipleri.Isletme,
+                PaymentBillingPeriods.Annual,
+                useFounderPrice: true);
+
+            Assert.Equal(799m, monthly.NetAmount);
+            Assert.Equal(999m, monthly.ListNetAmount);
+            Assert.Equal(3, monthly.DiscountedPeriodCount);
+            Assert.Equal(SubscriptionPlanCatalog.KurucuKampanyaKodu, monthly.CampaignCode);
+            Assert.Equal(9504m, annual.NetAmount);
+            Assert.Equal(12384m, annual.RenewalNetAmount);
+            Assert.Equal(1, annual.DiscountedPeriodCount);
         }
 
         [Fact]

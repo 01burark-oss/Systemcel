@@ -7,9 +7,9 @@ namespace CashTracker.Tests
     public sealed class SubscriptionPlanCatalogTests
     {
         [Theory]
-        [InlineData(0, 699)]
-        [InlineData(1, 749)]
-        [InlineData(10, 1199)]
+        [InlineData(0, 899)]
+        [InlineData(1, 949)]
+        [InlineData(12, 1499)]
         public void MuhasebeciStandartFiyati_SatinAlinanKrediyeGoreHesaplanir(int ekMusteriKredisi, decimal expected)
         {
             var actual = SubscriptionPlanCatalog.CalculateMuhasebeciStandartAylikTutar(ekMusteriKredisi);
@@ -18,8 +18,8 @@ namespace CashTracker.Tests
         }
 
         [Theory]
-        [InlineData(9, false)]
-        [InlineData(10, true)]
+        [InlineData(11, false)]
+        [InlineData(12, true)]
         public void MuhasebeciProOnerisi_StandartKredileriProFiyatinaEsitleninceBaslar(int ekMusteriKredisi, bool expected)
         {
             var actual = SubscriptionPlanCatalog.ShouldRecommendMuhasebeciPro(ekMusteriKredisi);
@@ -35,8 +35,10 @@ namespace CashTracker.Tests
 
             Assert.Equal(standart.AylikTutar * 12 * 0.84m, standart.YillikTutar);
             Assert.Equal(pro.AylikTutar * 12 * 0.84m, pro.YillikTutar);
-            Assert.Equal(7045.92m, standart.YillikTutar);
-            Assert.Equal(12085.92m, pro.YillikTutar);
+            Assert.Equal(9061.92m, standart.YillikTutar);
+            Assert.Equal(15109.92m, pro.YillikTutar);
+            Assert.Equal(7045.92m, standart.KurucuYillikTutar);
+            Assert.Equal(12085.92m, pro.KurucuYillikTutar);
         }
 
         [Fact]
@@ -44,8 +46,10 @@ namespace CashTracker.Tests
         {
             var plan = SubscriptionPlanCatalog.Plans.Single(x => x.Kod == PlanKodlari.IsletmeBaslangic);
 
-            Assert.Equal(490, plan.AylikTutar);
-            Assert.Equal(4704, plan.YillikTutar);
+            Assert.Equal(690, plan.AylikTutar);
+            Assert.Equal(6624, plan.YillikTutar);
+            Assert.Equal(490, plan.KurucuAylikTutar);
+            Assert.Equal(4704, plan.KurucuYillikTutar);
             Assert.Equal(100, plan.AiMesajLimiti);
             Assert.Equal(50, plan.FaturaLimiti);
             Assert.Equal(HesapTipleri.Isletme, plan.HesapTipi);
@@ -57,12 +61,16 @@ namespace CashTracker.Tests
             var buyume = SubscriptionPlanCatalog.Plans.Single(x => x.Kod == PlanKodlari.IsletmeBuyume);
             var kurumsal = SubscriptionPlanCatalog.Plans.Single(x => x.Kod == PlanKodlari.IsletmeKurumsal);
 
-            Assert.Equal(990, buyume.AylikTutar);
-            Assert.Equal(9504, buyume.YillikTutar);
+            Assert.Equal(1290, buyume.AylikTutar);
+            Assert.Equal(12384, buyume.YillikTutar);
+            Assert.Equal(990, buyume.KurucuAylikTutar);
+            Assert.Equal(9504, buyume.KurucuYillikTutar);
             Assert.True(buyume.BankaMutabakatiAktif);
             Assert.True(buyume.MuhasebeciErisimiAktif);
-            Assert.Equal(1990, kurumsal.AylikTutar);
-            Assert.Equal(19104, kurumsal.YillikTutar);
+            Assert.Equal(2490, kurumsal.AylikTutar);
+            Assert.Equal(23904, kurumsal.YillikTutar);
+            Assert.Equal(1990, kurumsal.KurucuAylikTutar);
+            Assert.Equal(19104, kurumsal.KurucuYillikTutar);
             Assert.True(kurumsal.CokluSubeAktif);
             Assert.True(kurumsal.CokluParaBirimiAktif);
             Assert.True(kurumsal.ApiErisimiAktif);

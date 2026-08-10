@@ -12,6 +12,9 @@ namespace CashTracker.Core.Entities
         public string PlanKodu { get; set; } = string.Empty;
         public string FaturalamaDonemi { get; set; } = "Aylik";
         public int EkMusteriKredisi { get; set; }
+        public string KampanyaKodu { get; set; } = string.Empty;
+        public decimal ListeNetTutar { get; set; }
+        public decimal YenilemeNetTutar { get; set; }
         public string MetinSurumu { get; set; } = string.Empty;
         public string MetinHash { get; set; } = string.Empty;
         public string IstemciIpHash { get; set; } = string.Empty;

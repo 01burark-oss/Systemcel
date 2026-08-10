@@ -43,6 +43,8 @@ namespace CashTracker.Core.Models
         int? MusteriLimiti)
     {
         public decimal YillikTutar { get; init; }
+        public decimal KurucuAylikTutar { get; init; }
+        public decimal KurucuYillikTutar { get; init; }
         public int? FaturaLimiti { get; init; }
         public int? IsletmeLimiti { get; init; }
         public int? GelirGiderIslemLimiti { get; init; }
@@ -59,6 +61,9 @@ namespace CashTracker.Core.Models
 
     public static class SubscriptionPlanCatalog
     {
+        public const string KurucuKampanyaKodu = "kurucu-100-2026";
+        public const int KurucuKampanyaKontenjani = 100;
+        public const int KurucuAylikDonemSayisi = 3;
         public const int MuhasebeciStandartDahilMusteriSayisi = 10;
         public const decimal EkMusteriKredisiAylikTutar = 50m;
         public const decimal EkMusteriKredisiYillikTutar = 504m;
@@ -74,21 +79,27 @@ namespace CashTracker.Core.Models
                     CariKartLimiti = 20,
                     UrunHizmetLimiti = 50
                 },
-                new(PlanKodlari.IsletmeBaslangic, HesapTipleri.Isletme, "Başlangıç", 490, 100, 1, null)
+                new(PlanKodlari.IsletmeBaslangic, HesapTipleri.Isletme, "Başlangıç", 690, 100, 1, null)
                 {
-                    YillikTutar = 4704,
+                    YillikTutar = 6624,
+                    KurucuAylikTutar = 490,
+                    KurucuYillikTutar = 4704,
                     FaturaLimiti = 50
                 },
-                new(PlanKodlari.IsletmeBuyume, HesapTipleri.Isletme, "Büyüme", 990, null, 3, null)
+                new(PlanKodlari.IsletmeBuyume, HesapTipleri.Isletme, "Büyüme", 1290, null, 3, null)
                 {
-                    YillikTutar = 9504,
+                    YillikTutar = 12384,
+                    KurucuAylikTutar = 990,
+                    KurucuYillikTutar = 9504,
                     BankaMutabakatiAktif = true,
                     StokRaporAktif = true,
                     MuhasebeciErisimiAktif = true
                 },
-                new(PlanKodlari.IsletmeKurumsal, HesapTipleri.Isletme, "Kurumsal", 1990, null, null, null)
+                new(PlanKodlari.IsletmeKurumsal, HesapTipleri.Isletme, "Kurumsal", 2490, null, null, null)
                 {
-                    YillikTutar = 19104,
+                    YillikTutar = 23904,
+                    KurucuAylikTutar = 1990,
+                    KurucuYillikTutar = 19104,
                     BankaMutabakatiAktif = true,
                     StokRaporAktif = true,
                     MuhasebeciErisimiAktif = true,
@@ -98,22 +109,26 @@ namespace CashTracker.Core.Models
                     OncelikliDestekAktif = true
                 },
                 // Eski "Isletme" abonelikleri Büyüme haklariyla devam eder.
-                new(PlanKodlari.IsletmeIsletme, HesapTipleri.Isletme, "Büyüme (eski)", 990, null, 3, null)
+                new(PlanKodlari.IsletmeIsletme, HesapTipleri.Isletme, "Büyüme (eski)", 1290, null, 3, null)
                 {
-                    YillikTutar = 9504,
+                    YillikTutar = 12384,
                     BankaMutabakatiAktif = true,
                     StokRaporAktif = true,
                     MuhasebeciErisimiAktif = true
                 },
                 new(PlanKodlari.MuhasebeciUcretsiz, HesapTipleri.Muhasebeci, "Ücretsiz", 0, 0, 1, 3),
                 new(PlanKodlari.MuhasebeciSaltOkunur, HesapTipleri.Muhasebeci, "Salt okunur", 0, 0, 0, 0),
-                new(PlanKodlari.MuhasebeciStandart, HesapTipleri.Muhasebeci, "Standart", 699, 100, 1, 10)
+                new(PlanKodlari.MuhasebeciStandart, HesapTipleri.Muhasebeci, "Standart", 899, 100, 1, 10)
                 {
-                    YillikTutar = 7045.92m
+                    YillikTutar = 9061.92m,
+                    KurucuAylikTutar = 699m,
+                    KurucuYillikTutar = 7045.92m
                 },
-                new(PlanKodlari.MuhasebeciPro, HesapTipleri.Muhasebeci, "Pro", 1199, null, null, null)
+                new(PlanKodlari.MuhasebeciPro, HesapTipleri.Muhasebeci, "Pro", 1499, null, null, null)
                 {
-                    YillikTutar = 12085.92m
+                    YillikTutar = 15109.92m,
+                    KurucuAylikTutar = 1199m,
+                    KurucuYillikTutar = 12085.92m
                 }
             };
 
@@ -122,7 +137,7 @@ namespace CashTracker.Core.Models
             if (ekMusteriKredisi < 0)
                 throw new ArgumentOutOfRangeException(nameof(ekMusteriKredisi), "Ek musteri kredisi negatif olamaz.");
 
-            return 699 + ekMusteriKredisi * EkMusteriKredisiAylikTutar;
+            return 899 + ekMusteriKredisi * EkMusteriKredisiAylikTutar;
         }
 
         public static decimal CalculateMuhasebeciStandartYillikTutar(int ekMusteriKredisi)
@@ -134,9 +149,27 @@ namespace CashTracker.Core.Models
             return plan.YillikTutar + ekMusteriKredisi * EkMusteriKredisiYillikTutar;
         }
 
+        public static decimal CalculateMuhasebeciStandartKurucuAylikTutar(int ekMusteriKredisi)
+        {
+            if (ekMusteriKredisi < 0)
+                throw new ArgumentOutOfRangeException(nameof(ekMusteriKredisi), "Ek musteri kredisi negatif olamaz.");
+
+            var plan = Plans.Single(x => x.Kod == PlanKodlari.MuhasebeciStandart);
+            return plan.KurucuAylikTutar + ekMusteriKredisi * EkMusteriKredisiAylikTutar;
+        }
+
+        public static decimal CalculateMuhasebeciStandartKurucuYillikTutar(int ekMusteriKredisi)
+        {
+            if (ekMusteriKredisi < 0)
+                throw new ArgumentOutOfRangeException(nameof(ekMusteriKredisi), "Ek musteri kredisi negatif olamaz.");
+
+            var plan = Plans.Single(x => x.Kod == PlanKodlari.MuhasebeciStandart);
+            return plan.KurucuYillikTutar + ekMusteriKredisi * EkMusteriKredisiYillikTutar;
+        }
+
         public static bool ShouldRecommendMuhasebeciPro(int ekMusteriKredisi)
         {
-            return CalculateMuhasebeciStandartAylikTutar(ekMusteriKredisi) >= 1199;
+            return CalculateMuhasebeciStandartAylikTutar(ekMusteriKredisi) >= 1499;
         }
     }
 }

@@ -41,7 +41,12 @@ namespace CashTracker.Core.Models
         int TrialDays,
         int ExtraCustomerCredits,
         int IncludedCustomerCount,
-        decimal CustomerCreditUnitAmount);
+        decimal CustomerCreditUnitAmount,
+        string CampaignCode,
+        bool IsFounderPrice,
+        decimal ListNetAmount,
+        decimal RenewalNetAmount,
+        int DiscountedPeriodCount);
 
     public sealed record PaymentCheckoutRequest(
         string MerchantReference,
@@ -88,6 +93,7 @@ namespace CashTracker.Core.Models
         string PlanCode,
         string BillingPeriod,
         int ExtraCustomerCredits,
+        string CampaignCode,
         string IdempotencyKey,
         string UserReference,
         string CustomerEmail,

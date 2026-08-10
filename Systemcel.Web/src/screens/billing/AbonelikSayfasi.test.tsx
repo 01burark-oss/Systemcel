@@ -59,8 +59,14 @@ const plans: PublicPlan[] = [{
   aylikTutar: 799,
   yillikTutar: null,
   yillikEfektifAylikTutar: null,
+  normalAylikTutar: 899,
+  normalYillikTutar: 9061.92,
+  kurucuAylikTutar: 699,
+  kurucuYillikTutar: 7045.92,
+  kampanyaKodu: "kurucu-100-2026",
+  kurucuKontenjanKalan: 74,
   paraBirimi: "TRY",
-  denemeGunSayisi: 14
+  denemeGunSayisi: 0
 }];
 
 const quote: TeklifYaniti = {
@@ -73,13 +79,19 @@ const quote: TeklifYaniti = {
     vatRate: 20,
     vatAmount: 159.8,
     totalAmount: 958.8,
-    trialDays: 14,
+    trialDays: 0,
     extraCustomerCredits: 2,
     includedCustomerCount: 10,
-    customerCreditUnitAmount: 0
+    customerCreditUnitAmount: 50,
+    campaignCode: "kurucu-100-2026",
+    isFounderPrice: true,
+    listNetAmount: 999,
+    renewalNetAmount: 999,
+    discountedPeriodCount: 3
   },
-  onayMetniSurumu: "abonelik-onayi-2026-08-v2",
-  onayMetni: "14 günlük deneme sonunda aylık yenilemeyi, dönem sonu iptali ve emredici haklarımı kabul ediyorum."
+  kampanyaKodu: "kurucu-100-2026",
+  onayMetniSurumu: "abonelik-onayi-2026-08-v3",
+  onayMetni: "Aylık planın hemen başlamasını ve Kurucu 100 sonrasında normal fiyatla yenilenmesini kabul ediyorum."
 };
 
 describe("AbonelikSayfasi", () => {
@@ -94,12 +106,13 @@ describe("AbonelikSayfasi", () => {
     });
   });
 
-  it("locks initial checkout to monthly and exposes tax, recurring credits and explicit consent", async () => {
+  it("offers monthly and annual checkout with tax, recurring credits and explicit consent", async () => {
     const user = userEvent.setup();
     render(<AbonelikSayfasi />);
 
     expect(await screen.findByRole("heading", { name: "Planınızı seçin ve koşulları onaylayın" })).toBeVisible();
-    expect(screen.getByText("Aylık")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Aylık" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Yıllık" })).toBeVisible();
     expect(screen.getByRole("spinbutton", { name: /\+1 müşteri kredisi/i })).toHaveValue(2);
     expect(await screen.findByText("12 müşteri")).toBeVisible();
     expect(await screen.findByText("KDV (%20)")).toBeVisible();
@@ -107,7 +120,7 @@ describe("AbonelikSayfasi", () => {
     const contractButton = screen.getByRole("button", { name: "Abonelik sözleşmesini" });
     expect(screen.queryByText(/dönem sonu iptali/i)).not.toBeInTheDocument();
 
-    const continueButton = screen.getByRole("button", { name: "Kartı güvenle ekle" });
+    const continueButton = screen.getByRole("button", { name: "Öde ve aboneliği başlat" });
     expect(continueButton).toBeDisabled();
     await user.click(contractButton);
     expect(screen.getByRole("dialog", { name: "Systemcel Abonelik, Yenileme, İptal ve İade Koşulları" })).toBeVisible();
@@ -162,7 +175,7 @@ describe("AbonelikSayfasi", () => {
     render(<AbonelikSayfasi />);
     await screen.findByRole("heading", { name: "Planınızı seçin ve koşulları onaylayın" });
     await user.click(await screen.findByRole("checkbox"));
-    const button = screen.getByRole("button", { name: "Kartı güvenle ekle" });
+    const button = screen.getByRole("button", { name: "Öde ve aboneliği başlat" });
     button.click();
     button.click();
     await waitFor(() => expect(vi.mocked(jsonOku).mock.calls.filter(([url]) => url === "/api/abonelik/checkout")).toHaveLength(1));
@@ -170,9 +183,9 @@ describe("AbonelikSayfasi", () => {
 });
 
 function subscription(durum: string) {
-  return { planKodu: "muhasebeci_standart", faturalamaDonemi: "Aylik", ekMusteriKredisi: 0, durum, donemTutari: 799, paraBirimi: "TRY", donemBaslangicAt: "2026-08-01T00:00:00Z", donemBitisAt: "2026-09-01T00:00:00Z", toleransBitisAt: null, donemSonundaIptal: false, iptalAt: null };
+  return { planKodu: "muhasebeci_standart", faturalamaDonemi: "Aylik", ekMusteriKredisi: 0, durum, donemTutari: 799, kampanyaKodu: "", yenilemeDonemTutari: 899, indirimliDonemKalan: 0, paraBirimi: "TRY", donemBaslangicAt: "2026-08-01T00:00:00Z", donemBitisAt: "2026-09-01T00:00:00Z", toleransBitisAt: null, donemSonundaIptal: false, iptalAt: null };
 }
 
 function payment(durum: string): OdemeKaydi {
-  return { id: 1, islemTipi: "Abonelik", durum, planKodu: "muhasebeci_standart", faturalamaDonemi: "Aylik", netTutar: 799, kdvTutar: 159.8, toplamTutar: 958.8, paraBirimi: "TRY", hataKodu: "", createdAt: "2026-08-09T00:00:00Z", tamamlandiAt: null };
+  return { id: 1, islemTipi: "Abonelik", durum, planKodu: "muhasebeci_standart", faturalamaDonemi: "Aylik", kampanyaKodu: "", netTutar: 799, listeNetTutar: 899, yenilemeNetTutar: 899, kdvTutar: 159.8, toplamTutar: 958.8, paraBirimi: "TRY", hataKodu: "", createdAt: "2026-08-09T00:00:00Z", tamamlandiAt: null };
 }

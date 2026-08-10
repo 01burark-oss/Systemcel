@@ -138,7 +138,7 @@ public sealed class PaymentLifecycleIntegrationTests
     }
 
     [Fact]
-    public async Task InitialCheckout_RejectsAnnualBilling()
+    public async Task InitialCheckout_AcceptsAnnualBillingAndCreatesOneYearSubscription()
     {
         using var fixture = new PaymentFixture(HesapTipleri.Isletme);
         var command = fixture.CreateCommand("checkout-annual", PlanKodlari.IsletmeBaslangic) with
@@ -146,12 +146,98 @@ public sealed class PaymentLifecycleIntegrationTests
             BillingPeriod = PaymentBillingPeriods.Annual
         };
 
+        var checkout = await fixture.Service.BeginCheckoutAsync(command);
+        var paidAt = new DateTime(2026, 8, 1, 9, 0, 0, DateTimeKind.Utc);
+        var paid = await fixture.SendEventAsync(
+            "evt-annual-paid",
+            PaymentEventTypes.PaymentSucceeded,
+            "checkout-annual",
+            "subscription-annual",
+            checkout.Quote.TotalAmount,
+            paidAt);
+
+        Assert.True(paid.Accepted);
+        Assert.Equal(6624m, checkout.Quote.NetAmount);
+        await using var db = fixture.Factory.CreateDbContext();
+        var subscription = await db.Abonelikler.SingleAsync();
+        Assert.Equal(PaymentBillingPeriods.Annual, subscription.FaturalamaDonemi);
+        Assert.Equal(paidAt.AddYears(1), subscription.DonemBitisAt);
+    }
+
+    [Fact]
+    public async Task Founder100_ReservesSlotPersistsRenewalPriceAndIsIdempotent()
+    {
+        using var fixture = new PaymentFixture(HesapTipleri.Isletme);
+        var command = fixture.CreateCommand("checkout-founder", PlanKodlari.IsletmeBuyume) with
+        {
+            CampaignCode = SubscriptionPlanCatalog.KurucuKampanyaKodu
+        };
+
+        var first = await fixture.Service.BeginCheckoutAsync(command);
+        var repeated = await fixture.Service.BeginCheckoutAsync(command);
+
+        Assert.Equal(990m, first.Quote.NetAmount);
+        Assert.Equal(1290m, first.Quote.ListNetAmount);
+        Assert.Equal(1290m, first.Quote.RenewalNetAmount);
+        Assert.Equal(3, first.Quote.DiscountedPeriodCount);
+        Assert.True(repeated.Reused);
+
+        var paidAt = new DateTime(2026, 8, 1, 9, 0, 0, DateTimeKind.Utc);
+        var paid = await fixture.SendEventAsync(
+            "evt-founder-paid",
+            PaymentEventTypes.PaymentSucceeded,
+            "checkout-founder",
+            "subscription-founder",
+            first.Quote.TotalAmount,
+            paidAt);
+
+        Assert.True(paid.Accepted);
+        await using var db = fixture.Factory.CreateDbContext();
+        var right = await db.KurucuKampanyaHaklari.SingleAsync();
+        Assert.Equal(1, right.SiraNo);
+        Assert.Equal("Kazanildi", right.Durum);
+        var subscription = await db.Abonelikler.SingleAsync();
+        Assert.Equal(990m, subscription.DonemTutari);
+        Assert.Equal(1290m, subscription.YenilemeDonemTutari);
+        Assert.Equal(2, subscription.IndirimliDonemKalan);
+        Assert.Equal(SubscriptionPlanCatalog.KurucuKampanyaKodu, subscription.KampanyaKodu);
+    }
+
+    [Fact]
+    public async Task Founder100_RejectsCheckoutWhenAllSlotsAreClaimed()
+    {
+        using var fixture = new PaymentFixture(HesapTipleri.Isletme);
+        await using (var db = fixture.Factory.CreateDbContext())
+        {
+            var now = DateTime.UtcNow;
+            db.KurucuKampanyaHaklari.AddRange(Enumerable.Range(1, SubscriptionPlanCatalog.KurucuKampanyaKontenjani)
+                .Select(slot => new KurucuKampanyaHakki
+                {
+                    IsletmeId = fixture.BusinessId + slot,
+                    KampanyaKodu = SubscriptionPlanCatalog.KurucuKampanyaKodu,
+                    SiraNo = slot,
+                    CheckoutAnahtari = $"claimed-founder-slot-{slot}",
+                    Durum = "Kazanildi",
+                    RezerveAt = now.AddDays(-1),
+                    RezervasyonBitisAt = now.AddDays(-1),
+                    KazanildiAt = now.AddDays(-1),
+                    UpdatedAt = now.AddDays(-1)
+                }));
+            await db.SaveChangesAsync();
+        }
+
+        var command = fixture.CreateCommand("checkout-founder-full", PlanKodlari.IsletmeBaslangic) with
+        {
+            CampaignCode = SubscriptionPlanCatalog.KurucuKampanyaKodu
+        };
+
         var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             fixture.Service.BeginCheckoutAsync(command));
 
-        Assert.Contains("yalnizca aylik", error.Message, StringComparison.OrdinalIgnoreCase);
-        await using var db = fixture.Factory.CreateDbContext();
-        Assert.Empty(await db.OdemeIslemleri.ToListAsync());
+        Assert.Contains("kontenjani doldu", error.Message, StringComparison.OrdinalIgnoreCase);
+        await using var verified = fixture.Factory.CreateDbContext();
+        Assert.Equal(SubscriptionPlanCatalog.KurucuKampanyaKontenjani, await verified.KurucuKampanyaHaklari.CountAsync());
+        Assert.Empty(await verified.OdemeIslemleri.ToListAsync());
     }
 
     [Fact]
@@ -383,7 +469,7 @@ public sealed class PaymentLifecycleIntegrationTests
         Assert.Equal(0, duplicate.SevenDayReminders + duplicate.ThreeDayReminders);
         Assert.Equal(new[] { 7, 3 }, sender.Reminders.Select(x => x.DaysRemaining));
         Assert.All(sender.Reminders, x => Assert.Equal("reminder@systemcel.local", x.Email));
-        Assert.Equal(588m, sender.Reminders[0].TotalAmount);
+        Assert.Equal(828m, sender.Reminders[0].TotalAmount);
         await using var verified = fixture.Factory.CreateDbContext();
         var trial = await verified.IsletmeDenemeleri.SingleAsync();
         Assert.NotNull(trial.YediGunHatirlatmaAt);
@@ -432,6 +518,7 @@ public sealed class PaymentLifecycleIntegrationTests
             planCode,
             PaymentBillingPeriods.Monthly,
             extraCustomerCredits,
+            string.Empty,
             checkoutKey,
             "user-test",
             "payment-test@systemcel.local",

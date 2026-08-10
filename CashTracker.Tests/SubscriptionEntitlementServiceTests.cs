@@ -145,11 +145,11 @@ namespace CashTracker.Tests
             await fixture.SeedAsync(db =>
             {
                 var subscription = CreateAbonelik(1, HesapTipleri.Muhasebeci, PlanKodlari.MuhasebeciStandart);
-                subscription.EkMusteriKredisi = 10;
-                subscription.DonemTutari = 1199;
+                subscription.EkMusteriKredisi = 12;
+                subscription.DonemTutari = 1499;
                 db.Abonelikler.Add(subscription);
 
-                foreach (var musteriId in Enumerable.Range(10, 20))
+                foreach (var musteriId in Enumerable.Range(10, 22))
                     db.MuhasebeciMusterileri.Add(CreateMuhasebeciMusteri(1, musteriId));
 
                 db.MuhasebeciMusterileri.Add(CreateMuhasebeciMusteri(1, 99, bitisAt: Now.AddDays(-1)));
@@ -158,14 +158,14 @@ namespace CashTracker.Tests
             var actual = await fixture.Service.GetMuhasebeciEntitlementAsync(1, Now);
 
             Assert.Equal(PlanKodlari.MuhasebeciStandart, actual.PlanKodu);
-            Assert.Equal(20, actual.AktifMusteriSayisi);
-            Assert.Equal(1199, actual.AylikTutar);
-            Assert.Equal(1199, actual.MuhasebeciStandartAylikTutar);
-            Assert.Equal(10, actual.EkMusteriKredisi);
+            Assert.Equal(22, actual.AktifMusteriSayisi);
+            Assert.Equal(1499, actual.AylikTutar);
+            Assert.Equal(1499, actual.MuhasebeciStandartAylikTutar);
+            Assert.Equal(12, actual.EkMusteriKredisi);
             Assert.True(actual.MuhasebeciProOnerilir);
             Assert.True(actual.AiAktif);
             Assert.Equal(100, actual.AiMesajLimiti);
-            Assert.Equal(20, actual.MusteriLimiti);
+            Assert.Equal(22, actual.MusteriLimiti);
         }
 
         [Fact]
@@ -184,8 +184,8 @@ namespace CashTracker.Tests
             var actual = await fixture.Service.GetMuhasebeciEntitlementAsync(1, Now);
 
             Assert.Equal(PlanKodlari.MuhasebeciPro, actual.PlanKodu);
-            Assert.Equal(1199, actual.AylikTutar);
-            Assert.Equal(12085.92m, actual.YillikTutar);
+            Assert.Equal(1499, actual.AylikTutar);
+            Assert.Equal(15109.92m, actual.YillikTutar);
             Assert.Equal("Yillik", actual.FaturalamaDonemi);
             Assert.Equal(12085.92m, actual.DonemTutari);
             Assert.True(actual.AiSinirsiz);
@@ -220,7 +220,7 @@ namespace CashTracker.Tests
             Assert.Equal(PlanKodlari.MuhasebeciStandart, actual.PlanKodu);
             Assert.Equal(EntitlementKaynaklari.IsletmeDenemesi, actual.Kaynak);
             Assert.Equal("Aylik", actual.FaturalamaDonemi);
-            Assert.Equal(799m, actual.DonemTutari);
+            Assert.Equal(999m, actual.DonemTutari);
             Assert.Equal(12, actual.MusteriLimiti);
             Assert.Equal(Now.AddDays(14), actual.GecerliBitisAt);
             Assert.False(actual.SaltOkunur);

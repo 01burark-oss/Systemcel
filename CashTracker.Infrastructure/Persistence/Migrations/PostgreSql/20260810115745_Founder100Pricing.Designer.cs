@@ -3,6 +3,7 @@ using System;
 using CashTracker.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace CashTracker.Infrastructure.Persistence.Migrations.PostgreSql
 {
     [DbContext(typeof(CashTrackerDbContext))]
-    partial class CashTrackerDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260810115745_Founder100Pricing")]
+    partial class Founder100Pricing
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

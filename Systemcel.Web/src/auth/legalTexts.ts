@@ -146,28 +146,28 @@ export const legalTexts: Record<AuthLanguage, Record<LegalTextKey, LegalTextCont
     subscription: {
       linkLabel: "Abonelik Koşulları",
       title: "Systemcel Abonelik, Yenileme, İptal ve İade Koşulları",
-      updatedAt: "1 Ağustos 2026",
+      updatedAt: "10 Ağustos 2026",
       updatedAtLabel: "Son güncelleme",
       closeLabel: "Yasal metni kapat",
       intro:
-        "Bu taslak, Systemcel ücretli planlarının deneme, tahsilat, otomatik yenileme, dönem sonu iptal ve iade yaklaşımını açıklar.",
+        "Bu taslak, Systemcel ücretli planlarının tahsilat, otomatik yenileme, dönem sonu iptal ve iade yaklaşımını açıklar.",
       note:
         "Şirket unvanı, vergi/adres bilgileri ve ödeme kuruluşu alanları şirket kuruluşundan sonra doldurulacak; metin canlı tahsilattan önce hukuk danışmanı tarafından onaylanacaktır.",
       sections: [
         {
           title: "1. Plan, Fiyat ve Faturalama Dönemi",
           text:
-            "Seçilen plan, aylık net bedel, KDV, toplam tutar, deneme süresi ve varsa ek müşteri kredileri ödeme onayından hemen önce gösterilir. İlk abonelik dönemi yalnız aylıktır; fiyat veya vergi değişikliği yeni dönemden önce kullanıcıya bildirilir."
+            "Seçilen plan, aylık veya yıllık dönem, net bedel, KDV, toplam tutar ve varsa ek müşteri kredileri ödeme onayından hemen önce gösterilir. Fiyat veya vergi değişikliği yeni dönemden önce kullanıcıya bildirilir."
         },
         {
-          title: "2. Deneme ve İlk Tahsilat",
+          title: "2. İlk Tahsilat ve Kurucu 100",
           text:
-            "Deneme hakkı hesap türü başına bir kez tanımlanır. Kullanıcı deneme bitmeden iptal etmezse onay ekranında gösterilen tutar kayıtlı ödeme yönteminden çekilir. Deneme hakkı daha önce kullanılmışsa abonelik ve tahsilat aynı gün başlar."
+            "Abonelik ve tahsilat onay gününde başlar. Kurucu 100 fiyatı aylık seçimde ilk üç tahsilat, yıllık seçimde ilk peşin yıl için geçerlidir. Sonraki yenilemenin normal dönem fiyatı ödeme onayından önce ayrıca gösterilir. Ek müşteri kredileri kampanya dışında, güncel liste fiyatıyla hesaplanır."
         },
         {
           title: "3. Otomatik Yenileme ve Hatırlatma",
           text:
-            "Aylık abonelik, dönem sonu iptal talebi bulunmadıkça aynı dönemle yenilenir. Deneme sonundan 7 ve 3 gün önce uygulama içi bildirim; yapılandırılmışsa e-posta hatırlatması gönderilir."
+            "Aylık veya yıllık abonelik, dönem sonu iptal talebi bulunmadıkça seçilen dönemle yenilenir. Yenileme tarihi ve geçerli yenileme tutarı abonelik ekranında gösterilir."
         },
         {
           title: "4. İptal",
@@ -315,28 +315,28 @@ export const legalTexts: Record<AuthLanguage, Record<LegalTextKey, LegalTextCont
     subscription: {
       linkLabel: "Subscription Terms",
       title: "Systemcel Subscription, Renewal, Cancellation and Refund Terms",
-      updatedAt: "August 1, 2026",
+      updatedAt: "August 10, 2026",
       updatedAtLabel: "Last updated",
       closeLabel: "Close legal text",
       intro:
-        "This draft describes trials, charges, automatic renewal, end-of-period cancellation and refunds for paid Systemcel plans.",
+        "This draft describes charges, automatic renewal, end-of-period cancellation and refunds for paid Systemcel plans.",
       note:
         "Company, tax/address and payment-provider details will be completed after incorporation, and legal counsel must approve this text before live charging.",
       sections: [
         {
           title: "1. Plan, Price and Billing Period",
           text:
-            "The selected plan, monthly net price, VAT, total amount, trial length and any extra customer credits are shown immediately before consent. Initial checkout is monthly only."
+            "The selected plan, monthly or annual billing period, net price, VAT, total amount and any extra customer credits are shown immediately before consent."
         },
         {
-          title: "2. Trial and First Charge",
+          title: "2. First Charge and Founder 100",
           text:
-            "A trial is granted once per account type. If it is not cancelled before it ends, the displayed amount is charged to the saved payment method. If the trial was already used, the subscription and charge start immediately."
+            "The subscription and charge start on the consent date. Founder 100 pricing applies to the first three monthly charges or the first prepaid annual term. The normal renewal price is shown before payment. Extra client credits remain at the current list price."
         },
         {
           title: "3. Renewal and Reminders",
           text:
-            "The monthly subscription renews unless cancellation at period end is requested. In-app reminders are shown 7 and 3 days before a trial ends; email is also used when configured."
+            "The monthly or annual subscription renews on the selected cycle unless cancellation at period end is requested. The renewal date and applicable renewal price are shown in the subscription screen."
         },
         {
           title: "4. Cancellation",

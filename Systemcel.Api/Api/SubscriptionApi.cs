@@ -1,7 +1,9 @@
 using CashTracker.Core.Models;
 using CashTracker.Core.Services;
+using CashTracker.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.EntityFrameworkCore;
 using System.Linq;
 
 namespace Systemcel.Api.Api;
@@ -10,8 +12,17 @@ internal static class SubscriptionApi
 {
     public static void MapSubscriptionApi(this WebApplication app)
     {
-        app.MapGet("/api/public/planlar", () =>
+        app.MapGet("/api/public/planlar", async (
+            IDbContextFactory<CashTrackerDbContext> dbFactory,
+            CancellationToken ct) =>
         {
+            await using var db = await dbFactory.CreateDbContextAsync(ct);
+            var now = DateTime.UtcNow;
+            var usedFounderSlots = await db.KurucuKampanyaHaklari.AsNoTracking().CountAsync(x =>
+                x.KampanyaKodu == SubscriptionPlanCatalog.KurucuKampanyaKodu &&
+                (x.Durum == "Kazanildi" || (x.Durum == "Rezerve" && x.RezervasyonBitisAt > now)), ct);
+            var remainingFounderSlots = Math.Max(0, SubscriptionPlanCatalog.KurucuKampanyaKontenjani - usedFounderSlots);
+            var founderActive = remainingFounderSlots > 0;
             var plans = SubscriptionPlanCatalog.Plans
                 .Where(x => x.Kod is PlanKodlari.IsletmeBaslangic
                     or PlanKodlari.IsletmeBuyume
@@ -23,9 +34,15 @@ internal static class SubscriptionApi
                     kod = x.Kod,
                     ad = x.Ad,
                     hesapTipi = x.HesapTipi,
-                    aylikTutar = x.AylikTutar,
-                    yillikTutar = x.YillikTutar > 0 ? x.YillikTutar : (decimal?)null,
-                    yillikEfektifAylikTutar = x.YillikTutar > 0 ? x.YillikTutar / 12 : (decimal?)null,
+                    aylikTutar = founderActive ? x.KurucuAylikTutar : x.AylikTutar,
+                    yillikTutar = founderActive ? x.KurucuYillikTutar : x.YillikTutar,
+                    yillikEfektifAylikTutar = (founderActive ? x.KurucuYillikTutar : x.YillikTutar) / 12,
+                    normalAylikTutar = x.AylikTutar,
+                    normalYillikTutar = x.YillikTutar,
+                    kurucuAylikTutar = x.KurucuAylikTutar,
+                    kurucuYillikTutar = x.KurucuYillikTutar,
+                    kampanyaKodu = founderActive ? SubscriptionPlanCatalog.KurucuKampanyaKodu : string.Empty,
+                    kurucuKontenjanKalan = remainingFounderSlots,
                     paraBirimi = "TRY",
                     aiMesajLimiti = x.AiMesajLimiti,
                     kullaniciLimiti = x.KullaniciLimiti,
@@ -42,7 +59,7 @@ internal static class SubscriptionApi
                     cokluParaBirimiAktif = x.CokluParaBirimiAktif,
                     apiErisimiAktif = x.ApiErisimiAktif,
                     oncelikliDestekAktif = x.OncelikliDestekAktif,
-                    denemeGunSayisi = x.HesapTipi == HesapTipleri.Muhasebeci ? 14 : 30
+                    denemeGunSayisi = 0
                 });
 
             return Results.Ok(plans);

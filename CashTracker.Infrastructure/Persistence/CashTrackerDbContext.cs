@@ -32,6 +32,7 @@ namespace CashTracker.Infrastructure.Persistence
         public DbSet<AbonelikOnayi> AbonelikOnaylari => Set<AbonelikOnayi>();
         public DbSet<OdemeIslemi> OdemeIslemleri => Set<OdemeIslemi>();
         public DbSet<OdemeOlayi> OdemeOlaylari => Set<OdemeOlayi>();
+        public DbSet<KurucuKampanyaHakki> KurucuKampanyaHaklari => Set<KurucuKampanyaHakki>();
         public DbSet<IsletmeEntitlement> IsletmeEntitlementlari => Set<IsletmeEntitlement>();
         public DbSet<AiKullanimDonemi> AiKullanimDonemleri => Set<AiKullanimDonemi>();
         public DbSet<KalemTanimi> KalemTanimlari => Set<KalemTanimi>();
@@ -265,6 +266,8 @@ namespace CashTracker.Infrastructure.Persistence
                 e.Property(x => x.Durum).IsRequired();
                 e.Property(x => x.AylikTutar).HasColumnType("NUMERIC");
                 e.Property(x => x.FaturalamaDonemi).IsRequired();
+                e.Property(x => x.KampanyaKodu).IsRequired();
+                e.Property(x => x.YenilemeDonemTutari).HasColumnType("NUMERIC");
                 e.Property(x => x.DonemTutari).HasColumnType("NUMERIC");
                 e.Property(x => x.ParaBirimi).IsRequired();
                 e.Property(x => x.OdemeSaglayici).IsRequired();
@@ -315,11 +318,14 @@ namespace CashTracker.Infrastructure.Persistence
                 e.Property(x => x.HesapTipi).IsRequired();
                 e.Property(x => x.PlanKodu).IsRequired();
                 e.Property(x => x.FaturalamaDonemi).IsRequired();
+                e.Property(x => x.KampanyaKodu).IsRequired();
                 e.Property(x => x.MetinSurumu).IsRequired();
                 e.Property(x => x.MetinHash).IsRequired();
                 e.Property(x => x.IstemciIpHash).IsRequired();
                 e.Property(x => x.UserAgentHash).IsRequired();
                 e.Property(x => x.NetTutar).HasColumnType("NUMERIC");
+                e.Property(x => x.ListeNetTutar).HasColumnType("NUMERIC");
+                e.Property(x => x.YenilemeNetTutar).HasColumnType("NUMERIC");
                 e.Property(x => x.KdvOrani).HasColumnType("NUMERIC");
                 e.Property(x => x.KdvTutar).HasColumnType("NUMERIC");
                 e.Property(x => x.ToplamTutar).HasColumnType("NUMERIC");
@@ -336,6 +342,7 @@ namespace CashTracker.Infrastructure.Persistence
                 e.Property(x => x.HesapTipi).IsRequired();
                 e.Property(x => x.PlanKodu).IsRequired();
                 e.Property(x => x.FaturalamaDonemi).IsRequired();
+                e.Property(x => x.KampanyaKodu).IsRequired();
                 e.Property(x => x.IslemTipi).IsRequired();
                 e.Property(x => x.Durum).IsRequired();
                 e.Property(x => x.OdemeSaglayici).IsRequired();
@@ -343,6 +350,8 @@ namespace CashTracker.Infrastructure.Persistence
                 e.Property(x => x.SaglayiciIslemId).IsRequired();
                 e.Property(x => x.CheckoutUrl).IsRequired();
                 e.Property(x => x.NetTutar).HasColumnType("NUMERIC");
+                e.Property(x => x.ListeNetTutar).HasColumnType("NUMERIC");
+                e.Property(x => x.YenilemeNetTutar).HasColumnType("NUMERIC");
                 e.Property(x => x.KdvOrani).HasColumnType("NUMERIC");
                 e.Property(x => x.KdvTutar).HasColumnType("NUMERIC");
                 e.Property(x => x.ToplamTutar).HasColumnType("NUMERIC");
@@ -353,6 +362,19 @@ namespace CashTracker.Infrastructure.Persistence
                 e.HasIndex(x => new { x.IsletmeId, x.CheckoutAnahtari }).IsUnique();
                 e.HasIndex(x => x.SaglayiciOturumId);
                 e.HasIndex(x => x.SaglayiciIslemId);
+            });
+
+            modelBuilder.Entity<KurucuKampanyaHakki>(e =>
+            {
+                e.ToTable("KurucuKampanyaHakki");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.KampanyaKodu).IsRequired();
+                e.Property(x => x.CheckoutAnahtari).IsRequired();
+                e.Property(x => x.Durum).IsRequired();
+                e.HasIndex(x => new { x.KampanyaKodu, x.IsletmeId }).IsUnique();
+                e.HasIndex(x => new { x.KampanyaKodu, x.SiraNo }).IsUnique();
+                e.HasIndex(x => x.CheckoutAnahtari).IsUnique();
+                e.HasIndex(x => new { x.KampanyaKodu, x.Durum, x.RezervasyonBitisAt });
             });
 
             modelBuilder.Entity<OdemeOlayi>(e =>

@@ -11,7 +11,7 @@ namespace Systemcel.Api.Api;
 
 internal static class BillingApi
 {
-    private const string ConsentVersion = "abonelik-onayi-2026-08-v2";
+    private const string ConsentVersion = "abonelik-onayi-2026-08-v3";
 
     public static void MapBillingApi(this WebApplication app)
     {
@@ -28,20 +28,23 @@ internal static class BillingApi
             {
                 try
                 {
-                    EnsureInitialCheckoutIsMonthly(faturalamaDonemi);
                     var business = await isletmeService.GetActiveAsync();
+                    var period = NormalizeBillingPeriod(faturalamaDonemi);
+                    await using var db = await dbFactory.CreateDbContextAsync(ct);
+                    var founderPrice = await CanOfferFounderPriceAsync(db, business.Id, ct);
                     var quote = pricing.CreateQuote(
                         planKodu,
                         business.TenantTipi,
-                        PaymentBillingPeriods.Monthly,
-                        ekMusteriKredisi ?? 0);
-                    await using var db = await dbFactory.CreateDbContextAsync(ct);
+                        period,
+                        ekMusteriKredisi ?? 0,
+                        founderPrice);
                     if (await db.IsletmeDenemeleri.AsNoTracking().AnyAsync(
                             x => x.IsletmeId == business.Id && x.HesapTipi == business.TenantTipi, ct))
                         quote = quote with { TrialDays = 0 };
                     return Results.Ok(new
                     {
                         fiyat = quote,
+                        kampanyaKodu = quote.CampaignCode,
                         onayMetniSurumu = ConsentVersion,
                         onayMetni = BuildConsentText(quote)
                     });
@@ -90,7 +93,10 @@ internal static class BillingApi
                         x.Durum,
                         x.PlanKodu,
                         x.FaturalamaDonemi,
+                        x.KampanyaKodu,
                         x.NetTutar,
+                        x.ListeNetTutar,
+                        x.YenilemeNetTutar,
                         x.KdvTutar,
                         x.ToplamTutar,
                         x.ParaBirimi,
@@ -138,6 +144,9 @@ internal static class BillingApi
                         subscription.EkMusteriKredisi,
                         subscription.Durum,
                         subscription.DonemTutari,
+                        subscription.KampanyaKodu,
+                        subscription.YenilemeDonemTutari,
+                        subscription.IndirimliDonemKalan,
                         subscription.ParaBirimi,
                         subscription.DonemBaslangicAt,
                         subscription.DonemBitisAt,
@@ -163,7 +172,7 @@ internal static class BillingApi
                 CancellationToken ct) =>
             {
                 if (!request.Onaylandi)
-                    return Results.BadRequest(new { mesaj = "Abonelik ve deneme kosullarini onaylamalisiniz." });
+                    return Results.BadRequest(new { mesaj = "Abonelik koşullarını onaylamalısınız." });
 
                 var identity = currentUserContext.GetCurrentUser();
                 if (identity is null && http.User.Identity?.IsAuthenticated == true)
@@ -193,12 +202,17 @@ internal static class BillingApi
                         return Results.BadRequest(new { mesaj = "Idempotency-Key basligi zorunludur." });
 
                     var baseUri = ResolveBaseUri(http.Request, paymentOptions);
-                    EnsureInitialCheckoutIsMonthly(request.FaturalamaDonemi);
+                    var period = NormalizeBillingPeriod(request.FaturalamaDonemi);
+                    var useFounderPrice = string.Equals(
+                        request.KampanyaKodu,
+                        SubscriptionPlanCatalog.KurucuKampanyaKodu,
+                        StringComparison.Ordinal);
                     var quote = pricing.CreateQuote(
                         request.PlanKodu,
                         business.TenantTipi,
-                        PaymentBillingPeriods.Monthly,
-                        request.EkMusteriKredisi);
+                        period,
+                        request.EkMusteriKredisi,
+                        useFounderPrice);
                     await using (var trialDb = await dbFactory.CreateDbContextAsync(ct))
                     {
                         if (await trialDb.IsletmeDenemeleri.AsNoTracking().AnyAsync(
@@ -210,8 +224,9 @@ internal static class BillingApi
                         business.Id,
                         business.TenantTipi,
                         request.PlanKodu,
-                        PaymentBillingPeriods.Monthly,
+                        period,
                         request.EkMusteriKredisi,
+                        request.KampanyaKodu ?? string.Empty,
                         idempotencyKey,
                         identity?.ProviderUserId ?? "local-development-user",
                         email,
@@ -397,9 +412,15 @@ internal static class BillingApi
 
         if (quote.TrialDays <= 0)
         {
-            return $"Ücretsiz deneme hakkımı daha önce kullandığım için {period} planın hemen başlamasını; " +
-                   $"{net} TL + {vat} TL KDV, toplam {total} TL'nin kayıtlı ödeme yöntemimden tahsil edilmesini " +
-                   $"ve aboneliğin {period} olarak yenilenmesini onaylıyorum.{credits} İptalin mevcut ücretli dönemin " +
+            var renewalNet = quote.RenewalNetAmount.ToString("N2", culture);
+            var renewalVatAmount = decimal.Round(quote.RenewalNetAmount * quote.VatRate / 100m, 2, MidpointRounding.AwayFromZero);
+            var renewalVat = renewalVatAmount.ToString("N2", culture);
+            var renewalTotal = (quote.RenewalNetAmount + renewalVatAmount).ToString("N2", culture);
+            var campaign = quote.IsFounderPrice
+                ? $" Kurucu 100 fiyatının {(quote.BillingPeriod == PaymentBillingPeriods.Annual ? "ilk yıllık dönem" : "ilk 3 aylık tahsilat")} için geçerli olduğunu; sonrasında {renewalNet} TL + {renewalVat} TL KDV, toplam {renewalTotal} TL normal dönem fiyatıyla yenileneceğini kabul ediyorum."
+                : $" Aboneliğin sonraki {period} dönemde {renewalNet} TL + {renewalVat} TL KDV, toplam {renewalTotal} TL üzerinden yenileneceğini kabul ediyorum.";
+            return $"{period} planın hemen başlamasını; " +
+                   $"{net} TL + {vat} TL KDV, toplam {total} TL'nin kayıtlı ödeme yöntemimden bugün tahsil edilmesini onaylıyorum.{credits}{campaign} İptalin mevcut ücretli dönemin " +
                    "sonunda etkili olacağını; dönem sonu iptalin geçmiş tahsilatı kendiliğinden iade etmeyeceğini ve " +
                    "emredici yasal haklarımın saklı olduğunu kabul ediyorum.";
         }
@@ -441,16 +462,44 @@ internal static class BillingApi
     private static string? FirstNonEmpty(params string?[] values) =>
         values.FirstOrDefault(x => !string.IsNullOrWhiteSpace(x))?.Trim();
 
-    private static void EnsureInitialCheckoutIsMonthly(string billingPeriod)
+    private static string NormalizeBillingPeriod(string billingPeriod)
     {
-        if (!string.Equals(billingPeriod, PaymentBillingPeriods.Monthly, StringComparison.OrdinalIgnoreCase))
-            throw new InvalidOperationException("İlk deneme ve checkout yalnızca aylık faturalamayla başlatılabilir.");
+        if (string.Equals(billingPeriod, PaymentBillingPeriods.Monthly, StringComparison.OrdinalIgnoreCase))
+            return PaymentBillingPeriods.Monthly;
+        if (string.Equals(billingPeriod, PaymentBillingPeriods.Annual, StringComparison.OrdinalIgnoreCase))
+            return PaymentBillingPeriods.Annual;
+        throw new InvalidOperationException("Faturalama dönemi aylık veya yıllık olmalıdır.");
+    }
+
+    private static async Task<bool> CanOfferFounderPriceAsync(
+        CashTrackerDbContext db,
+        int businessId,
+        CancellationToken ct)
+    {
+        var now = DateTime.UtcNow;
+        var ownRight = await db.KurucuKampanyaHaklari.AsNoTracking().SingleOrDefaultAsync(x =>
+            x.KampanyaKodu == SubscriptionPlanCatalog.KurucuKampanyaKodu && x.IsletmeId == businessId, ct);
+        if (ownRight is not null)
+            return ownRight.Durum == "Rezerve" && ownRight.RezervasyonBitisAt > now;
+
+        if (await db.Abonelikler.AsNoTracking().AnyAsync(x => x.IsletmeId == businessId, ct) ||
+            await db.IsletmeDenemeleri.AsNoTracking().AnyAsync(x => x.IsletmeId == businessId, ct) ||
+            await db.OdemeIslemleri.AsNoTracking().AnyAsync(x =>
+                x.IsletmeId == businessId &&
+                (x.Durum == PaymentTransactionStates.Succeeded || x.Durum == PaymentTransactionStates.TrialAuthorized), ct))
+            return false;
+
+        var used = await db.KurucuKampanyaHaklari.AsNoTracking().CountAsync(x =>
+            x.KampanyaKodu == SubscriptionPlanCatalog.KurucuKampanyaKodu &&
+            (x.Durum == "Kazanildi" || (x.Durum == "Rezerve" && x.RezervasyonBitisAt > now)), ct);
+        return used < SubscriptionPlanCatalog.KurucuKampanyaKontenjani;
     }
 
     internal sealed record CheckoutRequest(
         string PlanKodu,
         string FaturalamaDonemi,
         int EkMusteriKredisi,
+        string? KampanyaKodu,
         bool Onaylandi,
         string? Eposta,
         string? IdempotencyKey);

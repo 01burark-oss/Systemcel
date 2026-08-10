@@ -4,6 +4,11 @@ namespace CashTracker.Core.Services
 {
     public interface IPaymentPricingService
     {
-        PaymentQuote CreateQuote(string planCode, string accountType, string billingPeriod, int extraCustomerCredits = 0);
+        PaymentQuote CreateQuote(
+            string planCode,
+            string accountType,
+            string billingPeriod,
+            int extraCustomerCredits = 0,
+            bool useFounderPrice = false);
     }
 }

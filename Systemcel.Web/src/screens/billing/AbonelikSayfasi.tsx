@@ -112,8 +112,10 @@ function durumTonu(value: string) {
 
 function urlSecimi() {
   const params = new URLSearchParams(window.location.search);
+  const billing = params.get("billing");
   return {
     planKodu: params.get("plan") ?? "",
+    faturalamaDonemi: billing === "Yillik" ? "Yillik" as const : "Aylik" as const,
     ekMusteriKredisi: Math.max(0, Number.parseInt(params.get("credits") ?? "0", 10) || 0),
     odemeSonucu: params.get("odeme") ?? ""
   };
@@ -128,6 +130,7 @@ export function AbonelikSayfasi() {
   const [ozet, setOzet] = React.useState<AbonelikOzeti | null>(null);
   const [planlar, setPlanlar] = React.useState<PublicPlan[]>([]);
   const [planKodu, setPlanKodu] = React.useState(ilkSecim.planKodu);
+  const [faturalamaDonemi, setFaturalamaDonemi] = React.useState<"Aylik" | "Yillik">(ilkSecim.faturalamaDonemi);
   const [ekMusteriKredisi, setEkMusteriKredisi] = React.useState(ilkSecim.ekMusteriKredisi);
   const [teklif, setTeklif] = React.useState<TeklifYaniti | null>(null);
   const [modal, setModal] = React.useState<Modal>(null);
@@ -190,7 +193,7 @@ export function AbonelikSayfasi() {
     setTeklif(null);
     setHata("");
     const credits = planKodu === "muhasebeci_standart" ? ekMusteriKredisi : 0;
-    jsonOku<TeklifYaniti>(`/api/abonelik/teklif?planKodu=${encodeURIComponent(planKodu)}&faturalamaDonemi=Aylik&ekMusteriKredisi=${credits}`)
+    jsonOku<TeklifYaniti>(`/api/abonelik/teklif?planKodu=${encodeURIComponent(planKodu)}&faturalamaDonemi=${faturalamaDonemi}&ekMusteriKredisi=${credits}`)
       .then((yanit) => {
         if (gecerli) setTeklif(yanit);
       })
@@ -201,7 +204,7 @@ export function AbonelikSayfasi() {
         if (gecerli) setTeklifYukleniyor(false);
       });
     return () => { gecerli = false; };
-  }, [ekMusteriKredisi, modal, planKodu]);
+  }, [ekMusteriKredisi, faturalamaDonemi, modal, planKodu]);
 
   React.useEffect(() => {
     if (!modal) return;
@@ -263,8 +266,9 @@ export function AbonelikSayfasi() {
         headers: { "Idempotency-Key": idempotencyRef.current },
         body: JSON.stringify({
           planKodu,
-          faturalamaDonemi: "Aylik",
+          faturalamaDonemi,
           ekMusteriKredisi: planKodu === "muhasebeci_standart" ? ekMusteriKredisi : 0,
+          kampanyaKodu: teklif.kampanyaKodu || null,
           onaylandi: true,
           eposta: eposta.trim() || null,
           idempotencyKey: idempotencyRef.current
@@ -367,6 +371,7 @@ export function AbonelikSayfasi() {
                 <div className="billing-price">
                   <strong>{paraBic(planTutari, ozet.haklar.paraBirimi)}</strong>
                   <span>/{ozet.haklar.faturalamaDonemi === "Yillik" ? "yıl" : "ay"} + KDV</span>
+                  {ozet.abonelik?.kampanyaKodu ? <small>KURUCU 100</small> : null}
                 </div>
               </div>
               <div className="billing-plan-card__actions">
@@ -391,6 +396,10 @@ export function AbonelikSayfasi() {
               </div>
               <p>{ozet.donemSonundaIptal
                 ? "Bu tarihe kadar plan haklarınızı kullanabilirsiniz."
+                : ozet.abonelik?.kampanyaKodu && ozet.abonelik.indirimliDonemKalan > 0
+                  ? `Kurucu fiyatınız ${ozet.abonelik.indirimliDonemKalan} tahsilat daha geçerli; ardından ${paraBic(ozet.abonelik.yenilemeDonemTutari, ozet.abonelik.paraBirimi)} + KDV.`
+                  : ozet.abonelik?.kampanyaKodu
+                    ? `Sonraki yenileme ${paraBic(ozet.abonelik.yenilemeDonemTutari, ozet.abonelik.paraBirimi)} + KDV.`
                 : ozet.deneme
                   ? "Deneme süreniz bu tarihte sona erer."
                   : "Planınız bu tarihte yenilenir."}</p>
@@ -471,11 +480,7 @@ export function AbonelikSayfasi() {
                 <span className="billing-modal__icon"><FileCheck2 size={24} /></span>
                 <p className="billing-modal__eyebrow">AÇIK ONAY</p>
                 <h2 id="billing-modal-title" ref={modalBaslikRef} tabIndex={-1}>Planınızı seçin ve koşulları onaylayın</h2>
-                <p className="billing-modal__lead">
-                  {teklif?.fiyat.trialDays === 0
-                    ? "Deneme hakkınız daha önce kullanıldığı için seçtiğiniz plan bugün başlar. Tahsilat tutarı onay metninde açıkça gösterilir."
-                    : "Kartınız bugün ücretlendirilmez. Deneme bitişi ve ilk tahsilat tutarı onay metninde açıkça gösterilir."}
-                </p>
+                <p className="billing-modal__lead">Seçtiğiniz plan bugün başlar. Tutar ve yenileme koşulları ödeme öncesinde gösterilir.</p>
 
                 <div className="billing-plan-fields">
                   <label><span>Plan</span><select value={planKodu} onChange={(event) => {
@@ -484,7 +489,21 @@ export function AbonelikSayfasi() {
                     setOnaylandi(false);
                     idempotencyRef.current = yeniIdempotencyKey();
                   }}>{planlar.map((plan) => <option key={plan.kod} value={plan.kod}>{plan.ad}</option>)}</select></label>
-                  <div className="billing-period-lock"><span>İlk faturalama dönemi</span><strong>Aylık</strong><small>Yıllık plana abonelik başladıktan sonra geçebilirsiniz.</small></div>
+                  <fieldset className="billing-period-choice">
+                    <legend>Faturalama dönemi</legend>
+                    <div>
+                      <button type="button" className={faturalamaDonemi === "Aylik" ? "active" : ""} aria-pressed={faturalamaDonemi === "Aylik"} onClick={() => {
+                        setFaturalamaDonemi("Aylik");
+                        setOnaylandi(false);
+                        idempotencyRef.current = yeniIdempotencyKey();
+                      }}>Aylık</button>
+                      <button type="button" className={faturalamaDonemi === "Yillik" ? "active" : ""} aria-pressed={faturalamaDonemi === "Yillik"} onClick={() => {
+                        setFaturalamaDonemi("Yillik");
+                        setOnaylandi(false);
+                        idempotencyRef.current = yeniIdempotencyKey();
+                      }}>Yıllık</button>
+                    </div>
+                  </fieldset>
                   {planKodu === "muhasebeci_standart" ? <label><span>+1 müşteri kredisi</span><input type="number" min="0" max="10000" step="1" value={ekMusteriKredisi} onChange={(event) => {
                     setEkMusteriKredisi(Math.min(10000, Math.max(0, Number.parseInt(event.target.value || "0", 10) || 0)));
                     setOnaylandi(false);
@@ -496,22 +515,23 @@ export function AbonelikSayfasi() {
                   <>
                     <div className="billing-quote">
                       <div>
-                        <small>{teklif.fiyat.trialDays > 0 ? `${teklif.fiyat.trialDays} GÜNLÜK DENEME` : "DOĞRUDAN ABONELİK"}</small>
-                        <strong>Bugün {paraBic(teklif.fiyat.trialDays > 0 ? 0 : teklif.fiyat.totalAmount, teklif.fiyat.currency)}</strong>
+                        <small>{teklif.fiyat.isFounderPrice ? "KURUCU 100 FİYATI" : faturalamaDonemi === "Yillik" ? "YILLIK ABONELİK" : "AYLIK ABONELİK"}</small>
+                        <strong>Bugün {paraBic(teklif.fiyat.totalAmount, teklif.fiyat.currency)}</strong>
                       </div>
                       <dl>
                         <div><dt>Plan bedeli</dt><dd>{paraBic(teklif.fiyat.netAmount, teklif.fiyat.currency)}</dd></div>
                         {teklif.fiyat.extraCustomerCredits > 0 ? <div><dt>Müşteri kapasitesi</dt><dd>{teklif.fiyat.includedCustomerCount + teklif.fiyat.extraCustomerCredits} müşteri</dd></div> : null}
                         <div><dt>KDV (%{Math.round(teklif.fiyat.vatRate)})</dt><dd>{paraBic(teklif.fiyat.vatAmount, teklif.fiyat.currency)}</dd></div>
-                        <div><dt>{teklif.fiyat.trialDays > 0 ? "Deneme sonrası toplam" : "Bugünkü toplam"}</dt><dd>{paraBic(teklif.fiyat.totalAmount, teklif.fiyat.currency)}</dd></div>
+                        {teklif.fiyat.isFounderPrice ? <div><dt>Sonraki normal dönem</dt><dd>{paraBic(teklif.fiyat.renewalNetAmount, teklif.fiyat.currency)} + KDV</dd></div> : null}
+                        <div><dt>Bugünkü toplam</dt><dd>{paraBic(teklif.fiyat.totalAmount, teklif.fiyat.currency)}</dd></div>
                       </dl>
                     </div>
                     <label className="billing-email"><span>E-posta <small>(hesabınızda yoksa)</small></span><input type="email" autoComplete="email" value={eposta} onChange={(event) => setEposta(event.target.value)} placeholder="ornek@isletme.com" /></label>
                     <div className="billing-consent">
-                      <input id="billing-monthly-consent" type="checkbox" checked={onaylandi} onChange={(event) => setOnaylandi(event.target.checked)} aria-labelledby="billing-consent-copy" />
-                      <label htmlFor="billing-monthly-consent" aria-label="Aylık abonelik onayını seç"><i aria-hidden="true"><Check size={14} /></i></label>
+                      <input id="billing-subscription-consent" type="checkbox" checked={onaylandi} onChange={(event) => setOnaylandi(event.target.checked)} aria-labelledby="billing-consent-copy" />
+                      <label htmlFor="billing-subscription-consent" aria-label="Abonelik onayını seç"><i aria-hidden="true"><Check size={14} /></i></label>
                       <span id="billing-consent-copy" className="billing-consent__copy">
-                        <button ref={sozlesmeTetikRef} className="billing-consent__link" type="button" onClick={() => setSozlesmeAcik(true)}>Abonelik sözleşmesini</button> okudum ve aylık aboneliği onaylıyorum.
+                        <button ref={sozlesmeTetikRef} className="billing-consent__link" type="button" onClick={() => setSozlesmeAcik(true)}>Abonelik sözleşmesini</button> okudum ve {faturalamaDonemi === "Yillik" ? "yıllık" : "aylık"} aboneliği onaylıyorum.
                       </span>
                     </div>
                   </>
@@ -519,7 +539,7 @@ export function AbonelikSayfasi() {
                 {hata ? <div className="billing-inline-error" role="alert"><AlertCircle size={17} />{hata}</div> : null}
                 <div className="billing-modal__actions">
                   <button className="billing-button billing-button--secondary" type="button" onClick={modalKapat} disabled={islemde}>Daha sonra</button>
-                  <button className="billing-button billing-button--primary" type="button" onClick={checkoutBaslat} disabled={!onaylandi || !teklif || islemde || teklifYukleniyor}>{islemde ? <Loader2 className="spin" size={17} /> : <ShieldCheck size={17} />} {teklif?.fiyat.trialDays === 0 ? "Öde ve aboneliği başlat" : "Kartı güvenle ekle"}</button>
+                  <button className="billing-button billing-button--primary" type="button" onClick={checkoutBaslat} disabled={!onaylandi || !teklif || islemde || teklifYukleniyor}>{islemde ? <Loader2 className="spin" size={17} /> : <ShieldCheck size={17} />} Öde ve aboneliği başlat</button>
                 </div>
               </>
             )}

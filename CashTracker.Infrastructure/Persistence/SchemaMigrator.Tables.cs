@@ -509,6 +509,20 @@ CREATE TABLE IF NOT EXISTS OdemeIslemi (
 );");
 
             db.Database.ExecuteSqlRaw(@"
+CREATE TABLE IF NOT EXISTS KurucuKampanyaHakki (
+    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+    IsletmeId INTEGER NOT NULL,
+    KampanyaKodu TEXT NOT NULL DEFAULT '',
+    SiraNo INTEGER NOT NULL,
+    CheckoutAnahtari TEXT NOT NULL DEFAULT '',
+    Durum TEXT NOT NULL DEFAULT 'Rezerve',
+    RezerveAt TEXT NOT NULL,
+    RezervasyonBitisAt TEXT NOT NULL,
+    KazanildiAt TEXT,
+    UpdatedAt TEXT NOT NULL
+);");
+
+            db.Database.ExecuteSqlRaw(@"
 CREATE TABLE IF NOT EXISTS OdemeOlayi (
     Id INTEGER PRIMARY KEY AUTOINCREMENT,
     OdemeSaglayici TEXT NOT NULL DEFAULT '',
@@ -626,6 +640,18 @@ WHERE UpdatedAt = '1970-01-01 00:00:00' OR TRIM(UpdatedAt) = '';");
             if (!ColumnExists(conn, "Abonelik", "ToleransBitisAt"))
                 db.Database.ExecuteSqlRaw("ALTER TABLE Abonelik ADD COLUMN ToleransBitisAt TEXT");
 
+            if (!ColumnExists(conn, "Abonelik", "KampanyaKodu"))
+                db.Database.ExecuteSqlRaw("ALTER TABLE Abonelik ADD COLUMN KampanyaKodu TEXT NOT NULL DEFAULT ''");
+
+            if (!ColumnExists(conn, "Abonelik", "YenilemeDonemTutari"))
+            {
+                db.Database.ExecuteSqlRaw("ALTER TABLE Abonelik ADD COLUMN YenilemeDonemTutari NUMERIC NOT NULL DEFAULT 0");
+                db.Database.ExecuteSqlRaw("UPDATE Abonelik SET YenilemeDonemTutari = DonemTutari WHERE YenilemeDonemTutari = 0");
+            }
+
+            if (!ColumnExists(conn, "Abonelik", "IndirimliDonemKalan"))
+                db.Database.ExecuteSqlRaw("ALTER TABLE Abonelik ADD COLUMN IndirimliDonemKalan INTEGER NOT NULL DEFAULT 0");
+
             if (!ColumnExists(conn, "IsletmeDeneme", "HesapTipi"))
                 db.Database.ExecuteSqlRaw("ALTER TABLE IsletmeDeneme ADD COLUMN HesapTipi TEXT NOT NULL DEFAULT 'Isletme'");
 
@@ -638,8 +664,41 @@ WHERE UpdatedAt = '1970-01-01 00:00:00' OR TRIM(UpdatedAt) = '';");
             if (!ColumnExists(conn, "AbonelikOnayi", "EkMusteriKredisi"))
                 db.Database.ExecuteSqlRaw("ALTER TABLE AbonelikOnayi ADD COLUMN EkMusteriKredisi INTEGER NOT NULL DEFAULT 0");
 
+            if (!ColumnExists(conn, "AbonelikOnayi", "KampanyaKodu"))
+                db.Database.ExecuteSqlRaw("ALTER TABLE AbonelikOnayi ADD COLUMN KampanyaKodu TEXT NOT NULL DEFAULT ''");
+
+            if (!ColumnExists(conn, "AbonelikOnayi", "ListeNetTutar"))
+            {
+                db.Database.ExecuteSqlRaw("ALTER TABLE AbonelikOnayi ADD COLUMN ListeNetTutar NUMERIC NOT NULL DEFAULT 0");
+                db.Database.ExecuteSqlRaw("UPDATE AbonelikOnayi SET ListeNetTutar = NetTutar WHERE ListeNetTutar = 0");
+            }
+
+            if (!ColumnExists(conn, "AbonelikOnayi", "YenilemeNetTutar"))
+            {
+                db.Database.ExecuteSqlRaw("ALTER TABLE AbonelikOnayi ADD COLUMN YenilemeNetTutar NUMERIC NOT NULL DEFAULT 0");
+                db.Database.ExecuteSqlRaw("UPDATE AbonelikOnayi SET YenilemeNetTutar = NetTutar WHERE YenilemeNetTutar = 0");
+            }
+
             if (!ColumnExists(conn, "OdemeIslemi", "EkMusteriKredisi"))
                 db.Database.ExecuteSqlRaw("ALTER TABLE OdemeIslemi ADD COLUMN EkMusteriKredisi INTEGER NOT NULL DEFAULT 0");
+
+            if (!ColumnExists(conn, "OdemeIslemi", "KampanyaKodu"))
+                db.Database.ExecuteSqlRaw("ALTER TABLE OdemeIslemi ADD COLUMN KampanyaKodu TEXT NOT NULL DEFAULT ''");
+
+            if (!ColumnExists(conn, "OdemeIslemi", "ListeNetTutar"))
+            {
+                db.Database.ExecuteSqlRaw("ALTER TABLE OdemeIslemi ADD COLUMN ListeNetTutar NUMERIC NOT NULL DEFAULT 0");
+                db.Database.ExecuteSqlRaw("UPDATE OdemeIslemi SET ListeNetTutar = NetTutar WHERE ListeNetTutar = 0");
+            }
+
+            if (!ColumnExists(conn, "OdemeIslemi", "YenilemeNetTutar"))
+            {
+                db.Database.ExecuteSqlRaw("ALTER TABLE OdemeIslemi ADD COLUMN YenilemeNetTutar NUMERIC NOT NULL DEFAULT 0");
+                db.Database.ExecuteSqlRaw("UPDATE OdemeIslemi SET YenilemeNetTutar = NetTutar WHERE YenilemeNetTutar = 0");
+            }
+
+            if (!ColumnExists(conn, "OdemeIslemi", "IndirimliDonemSayisi"))
+                db.Database.ExecuteSqlRaw("ALTER TABLE OdemeIslemi ADD COLUMN IndirimliDonemSayisi INTEGER NOT NULL DEFAULT 0");
 
             if (!ColumnExists(conn, "IsletmeDeneme", "DonemSonundaIptal"))
                 db.Database.ExecuteSqlRaw("ALTER TABLE IsletmeDeneme ADD COLUMN DonemSonundaIptal INTEGER NOT NULL DEFAULT 0");
@@ -787,6 +846,10 @@ CREATE TABLE IF NOT EXISTS YonetimDenetimKaydi (
             db.Database.ExecuteSqlRaw("CREATE UNIQUE INDEX IF NOT EXISTS IX_OdemeIslemi_IsletmeId_CheckoutAnahtari ON OdemeIslemi(IsletmeId, CheckoutAnahtari);");
             db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS IX_OdemeIslemi_SaglayiciOturumId ON OdemeIslemi(SaglayiciOturumId);");
             db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS IX_OdemeIslemi_SaglayiciIslemId ON OdemeIslemi(SaglayiciIslemId);");
+            db.Database.ExecuteSqlRaw("CREATE UNIQUE INDEX IF NOT EXISTS IX_KurucuKampanyaHakki_CheckoutAnahtari ON KurucuKampanyaHakki(CheckoutAnahtari);");
+            db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS IX_KurucuKampanyaHakki_KampanyaKodu_Durum_RezervasyonBitisAt ON KurucuKampanyaHakki(KampanyaKodu, Durum, RezervasyonBitisAt);");
+            db.Database.ExecuteSqlRaw("CREATE UNIQUE INDEX IF NOT EXISTS IX_KurucuKampanyaHakki_KampanyaKodu_IsletmeId ON KurucuKampanyaHakki(KampanyaKodu, IsletmeId);");
+            db.Database.ExecuteSqlRaw("CREATE UNIQUE INDEX IF NOT EXISTS IX_KurucuKampanyaHakki_KampanyaKodu_SiraNo ON KurucuKampanyaHakki(KampanyaKodu, SiraNo);");
             db.Database.ExecuteSqlRaw("CREATE UNIQUE INDEX IF NOT EXISTS IX_OdemeOlayi_OdemeSaglayici_OlayId ON OdemeOlayi(OdemeSaglayici, OlayId);");
             db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS IX_OdemeOlayi_CheckoutAnahtari ON OdemeOlayi(CheckoutAnahtari);");
             db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS IX_OdemeOlayi_SaglayiciIslemId ON OdemeOlayi(SaglayiciIslemId);");
