@@ -23,6 +23,7 @@
 - Stok hareketi, rapor ayı, hızlı not, ücretsiz plan durumu ve GİB saklama açıklamasındaki Türkçe/teknik metinler sadeleştirildi.
 - Tahsilat ekranındaki işlem oluşturmayan `Taslak` ve `Onayla` kopyaları kaldırıldı; tek gerçek kayıt eylemi bırakıldı.
 - Muhasebeci kolay kurulumunda profil görseli, hesap rolü kaydedilmeden önce yüklendiği için sunucudan `403` alıyordu. Tamamlanmamış kolay kurulumlarda güvenli görsel yüklemeye izin verildi ve regresyon testi eklendi.
+- Başarılı profil görseli yüklemesinden sonra önceki hata metni ekranda kalıyordu; yeni denemede hata durumu temizleniyor.
 
 ## Kalan engeller
 

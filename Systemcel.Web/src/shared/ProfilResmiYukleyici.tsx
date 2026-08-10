@@ -145,6 +145,7 @@ export function ProfilResmiYukleyici({
     if (!image || !displaySize)
       return;
 
+    onError?.("");
     setYukleniyor(true);
     onBusyChange?.(true);
     try {
