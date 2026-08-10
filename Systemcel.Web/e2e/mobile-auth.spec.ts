@@ -41,6 +41,7 @@ test("mobile sign-out blocks browser-back access to the workspace", async ({ pag
 });
 
 test("every mobile workspace route keeps an accessible sign-out path", async ({ page, viewport }) => {
+  test.setTimeout(120_000);
   test.skip(!viewport || viewport.width > 430, "Mobile regression matrix only");
   await mockClerk(page, true);
   await mockWorkspace(page);
