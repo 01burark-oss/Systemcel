@@ -44,10 +44,10 @@ jobs:
           npm test
           npm run build
 
-      - name: Install Playwright Chromium
+      - name: Install Playwright browsers
         working-directory: Systemcel.Web
         shell: pwsh
-        run: npx playwright install chromium
+        run: npx playwright install chromium webkit
 
       - name: Run critical browser flows
         working-directory: Systemcel.Web

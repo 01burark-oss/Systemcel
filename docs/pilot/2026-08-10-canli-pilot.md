@@ -36,3 +36,4 @@
 - Vitest: 13/13 geçti.
 - .NET: 121/121 geçti.
 - Playwright mobil rota senaryosunun çoklu sayfa süresi CI için gerçek kapsama göre ayarlandı.
+- CI cihaz matrisinin kullandığı Chromium ve WebKit tarayıcıları workflow'da birlikte kuruluyor.
