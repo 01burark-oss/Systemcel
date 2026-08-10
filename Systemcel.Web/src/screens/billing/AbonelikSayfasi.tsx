@@ -45,7 +45,8 @@ const durumEtiketleri: Record<string, string> = {
   IptalEdildi: "İptal edildi",
   SonaErdi: "Sona erdi",
   OdemeBasarisiz: "Ödeme gerekli",
-  Tolerans: "Ödeme bekleniyor"
+  Tolerans: "Ödeme bekleniyor",
+  Ucretsiz: "Ücretsiz"
 };
 
 const islemEtiketleri: Record<string, string> = {

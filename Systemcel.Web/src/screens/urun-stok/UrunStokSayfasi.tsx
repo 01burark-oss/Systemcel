@@ -122,6 +122,10 @@ function etiketBic(value: string) {
       return "Alış";
     case "Satis":
       return "Satış";
+    case "Giris":
+      return "Giriş";
+    case "Cikis":
+      return "Çıkış";
     default:
       return value;
   }

@@ -1,7 +1,6 @@
 import React from "react";
 import {
   CalendarDays,
-  CheckCircle2,
   ChevronUp,
   Clock3,
   CreditCard,
@@ -10,7 +9,6 @@ import {
   Plus,
   Save,
   Search,
-  Send,
   Trash2,
   WalletCards
 } from "lucide-react";
@@ -286,11 +284,6 @@ export function TahsilatOdemeSayfasi({ yenileAnahtari }: TahsilatOdemeSayfasiPro
     }
   };
 
-  const taslakOlustur = () => {
-    setHata("");
-    setDurum("Taslak hazır. Kaydet veya onayla ile işlemi oluşturabilirsiniz.");
-  };
-
   const yeniForm = () => {
     setHata("");
     setDurum("Yeni tahsilat/ödeme hazır.");
@@ -529,14 +522,6 @@ export function TahsilatOdemeSayfasi({ yenileAnahtari }: TahsilatOdemeSayfasiPro
                   <Save size={17} />
                   Kaydet
                 </button>
-                <button className="payment-btn" disabled={islemde} type="button" onClick={taslakOlustur}>
-                  <Send size={17} />
-                  Taslak
-                </button>
-                <button className="payment-btn payment-btn--success" disabled={islemde} type="button" onClick={kaydet}>
-                  <CheckCircle2 size={17} />
-                  Onayla
-                </button>
                 <button className="payment-btn payment-btn--danger" disabled={islemde} type="button" onClick={yeniForm}>
                   <Trash2 size={17} />
                   İptal
@@ -544,7 +529,7 @@ export function TahsilatOdemeSayfasi({ yenileAnahtari }: TahsilatOdemeSayfasiPro
               </div>
             </FormSection>
 
-            <FormSection title="Hizli Not">
+            <FormSection title="Hızlı Not">
               <div className="payment-note-form">
                 <label className="payment-field">
                   <span>Not</span>

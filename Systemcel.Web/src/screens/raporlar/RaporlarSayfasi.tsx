@@ -56,6 +56,7 @@ function etiketBic(value: string) {
     .replaceAll("Son 30 Gun", "Son 30 Gün")
     .replaceAll("Son 1 Yil", "Son 1 Yıl")
     .replaceAll("Bu Yil", "Bu Yıl")
+    .replaceAll("Ayi", "Ayı")
     .replaceAll("Bugun", "Bugün")
     .replaceAll("Ozeti", "Özeti")
     .replaceAll("Ozet", "Özet")

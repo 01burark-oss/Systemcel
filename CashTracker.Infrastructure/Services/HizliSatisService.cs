@@ -18,13 +18,23 @@ namespace CashTracker.Infrastructure.Services
         private const string PerakendeMusteriUnvani = "Perakende Müşteri";
         private readonly IDbContextFactory<CashTrackerDbContext> _dbFactory;
         private readonly IIsletmeService _isletmeService;
+        private readonly IEntitlementGuard? _entitlementGuard;
 
         public HizliSatisService(
             IDbContextFactory<CashTrackerDbContext> dbFactory,
             IIsletmeService isletmeService)
+            : this(dbFactory, isletmeService, null)
+        {
+        }
+
+        public HizliSatisService(
+            IDbContextFactory<CashTrackerDbContext> dbFactory,
+            IIsletmeService isletmeService,
+            IEntitlementGuard? entitlementGuard)
         {
             _dbFactory = dbFactory;
             _isletmeService = isletmeService;
+            _entitlementGuard = entitlementGuard;
         }
 
         public async Task<HizliSatisResult> CreateAsync(HizliSatisCreateRequest request, CancellationToken ct = default)
@@ -45,6 +55,18 @@ namespace CashTracker.Infrastructure.Services
             {
                 await tx.RollbackAsync(ct);
                 return ToResult(previous, true);
+            }
+
+            SubscriptionEntitlementStatus? entitlement = null;
+            if (_entitlementGuard is not null)
+            {
+                entitlement = await _entitlementGuard.GetAsync(activeIsletmeId, HesapTipleri.Isletme, ct);
+                _entitlementGuard.EnsureWritable(entitlement);
+                var periodStart = ResolveInvoicePeriodStart(entitlement, DateTime.UtcNow);
+                var invoiceCount = await db.Faturalar.CountAsync(
+                    x => x.IsletmeId == activeIsletmeId && x.CreatedAt >= periodStart,
+                    ct);
+                _entitlementGuard.EnsureLimit(entitlement, EntitlementLimits.Invoice, invoiceCount);
             }
 
             var groupedRows = request.Satirlar
@@ -91,6 +113,17 @@ namespace CashTracker.Infrastructure.Services
                 ct);
             if (cari is null)
             {
+                if (_entitlementGuard is not null && entitlement is not null)
+                {
+                    var currentAccountCount = await db.CariKartlari.CountAsync(
+                        x => x.IsletmeId == activeIsletmeId,
+                        ct);
+                    _entitlementGuard.EnsureLimit(
+                        entitlement,
+                        EntitlementLimits.CurrentAccount,
+                        currentAccountCount);
+                }
+
                 cari = new CariKart
                 {
                     IsletmeId = activeIsletmeId,
@@ -211,6 +244,16 @@ namespace CashTracker.Infrastructure.Services
             await db.SaveChangesAsync(ct);
             await tx.CommitAsync(ct);
             return ToResult(invoice, false);
+        }
+
+        private static DateTime ResolveInvoicePeriodStart(
+            SubscriptionEntitlementStatus entitlement,
+            DateTime now)
+        {
+            if (entitlement.Kaynak == EntitlementKaynaklari.Ucretsiz)
+                return new DateTime(now.Year, now.Month, 1);
+
+            return entitlement.GecerliBaslangicAt;
         }
 
         private static FaturaSatir CalculateLine(UrunHizmet product, decimal quantity)

@@ -83,7 +83,7 @@ namespace Systemcel.Api
             ["main.summary.range.weekly"] = new("Haftalik", "Weekly", "Woechentlich"),
             ["main.summary.range.last30Days"] = new("Son 30 Gun", "Last 30 Days", "Letzte 30 Tage"),
             ["main.summary.range.monthly"] = new("Aylik", "Monthly", "Monatlich"),
-            ["main.summary.range.currentMonth"] = new("{0} Ayi", "{0}", "{0}"),
+            ["main.summary.range.currentMonth"] = new("{0} Ayı", "{0}", "{0}"),
             ["main.summary.range.last3Months"] = new("Son 3 Aylik", "Last 3 Months", "Letzte 3 Monate"),
             ["main.summary.range.last6Months"] = new("Son 6 Aylik", "Last 6 Months", "Letzte 6 Monate"),
             ["main.summary.range.last1Year"] = new("Son 1 Yil", "Last 1 Year", "Letztes 1 Jahr"),

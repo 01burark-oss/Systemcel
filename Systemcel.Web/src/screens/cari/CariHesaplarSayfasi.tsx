@@ -23,6 +23,13 @@ interface KimlikliMesaj {
   id: number;
 }
 
+export function cariHedefId(
+  tercihId: number | null | undefined,
+  seciliId: number | null
+) {
+  return tercihId === undefined ? seciliId : tercihId;
+}
+
 function ilkSecenek(secenekler: CariSecenek[] | undefined, yedek: string) {
   return secenekler?.[0]?.deger ?? yedek;
 }
@@ -138,9 +145,7 @@ export function CariHesaplarSayfasi({
     ekranRef.current = data;
     setEkran(data);
 
-    const hedefId = tercihId === undefined
-      ? seciliIdRef.current ?? data.kartlar[0]?.id ?? null
-      : tercihId ?? data.kartlar[0]?.id ?? null;
+    const hedefId = cariHedefId(tercihId, seciliIdRef.current);
     if (hedefId) {
       await detayYukle(hedefId, data);
       setDurum(`${data.kartlar.length} cari kart hazır.`);

@@ -210,7 +210,7 @@ export function GibPortalSayfasi({ yenileAnahtari }: GibPortalSayfasiProps) {
 
       <p className="gib-security-note">
         <ShieldCheck size={14} />
-        GİB şifreniz Windows DPAPI ile korunur ve yalnızca bu cihazda çözümlenir.
+        GİB bilgileriniz şifreli olarak saklanır.
       </p>
     </main>
   );

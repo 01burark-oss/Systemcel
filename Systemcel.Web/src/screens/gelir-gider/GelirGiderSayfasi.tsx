@@ -22,6 +22,12 @@ interface GelirGiderSayfasiProps {
   yenileAnahtari: number;
 }
 
+function kalemEtiketi(value: string) {
+  if (value === "Bakim Giderleri") return "Bakım Giderleri";
+  if (value === "Demirbas Giderleri") return "Demirbaş Giderleri";
+  return value;
+}
+
 export function GelirGiderSayfasi({
   onIsletmeDegistir,
   ustBar,
@@ -223,7 +229,7 @@ export function GelirGiderSayfasi({
                   </td>
                   <td>{odemeEtiketi(kayit.odemeYontemi)}</td>
                   <td className={`sayi tutar ${kayit.tur}`}>{paraBic(kayit.tutar)}</td>
-                  <td>{kayit.kalem}</td>
+                  <td>{kalemEtiketi(kayit.kalem)}</td>
                   <td className="aciklama">{kayit.aciklama}</td>
                 </tr>
               ))}
@@ -296,7 +302,7 @@ export function GelirGiderSayfasi({
               <option value="">Kalem seçin</option>
               {kalemler.map((kalem) => (
                 <option key={kalem} value={kalem}>
-                  {kalem}
+                  {kalemEtiketi(kalem)}
                 </option>
               ))}
             </select>
