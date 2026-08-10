@@ -37,3 +37,4 @@
 - .NET: 121/121 geçti.
 - Playwright mobil rota senaryosunun çoklu sayfa süresi CI için gerçek kapsama göre ayarlandı.
 - CI cihaz matrisinin kullandığı Chromium ve WebKit tarayıcıları workflow'da birlikte kuruluyor.
+- Yüksek önem dereceli `nanoid` bildirimi güvenli `3.3.18` sürümüne yükseltilerek kapatıldı.
