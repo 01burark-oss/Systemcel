@@ -22,13 +22,13 @@
 - Cari ekranının ilk yükleme yarışı, yeni kaydı otomatik seçilen mevcut kartın üzerine yazabiliyordu. İlk kartı kendiliğinden düzenleme kaldırıldı.
 - Stok hareketi, rapor ayı, hızlı not, ücretsiz plan durumu ve GİB saklama açıklamasındaki Türkçe/teknik metinler sadeleştirildi.
 - Tahsilat ekranındaki işlem oluşturmayan `Taslak` ve `Onayla` kopyaları kaldırıldı; tek gerçek kayıt eylemi bırakıldı.
+- Muhasebeci kolay kurulumunda profil görseli, hesap rolü kaydedilmeden önce yüklendiği için sunucudan `403` alıyordu. Tamamlanmamış kolay kurulumlarda güvenli görsel yüklemeye izin verildi ve regresyon testi eklendi.
 
 ## Kalan engeller
 
 - AI ekranı canlı anahtar bekliyor.
-- Muhasebeci profil görseli yükleme, tarayıcı uzantısının dosya erişimi kapalı olduğu için tamamlanamadı.
 - Muhasebeci başvuru onayı için `SYSTEMCEL_ADMIN_CLERK_USER_IDS` tanımlı değil.
-- Bu iki engel kalkınca muhasebeci müşteri kabulü, çalışma alanı geçişi, dosya/sohbet ve muhasebeci Fake ödeme zinciri yeniden test edilecek.
+- Canlı düzeltme yayımlandıktan sonra profil yükleme ve başvuru gönderimi yeniden test edilecek; yönetici erişimi açılınca müşteri kabulü, çalışma alanı geçişi, dosya/sohbet ve muhasebeci Fake ödeme zinciri tamamlanacak.
 
 ## Otomatik doğrulama
 

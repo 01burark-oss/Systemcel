@@ -1,3 +1,4 @@
+using CashTracker.Core.Entities;
 using CashTracker.Core.Models;
 using CashTracker.Core.Services;
 using Microsoft.AspNetCore.Builder;
@@ -130,7 +131,7 @@ internal static class MuhasebeciApi
                     return Results.BadRequest(new ApiHata("Profil resmi multipart/form-data olarak gönderilmelidir."));
 
                 var activeBusiness = await isletmeService.GetActiveAsync();
-                if (!string.Equals(activeBusiness.TenantTipi, HesapTipleri.Muhasebeci, StringComparison.OrdinalIgnoreCase))
+                if (!CanUploadProfileImage(activeBusiness))
                     return Results.Json(new ApiHata("Profil resmi yalnız muhasebeci hesabında yüklenebilir."), statusCode: StatusCodes.Status403Forbidden);
 
                 var form = await context.Request.ReadFormAsync(ct);
@@ -374,6 +375,12 @@ internal static class MuhasebeciApi
                 return Results.BadRequest(new ApiHata($"Musteri baglami kapatilamadi: {ex.Message}"));
             }
         });
+    }
+
+    internal static bool CanUploadProfileImage(Isletme activeBusiness)
+    {
+        return string.Equals(activeBusiness.TenantTipi, HesapTipleri.Muhasebeci, StringComparison.OrdinalIgnoreCase)
+            || !activeBusiness.KolayKurulumTamamlandi;
     }
 
     private sealed record ApiHata(string mesaj);
