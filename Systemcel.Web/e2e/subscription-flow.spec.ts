@@ -182,6 +182,13 @@ test("period-end cancellation remains visible until access ends", async ({ page 
   });
   await page.goto("/app/abonelik");
 
+  if ((page.viewportSize()?.width ?? 0) > 980) {
+    const mainNavigation = page.getByRole("navigation", { name: "Ana menü" });
+    await expect(mainNavigation.getByRole("link", { name: "Abonelik", exact: true })).toHaveCount(0);
+    await expect(mainNavigation.getByRole("link", { name: "Ayarlar", exact: true })).toHaveClass(/active/);
+    await expect(page.getByRole("navigation", { name: "Ayarlar alt menüsü" }).getByRole("link", { name: "Plan ve Faturalama" })).toHaveClass(/active/);
+  }
+
   await expect(page.getByText("İptal talebi alındı")).toBeVisible();
   await expect(page.getByText("Bu tarihe kadar plan haklarınızı kullanabilirsiniz.")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Plan hakları" })).toBeVisible();

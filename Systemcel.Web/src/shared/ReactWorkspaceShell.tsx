@@ -70,7 +70,6 @@ const anaMenu: Array<{ href: string; label: string; icon: LucideIcon; adminOnly?
   { href: "/tahsilat-odeme", label: "Tahsilat / Ödeme", icon: WalletCards },
   { href: "/raporlar", label: "Raporlar", icon: BarChart3 },
   { href: "/sohbetler", label: "Sohbetler", icon: MessageCircle },
-  { href: "/abonelik", label: "Abonelik", icon: CalendarClock },
   { href: "/muhasebeci", label: "Muhasebeci Paneli", icon: BriefcaseBusiness },
   { href: "/muhasebeciler", label: "Muhasebeciler", icon: Search },
   { href: "/yonetim/muhasebeci-basvurulari", label: "Yönetim", icon: ShieldCheck, adminOnly: true },
@@ -81,7 +80,7 @@ function menuForWorkspace(ustBar: UstBarDurumu | null, musteriBaglami: boolean) 
   const visibleMenu = anaMenu.filter((item) => !item.adminOnly || ustBar?.yoneticiMi);
   const muhasebeciCalismaAlani = ustBar?.hesapTipi === "Muhasebeci" && !musteriBaglami;
   if (muhasebeciCalismaAlani) {
-    return visibleMenu.filter((item) => item.href === "/muhasebeci" || item.href === "/muhasebeciler" || item.href === "/sohbetler" || item.href === "/abonelik" || item.href === "/ayarlar" || item.adminOnly);
+    return visibleMenu.filter((item) => item.href === "/muhasebeci" || item.href === "/muhasebeciler" || item.href === "/sohbetler" || item.href === "/ayarlar" || item.adminOnly);
   }
 
   if (musteriBaglami) {
@@ -93,6 +92,7 @@ function menuForWorkspace(ustBar: UstBarDurumu | null, musteriBaglami: boolean) 
 
 const ayarlarAltMenu = [
   { href: "/ayarlar?sekme=isletme", label: "İşletme", icon: Building2, sekme: "isletme" },
+  { href: "/abonelik", label: "Plan ve Faturalama", icon: CalendarClock, sekme: "plan" },
   { href: "/ayarlar?sekme=gib", label: "GİB Portal", icon: Landmark, sekme: "gib" },
   { href: "/ayarlar?sekme=telegram", label: "Telegram", icon: Send, sekme: "telegram" }
 ];
@@ -105,6 +105,10 @@ function normalizePath(pathname: string) {
 function menuAktifMi(currentPath: string, href: string) {
   if (href === "/") {
     return currentPath === "/";
+  }
+
+  if (href === "/ayarlar" && currentPath === "/abonelik") {
+    return true;
   }
 
   return currentPath === href || currentPath.startsWith(`${href}/`);
@@ -232,10 +236,10 @@ function workspacePageMeta(path: string, settingsTab: string): WorkspacePageMeta
 
   if (path === "/abonelik") {
     return {
-      category: "Plan ve faturalama",
+      category: "Ayarlar",
       description: "Planınızı, yenileme tarihinizi ve abonelik ödeme geçmişinizi yönetin.",
       icon: CalendarClock,
-      title: "Abonelik"
+      title: "Plan ve Faturalama"
     };
   }
 
@@ -304,7 +308,9 @@ export function ReactWorkspaceShell({ children, ustBar, baslik, sagAksiyon }: Re
   const bildirimPanelRef = React.useRef<HTMLDivElement | null>(null);
   const rawPath = normalizePath(window.location.pathname);
   const currentPath = rawPath === "/app" ? "/" : rawPath.startsWith("/app/") ? rawPath.slice(4) : rawPath;
-  const aktifAyarlarSekmesi = new URLSearchParams(window.location.search).get("sekme")?.toLocaleLowerCase("tr-TR") || "isletme";
+  const aktifAyarlarSekmesi = currentPath === "/abonelik"
+    ? "plan"
+    : new URLSearchParams(window.location.search).get("sekme")?.toLocaleLowerCase("tr-TR") || "isletme";
   const musteriBaglami = ustBar?.muhasebeciMusteriBaglami ?? false;
   const menuItems = menuForWorkspace(ustBar, musteriBaglami);
   const brandHref = ustBar?.hesapTipi === "Muhasebeci" && !musteriBaglami ? "/app/muhasebeci" : "/app";
@@ -440,7 +446,7 @@ export function ReactWorkspaceShell({ children, ustBar, baslik, sagAksiyon }: Re
                   <span>{item.label}</span>
                 </a>
                 {item.href === "/ayarlar" && active ? (
-                  <div className="react-sidebar__subnav" aria-label="Ayarlar alt menüsü">
+                  <nav className="react-sidebar__subnav" aria-label="Ayarlar alt menüsü">
                     {ayarlarAltMenu.map((subItem) => {
                       const SubIcon = subItem.icon;
                       const subActive =
@@ -454,7 +460,7 @@ export function ReactWorkspaceShell({ children, ustBar, baslik, sagAksiyon }: Re
                         </a>
                       );
                     })}
-                  </div>
+                  </nav>
                 ) : null}
               </React.Fragment>
             );

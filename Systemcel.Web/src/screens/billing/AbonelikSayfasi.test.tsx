@@ -102,7 +102,7 @@ describe("AbonelikSayfasi", () => {
     expect(screen.getByText("Aylık")).toBeVisible();
     expect(screen.getByRole("spinbutton", { name: /\+1 müşteri kredisi/i })).toHaveValue(2);
     expect(await screen.findByText("12 müşteri")).toBeVisible();
-    expect(screen.getByText("KDV (%20)")).toBeVisible();
+    expect(await screen.findByText("KDV (%20)")).toBeVisible();
     const consent = screen.getByRole("checkbox", { name: /abonelik sözleşmesini okudum ve aylık aboneliği onaylıyorum/i });
     const contractButton = screen.getByRole("button", { name: "Abonelik sözleşmesini" });
     expect(screen.queryByText(/dönem sonu iptali/i)).not.toBeInTheDocument();
