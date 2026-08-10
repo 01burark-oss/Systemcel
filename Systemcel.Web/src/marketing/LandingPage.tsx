@@ -609,7 +609,7 @@ export function LandingPage() {
               </div>
             </div>
             <div className="marketing-pricing__billing"><div className="marketing-billing"><span>{t.monthly}</span><button type="button" aria-label={language === "tr" ? "Faturalama dönemini değiştir" : "Change billing period"} aria-pressed={billing === "Yillik"} onClick={() => setBilling((value) => value === "Aylik" ? "Yillik" : "Aylik")}><i className={billing === "Yillik" ? "yearly" : ""} /></button><span>{t.yearly} <b>{t.discount}</b></span></div></div>
-            <div className="marketing-plan-grid" key={`${pricingAudience}-${billing}`}>{pricingAudience === "business" ? plans.map((plan) => <PlanCard key={plan.kod} plan={plan} billing={billing} language={language} popular={plan.kod === "isletme_buyume"} href={trialHref(plan.kod)} />) : accountantPlans.map((plan) => <AccountantPlanCard key={plan.kod} plan={plan} billing={billing} language={language} popular={plan.kod === "muhasebeci_standart"} href={accountantHref(plan.kod)} />)}</div>
+            <div className={`marketing-plan-grid${pricingAudience === "accountant" ? " marketing-plan-grid--accountant" : ""}`} key={`${pricingAudience}-${billing}`}>{pricingAudience === "business" ? plans.map((plan) => <PlanCard key={plan.kod} plan={plan} billing={billing} language={language} popular={plan.kod === "isletme_buyume"} href={trialHref(plan.kod)} />) : accountantPlans.map((plan) => <AccountantPlanCard key={plan.kod} plan={plan} billing={billing} language={language} popular={plan.kod === "muhasebeci_standart"} href={accountantHref(plan.kod)} />)}</div>
           </div>
         </section>
 
