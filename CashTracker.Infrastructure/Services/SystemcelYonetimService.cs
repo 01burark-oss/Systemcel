@@ -31,13 +31,12 @@ namespace CashTracker.Infrastructure.Services
 
         public Task<bool> IsCurrentUserAdminAsync(CancellationToken ct = default)
         {
-            var identity = _currentUserContext.GetCurrentUser();
-            return Task.FromResult(IsAdmin(identity));
+            return IsAdminAsync(ct);
         }
 
         public async Task<MuhasebeciBasvuruListeDto> GetMuhasebeciBasvurulariAsync(string? durum = null, CancellationToken ct = default)
         {
-            RequireAdmin();
+            await RequireAdminAsync(ct);
             await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
             var normalizedFilter = NormalizeFilter(durum);
@@ -70,7 +69,7 @@ namespace CashTracker.Infrastructure.Services
 
         public async Task<MuhasebeciBasvuruDto> ApproveMuhasebeciBasvurusuAsync(int kullaniciId, CancellationToken ct = default)
         {
-            RequireAdmin();
+            await RequireAdminAsync(ct);
             await using var db = await _dbFactory.CreateDbContextAsync(ct);
             var user = await FindAccountantApplicantAsync(db, kullaniciId, ct);
             var business = await EnsureAccountantWorkspaceAsync(db, user, ct);
@@ -131,7 +130,7 @@ namespace CashTracker.Infrastructure.Services
 
         public async Task<MuhasebeciBasvuruDto> RejectMuhasebeciBasvurusuAsync(int kullaniciId, MuhasebeciBasvuruRedRequest request, CancellationToken ct = default)
         {
-            RequireAdmin();
+            await RequireAdminAsync(ct);
             await using var db = await _dbFactory.CreateDbContextAsync(ct);
             var user = await FindAccountantApplicantAsync(db, kullaniciId, ct);
             var business = await FindPrimaryAccountantBusinessAsync(db, user.Id, ct);
@@ -167,7 +166,7 @@ namespace CashTracker.Infrastructure.Services
             int limit = 100,
             CancellationToken ct = default)
         {
-            RequireAdmin();
+            await RequireAdminAsync(ct);
             await using var db = await _dbFactory.CreateDbContextAsync(ct);
             var normalized = durum?.Trim() ?? string.Empty;
             var safeLimit = Math.Clamp(limit, 1, 250);
@@ -249,7 +248,7 @@ namespace CashTracker.Infrastructure.Services
 
         public async Task<EntitlementOverrideResult> ApplyEntitlementOverrideAsync(int isletmeId, EntitlementOverrideRequest request, CancellationToken ct = default)
         {
-            RequireAdmin();
+            await RequireAdminAsync(ct);
             if (string.IsNullOrWhiteSpace(request.Gerekce) || request.Gerekce.Trim().Length < 8)
                 throw new ArgumentException("Manuel hak degisikligi icin en az 8 karakterlik gerekce zorunludur.");
             var requestedPlan = SubscriptionPlanCatalog.Plans.SingleOrDefault(x => string.Equals(x.Kod, request.PlanKodu, StringComparison.OrdinalIgnoreCase));
@@ -322,9 +321,29 @@ namespace CashTracker.Infrastructure.Services
                 allowedEmails.Any(x => string.Equals(x, identity.Email, StringComparison.OrdinalIgnoreCase));
         }
 
-        private void RequireAdmin()
+        private async Task<bool> IsAdminAsync(CancellationToken ct)
         {
-            if (IsAdmin(_currentUserContext.GetCurrentUser()))
+            var identity = _currentUserContext.GetCurrentUser();
+            if (IsAdmin(identity))
+                return true;
+
+            var allowedEmails = Split(_options.AdminEmails);
+            if (identity == null || allowedEmails.Count == 0)
+                return false;
+
+            await using var db = await _dbFactory.CreateDbContextAsync(ct);
+            var registeredEmail = await db.Kullanicilar.AsNoTracking()
+                .Where(x => x.AuthProvider == AuthProvider && x.AuthProviderUserId == identity.ProviderUserId)
+                .Select(x => x.Eposta)
+                .SingleOrDefaultAsync(ct);
+
+            return !string.IsNullOrWhiteSpace(registeredEmail) &&
+                allowedEmails.Any(x => string.Equals(x, registeredEmail, StringComparison.OrdinalIgnoreCase));
+        }
+
+        private async Task RequireAdminAsync(CancellationToken ct)
+        {
+            if (await IsAdminAsync(ct))
                 return;
 
             throw new UnauthorizedAccessException(

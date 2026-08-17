@@ -57,8 +57,44 @@ public sealed class PaymentOperationsConsoleTests
         await Assert.ThrowsAsync<UnauthorizedAccessException>(() => service.GetOdemeIncelemeAsync());
     }
 
-    private sealed class StaticUserContext(string userId) : ICurrentUserContext
+    [Fact]
+    public async Task AdminEpostasi_TokendeYokkenKayitliKullaniciEpostasindanDogrulanir()
     {
-        public CurrentUserIdentity GetCurrentUser() => new(userId, $"{userId}@example.com", userId);
+        var dbPath = Path.Combine(Path.GetTempPath(), $"systemcel_admin_email_{Guid.NewGuid():N}.db");
+        try
+        {
+            var options = new DbContextOptionsBuilder<CashTrackerDbContext>().UseSqlite($"Data Source={dbPath}").Options;
+            await using (var db = new CashTrackerDbContext(options))
+            {
+                await db.Database.EnsureCreatedAsync();
+                db.Kullanicilar.Add(new Kullanici
+                {
+                    AuthProvider = "clerk",
+                    AuthProviderUserId = "owner-user",
+                    Eposta = "owner@example.com",
+                    AdSoyad = "Owner",
+                    HesapTipi = HesapTipleri.Isletme,
+                    Durum = KullaniciDurumlari.Aktif
+                });
+                await db.SaveChangesAsync();
+            }
+
+            var service = new SystemcelYonetimService(
+                new SingleDbContextFactory(options),
+                new StaticUserContext("owner-user", includeEmail: false),
+                new SystemcelYonetimOptions { AdminEmails = "owner@example.com" });
+
+            Assert.True(await service.IsCurrentUserAdminAsync());
+        }
+        finally
+        {
+            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+            if (File.Exists(dbPath)) File.Delete(dbPath);
+        }
+    }
+
+    private sealed class StaticUserContext(string userId, bool includeEmail = true) : ICurrentUserContext
+    {
+        public CurrentUserIdentity GetCurrentUser() => new(userId, includeEmail ? $"{userId}@example.com" : null, userId);
     }
 }
