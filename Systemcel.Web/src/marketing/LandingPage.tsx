@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { useSystemcelAuth } from "../auth/SystemcelAuthProvider";
 import accountantAyseAvatar from "../assets/accountant-ayse-demirtas.jpg";
+import { buildPricingPresentation } from "./pricingPresentation";
 import "./marketing.css";
 
 type Language = "tr" | "en";
@@ -979,19 +980,10 @@ function FeatureRow({ icon, title, text }: { icon: React.ReactNode; title: strin
 
 function PlanCard({ plan, billing, language, popular, href }: { plan: PublicPlan; billing: Billing; language: Language; popular: boolean; href: string }) {
   const t = copy[language];
-  const price = billing === "Yillik" ? (plan.yillikEfektifAylikTutar ?? plan.aylikTutar) : plan.aylikTutar;
-  const yearlyTotal = plan.yillikTutar ?? plan.aylikTutar * 12;
-  const founderActive = Boolean(plan.kampanyaKodu && plan.kurucuKontenjanKalan > 0);
+  const pricing = buildPricingPresentation(plan, billing, language);
   const features = planFeatures(plan, language);
   const planName = language === "tr" ? plan.ad : plan.kod === "isletme_baslangic" ? "Starter" : plan.kod === "isletme_buyume" ? "Growth" : "Enterprise";
-  const priceNote = founderActive
-    ? billing === "Yillik"
-      ? (language === "tr" ? `Lansman fiyatı · ilk 3 ay indirimli · yıllık toplam ₺${yearlyTotal.toLocaleString("tr-TR")}` : `Launch price · first 3 months discounted · annual total ₺${yearlyTotal.toLocaleString("tr-TR")}`)
-      : (language === "tr" ? `Lansman fiyatı · ilk 3 ay · lansman bitiminde güncel liste fiyatı` : `Launch price · first 3 months · current list price after launch`)
-    : billing === "Yillik"
-      ? `${t.yearlyTotal}: ₺${yearlyTotal.toLocaleString("tr-TR")}`
-      : (language === "tr" ? "Aylık tahsilat" : "Billed monthly");
-  return <article className={`marketing-plan${popular ? " marketing-plan--popular" : ""}`}><div className="marketing-plan__top"><span>{planName}</span>{popular ? <b>{t.popular}</b> : null}</div><div className="marketing-plan__price"><strong key={`${billing}-${price}`}>₺{price.toLocaleString("tr-TR")}</strong><span>{t.perMonth}</span></div><small>{priceNote}</small><ul>{features.map((feature) => <li key={feature}><Check size={16} />{feature}</li>)}</ul><a className={`marketing-button ${popular ? "marketing-button--lime" : "marketing-button--ghost"}`} href={href}>{t.planCta}<ArrowRight size={16} /></a></article>;
+  return <article className={`marketing-plan${popular ? " marketing-plan--popular" : ""}`}><div className="marketing-plan__top"><span>{planName}</span>{popular ? <b>{t.popular}</b> : null}</div><div className="marketing-plan__price"><strong key={`${billing}-${pricing.price}`}>₺{pricing.price.toLocaleString("tr-TR")}</strong><span>{pricing.unit}</span></div><small>{pricing.note}</small><ul>{features.map((feature) => <li key={feature}><Check size={16} />{feature}</li>)}</ul><a className={`marketing-button ${popular ? "marketing-button--lime" : "marketing-button--ghost"}`} href={href}>{t.planCta}<ArrowRight size={16} /></a></article>;
 }
 
 function AccountantPlanCard({ plan, billing, language, popular, href }: { plan: PublicPlan; billing: Billing; language: Language; popular: boolean; href: string }) {
@@ -999,21 +991,11 @@ function AccountantPlanCard({ plan, billing, language, popular, href }: { plan: 
   const features = accountantPlanFeatures(plan, language);
   const planName = tr ? plan.ad : plan.kod === "muhasebeci_standart" ? "Standard" : "Pro";
   const cta = tr ? `${planName} ile başla` : `Start with ${planName}`;
-  const annual = billing === "Yillik" && plan.aylikTutar > 0;
-  const annualTotal = plan.yillikTutar && plan.yillikTutar > 0 ? plan.yillikTutar : plan.aylikTutar * 12 * 0.84;
-  const annualMonthly = plan.yillikEfektifAylikTutar && plan.yillikEfektifAylikTutar > 0 ? plan.yillikEfektifAylikTutar : annualTotal / 12;
-  const price = annual ? annualMonthly : plan.aylikTutar;
-  const founderActive = Boolean(plan.kampanyaKodu && plan.kurucuKontenjanKalan > 0);
-  const priceNote = founderActive
-    ? annual
-      ? (tr ? `Lansman fiyatı · ilk 3 ay indirimli · yıllık toplam ₺${annualTotal.toLocaleString("tr-TR")}` : `Launch price · first 3 months discounted · annual total ₺${annualTotal.toLocaleString("tr-TR")}`)
-      : (tr ? `Lansman fiyatı · ilk 3 ay · lansman bitiminde güncel liste fiyatı` : `Launch price · first 3 months · current list price after launch`)
-    : annual
-      ? (tr ? `Yıllık toplam: ₺${annualTotal.toLocaleString("tr-TR")}` : `Annual total: ₺${annualTotal.toLocaleString("tr-TR")}`)
-      : plan.kod === "muhasebeci_standart"
-        ? (tr ? "10 müşteri dahil" : "10 clients included")
-        : (tr ? "Sabit aylık ücret" : "Flat monthly fee");
-  return <article className={`marketing-plan marketing-plan--accountant${popular ? " marketing-plan--popular" : ""}`}><div className="marketing-plan__top"><span>{planName}</span>{popular ? <b>{tr ? "En çok tercih edilen" : "Most popular"}</b> : null}</div><div className="marketing-plan__price"><strong key={`${billing}-${price}`}>₺{price.toLocaleString("tr-TR")}</strong><span>{tr ? "/ay" : "/mo"}</span></div><small>{priceNote}</small><ul>{features.map((feature) => <li key={feature}><Check size={16} />{feature}</li>)}</ul><a className={`marketing-button ${popular ? "marketing-button--lime" : "marketing-button--ghost"}`} href={href}>{cta}<ArrowRight size={16} /></a></article>;
+  const monthlyFallbackNote = plan.kod === "muhasebeci_standart"
+    ? (tr ? "10 müşteri dahil" : "10 clients included")
+    : (tr ? "Sabit aylık ücret" : "Flat monthly fee");
+  const pricing = buildPricingPresentation(plan, billing, language, 0.84, monthlyFallbackNote);
+  return <article className={`marketing-plan marketing-plan--accountant${popular ? " marketing-plan--popular" : ""}`}><div className="marketing-plan__top"><span>{planName}</span>{popular ? <b>{tr ? "En çok tercih edilen" : "Most popular"}</b> : null}</div><div className="marketing-plan__price"><strong key={`${billing}-${pricing.price}`}>₺{pricing.price.toLocaleString("tr-TR")}</strong><span>{pricing.unit}</span></div><small>{pricing.note}</small><ul>{features.map((feature) => <li key={feature}><Check size={16} />{feature}</li>)}</ul><a className={`marketing-button ${popular ? "marketing-button--lime" : "marketing-button--ghost"}`} href={href}>{cta}<ArrowRight size={16} /></a></article>;
 }
 
 function planFeatures(plan: PublicPlan, language: Language) {
