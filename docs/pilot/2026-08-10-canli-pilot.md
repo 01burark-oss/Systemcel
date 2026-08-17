@@ -25,11 +25,17 @@
 - Muhasebeci kolay kurulumunda profil görseli, hesap rolü kaydedilmeden önce yüklendiği için sunucudan `403` alıyordu. Tamamlanmamış kolay kurulumlarda güvenli görsel yüklemeye izin verildi ve regresyon testi eklendi.
 - Başarılı profil görseli yüklemesinden sonra önceki hata metni ekranda kalıyordu; yeni denemede hata durumu temizleniyor.
 
+## 17 Ağustos takibi
+
+- Profil görseli canlı ortamda yüklendi, muhasebeci kolay kurulumu tamamlandı ve başvuru gönderildi.
+- Hesap muhasebeci rolüne geçti; panel başvuruyu doğru biçimde `onay bekliyor` durumunda gösteriyor.
+- Yönetim ekranı canlı ortamda açılıyor ancak yönetici kimliği tanımlı olmadığı için onay işlemi kapalı kalıyor.
+
 ## Kalan engeller
 
 - AI ekranı canlı anahtar bekliyor.
 - Muhasebeci başvuru onayı için `SYSTEMCEL_ADMIN_CLERK_USER_IDS` tanımlı değil.
-- Canlı düzeltme yayımlandıktan sonra profil yükleme ve başvuru gönderimi yeniden test edilecek; yönetici erişimi açılınca müşteri kabulü, çalışma alanı geçişi, dosya/sohbet ve muhasebeci Fake ödeme zinciri tamamlanacak.
+- Yönetici erişimi açılınca müşteri kabulü, çalışma alanı geçişi, dosya/sohbet ve muhasebeci Fake ödeme zinciri tamamlanacak.
 
 ## Otomatik doğrulama
 
@@ -39,3 +45,4 @@
 - Playwright mobil rota senaryosunun çoklu sayfa süresi CI için gerçek kapsama göre ayarlandı.
 - CI cihaz matrisinin kullandığı Chromium ve WebKit tarayıcıları workflow'da birlikte kuruluyor.
 - Yüksek önem dereceli `nanoid` bildirimi güvenli `3.3.18` sürümüne yükseltilerek kapatıldı.
+- Profil yükleme düzeltmelerinin son CI çalışması tüm işlerde geçti: https://github.com/01burark-oss/Systemcel/actions/runs/31428871299
