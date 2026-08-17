@@ -1410,7 +1410,7 @@ namespace Systemcel.Api.Api
 
             var access = await _isletmeService.GetActiveAccessAsync();
             return access.MuhasebeciMusteriBaglami && !access.YazmaYetkisi
-                ? Results.BadRequest(new ApiHata("Bu mÃ¼ÅŸteri baÄŸlamÄ±nda sadece okuma ve rapor yetkiniz var. KayÄ±t deÄŸiÅŸiklikleri iÃ§in mÃ¼ÅŸterinin tam iÅŸlem yetkisi vermesi gerekir."))
+                ? Results.BadRequest(new ApiHata("Bu müşteri bağlamında sadece okuma ve rapor yetkiniz var. Kayıt değişiklikleri için müşterinin tam işlem yetkisi vermesi gerekir."))
                 : null;
         }
 

@@ -28,14 +28,19 @@
 ## 17 Ağustos takibi
 
 - Profil görseli canlı ortamda yüklendi, muhasebeci kolay kurulumu tamamlandı ve başvuru gönderildi.
-- Hesap muhasebeci rolüne geçti; panel başvuruyu doğru biçimde `onay bekliyor` durumunda gösteriyor.
-- Yönetim ekranı canlı ortamda açılıyor ancak yönetici kimliği tanımlı olmadığı için onay işlemi kapalı kalıyor.
+- Canlı yönetici kimliği yapılandırıldı; başvuru yönetim ekranından onaylandı ve pazaryeri profili yayınlandı.
+- Pilot işletme pazaryerinden talep gönderdi; muhasebeci talebi `Okuma + rapor` yetkisiyle kabul etti ve kapasite sayacı `1 / 10` oldu.
+- Aylık Muhasebeci Standart planı açık onayla seçildi. Fake sağlayıcıda ₺699,00 + ₺139,80 KDV olmak üzere ₺838,80 ödeme başarıyla tamamlandı.
+- Abonelik özeti `Aktif`, dönem `17 Ağustos 2026 — 17 Eylül 2026`, haklar `100 AI mesajı / 1 kullanıcı / 10 müşteri` ve ödeme geçmişi `1 işlem` olarak doğrulandı.
+- Muhasebeci müşteri çalışma alanına geçti; dashboard ve üç gelir-gider kaydını gördü, `Okuma + rapor` bağlamında kayıt ekleme girişimi API tarafından reddedildi.
+- İşletmenin gönderdiği canlı pilot mesajı muhasebeci sohbetinde doğru konuşma ve okunmamış sayaçla görüntülendi.
+- Canlı testte okuma yetkili formun düzenlenebilir görünmesi ve API hata metnindeki bozuk Türkçe bulundu. Form alanları salt okunur bağlamda devre dışı bırakıldı, hata metni UTF-8 Türkçeyle düzeltildi.
 
 ## Kalan engeller
 
 - AI ekranı canlı anahtar bekliyor.
-- Muhasebeci başvuru onayı için `SYSTEMCEL_ADMIN_CLERK_USER_IDS` tanımlı değil.
-- Yönetici erişimi açılınca müşteri kabulü, çalışma alanı geçişi, dosya/sohbet ve muhasebeci Fake ödeme zinciri tamamlanacak.
+- Sohbete zararsız pilot dosyası yükleme, dosya ve hedef için işlem anı kullanıcı onayı bekliyor.
+- Pro plan ve ek müşteri kredisi varyasyonları henüz canlı Fake ödeme ile denenmedi.
 
 ## Otomatik doğrulama
 
@@ -46,3 +51,4 @@
 - CI cihaz matrisinin kullandığı Chromium ve WebKit tarayıcıları workflow'da birlikte kuruluyor.
 - Yüksek önem dereceli `nanoid` bildirimi güvenli `3.3.18` sürümüne yükseltilerek kapatıldı.
 - Profil yükleme düzeltmelerinin son CI çalışması tüm işlerde geçti: https://github.com/01burark-oss/Systemcel/actions/runs/31428871299
+- 17 Ağustos takip düzeltmeleri için web lint, TypeScript ve 13/13 Vitest yerelde geçti; .NET tam test paketi yeniden çalıştırıldı.

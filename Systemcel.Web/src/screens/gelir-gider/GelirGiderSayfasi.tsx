@@ -40,6 +40,8 @@ export function GelirGiderSayfasi({
   const [durum, setDurum] = React.useState("Yükleniyor...");
   const [hata, setHata] = React.useState("");
   const [kaydediliyor, setKaydediliyor] = React.useState(false);
+  const saltOkunur =
+    (ustBar?.muhasebeciMusteriBaglami ?? false) && ustBar?.muhasebeciYetkiSeviyesi !== "TamIslem";
 
   const yenile = React.useCallback(async () => {
     setHata("");
@@ -57,7 +59,8 @@ export function GelirGiderSayfasi({
   }, [yenile, yenileAnahtari]);
 
   const kalemler = form.tur === "gelir" ? ekran?.gelirKalemleri ?? [] : ekran?.giderKalemleri ?? [];
-  const stokKullanilabilir = form.id === null && form.tur === "gider" && (ekran?.stokUrunleri.length ?? 0) > 0;
+  const stokKullanilabilir =
+    !saltOkunur && form.id === null && form.tur === "gider" && (ekran?.stokUrunleri.length ?? 0) > 0;
 
   const filtreliKayitlar = React.useMemo(() => {
     const query = arama.trim().toLocaleLowerCase("tr-TR");
@@ -123,6 +126,8 @@ export function GelirGiderSayfasi({
   }
 
   async function kaydet() {
+    if (saltOkunur) return;
+
     try {
       setKaydediliyor(true);
       setHata("");
@@ -165,7 +170,7 @@ export function GelirGiderSayfasi({
   }
 
   async function sil() {
-    if (form.id === null) return;
+    if (saltOkunur || form.id === null) return;
     if (!window.confirm("Seçili kaydı silmek istiyor musunuz?")) return;
 
     try {
@@ -256,17 +261,17 @@ export function GelirGiderSayfasi({
             <span>Tarih</span>
             <div className="input-ikonlu">
               <CalendarDays size={18} />
-              <input type="datetime-local" value={form.tarih} onChange={(e) => formGuncelle({ tarih: e.target.value })} />
+              <input type="datetime-local" value={form.tarih} disabled={saltOkunur} onChange={(e) => formGuncelle({ tarih: e.target.value })} />
             </div>
           </label>
 
           <div className="satir">
             <span>Tür</span>
             <div className="segmented">
-              <button className={form.tur === "gelir" ? "aktif" : ""} onClick={() => formGuncelle({ tur: "gelir", kalem: "" })}>
+              <button disabled={saltOkunur} className={form.tur === "gelir" ? "aktif" : ""} onClick={() => formGuncelle({ tur: "gelir", kalem: "" })}>
                 Gelir
               </button>
-              <button className={form.tur === "gider" ? "aktif" : ""} onClick={() => formGuncelle({ tur: "gider", kalem: "" })}>
+              <button disabled={saltOkunur} className={form.tur === "gider" ? "aktif" : ""} onClick={() => formGuncelle({ tur: "gider", kalem: "" })}>
                 Gider
               </button>
             </div>
@@ -276,7 +281,7 @@ export function GelirGiderSayfasi({
             <span>Tutar</span>
             <div className="tutar-alani">
               <strong>TL</strong>
-              <input value={form.tutar} onChange={(e) => formGuncelle({ tutar: e.target.value })} placeholder="Tutar girin" inputMode="decimal" />
+              <input value={form.tutar} disabled={saltOkunur} onChange={(e) => formGuncelle({ tutar: e.target.value })} placeholder="Tutar girin" inputMode="decimal" />
             </div>
           </label>
 
@@ -286,6 +291,7 @@ export function GelirGiderSayfasi({
               {(ekran?.odemeYontemleri ?? []).map((odeme) => (
                 <button
                   key={odeme.deger}
+                  disabled={saltOkunur}
                   className={form.odemeYontemi === odeme.deger ? "aktif" : ""}
                   onClick={() => formGuncelle({ odemeYontemi: odeme.deger })}
                 >
@@ -298,7 +304,7 @@ export function GelirGiderSayfasi({
 
           <label className="satir">
             <span>Kalem</span>
-            <select value={form.kalem} onChange={(e) => formGuncelle({ kalem: e.target.value })}>
+            <select value={form.kalem} disabled={saltOkunur} onChange={(e) => formGuncelle({ kalem: e.target.value })}>
               <option value="">Kalem seçin</option>
               {kalemler.map((kalem) => (
                 <option key={kalem} value={kalem}>
@@ -350,12 +356,16 @@ export function GelirGiderSayfasi({
 
           <label className="satir aciklama-satiri">
             <span>Açıklama</span>
-            <textarea value={form.aciklama} onChange={(e) => formGuncelle({ aciklama: e.target.value })} />
+            <textarea value={form.aciklama} disabled={saltOkunur} onChange={(e) => formGuncelle({ aciklama: e.target.value })} />
           </label>
         </div>
 
         <div className="mesaj-alani">
-          {hata ? <p className="hata">{hata}</p> : <p>{durum}</p>}
+          {hata ? (
+            <p className="hata">{hata}</p>
+          ) : (
+            <p>{saltOkunur ? "Bu çalışma alanında yalnızca görüntüleme ve raporlama yapabilirsiniz." : durum}</p>
+          )}
         </div>
 
         <div className="aksiyonlar">
@@ -363,15 +373,15 @@ export function GelirGiderSayfasi({
             <RefreshCw size={17} />
             Yenile
           </button>
-          <button onClick={sil} disabled={kaydediliyor || form.id === null}>
+          <button onClick={sil} disabled={saltOkunur || kaydediliyor || form.id === null}>
             <Trash2 size={17} />
             Sil
           </button>
-          <button onClick={formuTemizle} disabled={kaydediliyor}>
+          <button onClick={formuTemizle} disabled={saltOkunur || kaydediliyor}>
             <Plus size={17} />
             Yeni
           </button>
-          <button className="birincil" onClick={kaydet} disabled={kaydediliyor}>
+          <button className="birincil" onClick={kaydet} disabled={saltOkunur || kaydediliyor}>
             {kaydediliyor ? <Eraser size={17} /> : <Save size={17} />}
             Kaydet
           </button>
