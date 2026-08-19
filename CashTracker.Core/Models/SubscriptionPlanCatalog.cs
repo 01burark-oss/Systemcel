@@ -62,7 +62,7 @@ namespace CashTracker.Core.Models
     public static class SubscriptionPlanCatalog
     {
         public const string KurucuKampanyaKodu = "kurucu-100-2026";
-        public const int KurucuKampanyaKontenjani = 100;
+        public const int KurucuKampanyaKontenjani = 50;
         public const int KurucuAylikDonemSayisi = 3;
         public const int MuhasebeciStandartDahilMusteriSayisi = 10;
         public const decimal EkMusteriKredisiAylikTutar = 50m;
@@ -88,10 +88,9 @@ namespace CashTracker.Core.Models
                 },
                 new(PlanKodlari.IsletmeBuyume, HesapTipleri.Isletme, "Büyüme", 1290, null, 3, null)
                 {
-                    YillikTutar = 12384,
+                    YillikTutar = 15480,
                     KurucuAylikTutar = 990,
-                    KurucuYillikTutar = 11664,
-                    BankaMutabakatiAktif = true,
+                    KurucuYillikTutar = 11880,
                     StokRaporAktif = true,
                     MuhasebeciErisimiAktif = true
                 },
@@ -100,19 +99,14 @@ namespace CashTracker.Core.Models
                     YillikTutar = 23904,
                     KurucuAylikTutar = 1990,
                     KurucuYillikTutar = 22704,
-                    BankaMutabakatiAktif = true,
                     StokRaporAktif = true,
                     MuhasebeciErisimiAktif = true,
-                    CokluSubeAktif = true,
-                    CokluParaBirimiAktif = true,
-                    ApiErisimiAktif = true,
                     OncelikliDestekAktif = true
                 },
                 // Eski "Isletme" abonelikleri Büyüme haklariyla devam eder.
                 new(PlanKodlari.IsletmeIsletme, HesapTipleri.Isletme, "Büyüme (eski)", 1290, null, 3, null)
                 {
-                    YillikTutar = 12384,
-                    BankaMutabakatiAktif = true,
+                    YillikTutar = 15480,
                     StokRaporAktif = true,
                     MuhasebeciErisimiAktif = true
                 },

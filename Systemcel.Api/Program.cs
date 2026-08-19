@@ -133,14 +133,20 @@ builder.Services.AddSingleton<ITahsilatOdemeService, TahsilatOdemeService>();
 builder.Services.AddSingleton<IOnMuhasebeReportService, OnMuhasebeReportService>();
 builder.Services.AddSingleton<ISubscriptionEntitlementService, SubscriptionEntitlementService>();
 builder.Services.AddSingleton<IEntitlementGuard, EntitlementGuard>();
-builder.Services.AddSingleton<IPaymentPricingService>(_ => new PaymentPricingService(paymentOptions.VatRate));
+builder.Services.AddSingleton<IPaymentPricingService>(_ => new PaymentPricingService(
+    paymentOptions.VatRate,
+    paymentOptions.FreeTrialEnabled,
+    paymentOptions.BusinessTrialDays,
+    paymentOptions.AccountantTrialDays));
 builder.Services.AddSingleton<IPaymentProvider>(_ => paymentOptions.UsesFakeProvider
     ? new FakePaymentProvider(paymentOptions.FakeSecret)
     : new UnconfiguredPaymentProvider());
 builder.Services.AddSingleton<ISubscriptionLifecycleService, SubscriptionLifecycleService>();
 builder.Services.AddSingleton<IPaymentReconciliationService, PaymentReconciliationService>();
 builder.Services.AddSingleton<ISubscriptionReminderSender>(_ => reminderEmailOptions.IsConfigured
-    ? new SmtpSubscriptionReminderSender(reminderEmailOptions)
+    ? new SmtpSubscriptionReminderSender(
+        reminderEmailOptions,
+        _.GetRequiredService<ILogger<SmtpSubscriptionReminderSender>>())
     : new UnconfiguredSubscriptionReminderSender());
 builder.Services.AddHostedService<SubscriptionLifecycleHostedService>();
 builder.Services.AddHostedService<PaymentReconciliationHostedService>();
@@ -458,6 +464,25 @@ static PaymentRuntimeOptions ResolvePaymentOptions(IConfiguration configuration,
             System.Globalization.CultureInfo.InvariantCulture, out var parsedVatRate))
         vatRate = parsedVatRate;
 
+    var configuredFreeTrial = FirstNonEmpty(
+        Environment.GetEnvironmentVariable("SYSTEMCEL_FREE_TRIAL_ENABLED"),
+        configuration["Systemcel:Payment:FreeTrialEnabled"]);
+    var freeTrialEnabled = bool.TryParse(configuredFreeTrial, out var parsedFreeTrial) && parsedFreeTrial;
+    var configuredBusinessTrialDays = FirstNonEmpty(
+        Environment.GetEnvironmentVariable("SYSTEMCEL_BUSINESS_TRIAL_DAYS"),
+        configuration["Systemcel:Payment:BusinessTrialDays"]);
+    var configuredAccountantTrialDays = FirstNonEmpty(
+        Environment.GetEnvironmentVariable("SYSTEMCEL_ACCOUNTANT_TRIAL_DAYS"),
+        configuration["Systemcel:Payment:AccountantTrialDays"]);
+    var businessTrialDays = int.TryParse(configuredBusinessTrialDays, out var parsedBusinessTrialDays) &&
+                            parsedBusinessTrialDays is > 0 and <= 90
+        ? parsedBusinessTrialDays
+        : 30;
+    var accountantTrialDays = int.TryParse(configuredAccountantTrialDays, out var parsedAccountantTrialDays) &&
+                              parsedAccountantTrialDays is > 0 and <= 90
+        ? parsedAccountantTrialDays
+        : 14;
+
     return new PaymentRuntimeOptions
     {
         Provider = provider,
@@ -465,7 +490,10 @@ static PaymentRuntimeOptions ResolvePaymentOptions(IConfiguration configuration,
         PublicBaseUrl = FirstNonEmpty(
             Environment.GetEnvironmentVariable("SYSTEMCEL_PUBLIC_BASE_URL"),
             configuration["Systemcel:PublicBaseUrl"]) ?? string.Empty,
-        VatRate = vatRate
+        VatRate = vatRate,
+        FreeTrialEnabled = freeTrialEnabled,
+        BusinessTrialDays = businessTrialDays,
+        AccountantTrialDays = accountantTrialDays
     };
 }
 

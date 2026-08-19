@@ -14,6 +14,7 @@ internal static class SubscriptionApi
     {
         app.MapGet("/api/public/planlar", async (
             IDbContextFactory<CashTrackerDbContext> dbFactory,
+            PaymentRuntimeOptions paymentOptions,
             CancellationToken ct) =>
         {
             await using var db = await dbFactory.CreateDbContextAsync(ct);
@@ -59,7 +60,11 @@ internal static class SubscriptionApi
                     cokluParaBirimiAktif = x.CokluParaBirimiAktif,
                     apiErisimiAktif = x.ApiErisimiAktif,
                     oncelikliDestekAktif = x.OncelikliDestekAktif,
-                    denemeGunSayisi = 0
+                    denemeGunSayisi = paymentOptions.FreeTrialEnabled && !founderActive
+                        ? string.Equals(x.HesapTipi, HesapTipleri.Muhasebeci, StringComparison.OrdinalIgnoreCase)
+                            ? paymentOptions.AccountantTrialDays
+                            : paymentOptions.BusinessTrialDays
+                        : 0
                 });
 
             return Results.Ok(plans);

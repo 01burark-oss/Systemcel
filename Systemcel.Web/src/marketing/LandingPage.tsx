@@ -56,23 +56,23 @@ type PublicPlan = {
 const fallbackPlans: PublicPlan[] = [
   {
     kod: "isletme_baslangic", ad: "Başlangıç", hesapTipi: "Isletme", aylikTutar: 490, yillikTutar: 6144,
-    yillikEfektifAylikTutar: 512, normalAylikTutar: 690, normalYillikTutar: 6624, kurucuAylikTutar: 490, kurucuYillikTutar: 6144, kampanyaKodu: "kurucu-100-2026", kurucuKontenjanKalan: 100, aiMesajLimiti: 100, kullaniciLimiti: 1, musteriLimiti: null, faturaLimiti: 50,
+    yillikEfektifAylikTutar: 512, normalAylikTutar: 690, normalYillikTutar: 6624, kurucuAylikTutar: 490, kurucuYillikTutar: 6144, kampanyaKodu: "kurucu-100-2026", kurucuKontenjanKalan: 50, aiMesajLimiti: 100, kullaniciLimiti: 1, musteriLimiti: null, faturaLimiti: 50,
     bankaMutabakatiAktif: false, stokRaporAktif: false, muhasebeciErisimiAktif: false,
     cokluSubeAktif: false, cokluParaBirimiAktif: false, apiErisimiAktif: false,
     oncelikliDestekAktif: false, denemeGunSayisi: 0,
   },
   {
-    kod: "isletme_buyume", ad: "Büyüme", hesapTipi: "Isletme", aylikTutar: 990, yillikTutar: 11664,
-    yillikEfektifAylikTutar: 972, normalAylikTutar: 1290, normalYillikTutar: 12384, kurucuAylikTutar: 990, kurucuYillikTutar: 11664, kampanyaKodu: "kurucu-100-2026", kurucuKontenjanKalan: 100, aiMesajLimiti: null, kullaniciLimiti: 3, musteriLimiti: null, faturaLimiti: null,
-    bankaMutabakatiAktif: true, stokRaporAktif: true, muhasebeciErisimiAktif: true,
+    kod: "isletme_buyume", ad: "Büyüme", hesapTipi: "Isletme", aylikTutar: 990, yillikTutar: 11880,
+    yillikEfektifAylikTutar: 990, normalAylikTutar: 1290, normalYillikTutar: 15480, kurucuAylikTutar: 990, kurucuYillikTutar: 11880, kampanyaKodu: "kurucu-100-2026", kurucuKontenjanKalan: 50, aiMesajLimiti: null, kullaniciLimiti: 3, musteriLimiti: null, faturaLimiti: null,
+    bankaMutabakatiAktif: false, stokRaporAktif: true, muhasebeciErisimiAktif: true,
     cokluSubeAktif: false, cokluParaBirimiAktif: false, apiErisimiAktif: false,
     oncelikliDestekAktif: false, denemeGunSayisi: 0,
   },
   {
     kod: "isletme_kurumsal", ad: "Kurumsal", hesapTipi: "Isletme", aylikTutar: 1990, yillikTutar: 22704,
-    yillikEfektifAylikTutar: 1892, normalAylikTutar: 2490, normalYillikTutar: 23904, kurucuAylikTutar: 1990, kurucuYillikTutar: 22704, kampanyaKodu: "kurucu-100-2026", kurucuKontenjanKalan: 100, aiMesajLimiti: null, kullaniciLimiti: null, musteriLimiti: null, faturaLimiti: null,
-    bankaMutabakatiAktif: true, stokRaporAktif: true, muhasebeciErisimiAktif: true,
-    cokluSubeAktif: true, cokluParaBirimiAktif: true, apiErisimiAktif: true,
+    yillikEfektifAylikTutar: 1892, normalAylikTutar: 2490, normalYillikTutar: 23904, kurucuAylikTutar: 1990, kurucuYillikTutar: 22704, kampanyaKodu: "kurucu-100-2026", kurucuKontenjanKalan: 50, aiMesajLimiti: null, kullaniciLimiti: null, musteriLimiti: null, faturaLimiti: null,
+    bankaMutabakatiAktif: false, stokRaporAktif: true, muhasebeciErisimiAktif: true,
+    cokluSubeAktif: false, cokluParaBirimiAktif: false, apiErisimiAktif: false,
     oncelikliDestekAktif: true, denemeGunSayisi: 0,
   },
 ];
@@ -80,14 +80,14 @@ const fallbackPlans: PublicPlan[] = [
 const fallbackAccountantPlans: PublicPlan[] = [
   {
     kod: "muhasebeci_standart", ad: "Standart", hesapTipi: "Muhasebeci", aylikTutar: 699, yillikTutar: 8557.92,
-    yillikEfektifAylikTutar: 713.16, normalAylikTutar: 899, normalYillikTutar: 9061.92, kurucuAylikTutar: 699, kurucuYillikTutar: 8557.92, kampanyaKodu: "kurucu-100-2026", kurucuKontenjanKalan: 100, aiMesajLimiti: 100, kullaniciLimiti: 1, musteriLimiti: 10, faturaLimiti: null,
+    yillikEfektifAylikTutar: 713.16, normalAylikTutar: 899, normalYillikTutar: 9061.92, kurucuAylikTutar: 699, kurucuYillikTutar: 8557.92, kampanyaKodu: "kurucu-100-2026", kurucuKontenjanKalan: 50, aiMesajLimiti: 100, kullaniciLimiti: 1, musteriLimiti: 10, faturaLimiti: null,
     bankaMutabakatiAktif: false, stokRaporAktif: false, muhasebeciErisimiAktif: false,
     cokluSubeAktif: false, cokluParaBirimiAktif: false, apiErisimiAktif: false,
     oncelikliDestekAktif: false, denemeGunSayisi: 0,
   },
   {
     kod: "muhasebeci_pro", ad: "Pro", hesapTipi: "Muhasebeci", aylikTutar: 1199, yillikTutar: 14353.92,
-    yillikEfektifAylikTutar: 1196.16, normalAylikTutar: 1499, normalYillikTutar: 15109.92, kurucuAylikTutar: 1199, kurucuYillikTutar: 14353.92, kampanyaKodu: "kurucu-100-2026", kurucuKontenjanKalan: 100, aiMesajLimiti: null, kullaniciLimiti: null, musteriLimiti: null, faturaLimiti: null,
+    yillikEfektifAylikTutar: 1196.16, normalAylikTutar: 1499, normalYillikTutar: 15109.92, kurucuAylikTutar: 1199, kurucuYillikTutar: 14353.92, kampanyaKodu: "kurucu-100-2026", kurucuKontenjanKalan: 50, aiMesajLimiti: null, kullaniciLimiti: null, musteriLimiti: null, faturaLimiti: null,
     bankaMutabakatiAktif: false, stokRaporAktif: false, muhasebeciErisimiAktif: false,
     cokluSubeAktif: false, cokluParaBirimiAktif: false, apiErisimiAktif: false,
     oncelikliDestekAktif: true, denemeGunSayisi: 0,
@@ -109,7 +109,7 @@ const copy = {
     forBusiness: "İşletmeler için", forAccountant: "Muhasebeciler için", findAccountant: "Muhasebecini bul", joinMarketplace: "Pazaryerine katıl",
     pricingTitle: "Şeffaf fiyat, sürpriz yok.", monthly: "Aylık", yearly: "Yıllık", discount: "Lansmana özel", popular: "Popüler", perMonth: "/ay", billedYearly: "yıllık ödemede", yearlyTotal: "Yıllık toplam", planCta: "Lansman fiyatıyla başla",
     finalTitle: "İlk hücreni bugün doldur.", sales: "Satış ekibimizle görüş", footerText: "Ön muhasebe, yapay zekâ ve muhasebeci pazaryeri — işletmenin finansal çalışma alanı.",
-    product: "Ürün", company: "Şirket", legal: "Yasal", about: "Hakkımızda", careers: "Kariyer", blog: "Blog", contact: "İletişim", privacy: "Gizlilik", terms: "Kullanım Şartları", cookies: "Çerezler",
+    product: "Ürün", soon: "Yakında", bankMatching: "Banka hareketi eşleştirme", multipleBranchesAndCurrencies: "Çoklu şube ve para birimi", integrationApis: "Entegrasyon API'leri", periodAutomation: "Muhasebeci dönem otomasyonu", clientHealthScore: "Müşteri sağlık skoru", company: "Şirket", legal: "Yasal", about: "Hakkımızda", careers: "Kariyer", blog: "Blog", contact: "İletişim", privacy: "Gizlilik", terms: "Kullanım Şartları", cookies: "Çerezler",
     tourTitle: "Systemcel canlı tur", tourText: "Gelir-gider kaydı, cari ve stok takibi, fatura akışı, AI asistanı ve muhasebeci bağlantısı tek çalışma alanında buluşur.", tourAction: "Hesabını oluştur", close: "Kapat",
   },
   en: {
@@ -126,7 +126,7 @@ const copy = {
     forBusiness: "For businesses", forAccountant: "For accountants", findAccountant: "Find an accountant", joinMarketplace: "Join marketplace",
     pricingTitle: "Transparent pricing. No surprises.", monthly: "Monthly", yearly: "Yearly", discount: "Launch offer", popular: "Popular", perMonth: "/mo", billedYearly: "with annual billing", yearlyTotal: "Annual total", planCta: "Start with launch pricing",
     finalTitle: "Fill your first cell today.", sales: "Talk to sales", footerText: "Accounting, AI and an accountant marketplace — your financial workspace.",
-    product: "Product", company: "Company", legal: "Legal", about: "About", careers: "Careers", blog: "Blog", contact: "Contact", privacy: "Privacy", terms: "Terms", cookies: "Cookies",
+    product: "Product", soon: "Coming soon", bankMatching: "Bank transaction matching", multipleBranchesAndCurrencies: "Multiple branches and currencies", integrationApis: "Integration APIs", periodAutomation: "Accountant period automation", clientHealthScore: "Client health score", company: "Company", legal: "Legal", about: "About", careers: "Careers", blog: "Blog", contact: "Contact", privacy: "Privacy", terms: "Terms", cookies: "Cookies",
     tourTitle: "Systemcel live tour", tourText: "Income and expense records, accounts, inventory, invoices, AI assistance and accountant collaboration meet in one workspace.", tourAction: "Create your account", close: "Close",
   },
 };
@@ -575,11 +575,11 @@ export function LandingPage() {
                   <div className="marketing-market-accountant__head">
                     <div className="marketing-market-accountant__avatar">
                       <img src={accountantAyseAvatar} alt="Ayşe Demirtaş" />
-                      <span aria-label={language === "tr" ? "Doğrulanmış profil" : "Verified profile"}><Check size={15} strokeWidth={3} /></span>
+                      <span role="img" aria-label={language === "tr" ? "Yönetici onaylı profil" : "Admin-approved profile"}><Check size={15} strokeWidth={3} /></span>
                     </div>
                     <div className="marketing-market-accountant__identity">
                       <strong>Ayşe Demirtaş</strong>
-                      <span>{language === "tr" ? "Serbest Muhasebeci Mali Müşavir" : "Certified Public Accountant"}</span>
+                      <span>{language === "tr" ? "Muhasebe uzmanı" : "Accounting specialist"}</span>
                     </div>
                     <b className="marketing-market-accountant__score"><Check size={14} strokeWidth={3} />%97 {language === "tr" ? "eşleşme" : "match"}</b>
                   </div>
@@ -617,7 +617,7 @@ export function LandingPage() {
         <section className="marketing-final-cta"><div className="marketing-wrap"><h2>{t.finalTitle}</h2><div><a className="marketing-button marketing-button--lime marketing-button--large" href={trialHref()}>{t.trial}<ArrowRight size={18} /></a><a className="marketing-button marketing-button--dark-ghost marketing-button--large" href="mailto:satis@systemcel.app?subject=Systemcel%20Satış%20Görüşmesi">{t.sales}</a></div></div></section>
       </main>
 
-      <footer className="marketing-footer"><div className="marketing-wrap marketing-footer__grid"><div><a className="marketing-brand marketing-brand--dark" href="#top"><BrandMark /><strong>systemcel</strong></a><p>{t.footerText}</p></div><FooterGroup title={t.product} links={[[t.accounting, "/#on-muhasebe"], [t.ai, "/#ai"], [t.marketplace, "/#pazaryeri"], [t.pricing, "/#fiyat"]]} /><FooterGroup title={t.company} links={[[t.about, "/hakkimizda"], [t.careers, "/kariyer"], [t.blog, "/blog"], [t.contact, "/iletisim"]]} /><FooterGroup title={t.legal} links={[["KVKK", "/kvkk"], [t.privacy, "/gizlilik"], [t.terms, "/kullanim-sartlari"], [language === "tr" ? "Abonelik Koşulları" : "Subscription Terms", "/abonelik-kosullari"], [t.cookies, "/cerezler"]]} /></div><div className="marketing-wrap marketing-footer__bottom"><span>© 2026 SYSTEMCEL — İSTANBUL</span><button type="button" onClick={changeLanguage}>{language === "tr" ? "TR / EN" : "EN / TR"}</button></div></footer>
+      <footer className="marketing-footer"><div className="marketing-wrap marketing-footer__grid"><div><a className="marketing-brand marketing-brand--dark" href="#top"><BrandMark /><strong>systemcel</strong></a><p>{t.footerText}</p></div><FooterGroup title={t.product} links={[[t.accounting, "/#on-muhasebe"], [t.ai, "/#ai"], [t.marketplace, "/#pazaryeri"], [t.pricing, "/#fiyat"]]} soonTitle={t.soon} soonItems={[t.bankMatching, t.multipleBranchesAndCurrencies, t.integrationApis, t.periodAutomation, t.clientHealthScore]} /><FooterGroup title={t.company} links={[[t.about, "/hakkimizda"], [t.careers, "/kariyer"], [t.blog, "/blog"], [t.contact, "/iletisim"]]} /><FooterGroup title={t.legal} links={[["KVKK", "/kvkk"], [t.privacy, "/gizlilik"], [t.terms, "/kullanim-sartlari"], [language === "tr" ? "Abonelik Koşulları" : "Subscription Terms", "/abonelik-kosullari"], [t.cookies, "/cerezler"]]} /></div><div className="marketing-wrap marketing-footer__bottom"><span>© 2026 SYSTEMCEL — İSTANBUL</span><button type="button" onClick={changeLanguage}>{language === "tr" ? "TR / EN" : "EN / TR"}</button></div></footer>
 
       {tourOpen ? (
         <div className="marketing-modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setTourOpen(false)}>
@@ -838,7 +838,7 @@ function TourSceneVisual({
               </div>
               <div>
                 <strong>Ayşe Demirtaş</strong>
-                <span>SMMM · İstanbul</span>
+                <span>{tr ? "Muhasebe uzmanı · İstanbul" : "Accounting expert · Istanbul"}</span>
               </div>
               <b><Check size={13} strokeWidth={3} />%97</b>
             </div>
@@ -846,7 +846,7 @@ function TourSceneVisual({
               {step.chips.map((chip) => <span key={chip}>{chip}</span>)}
             </div>
             <div className="marketing-tour-accountant__meta">
-              <span><ShieldCheck size={15} />{tr ? "Doğrulanmış profil" : "Verified profile"}</span>
+              <span><ShieldCheck size={15} />{tr ? "Yönetici onaylı profil" : "Admin-approved profile"}</span>
               <span><Users size={15} />{tr ? "12 yıl deneyim" : "12 years experience"}</span>
             </div>
             <div className="marketing-tour-accountant__action">{tr ? "Profili incele" : "View profile"}<ArrowRight size={16} /></div>
@@ -1001,14 +1001,16 @@ function AccountantPlanCard({ plan, billing, language, popular, href }: { plan: 
 function planFeatures(plan: PublicPlan, language: Language) {
   const tr = language === "tr";
   if (plan.kod === "isletme_baslangic") return [tr ? "Gelir-gider ve cari takibi" : "Income, expenses and accounts", tr ? "Ayda 50 e-Arşiv fatura" : "50 e-Archive invoices/month", tr ? "AI asistan · 100 soru/ay" : "AI assistant · 100 questions/month", tr ? "Tek kullanıcı" : "One user"];
-  if (plan.kod === "isletme_buyume") return [tr ? "Sınırsız fatura" : "Unlimited invoices", tr ? "Banka hareketi eşleştirme — yakında" : "Bank transaction matching — coming soon", tr ? "Sınırsız AI" : "Unlimited AI", tr ? "3 kullanıcı + muhasebeci erişimi" : "3 users + accountant access", tr ? "Stok ve raporlar" : "Inventory and reports"];
-  return [tr ? "Çoklu şube ve para birimi — yakında" : "Multiple branches and currencies — coming soon", tr ? "Entegrasyon API'leri — yakında" : "Integration APIs — coming soon", tr ? "Öncelikli destek" : "Priority support", tr ? "Sınırsız kullanıcı" : "Unlimited users", tr ? "Büyüme planındaki her şey" : "Everything in Growth"];
+  if (plan.kod === "isletme_buyume") return [tr ? "Sınırsız fatura" : "Unlimited invoices", tr ? "Sınırsız AI" : "Unlimited AI", tr ? "3 kullanıcı + muhasebeci erişimi" : "3 users + accountant access", tr ? "Stok ve raporlar" : "Inventory and reports"];
+  return [tr ? "Öncelikli destek" : "Priority support", tr ? "Sınırsız kullanıcı" : "Unlimited users", tr ? "Büyüme planındaki her şey" : "Everything in Growth"];
 }
 
 function accountantPlanFeatures(plan: PublicPlan, language: Language) {
   const tr = language === "tr";
   if (plan.kod === "muhasebeci_standart") return [tr ? "10 müşteri dahil" : "10 clients included", tr ? "Sonraki müşteri +₺50/ay" : "₺50/mo per extra client", tr ? "AI asistan · 100 soru/ay" : "AI assistant · 100 questions/month", tr ? "Müşteri çalışma alanları" : "Client workspaces", tr ? "Pazaryeri profili" : "Marketplace profile"];
-  return [tr ? "Sınırsız müşteri" : "Unlimited clients", tr ? "Sınırsız AI asistan" : "Unlimited AI assistant", tr ? "Pazaryerinde öne çıkma" : "Featured marketplace placement", tr ? "Dönem otomasyonu — yakında" : "Period automation — coming soon", tr ? "Müşteri sağlık skoru — yakında" : "Client health score — coming soon"];
+  return [tr ? "Sınırsız müşteri" : "Unlimited clients", tr ? "Sınırsız AI asistan" : "Unlimited AI assistant", tr ? "Pazaryerinde öne çıkma" : "Featured marketplace placement"];
 }
 
-function FooterGroup({ title, links }: { title: string; links: string[][] }) { return <div className="marketing-footer__group"><strong>{title}</strong>{links.map(([label, href]) => <a key={href} href={href}>{label}</a>)}</div>; }
+function FooterGroup({ title, links, soonTitle, soonItems = [] }: { title: string; links: Array<[string, string]>; soonTitle?: string; soonItems?: string[] }) {
+  return <div className="marketing-footer__group"><strong>{title}</strong>{links.map(([label, href]) => <a key={href} href={href}>{label}</a>)}{soonTitle && soonItems.length > 0 ? <div className="marketing-footer__soon" role="group" aria-label={soonTitle}><strong>{soonTitle}</strong><ul>{soonItems.map((item) => <li key={item}>{item}</li>)}</ul></div> : null}</div>;
+}

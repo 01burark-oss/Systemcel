@@ -105,7 +105,7 @@ function PublicFooter({ language }: { language: "tr" | "en" }) {
   return <footer className="marketing-footer">
     <div className="marketing-wrap marketing-footer__grid">
       <div><a className="marketing-brand marketing-brand--dark" href="/"><BrandMark /><strong>systemcel</strong></a><p>{tr ? "Ön muhasebe, yapay zekâ ve muhasebeci pazaryeri — işletmenin finansal çalışma alanı." : "Accounting, AI and an accountant marketplace — your financial workspace."}</p></div>
-      <FooterGroup title={tr ? "Ürün" : "Product"} links={[[tr ? "Ön Muhasebe" : "Accounting", "/#on-muhasebe"], [tr ? "AI Asistan" : "AI Assistant", "/#ai"], [tr ? "Pazaryeri" : "Marketplace", "/#pazaryeri"], [tr ? "Fiyatlandırma" : "Pricing", "/#fiyat"]]} />
+      <FooterGroup title={tr ? "Ürün" : "Product"} links={[[tr ? "Ön Muhasebe" : "Accounting", "/#on-muhasebe"], [tr ? "AI Asistan" : "AI Assistant", "/#ai"], [tr ? "Pazaryeri" : "Marketplace", "/#pazaryeri"], [tr ? "Fiyatlandırma" : "Pricing", "/#fiyat"]]} soonTitle={tr ? "Yakında" : "Coming soon"} soonItems={tr ? ["Banka hareketi eşleştirme", "Çoklu şube ve para birimi", "Entegrasyon API'leri", "Muhasebeci dönem otomasyonu", "Müşteri sağlık skoru"] : ["Bank transaction matching", "Multiple branches and currencies", "Integration APIs", "Accountant period automation", "Client health score"]} />
       <FooterGroup title={tr ? "Şirket" : "Company"} links={[[tr ? "Hakkımızda" : "About", "/hakkimizda"], [tr ? "Kariyer" : "Careers", "/kariyer"], ["Blog", "/blog"], [tr ? "İletişim" : "Contact", "/iletisim"]]} />
       <FooterGroup title={tr ? "Yasal" : "Legal"} links={[["KVKK", "/kvkk"], [tr ? "Gizlilik" : "Privacy", "/gizlilik"], [tr ? "Kullanım Şartları" : "Terms", "/kullanim-sartlari"], [tr ? "Abonelik Koşulları" : "Subscription Terms", "/abonelik-kosullari"], [tr ? "Çerezler" : "Cookies", "/cerezler"]]} />
     </div>
@@ -114,7 +114,9 @@ function PublicFooter({ language }: { language: "tr" | "en" }) {
 }
 
 function BrandMark() { return <span className="marketing-brand-mark" aria-hidden="true"><i /><i /><i /><i /></span>; }
-function FooterGroup({ title, links }: { title: string; links: Array<[string, string]> }) { return <div className="marketing-footer__group"><strong>{title}</strong>{links.map(([label, href]) => <a key={href} href={href}>{label}</a>)}</div>; }
+function FooterGroup({ title, links, soonTitle, soonItems = [] }: { title: string; links: Array<[string, string]>; soonTitle?: string; soonItems?: string[] }) {
+  return <div className="marketing-footer__group"><strong>{title}</strong>{links.map(([label, href]) => <a key={href} href={href}>{label}</a>)}{soonTitle && soonItems.length > 0 ? <div className="marketing-footer__soon" role="group" aria-label={soonTitle}><strong>{soonTitle}</strong><ul>{soonItems.map((item) => <li key={item}>{item}</li>)}</ul></div> : null}</div>;
+}
 
 function pageTitle(kind: PublicPageKind, language: "tr" | "en") {
   const titles = language === "tr" ? { about: "Hakkımızda", blog: "Systemcel Blog", careers: "Kariyer", contact: "İletişim", cookies: "Çerez Politikası" } : { about: "About", blog: "Systemcel Blog", careers: "Careers", contact: "Contact", cookies: "Cookie Policy" };

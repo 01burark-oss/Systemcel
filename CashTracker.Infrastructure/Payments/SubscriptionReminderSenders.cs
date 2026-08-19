@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Mail;
 using System.Text;
 using CashTracker.Core.Services;
+using Microsoft.Extensions.Logging;
 
 namespace CashTracker.Infrastructure.Payments;
 
@@ -29,10 +30,14 @@ public sealed class UnconfiguredSubscriptionReminderSender : ISubscriptionRemind
 public sealed class SmtpSubscriptionReminderSender : ISubscriptionReminderSender
 {
     private readonly SubscriptionReminderEmailOptions _options;
+    private readonly ILogger<SmtpSubscriptionReminderSender> _logger;
 
-    public SmtpSubscriptionReminderSender(SubscriptionReminderEmailOptions options)
+    public SmtpSubscriptionReminderSender(
+        SubscriptionReminderEmailOptions options,
+        ILogger<SmtpSubscriptionReminderSender> logger)
     {
         _options = options;
+        _logger = logger;
     }
 
     public async Task<bool> SendTrialEndingAsync(
@@ -69,8 +74,13 @@ public sealed class SmtpSubscriptionReminderSender : ISubscriptionReminderSender
             await client.SendMailAsync(message, ct);
             return true;
         }
-        catch
+        catch (Exception exception)
         {
+            _logger.LogWarning(
+                exception,
+                "Subscription reminder delivery failed. BusinessId={BusinessId} DaysRemaining={DaysRemaining}",
+                reminder.BusinessId,
+                reminder.DaysRemaining);
             return false;
         }
     }

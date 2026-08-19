@@ -7,13 +7,27 @@ namespace CashTracker.Core.Services
     public sealed class PaymentPricingService : IPaymentPricingService
     {
         private readonly decimal _vatRate;
+        private readonly bool _freeTrialEnabled;
+        private readonly int _businessTrialDays;
+        private readonly int _accountantTrialDays;
 
-        public PaymentPricingService(decimal vatRate = 20m)
+        public PaymentPricingService(
+            decimal vatRate = 20m,
+            bool freeTrialEnabled = false,
+            int businessTrialDays = 30,
+            int accountantTrialDays = 14)
         {
             if (vatRate is < 0 or > 100)
                 throw new ArgumentOutOfRangeException(nameof(vatRate), "KDV orani 0 ile 100 arasinda olmalidir.");
+            if (businessTrialDays is < 1 or > 90)
+                throw new ArgumentOutOfRangeException(nameof(businessTrialDays), "Isletme denemesi 1 ile 90 gun arasinda olmalidir.");
+            if (accountantTrialDays is < 1 or > 90)
+                throw new ArgumentOutOfRangeException(nameof(accountantTrialDays), "Muhasebeci denemesi 1 ile 90 gun arasinda olmalidir.");
 
             _vatRate = vatRate;
+            _freeTrialEnabled = freeTrialEnabled;
+            _businessTrialDays = businessTrialDays;
+            _accountantTrialDays = accountantTrialDays;
         }
 
         public PaymentQuote CreateQuote(
@@ -66,7 +80,15 @@ namespace CashTracker.Core.Services
                 throw new InvalidOperationException("Secilen donem icin katalog fiyati tanimli degil.");
 
             var vatAmount = decimal.Round(netAmount * _vatRate / 100m, 2, MidpointRounding.AwayFromZero);
-            const int trialDays = 0;
+            // Lansman boyunca fail-closed kalir. Gelecekte acilsa bile kurucu kampanyasi
+            // veya yillik pesin odemeyle birlesmez; yalniz ilk aylik abonelikte kullanilir.
+            var trialDays = _freeTrialEnabled &&
+                            !useFounderPrice &&
+                            normalizedPeriod == PaymentBillingPeriods.Monthly
+                ? string.Equals(plan.HesapTipi, HesapTipleri.Muhasebeci, StringComparison.OrdinalIgnoreCase)
+                    ? _accountantTrialDays
+                    : _businessTrialDays
+                : 0;
 
             return new PaymentQuote(
                 plan.Kod,

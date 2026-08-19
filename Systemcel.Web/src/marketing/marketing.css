@@ -605,6 +605,10 @@
 .marketing-footer__group strong { margin-bottom: 7px; color: #99988f; font-family: Consolas, monospace; font-size: 10px; letter-spacing: .14em; text-transform: uppercase; }
 .marketing-footer__group a { font-size: 13px; opacity: .75; }
 .marketing-footer__group a:hover { opacity: 1; }
+.marketing-footer__soon { margin-top: 10px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,.08); display: grid; gap: 6px; }
+.marketing-footer__soon > strong { margin: 0 0 2px; color: #85857d; font-size: 9px; }
+.marketing-footer__soon ul { margin: 0; padding: 0; display: grid; gap: 6px; list-style: none; }
+.marketing-footer__soon li { color: #8f8e86; font-size: 12px; line-height: 1.4; }
 .marketing-footer__bottom { padding: 22px 0 32px; border-top: 1px solid var(--mk-white-line); display: flex; justify-content: space-between; color: #87877f; font-family: Consolas, monospace; font-size: 10px; letter-spacing: .1em; }
 .marketing-footer__bottom button { border: 0; background: transparent; color: inherit; cursor: pointer; }
 

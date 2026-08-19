@@ -6,6 +6,7 @@ export type PricingPlan = {
   yillikTutar: number | null;
   yillikEfektifAylikTutar: number | null;
   normalAylikTutar: number;
+  normalYillikTutar: number | null;
   kampanyaKodu: string;
   kurucuKontenjanKalan: number;
 };
@@ -45,14 +46,14 @@ export function buildPricingPresentation(
 
   const yearlyTotal = plan.yillikTutar ?? plan.aylikTutar * 12 * annualFallbackFactor;
   const equivalentMonthly = plan.yillikEfektifAylikTutar ?? yearlyTotal / 12;
-  const monthlyPaymentTotal = campaignActive
-    ? plan.aylikTutar * 3 + plan.normalAylikTutar * 9
+  const comparisonTotal = campaignActive
+    ? plan.normalYillikTutar ?? plan.normalAylikTutar * 12
     : plan.aylikTutar * 12;
-  const savings = Math.max(0, monthlyPaymentTotal - yearlyTotal);
+  const savings = Math.max(0, comparisonTotal - yearlyTotal);
   const savingsText = savings > 0
     ? tr
-      ? `Aylık ödemeye göre ₺${formatTry(savings)} avantaj · `
-      : `Save ₺${formatTry(savings)} vs monthly · `
+      ? `${campaignActive ? "Normal yıllık fiyata" : "Aylık ödemeye"} göre ₺${formatTry(savings)} avantaj · `
+      : `Save ₺${formatTry(savings)} vs ${campaignActive ? "the regular annual price" : "monthly billing"} · `
     : "";
   const equivalentText = tr
     ? `aylık karşılığı ₺${formatTry(equivalentMonthly)}`

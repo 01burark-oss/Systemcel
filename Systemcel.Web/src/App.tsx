@@ -1,35 +1,81 @@
 import React from "react";
 import { Building2, House, LogOut, MessageCircle, RefreshCw, Search } from "lucide-react";
-import { AuthSayfasi, OAuthCallbackSayfasi } from "./auth/AuthSayfasi";
 import { RequireAuth } from "./auth/AuthGate";
 import { AuthUserButton } from "./auth/AuthUserButton";
 import { useSystemcelAuth } from "./auth/SystemcelAuthProvider";
 import systemcelBrand from "./assets/systemcel-brand.svg";
-import { CariHesaplarSayfasi } from "./screens/cari/CariHesaplarSayfasi";
-import { DashboardSayfasi } from "./screens/dashboard/DashboardSayfasi";
-import { FaturalarSayfasi } from "./screens/faturalar/FaturalarSayfasi";
-import { GelirGiderSayfasi } from "./screens/gelir-gider/GelirGiderSayfasi";
-import { GibPortalSayfasi } from "./screens/gib-portal/GibPortalSayfasi";
-import { YardimSayfasi } from "./screens/help/YardimSayfasi";
-import { MuhasebeciPanelSayfasi } from "./screens/muhasebeci/MuhasebeciPanelSayfasi";
-import { MuhasebecilerSayfasi } from "./screens/muhasebeciler/MuhasebecilerSayfasi";
-import { PinKilitSayfasi } from "./screens/pin/PinKilitSayfasi";
-import { RaporlarSayfasi } from "./screens/raporlar/RaporlarSayfasi";
-import { SohbetlerSayfasi } from "./screens/sohbetler/SohbetlerSayfasi";
-import { AyarlarSayfasi } from "./screens/ayarlar/AyarlarSayfasi";
-import { AbonelikSayfasi } from "./screens/billing/AbonelikSayfasi";
-import { TahsilatOdemeSayfasi } from "./screens/tahsilat-odeme/TahsilatOdemeSayfasi";
-import { HizliSatisSayfasi } from "./screens/urun-stok/HizliSatisSayfasi";
-import { UrunStokSayfasi } from "./screens/urun-stok/UrunStokSayfasi";
-import { WelcomeSayfasi } from "./screens/welcome/WelcomeSayfasi";
-import { PublicContentPage } from "./marketing/PublicContentPage";
-import { MuhasebeciBasvurulariSayfasi } from "./screens/yonetim/MuhasebeciBasvurulariSayfasi";
-import { OdemeIncelemeSayfasi } from "./screens/yonetim/OdemeIncelemeSayfasi";
 import { BusinessSelector } from "./shared/BusinessSelector";
 import type { UstBarDurumu } from "./shared/chrome";
 import { jsonOku } from "./shared/json";
 import { KolayKurulumModal, type KolayKurulumEkran } from "./shared/KolayKurulumModal";
 import { ReactWorkspaceShell } from "./shared/ReactWorkspaceShell";
+
+const AuthSayfasi = React.lazy(() =>
+  import("./auth/AuthSayfasi").then((module) => ({ default: module.AuthSayfasi }))
+);
+const OAuthCallbackSayfasi = React.lazy(() =>
+  import("./auth/AuthSayfasi").then((module) => ({ default: module.OAuthCallbackSayfasi }))
+);
+const PublicContentPage = React.lazy(() =>
+  import("./marketing/PublicContentPage").then((module) => ({ default: module.PublicContentPage }))
+);
+const CariHesaplarSayfasi = React.lazy(() =>
+  import("./screens/cari/CariHesaplarSayfasi").then((module) => ({ default: module.CariHesaplarSayfasi }))
+);
+const DashboardSayfasi = React.lazy(() =>
+  import("./screens/dashboard/DashboardSayfasi").then((module) => ({ default: module.DashboardSayfasi }))
+);
+const FaturalarSayfasi = React.lazy(() =>
+  import("./screens/faturalar/FaturalarSayfasi").then((module) => ({ default: module.FaturalarSayfasi }))
+);
+const GelirGiderSayfasi = React.lazy(() =>
+  import("./screens/gelir-gider/GelirGiderSayfasi").then((module) => ({ default: module.GelirGiderSayfasi }))
+);
+const GibPortalSayfasi = React.lazy(() =>
+  import("./screens/gib-portal/GibPortalSayfasi").then((module) => ({ default: module.GibPortalSayfasi }))
+);
+const YardimSayfasi = React.lazy(() =>
+  import("./screens/help/YardimSayfasi").then((module) => ({ default: module.YardimSayfasi }))
+);
+const MuhasebeciPanelSayfasi = React.lazy(() =>
+  import("./screens/muhasebeci/MuhasebeciPanelSayfasi").then((module) => ({ default: module.MuhasebeciPanelSayfasi }))
+);
+const MuhasebecilerSayfasi = React.lazy(() =>
+  import("./screens/muhasebeciler/MuhasebecilerSayfasi").then((module) => ({ default: module.MuhasebecilerSayfasi }))
+);
+const PinKilitSayfasi = React.lazy(() =>
+  import("./screens/pin/PinKilitSayfasi").then((module) => ({ default: module.PinKilitSayfasi }))
+);
+const RaporlarSayfasi = React.lazy(() =>
+  import("./screens/raporlar/RaporlarSayfasi").then((module) => ({ default: module.RaporlarSayfasi }))
+);
+const SohbetlerSayfasi = React.lazy(() =>
+  import("./screens/sohbetler/SohbetlerSayfasi").then((module) => ({ default: module.SohbetlerSayfasi }))
+);
+const AyarlarSayfasi = React.lazy(() =>
+  import("./screens/ayarlar/AyarlarSayfasi").then((module) => ({ default: module.AyarlarSayfasi }))
+);
+const AbonelikSayfasi = React.lazy(() =>
+  import("./screens/billing/AbonelikSayfasi").then((module) => ({ default: module.AbonelikSayfasi }))
+);
+const TahsilatOdemeSayfasi = React.lazy(() =>
+  import("./screens/tahsilat-odeme/TahsilatOdemeSayfasi").then((module) => ({ default: module.TahsilatOdemeSayfasi }))
+);
+const HizliSatisSayfasi = React.lazy(() =>
+  import("./screens/urun-stok/HizliSatisSayfasi").then((module) => ({ default: module.HizliSatisSayfasi }))
+);
+const UrunStokSayfasi = React.lazy(() =>
+  import("./screens/urun-stok/UrunStokSayfasi").then((module) => ({ default: module.UrunStokSayfasi }))
+);
+const WelcomeSayfasi = React.lazy(() =>
+  import("./screens/welcome/WelcomeSayfasi").then((module) => ({ default: module.WelcomeSayfasi }))
+);
+const MuhasebeciBasvurulariSayfasi = React.lazy(() =>
+  import("./screens/yonetim/MuhasebeciBasvurulariSayfasi").then((module) => ({ default: module.MuhasebeciBasvurulariSayfasi }))
+);
+const OdemeIncelemeSayfasi = React.lazy(() =>
+  import("./screens/yonetim/OdemeIncelemeSayfasi").then((module) => ({ default: module.OdemeIncelemeSayfasi }))
+);
 
 function normalizePath(pathname: string) {
   const normalized = pathname.replace(/\/+$/, "");
@@ -47,6 +93,15 @@ function workspacePathFromPublicPath(path: string) {
 export function App() {
   useClientNavigation();
   useNumericInputGuard();
+
+  return (
+    <React.Suspense fallback={null}>
+      <AppRoutes />
+    </React.Suspense>
+  );
+}
+
+function AppRoutes() {
   const auth = useSystemcelAuth();
 
   const rawPath = normalizePath(window.location.pathname);
@@ -518,85 +573,87 @@ function WorkspaceRoutes({ path }: { path: string }) {
       sagAksiyon={shellUstAksiyon}
       ustBar={ustBar}
     >
-      {routePath === "/gelir-gider" ? (
-        <GelirGiderSayfasi
-          ustBar={ustBar}
-          ustBarIslemde={ustBarIslemde}
-          yenileAnahtari={yenileAnahtari}
-          onIsletmeDegistir={isletmeDegistir}
-        />
-      ) : routePath === "/hizli-satis" ? (
-        <HizliSatisSayfasi yenileAnahtari={yenileAnahtari} />
-      ) : routePath === "/cari-hesaplar" ? (
-        <CariHesaplarSayfasi
-          ustBar={ustBar}
-          ustBarIslemde={ustBarIslemde}
-          yenileAnahtari={yenileAnahtari}
-          onIsletmeDegistir={isletmeDegistir}
-        />
-      ) : routePath === "/urun-stok" ? (
-        <UrunStokSayfasi
-          ustBar={ustBar}
-          ustBarIslemde={ustBarIslemde}
-          yenileAnahtari={yenileAnahtari}
-          onIsletmeDegistir={isletmeDegistir}
-        />
-      ) : routePath === "/faturalar" ? (
-        <FaturalarSayfasi
-          ustBar={ustBar}
-          ustBarIslemde={ustBarIslemde}
-          yenileAnahtari={yenileAnahtari}
-          onIsletmeDegistir={isletmeDegistir}
-        />
-      ) : routePath === "/tahsilat-odeme" ? (
-        <TahsilatOdemeSayfasi
-          ustBar={ustBar}
-          ustBarIslemde={ustBarIslemde}
-          yenileAnahtari={yenileAnahtari}
-          onIsletmeDegistir={isletmeDegistir}
-        />
-      ) : routePath === "/raporlar" ? (
-        <RaporlarSayfasi
-          ustBar={ustBar}
-          ustBarIslemde={ustBarIslemde}
-          yenileAnahtari={yenileAnahtari}
-          onIsletmeDegistir={isletmeDegistir}
-        />
-      ) : routePath === "/muhasebeci" ? (
-        <MuhasebeciPanelSayfasi onUstBarYenile={ustBarYukle} />
-      ) : routePath === "/yonetim/muhasebeci-basvurulari" ? (
-        <MuhasebeciBasvurulariSayfasi onUstBarYenile={ustBarYukle} />
-      ) : routePath === "/yonetim/odemeler" ? (
-        <OdemeIncelemeSayfasi />
-      ) : routePath === "/muhasebeciler" ? (
-        <MuhasebecilerSayfasi ustBar={ustBar} onUstBarYenile={ustBarYukle} />
-      ) : routePath === "/sohbetler" ? (
-        <SohbetlerSayfasi ustBar={ustBar} onUstBarYenile={ustBarYukle} />
-      ) : routePath === "/gib-portal" ? (
-        <GibPortalSayfasi
-          ustBar={ustBar}
-          ustBarIslemde={ustBarIslemde}
-          yenileAnahtari={yenileAnahtari}
-          onIsletmeDegistir={isletmeDegistir}
-        />
-      ) : routePath === "/abonelik" ? (
-        <AbonelikSayfasi />
-      ) : routePath === "/ayarlar" ? (
-        <AyarlarSayfasi
-          ustBar={ustBar}
-          ustBarIslemde={ustBarIslemde}
-          yenileAnahtari={yenileAnahtari}
-          onIsletmeDegistir={isletmeDegistir}
-          onUstBarYenile={ustBarYukle}
-        />
-      ) : (
-        <DashboardSayfasi
-          ustBar={ustBar}
-          ustBarIslemde={ustBarIslemde}
-          yenileAnahtari={yenileAnahtari}
-          onIsletmeDegistir={isletmeDegistir}
-        />
-      )}
+      <React.Suspense fallback={null}>
+        {routePath === "/gelir-gider" ? (
+          <GelirGiderSayfasi
+            ustBar={ustBar}
+            ustBarIslemde={ustBarIslemde}
+            yenileAnahtari={yenileAnahtari}
+            onIsletmeDegistir={isletmeDegistir}
+          />
+        ) : routePath === "/hizli-satis" ? (
+          <HizliSatisSayfasi yenileAnahtari={yenileAnahtari} />
+        ) : routePath === "/cari-hesaplar" ? (
+          <CariHesaplarSayfasi
+            ustBar={ustBar}
+            ustBarIslemde={ustBarIslemde}
+            yenileAnahtari={yenileAnahtari}
+            onIsletmeDegistir={isletmeDegistir}
+          />
+        ) : routePath === "/urun-stok" ? (
+          <UrunStokSayfasi
+            ustBar={ustBar}
+            ustBarIslemde={ustBarIslemde}
+            yenileAnahtari={yenileAnahtari}
+            onIsletmeDegistir={isletmeDegistir}
+          />
+        ) : routePath === "/faturalar" ? (
+          <FaturalarSayfasi
+            ustBar={ustBar}
+            ustBarIslemde={ustBarIslemde}
+            yenileAnahtari={yenileAnahtari}
+            onIsletmeDegistir={isletmeDegistir}
+          />
+        ) : routePath === "/tahsilat-odeme" ? (
+          <TahsilatOdemeSayfasi
+            ustBar={ustBar}
+            ustBarIslemde={ustBarIslemde}
+            yenileAnahtari={yenileAnahtari}
+            onIsletmeDegistir={isletmeDegistir}
+          />
+        ) : routePath === "/raporlar" ? (
+          <RaporlarSayfasi
+            ustBar={ustBar}
+            ustBarIslemde={ustBarIslemde}
+            yenileAnahtari={yenileAnahtari}
+            onIsletmeDegistir={isletmeDegistir}
+          />
+        ) : routePath === "/muhasebeci" ? (
+          <MuhasebeciPanelSayfasi onUstBarYenile={ustBarYukle} />
+        ) : routePath === "/yonetim/muhasebeci-basvurulari" ? (
+          <MuhasebeciBasvurulariSayfasi onUstBarYenile={ustBarYukle} />
+        ) : routePath === "/yonetim/odemeler" ? (
+          <OdemeIncelemeSayfasi />
+        ) : routePath === "/muhasebeciler" ? (
+          <MuhasebecilerSayfasi ustBar={ustBar} onUstBarYenile={ustBarYukle} />
+        ) : routePath === "/sohbetler" ? (
+          <SohbetlerSayfasi ustBar={ustBar} onUstBarYenile={ustBarYukle} />
+        ) : routePath === "/gib-portal" ? (
+          <GibPortalSayfasi
+            ustBar={ustBar}
+            ustBarIslemde={ustBarIslemde}
+            yenileAnahtari={yenileAnahtari}
+            onIsletmeDegistir={isletmeDegistir}
+          />
+        ) : routePath === "/abonelik" ? (
+          <AbonelikSayfasi />
+        ) : routePath === "/ayarlar" ? (
+          <AyarlarSayfasi
+            ustBar={ustBar}
+            ustBarIslemde={ustBarIslemde}
+            yenileAnahtari={yenileAnahtari}
+            onIsletmeDegistir={isletmeDegistir}
+            onUstBarYenile={ustBarYukle}
+          />
+        ) : (
+          <DashboardSayfasi
+            ustBar={ustBar}
+            ustBarIslemde={ustBarIslemde}
+            yenileAnahtari={yenileAnahtari}
+            onIsletmeDegistir={isletmeDegistir}
+          />
+        )}
+      </React.Suspense>
       {kolayKurulum && !kolayKurulum.tamamlandi && !kurulumGizlendi ? (
         <KolayKurulumModal
           ekran={kolayKurulum}
@@ -697,7 +754,9 @@ function MobileWorkspaceView({
 }) {
   return (
     <div className={`mobile-workspace-view mobile-workspace-view--${active}`}>
-      <div className="mobile-workspace-view__content">{children}</div>
+      <div className="mobile-workspace-view__content">
+        <React.Suspense fallback={null}>{children}</React.Suspense>
+      </div>
       <nav className="mobile-workspace-nav" aria-label="Mobil çalışma alanı">
         <a className={active === "merkez" ? "active" : ""} href="/app" aria-label="Merkeze dön">
           <House size={18} />

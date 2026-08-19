@@ -64,7 +64,7 @@ const plans: PublicPlan[] = [{
   kurucuAylikTutar: 699,
   kurucuYillikTutar: 8557.92,
   kampanyaKodu: "kurucu-100-2026",
-  kurucuKontenjanKalan: 74,
+  kurucuKontenjanKalan: 24,
   paraBirimi: "TRY",
   denemeGunSayisi: 0
 }];

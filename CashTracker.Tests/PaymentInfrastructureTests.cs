@@ -22,9 +22,9 @@ namespace CashTracker.Tests
                 HesapTipleri.Isletme,
                 PaymentBillingPeriods.Annual);
 
-            Assert.Equal(12384m, quote.NetAmount);
-            Assert.Equal(2476.80m, quote.VatAmount);
-            Assert.Equal(14860.80m, quote.TotalAmount);
+            Assert.Equal(15480m, quote.NetAmount);
+            Assert.Equal(3096m, quote.VatAmount);
+            Assert.Equal(18576m, quote.TotalAmount);
             Assert.Equal(0, quote.TrialDays);
             Assert.False(quote.IsFounderPrice);
         }
@@ -54,6 +54,38 @@ namespace CashTracker.Tests
 
             Assert.Equal(0, quote.TrialDays);
             Assert.Equal(1499m, quote.NetAmount);
+        }
+
+        [Fact]
+        public void Pricing_FutureTrialFlagOnlyAppliesToMonthlyNonFounderCheckout()
+        {
+            var service = new PaymentPricingService(
+                freeTrialEnabled: true,
+                businessTrialDays: 30,
+                accountantTrialDays: 14);
+
+            var businessMonthly = service.CreateQuote(
+                PlanKodlari.IsletmeBaslangic,
+                HesapTipleri.Isletme,
+                PaymentBillingPeriods.Monthly);
+            var accountantMonthly = service.CreateQuote(
+                PlanKodlari.MuhasebeciStandart,
+                HesapTipleri.Muhasebeci,
+                PaymentBillingPeriods.Monthly);
+            var annual = service.CreateQuote(
+                PlanKodlari.IsletmeBaslangic,
+                HesapTipleri.Isletme,
+                PaymentBillingPeriods.Annual);
+            var founder = service.CreateQuote(
+                PlanKodlari.IsletmeBaslangic,
+                HesapTipleri.Isletme,
+                PaymentBillingPeriods.Monthly,
+                useFounderPrice: true);
+
+            Assert.Equal(30, businessMonthly.TrialDays);
+            Assert.Equal(14, accountantMonthly.TrialDays);
+            Assert.Equal(0, annual.TrialDays);
+            Assert.Equal(0, founder.TrialDays);
         }
 
         [Fact]
@@ -99,8 +131,8 @@ namespace CashTracker.Tests
             Assert.Equal(999m, monthly.ListNetAmount);
             Assert.Equal(3, monthly.DiscountedPeriodCount);
             Assert.Equal(SubscriptionPlanCatalog.KurucuKampanyaKodu, monthly.CampaignCode);
-            Assert.Equal(11664m, annual.NetAmount);
-            Assert.Equal(12384m, annual.RenewalNetAmount);
+            Assert.Equal(11880m, annual.NetAmount);
+            Assert.Equal(15480m, annual.RenewalNetAmount);
             Assert.Equal(1, annual.DiscountedPeriodCount);
         }
 
