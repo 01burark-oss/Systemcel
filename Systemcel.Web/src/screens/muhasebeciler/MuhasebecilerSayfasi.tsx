@@ -306,14 +306,7 @@ export function MuhasebecilerSayfasi({ mobileMode = false, publicMode = false, u
     <main className={publicMode ? "accountant-marketplace accountant-marketplace--public" : "accountant-marketplace"}>
       <section className="accountant-marketplace__hero">
         <div>
-          <span className="accountant-eyebrow">
-            <BriefcaseBusiness size={16} />
-            Muhasebeci pazaryeri
-          </span>
           <h1>{publicMode ? "Systemcel muhasebecileri" : "Muhasebeciler"}</h1>
-          <p>
-            Yayındaki muhasebeci profillerini konum, uzmanlık ve müşteri tipiyle karşılaştırın.
-          </p>
         </div>
         {publicMode ? (
           <a className="accountant-primary-link" href={publicTalepHref} onClick={publicTalepTikla}>
@@ -328,7 +321,6 @@ export function MuhasebecilerSayfasi({ mobileMode = false, publicMode = false, u
           <Copy size={18} />
           <div>
             <strong>Davet kodu hazır: {urlDavetKodu}</strong>
-            <span>Bağlantıyı kabul etmek için giriş yaptıktan sonra kod otomatik doldurulur.</span>
           </div>
           <a href={publicTalepHref} onClick={publicTalepTikla}>{oturumAcik ? "Panelde aç" : "Giriş yap"}</a>
         </section>

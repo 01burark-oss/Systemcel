@@ -743,8 +743,7 @@ export function SohbetlerSayfasi({ mobileMode = false, ustBar, onUstBarYenile }:
                 <MessageCircle size={18} />
               </span>
               <div>
-                <span className="accountant-eyebrow">Tüm konuşmalar</span>
-                <h2>Görüşmeler</h2>
+                <h2>Sohbetler</h2>
               </div>
             </div>
             <button type="button" onClick={() => listeYukle().catch(() => undefined)} disabled={listeYukleniyor} aria-label="Yenile">
@@ -795,7 +794,6 @@ export function SohbetlerSayfasi({ mobileMode = false, ustBar, onUstBarYenile }:
             <div className="chat-center__empty">
               <MessageCircle size={34} />
               <strong>Sohbet seçin</strong>
-              <span>Mesaj geçmişi, dosyalar ve veri paylaşımları burada görünür.</span>
             </div>
           ) : (
             <>

@@ -50,6 +50,7 @@ telegram-setup.json
 **/coverage/
 **/test-results/
 **/playwright-report/
+**/.shots/
 *.tsbuildinfo
 .tmp/
 tmp/

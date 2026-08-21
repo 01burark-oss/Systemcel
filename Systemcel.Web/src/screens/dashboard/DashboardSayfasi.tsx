@@ -339,7 +339,7 @@ export function DashboardSayfasi({
       <section className="legacy-dashboard">
         <div className="legacy-dashboard__header">
           <div>
-            <h1>Hızlı Finansal Özet (Snapshot)</h1>
+            <h1>Finansal özet</h1>
             <p className={hata ? "legacy-dashboard__status legacy-dashboard__status--error" : "legacy-dashboard__status"}>
               {hata || durum}
             </p>
@@ -376,8 +376,7 @@ export function DashboardSayfasi({
         <section className="legacy-panel payment-panel-legacy">
           <div className="legacy-panel__header">
             <div>
-              <h2>Ödeme Yöntemi Dağılımı</h2>
-              <p>Bugün kullanılan kanalların genel dağılımı.</p>
+              <h2>Ödeme yöntemleri</h2>
             </div>
           </div>
 
@@ -403,7 +402,7 @@ export function DashboardSayfasi({
         </section>
 
         <section className="legacy-summary-block">
-          <h2>Zaman Dönemi Özetleri</h2>
+          <h2>Dönemler</h2>
 
           <div className="legacy-summary-grid">
             {ekran?.bugun && <DonemKarti kart={{ ...ekran.bugun, etiket: "Bugun" }} />}

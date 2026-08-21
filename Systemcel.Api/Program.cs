@@ -131,6 +131,7 @@ builder.Services.AddSingleton<IHizliSatisService, HizliSatisService>();
 builder.Services.AddSingleton<IFaturaService, FaturaService>();
 builder.Services.AddSingleton<ITahsilatOdemeService, TahsilatOdemeService>();
 builder.Services.AddSingleton<IOnMuhasebeReportService, OnMuhasebeReportService>();
+builder.Services.AddSingleton<IFinansalGorunumService, FinansalGorunumService>();
 builder.Services.AddSingleton<ISubscriptionEntitlementService, SubscriptionEntitlementService>();
 builder.Services.AddSingleton<IEntitlementGuard, EntitlementGuard>();
 builder.Services.AddSingleton<IPaymentPricingService>(_ => new PaymentPricingService(
@@ -349,6 +350,7 @@ app.MapMuhasebeciApi();
 app.MapSohbetMerkeziApi();
 app.MapYonetimApi();
 app.MapUyelikApi();
+app.MapFinansalGorunumApi();
 var sohbetHub = app.MapHub<MuhasebeciSohbetHub>("/hubs/muhasebeci-sohbet");
 if (clerkAuthenticationOptions.Enabled)
     sohbetHub.RequireAuthorization();

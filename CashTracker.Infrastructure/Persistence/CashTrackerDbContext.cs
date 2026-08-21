@@ -16,6 +16,7 @@ namespace CashTracker.Infrastructure.Persistence
         public CashTrackerDbContext(DbContextOptions<CashTrackerDbContext> options) : base(options) { }
 
         public DbSet<Kasa> Kasalar => Set<Kasa>();
+        public DbSet<NakitPlanKalemi> NakitPlanKalemleri => Set<NakitPlanKalemi>();
         public DbSet<Isletme> Isletmeler => Set<Isletme>();
         public DbSet<Kullanici> Kullanicilar => Set<Kullanici>();
         public DbSet<IsletmeUyelik> IsletmeUyelikleri => Set<IsletmeUyelik>();
@@ -87,6 +88,24 @@ namespace CashTracker.Infrastructure.Persistence
                 e.Property(x => x.Tutar).HasColumnType("NUMERIC");
                 e.HasIndex(x => x.IsletmeId);
                 e.HasIndex(x => new { x.IsletmeId, x.Tarih });
+            });
+
+            modelBuilder.Entity<NakitPlanKalemi>(e =>
+            {
+                e.ToTable("NakitPlanKalemi");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Ad).IsRequired().HasMaxLength(120);
+                e.Property(x => x.Tip).IsRequired().HasMaxLength(16);
+                e.Property(x => x.Tutar).HasColumnType("NUMERIC");
+                e.Property(x => x.TekrarTipi).IsRequired().HasMaxLength(16);
+                e.Property(x => x.Kategori).IsRequired().HasMaxLength(80);
+                e.Property(x => x.Aciklama).HasMaxLength(500);
+                e.HasIndex(x => x.IsletmeId);
+                e.HasIndex(x => new { x.IsletmeId, x.Aktif, x.IlkTarih });
+                e.HasOne<Isletme>()
+                    .WithMany()
+                    .HasForeignKey(x => x.IsletmeId)
+                    .OnDelete(DeleteBehavior.Cascade);
             });
 
             modelBuilder.Entity<Isletme>(e =>
@@ -497,6 +516,7 @@ namespace CashTracker.Infrastructure.Persistence
                 e.HasIndex(x => x.IsletmeId);
                 e.HasIndex(x => new { x.IsletmeId, x.Tarih });
                 e.HasIndex(x => new { x.IsletmeId, x.CariKartId });
+                e.HasIndex(x => new { x.IsletmeId, x.FaturaTipi, x.Durum, x.VadeTarihi });
                 e.HasIndex(x => new { x.IsletmeId, x.HizliSatisAnahtari }).IsUnique();
             });
 
@@ -523,6 +543,7 @@ namespace CashTracker.Infrastructure.Persistence
                 e.Property(x => x.Tutar).HasColumnType("NUMERIC");
                 e.HasIndex(x => x.IsletmeId);
                 e.HasIndex(x => new { x.IsletmeId, x.FaturaId });
+                e.HasIndex(x => new { x.IsletmeId, x.FaturaId, x.Tarih });
                 e.HasIndex(x => new { x.IsletmeId, x.CariKartId, x.Tarih });
             });
 

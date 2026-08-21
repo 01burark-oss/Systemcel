@@ -355,7 +355,6 @@ export function AyarlarSayfasi({ onIsletmeDegistir, onUstBarYenile, ustBar, yeni
         <section className="settings-card settings-card--business">
           <header className="settings-card__header">
             <h2>{L.businessTitle}</h2>
-            <p>{L.businessSubtitle}</p>
           </header>
 
           <div className="settings-section-row">
@@ -411,7 +410,6 @@ export function AyarlarSayfasi({ onIsletmeDegistir, onUstBarYenile, ustBar, yeni
 
           <div className="settings-block settings-block--new">
             <h3>{L.newBusiness}</h3>
-            <p>{L.newBusinessSubtitle}</p>
             <div className="settings-inline-actions">
               <input
                 value={yeniIsletmeAdi}
@@ -434,7 +432,6 @@ export function AyarlarSayfasi({ onIsletmeDegistir, onUstBarYenile, ustBar, yeni
         <section className="settings-card settings-card--categories">
           <header className="settings-card__header">
             <h2>{L.categoriesTitle}</h2>
-            <p>{L.categoriesSubtitle}</p>
           </header>
 
           <label className="settings-field settings-field--tip">

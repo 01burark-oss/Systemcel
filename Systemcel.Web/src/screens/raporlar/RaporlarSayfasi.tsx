@@ -1,6 +1,5 @@
 import React from "react";
 import {
-  Archive,
   CheckCircle2,
   ChevronUp,
   FileCode2,
@@ -180,11 +179,7 @@ export function RaporlarSayfasi({ yenileAnahtari }: RaporlarSayfasiProps) {
           <section className="reports-card reports-package-card">
             <div className="reports-card__header">
               <div>
-                <span className="reports-eyebrow">
-                  <FileText size={18} />
-                  Aylık Muhasebe Paketi
-                </span>
-                <h2>Rapor paketini oluştur</h2>
+                <h2>Rapor oluştur</h2>
               </div>
               <button className="reports-icon-btn" disabled={islemde} type="button" onClick={yenile}>
                 <RefreshCw size={19} />
@@ -201,21 +196,21 @@ export function RaporlarSayfasi({ yenileAnahtari }: RaporlarSayfasiProps) {
             <SelectionGroup
               items={ekran?.formatlar ?? []}
               selected={formatlar}
-              title="Dışa Aktarım Formatı"
+              title="Dosya türü"
               onToggle={(deger) => setFormatlar((current) => secimDegistir(current, deger))}
             />
 
             <SelectionGroup
               items={ekran?.icerikler ?? []}
               selected={icerikler}
-              title="İçerik Filtresi"
+              title="İçerik"
               onToggle={(deger) => setIcerikler((current) => secimDegistir(current, deger))}
             />
 
             <div className="reports-actions reports-actions--package">
               <button className="reports-btn reports-btn--primary" disabled={islemde} type="button" onClick={paketOlustur}>
                 <PackageCheck size={18} />
-                Paketi Oluştur
+                Oluştur
               </button>
             </div>
           </section>
@@ -223,12 +218,8 @@ export function RaporlarSayfasi({ yenileAnahtari }: RaporlarSayfasiProps) {
           <section className="reports-card reports-preview-card">
             <div className="reports-card__header">
               <div>
-                <span className="reports-eyebrow">
-                  <Archive size={18} />
-                  Son Rapor / Önizleme
-                </span>
-                <h2>{sonPaket?.varMi ? sonPaket.ad : `${donem || ekran?.varsayilanDonem || "Bu ay"} paketi henüz oluşturulmadı`}</h2>
-                <p>{sonPaket?.varMi ? `${sonPaket.donem} dönemi - ${sonPaket.olusturmaZamani}` : "Yukarıdaki seçenekleri belirleyip paket oluşturabilirsiniz."}</p>
+                <h2>{sonPaket?.varMi ? sonPaket.ad : "Son rapor"}</h2>
+                {sonPaket?.varMi ? <p>{sonPaket.donem} · {sonPaket.olusturmaZamani}</p> : null}
               </div>
               <CheckCircle2 className={sonPaket?.varMi ? "reports-ok" : "reports-muted-icon"} size={24} />
             </div>
@@ -236,8 +227,8 @@ export function RaporlarSayfasi({ yenileAnahtari }: RaporlarSayfasiProps) {
             <div className="reports-preview-box">
               <FileText size={42} />
               <div>
-                <strong>{sonPaket?.varMi ? sonPaket.ad : "Rapor paketi bekleniyor"}</strong>
-                <span>{sonPaket?.varMi ? "ZIP paketi indirmeye hazır." : "Rapor formatlarını seçip paketi oluşturun."}</span>
+                <strong>{sonPaket?.varMi ? sonPaket.ad : "Henüz rapor yok"}</strong>
+                {sonPaket?.varMi ? <span>İndirmeye hazır</span> : null}
               </div>
             </div>
 
@@ -258,7 +249,7 @@ export function RaporlarSayfasi({ yenileAnahtari }: RaporlarSayfasiProps) {
           <section className="reports-card reports-print-card">
             <div className="reports-card__header reports-card__header--compact">
               <div>
-                <h2>Yazdır / Dışa Aktar</h2>
+                <h2>Dışa aktar</h2>
               </div>
               <ChevronUp size={21} />
             </div>

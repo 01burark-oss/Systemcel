@@ -1,5 +1,5 @@
 import React from "react";
-import { Building2, House, LogOut, MessageCircle, RefreshCw, Search } from "lucide-react";
+import { Building2, ChartNoAxesCombined, House, LogOut, MessageCircle, RefreshCw, Search } from "lucide-react";
 import { RequireAuth } from "./auth/AuthGate";
 import { AuthUserButton } from "./auth/AuthUserButton";
 import { useSystemcelAuth } from "./auth/SystemcelAuthProvider";
@@ -24,6 +24,9 @@ const CariHesaplarSayfasi = React.lazy(() =>
 );
 const DashboardSayfasi = React.lazy(() =>
   import("./screens/dashboard/DashboardSayfasi").then((module) => ({ default: module.DashboardSayfasi }))
+);
+const FinansalGorunumSayfasi = React.lazy(() =>
+  import("./screens/finansal-gorunum/FinansalGorunumSayfasi").then((module) => ({ default: module.FinansalGorunumSayfasi }))
 );
 const FaturalarSayfasi = React.lazy(() =>
   import("./screens/faturalar/FaturalarSayfasi").then((module) => ({ default: module.FaturalarSayfasi }))
@@ -543,6 +546,14 @@ function WorkspaceRoutes({ path }: { path: string }) {
     );
   }
 
+  if (mobileWorkspace && routePath === "/finansal-gorunum") {
+    return (
+      <MobileWorkspaceView active="finans">
+        <FinansalGorunumSayfasi yenileAnahtari={yenileAnahtari} ustBar={ustBar} />
+      </MobileWorkspaceView>
+    );
+  }
+
   if (mobileWorkspace) {
     return (
       <MobileWorkspaceView active="merkez">
@@ -618,6 +629,8 @@ function WorkspaceRoutes({ path }: { path: string }) {
             yenileAnahtari={yenileAnahtari}
             onIsletmeDegistir={isletmeDegistir}
           />
+        ) : routePath === "/finansal-gorunum" ? (
+          <FinansalGorunumSayfasi yenileAnahtari={yenileAnahtari} ustBar={ustBar} />
         ) : routePath === "/muhasebeci" ? (
           <MuhasebeciPanelSayfasi onUstBarYenile={ustBarYukle} />
         ) : routePath === "/yonetim/muhasebeci-basvurulari" ? (
@@ -702,6 +715,12 @@ function MobileCompanionScreen({
         <p>{description}</p>
 
         <div className="mobile-companion__actions" aria-label="Mobil erişim">
+          {!isAccountant ? (
+            <a href="/app/finansal-gorunum">
+              <ChartNoAxesCombined size={18} />
+              <span>Finans durumu</span>
+            </a>
+          ) : null}
           <a href="/app/sohbetler">
             <MessageCircle size={18} />
             <span>Sohbetler</span>
@@ -749,7 +768,7 @@ function MobileWorkspaceView({
   active,
   children
 }: {
-  active: "merkez" | "sohbetler" | "muhasebeciler";
+  active: "merkez" | "finans" | "sohbetler" | "muhasebeciler";
   children: React.ReactNode;
 }) {
   return (
@@ -761,6 +780,10 @@ function MobileWorkspaceView({
         <a className={active === "merkez" ? "active" : ""} href="/app" aria-label="Merkeze dön">
           <House size={18} />
           <span>Merkez</span>
+        </a>
+        <a className={active === "finans" ? "active" : ""} href="/app/finansal-gorunum" aria-label="Finans durumu">
+          <ChartNoAxesCombined size={18} />
+          <span>Finans</span>
         </a>
         <a className={active === "sohbetler" ? "active" : ""} href="/app/sohbetler" aria-label="Sohbetler">
           <MessageCircle size={18} />

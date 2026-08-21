@@ -143,19 +143,13 @@ export function TelegramBaglantisiSayfasi({ onTelegramDurumuDegisti }: TelegramB
     <main className={`telegram-page ${data.bagli ? "telegram-page--connected" : ""}`}>
       <header className="telegram-header">
         <div>
-          <div className="telegram-breadcrumb">Ayarlar <span>/</span> Telegram</div>
           <div className="telegram-title-row">
-            <h2>{data.bagli ? "Telegram Bağlandı" : "Telegram Bağlantısı"}</h2>
+            <h2>Telegram</h2>
             <span className={`telegram-status ${data.bagli ? "connected" : ""}`}>
               {data.bagli ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}
               {data.durum}
             </span>
           </div>
-          <p>
-            {data.bagli
-              ? "Telegram bağlantısı aktif. Bildirimler ve raporlar resmi Systemcel botu üzerinden gönderilecek."
-              : "Telegram'ı bağlayarak bildirimleri ve raporları doğrudan Telegram üzerinden alabilirsiniz."}
-          </p>
         </div>
       </header>
 
@@ -168,7 +162,6 @@ export function TelegramBaglantisiSayfasi({ onTelegramDurumuDegisti }: TelegramB
               </span>
               <div>
                 <strong>Telegram bağlantısı tamamlandı</strong>
-                <p>{botHandle} ile Systemcel arasındaki bağlantı aktif.</p>
               </div>
             </div>
 
@@ -293,7 +286,6 @@ export function TelegramBaglantisiSayfasi({ onTelegramDurumuDegisti }: TelegramB
           <section className="telegram-card telegram-after-card">
             <div>
               <h3>Bağlandıktan Sonra</h3>
-              <p>Telegram bağlantınız tamamlandıktan sonra aşağıdaki işlemleri yapabilirsiniz.</p>
             </div>
             <button className="telegram-after-action" disabled={islemde || !data.bagli} type="button" onClick={testMesajiGonder}>
               <Send size={20} />

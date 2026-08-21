@@ -192,8 +192,7 @@ export function GelirGiderSayfasi({
       <section className="liste-karti kart">
         <div className="kart-baslik">
           <div>
-            <h1>Tüm Kayıtlar Listesi</h1>
-            <p>{ekran?.aktifIsletme ? `İşletme: ${ekran.aktifIsletme}` : "Kayıtlar hazırlanıyor"}</p>
+            <h1>Kayıtlar</h1>
           </div>
           <div className="kart-baslik__aksiyonlar">
             <BusinessSelector
@@ -252,7 +251,7 @@ export function GelirGiderSayfasi({
 
       <section className="form-karti kart">
         <div className="form-baslik">
-          <h2>İşlem Kayıt Formu</h2>
+          <h2>{form.id === null ? "Yeni kayıt" : "Kaydı düzenle"}</h2>
           <span>{form.id === null ? "Yeni kayıt" : "Düzenleme"}</span>
         </div>
 

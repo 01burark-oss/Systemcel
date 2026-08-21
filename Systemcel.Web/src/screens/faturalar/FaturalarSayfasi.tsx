@@ -427,13 +427,12 @@ export function FaturalarSayfasi({
           <section className="invoice-stats">
             <article className="invoice-stat">
               <span className="invoice-stat__icon blue"><FileText size={26} /></span>
-              <p>Toplam Fatura</p>
+              <p>Fatura</p>
               <strong>{paraBic(ekran?.ozet.toplamFatura ?? 0)}</strong>
-              <small>{ekran?.ozet.faturaAdedi ?? 0} adet fatura</small>
             </article>
             <article className="invoice-stat">
               <span className="invoice-stat__icon green"><CheckCircle2 size={27} /></span>
-              <p>Tahsil Edilen</p>
+              <p>Tahsil edilen</p>
               <strong>{paraBic(ekran?.ozet.tahsilEdilen ?? 0)}</strong>
               <small>%{tahsilOrani} tahsilat oranı</small>
             </article>
@@ -441,7 +440,6 @@ export function FaturalarSayfasi({
               <span className="invoice-stat__icon amber"><Clock3 size={27} /></span>
               <p>Bekleyen</p>
               <strong>{paraBic(ekran?.ozet.bekleyen ?? 0)}</strong>
-              <small>{ekran?.ozet.bekleyenAdedi ?? 0} adet bekleyen fatura</small>
             </article>
           </section>
 
@@ -581,7 +579,7 @@ export function FaturalarSayfasi({
         {formPaneliAcik ? <aside className="invoice-side invoice-side--drawer">
           <section className="invoice-card invoice-form-card">
             <div className="invoice-card__header">
-              <h2>{seciliId ? "Faturayı Düzenle" : "Yeni Fatura Taslağı"}</h2>
+              <h2>{seciliId ? "Faturayı düzenle" : "Yeni fatura"}</h2>
               <button
                 type="button"
                 className="side-panel-close"
@@ -593,7 +591,7 @@ export function FaturalarSayfasi({
             </div>
 
             <div className="invoice-form-section">
-              <h3><i /> Genel Bilgiler</h3>
+              <h3><i /> Fatura bilgileri</h3>
               <div className="invoice-form-grid">
                 <label className="invoice-field">
                   <span>Fatura Tipi</span>
@@ -634,7 +632,7 @@ export function FaturalarSayfasi({
             </div>
 
             <div className="invoice-form-section">
-              <h3><i /> Ürün Bilgileri</h3>
+              <h3><i /> Kalemler</h3>
               <div className="invoice-form-grid invoice-form-grid--three">
                 <label className="invoice-field">
                   <span>Ürün</span>

@@ -316,7 +316,7 @@ export function AbonelikSayfasi() {
       ? { icon: <UsersRound size={20} />, text: limitMetni(ozet.haklar.musteriLimiti, "müşteri") }
       : { icon: <ReceiptText size={20} />, text: limitMetni(ozet.haklar.faturaLimiti, "fatura") },
     { icon: <ArrowDownUp size={20} />, text: limitMetni(ozet.haklar.gelirGiderIslemLimiti, "gelir-gider kaydı") },
-    { icon: <ContactRound size={20} />, text: limitMetni(ozet.haklar.cariKartLimiti, "cari kart") },
+    { icon: <ContactRound size={20} />, text: limitMetni(ozet.haklar.cariKartLimiti, "hesap") },
     ozet.hesapTipi === "Muhasebeci"
       ? { icon: <ReceiptText size={20} />, text: limitMetni(ozet.haklar.faturaLimiti, "fatura") }
       : { icon: <Package2 size={20} />, text: limitMetni(ozet.haklar.urunHizmetLimiti, "ürün / hizmet") }
@@ -440,7 +440,7 @@ export function AbonelikSayfasi() {
               <span>{ozet.odemeler.length} işlem</span>
             </header>
             {ozet.odemeler.length === 0 ? (
-              <div className="billing-empty"><CreditCard size={28} /><strong>Henüz ödeme yok</strong><p>Plan ödemeleriniz burada görünür.</p></div>
+              <div className="billing-empty"><CreditCard size={28} /><strong>Henüz ödeme yok</strong></div>
             ) : (
               <div className="billing-table-wrap">
                 <table className="billing-table">

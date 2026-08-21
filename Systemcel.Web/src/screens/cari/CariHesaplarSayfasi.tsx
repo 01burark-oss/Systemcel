@@ -148,7 +148,7 @@ export function CariHesaplarSayfasi({
     const hedefId = cariHedefId(tercihId, seciliIdRef.current);
     if (hedefId) {
       await detayYukle(hedefId, data);
-      setDurum(`${data.kartlar.length} cari kart hazır.`);
+      setDurum(`${data.kartlar.length} hesap hazır.`);
       return;
     }
 
@@ -205,7 +205,7 @@ export function CariHesaplarSayfasi({
       await yenile(result.id);
       setDurum(result.mesaj);
     } catch (error) {
-      setHata(error instanceof Error ? error.message : "Cari kart kaydedilemedi.");
+      setHata(error instanceof Error ? error.message : "Hesap kaydedilemedi.");
     } finally {
       setIslemde(false);
     }
@@ -216,7 +216,7 @@ export function CariHesaplarSayfasi({
       return;
     }
 
-    if (!window.confirm("Seçili cari kart ve hareketleri silinsin mi?")) {
+    if (!window.confirm("Bu hesap ve hareketleri silinsin mi?")) {
       return;
     }
 
@@ -229,7 +229,7 @@ export function CariHesaplarSayfasi({
       await yenile(null);
       setDurum(result.mesaj);
     } catch (error) {
-      setHata(error instanceof Error ? error.message : "Cari kart silinemedi.");
+      setHata(error instanceof Error ? error.message : "Hesap silinemedi.");
     } finally {
       setIslemde(false);
     }
@@ -237,7 +237,7 @@ export function CariHesaplarSayfasi({
 
   async function hareketEkle() {
     if (!seciliId) {
-      setHata("Önce bir cari kart seçin.");
+      setHata("Önce bir hesap seçin.");
       return;
     }
 
@@ -274,8 +274,7 @@ export function CariHesaplarSayfasi({
     <main ref={pageRef} className="cari-page">
       <section className="cari-hero">
         <div>
-          <h1>Cari Hesaplar</h1>
-          <p>{ekran?.aktifIsletme ? `Aktif işletme: ${ekran.aktifIsletme}` : "Cari kartlar hazırlanıyor."}</p>
+          <h1>Cari hesaplar</h1>
         </div>
 
         <div className="cari-hero__actions">
@@ -295,8 +294,7 @@ export function CariHesaplarSayfasi({
         <div className="cari-card cari-card--list">
           <div className="cari-card__header">
             <div>
-              <h2>Cari Liste</h2>
-              <p>{ekran ? `${ekran.kartlar.length} kayıt listeleniyor.` : "Liste yükleniyor."}</p>
+              <h2>Hesaplar</h2>
             </div>
           </div>
 
@@ -327,7 +325,7 @@ export function CariHesaplarSayfasi({
                     className={seciliId === kart.id ? "secili" : ""}
                     onClick={() => {
                       void detayYukle(kart.id);
-                      setDurum(`${kart.unvan || "Cari kart"} seçildi.`);
+                      setDurum(`${kart.unvan || "Hesap"} seçildi.`);
                     }}
                   >
                     <td>{kart.id}</td>
@@ -354,8 +352,7 @@ export function CariHesaplarSayfasi({
           <div className="cari-card cari-card--form">
             <div className="cari-card__header">
               <div>
-                <h2>Cari Kart</h2>
-                <p>{seciliId ? "Seçili kart düzenleniyor." : "Yeni cari kart oluşturun."}</p>
+                <h2>{seciliId ? "Hesabı düzenle" : "Yeni hesap"}</h2>
               </div>
               <strong className="cari-balance">Bakiye: {paraBic(detay?.bakiye ?? 0)}</strong>
             </div>
@@ -433,7 +430,7 @@ export function CariHesaplarSayfasi({
             <div className="cari-card__header">
               <div>
                 <h2>Hareketler</h2>
-                <p>{seciliId ? "Seçili cari kartın hareketleri." : "Hareket eklemek için kart seçin."}</p>
+                {!seciliId ? <p>Önce bir hesap seçin.</p> : null}
               </div>
             </div>
 

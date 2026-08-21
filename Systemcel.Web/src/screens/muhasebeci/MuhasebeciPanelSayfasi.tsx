@@ -311,12 +311,7 @@ export function MuhasebeciPanelSayfasi({ onUstBarYenile }: MuhasebeciPanelSayfas
     <main className="accountant-panel">
       <section className="accountant-panel__hero">
         <div>
-          <span className="accountant-eyebrow">
-            <BriefcaseBusiness size={16} />
-            {panel.muhasebeciAdi}
-          </span>
-          <h1>Muhasebeci Paneli</h1>
-          <p>Müşteri portföyü, davetler ve pazaryeri profili tek çalışma alanında.</p>
+          <h1>Müşteriler</h1>
         </div>
         {entitlement?.muhasebeciProOnerilir ? (
           <div className="accountant-pro-note">

@@ -7,6 +7,7 @@ import {
   BriefcaseBusiness,
   Building2,
   CalendarClock,
+  ChartNoAxesCombined,
   CreditCard,
   FileText,
   Globe2,
@@ -44,8 +45,6 @@ interface ReactWorkspaceShellProps {
 }
 
 interface WorkspacePageMeta {
-  category?: string;
-  description: string;
   icon: LucideIcon;
   title: string;
 }
@@ -62,7 +61,8 @@ interface Bildirim {
 
 const anaMenu: Array<{ href: string; label: string; icon: LucideIcon; adminOnly?: boolean }> = [
   { href: "/", label: "Ana Sayfa", icon: Home },
-  { href: "/gelir-gider", label: "Gelir / Gider Kayıtları", icon: ArrowDownUp },
+  { href: "/finansal-gorunum", label: "Finans Durumu", icon: ChartNoAxesCombined },
+  { href: "/gelir-gider", label: "Gelir / Gider", icon: ArrowDownUp },
   { href: "/hizli-satis", label: "Hızlı Satış", icon: ShoppingCart },
   { href: "/urun-stok", label: "Ürün / Stok", icon: Package },
   { href: "/cari-hesaplar", label: "Cari Hesaplar", icon: CreditCard },
@@ -149,18 +149,22 @@ function yetkiEtiketi(value?: string) {
 }
 
 function workspacePageMeta(path: string, settingsTab: string): WorkspacePageMeta {
+  if (path === "/finansal-gorunum") {
+    return {
+      icon: ChartNoAxesCombined,
+      title: "Finans durumu"
+    };
+  }
+
   if (path === "/gelir-gider") {
     return {
-      description: "Gelir ve gider hareketlerini kaydedin, arayın ve güncel nakit akışınızı izleyin.",
       icon: ArrowDownUp,
-      title: "Gelir ve gider kayıtları"
+      title: "Gelir / Gider"
     };
   }
 
   if (path === "/cari-hesaplar") {
     return {
-      category: "Müşteri ve tedarikçi",
-      description: "Cari kartları, bakiyeleri ve hesap hareketlerini tek çalışma alanında yönetin.",
       icon: CreditCard,
       title: "Cari hesaplar"
     };
@@ -168,8 +172,6 @@ function workspacePageMeta(path: string, settingsTab: string): WorkspacePageMeta
 
   if (path === "/urun-stok") {
     return {
-      category: "Envanter yönetimi",
-      description: "Ürün, hizmet ve stok hareketlerini düzenleyin; kritik seviyeleri takip edin.",
       icon: ShoppingCart,
       title: "Ürün ve stok"
     };
@@ -177,8 +179,6 @@ function workspacePageMeta(path: string, settingsTab: string): WorkspacePageMeta
 
   if (path === "/hizli-satis") {
     return {
-      category: "Satış noktası",
-      description: "Stoktaki ürünleri seçin veya barkod okutun; satışı tamamlayınca stok ve gelir kaydı otomatik güncellensin.",
       icon: ScanBarcode,
       title: "Hızlı satış"
     };
@@ -186,7 +186,6 @@ function workspacePageMeta(path: string, settingsTab: string): WorkspacePageMeta
 
   if (path === "/faturalar") {
     return {
-      description: "Faturaları oluşturun, durumlarını takip edin ve tahsilat süreçlerine bağlayın.",
       icon: FileText,
       title: "Faturalar"
     };
@@ -194,7 +193,6 @@ function workspacePageMeta(path: string, settingsTab: string): WorkspacePageMeta
 
   if (path === "/tahsilat-odeme") {
     return {
-      description: "Gelen tahsilatları ve yapılan ödemeleri kaydedip açık bakiyelerle eşleştirin.",
       icon: WalletCards,
       title: "Tahsilat ve ödeme"
     };
@@ -202,7 +200,6 @@ function workspacePageMeta(path: string, settingsTab: string): WorkspacePageMeta
 
   if (path === "/raporlar") {
     return {
-      description: "Dönem performansını inceleyin, karşılaştırın ve paylaşılabilir raporlar hazırlayın.",
       icon: BarChart3,
       title: "Raporlar"
     };
@@ -210,7 +207,6 @@ function workspacePageMeta(path: string, settingsTab: string): WorkspacePageMeta
 
   if (path === "/sohbetler") {
     return {
-      description: "Muhasebeciniz veya müşterilerinizle mesaj, belge ve veri taleplerini yönetin.",
       icon: MessageCircle,
       title: "Sohbetler"
     };
@@ -218,8 +214,6 @@ function workspacePageMeta(path: string, settingsTab: string): WorkspacePageMeta
 
   if (path === "/muhasebeciler") {
     return {
-      category: "Uzman eşleşmesi",
-      description: "Uzmanlık ve çalışma alanına göre muhasebecileri karşılaştırın ve bağlantı kurun.",
       icon: Search,
       title: "Muhasebeciler"
     };
@@ -227,8 +221,6 @@ function workspacePageMeta(path: string, settingsTab: string): WorkspacePageMeta
 
   if (path === "/muhasebeci") {
     return {
-      category: "Müşteri yönetimi",
-      description: "Müşteri portföyünüzü, talepleri ve çalışma alanlarını tek panelden yönetin.",
       icon: BriefcaseBusiness,
       title: "Muhasebeci paneli"
     };
@@ -236,17 +228,13 @@ function workspacePageMeta(path: string, settingsTab: string): WorkspacePageMeta
 
   if (path === "/abonelik") {
     return {
-      category: "Ayarlar",
-      description: "Planınızı, yenileme tarihinizi ve abonelik ödeme geçmişinizi yönetin.",
       icon: CalendarClock,
-      title: "Plan ve Faturalama"
+      title: "Plan ve ödeme"
     };
   }
 
   if (path.startsWith("/yonetim")) {
     return {
-      category: "Platform yönetimi",
-      description: "Muhasebeci başvurularını inceleyin, doğrulayın ve üyelik durumlarını yönetin.",
       icon: ShieldCheck,
       title: "Muhasebeci başvuruları"
     };
@@ -254,43 +242,35 @@ function workspacePageMeta(path: string, settingsTab: string): WorkspacePageMeta
 
   if (path === "/gib-portal") {
     return {
-      description: "GİB Portal kimlik bilgilerini güvenle yönetin ve bağlantı durumunu doğrulayın.",
       icon: Globe2,
-      title: "GİB Portal ayarları"
+      title: "GİB bağlantısı"
     };
   }
 
   if (path === "/ayarlar") {
     if (settingsTab === "telegram" || settingsTab === "bot") {
       return {
-        category: "Bildirim entegrasyonu",
-        description: "Telegram botunu bağlayın, eşleştirme durumunu ve bildirim akışını yönetin.",
         icon: Send,
-        title: "Telegram bağlantısı"
+        title: "Telegram"
       };
     }
 
     if (settingsTab === "gib" || settingsTab === "gib-portal") {
       return {
-        description: "İşletmenizin GİB Portal bağlantısını ve e-belge tercihlerini yönetin.",
         icon: Landmark,
-        title: "GİB Portal ayarları"
+        title: "GİB bağlantısı"
       };
     }
 
     return {
-      category: "Çalışma alanı",
-      description: "İşletme bilgilerini, kategorileri ve uygulama tercihlerini düzenleyin.",
       icon: Settings,
-      title: "İşletme ayarları"
+      title: "Ayarlar"
     };
   }
 
   return {
-    category: "Genel bakış",
-    description: "Gelir, gider, net kâr ve finansal hareketlerin güncel özetini takip edin.",
     icon: Home,
-    title: "Finansal özet"
+    title: "Ana sayfa"
   };
 }
 
@@ -480,10 +460,8 @@ export function ReactWorkspaceShell({ children, ustBar, baslik, sagAksiyon }: Re
                 <span className="workspace-page-heading__icon" aria-hidden="true">
                   <PageIcon size={21} />
                 </span>
-                <div className={`workspace-page-heading__copy${pageMeta.category ? "" : " workspace-page-heading__copy--without-eyebrow"}`}>
-                  {pageMeta.category ? <span className="workspace-page-heading__eyebrow">{pageMeta.category}</span> : null}
+                <div className="workspace-page-heading__copy workspace-page-heading__copy--without-eyebrow">
                   <h1>{pageMeta.title}</h1>
-                  <p>{pageMeta.description}</p>
                 </div>
               </div>
             )}

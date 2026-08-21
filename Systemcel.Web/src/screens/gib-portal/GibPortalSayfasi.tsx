@@ -5,7 +5,6 @@ import {
   LockKeyhole,
   RefreshCw,
   Save,
-  ServerCog,
   ShieldCheck,
   TestTube2
 } from "lucide-react";
@@ -105,12 +104,7 @@ export function GibPortalSayfasi({ yenileAnahtari }: GibPortalSayfasiProps) {
     <main className="gib-page">
       <section className="gib-hero">
         <div>
-          <span className="gib-eyebrow">
-            <ServerCog size={18} />
-            GİB e-Arşiv Portal
-          </span>
-          <h1>Portal bağlantısını yönet</h1>
-          <p>{ekran?.aktifIsletme || "Aktif işletme"} için kullanıcı kodu ve şifreyi güvenli şekilde sakla, bağlantıyı test et.</p>
+          <h1>GİB bağlantısı</h1>
         </div>
         <button className="gib-icon-btn" disabled={islemde} type="button" onClick={yukle}>
           <RefreshCw className={islemde ? "spin" : ""} size={20} />
@@ -136,8 +130,7 @@ export function GibPortalSayfasi({ yenileAnahtari }: GibPortalSayfasiProps) {
         <section className="gib-card gib-settings-card">
           <div className="gib-card__header">
             <div>
-              <h2>Portal Ayarları</h2>
-              <p>Bu bilgiler GİB e-Arşiv Portal'a taslak gönderme ve SMS onayı için kullanılır.</p>
+              <h2>Portal ayarları</h2>
             </div>
             <KeyRound size={24} />
           </div>
@@ -188,11 +181,11 @@ export function GibPortalSayfasi({ yenileAnahtari }: GibPortalSayfasiProps) {
           <ol>
             <li>
               <strong>GİB Taslak</strong>
-              <span>Fatura Portal taslağı olarak gönderilir ve Portal UUID kaydedilir.</span>
+              <span>Taslak GİB'e gönderilir.</span>
             </li>
             <li>
               <strong>SMS Onayı</strong>
-              <span>Kes / Onayla butonu kayıtlı telefona SMS kodu gönderir.</span>
+              <span>Onay kodu kayıtlı telefona gelir.</span>
             </li>
             <li>
               <strong>Kesildi</strong>

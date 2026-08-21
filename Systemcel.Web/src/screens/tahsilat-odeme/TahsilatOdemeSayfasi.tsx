@@ -380,7 +380,7 @@ export function TahsilatOdemeSayfasi({ yenileAnahtari }: TahsilatOdemeSayfasiPro
         {formPaneliAcik ? <aside className="payment-side payment-side--drawer">
           <section className="payment-card payment-form-card">
             <div className="payment-card__header">
-              <h2>Yeni Tahsilat / Ödeme</h2>
+              <h2>Yeni işlem</h2>
               <button
                 type="button"
                 className="side-panel-close"
@@ -392,7 +392,7 @@ export function TahsilatOdemeSayfasi({ yenileAnahtari }: TahsilatOdemeSayfasiPro
               </button>
             </div>
 
-            <FormSection title="Genel Bilgiler">
+            <FormSection title="İşlem bilgileri">
               <div className="payment-form-grid">
                 <label className="payment-field">
                   <span>İşlem Tipi</span>

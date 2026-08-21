@@ -388,19 +388,19 @@ export function UrunStokSayfasi({ yenileAnahtari }: UrunStokSayfasiProps) {
       <section className="stock-stats">
         <div className="stock-stat">
           <span className="stock-stat__icon blue"><Box size={24} /></span>
-          <div><small>Toplam Ürün</small><strong>{ozette.aktifUrun}</strong><p>Aktif ürün sayısı</p></div>
+          <div><small>Ürün</small><strong>{ozette.aktifUrun}</strong></div>
         </div>
         <div className="stock-stat">
           <span className="stock-stat__icon amber"><AlertTriangle size={24} /></span>
-          <div><small>Kritik Stokta</small><strong>{ozette.kritik}</strong><p>Kritik seviyedeki ürünler</p></div>
+          <div><small>Kritik stok</small><strong>{ozette.kritik}</strong></div>
         </div>
         <div className="stock-stat">
           <span className="stock-stat__icon green"><WalletCards size={24} /></span>
-          <div><small>Stok Değeri</small><strong>{paraBic(ozette.stokDegeri)}</strong><p>Tahmini toplam değer</p></div>
+          <div><small>Stok değeri</small><strong>{paraBic(ozette.stokDegeri)}</strong></div>
         </div>
         <div className="stock-stat">
           <span className="stock-stat__icon purple"><TrendingUp size={24} /></span>
-          <div><small>Bugünkü Hareket</small><strong>+{ozette.bugunkuHareket}</strong><p>Toplam işlem adedi</p></div>
+          <div><small>Bugünkü hareket</small><strong>+{ozette.bugunkuHareket}</strong></div>
         </div>
       </section>
 
@@ -408,7 +408,7 @@ export function UrunStokSayfasi({ yenileAnahtari }: UrunStokSayfasiProps) {
         <div className="stock-left">
           <div className="stock-card stock-card--list">
             <div className="stock-card__header">
-              <h2>Ürün Listesi</h2>
+              <h2>Ürünler</h2>
               <div className="stock-list-tools">
                 <label className="stock-search">
                   <Search size={17} />
@@ -501,7 +501,7 @@ export function UrunStokSayfasi({ yenileAnahtari }: UrunStokSayfasiProps) {
 
           <div className="stock-card stock-card--history">
             <div className="stock-card__header compact">
-              <h2>Son Stok Hareketleri</h2>
+              <h2>Son hareketler</h2>
             </div>
             <div className="stock-table-wrap stock-table-wrap--history">
               <table className="stock-table stock-table--history">
@@ -548,13 +548,13 @@ export function UrunStokSayfasi({ yenileAnahtari }: UrunStokSayfasiProps) {
             <header className="stock-workbench__header">
               <div>
                 <span>Hızlı işlem</span>
-                <h2>İşlem Paneli</h2>
+                <h2>Ürün işlemi</h2>
               </div>
               <button
                 type="button"
                 className="side-panel-close"
                 onClick={() => setIslemPaneliAcik(false)}
-                aria-label="İşlem panelini kapat"
+                aria-label="Ürün işlemini kapat"
               >
                 <X size={18} />
               </button>
@@ -694,8 +694,7 @@ export function UrunStokSayfasi({ yenileAnahtari }: UrunStokSayfasiProps) {
       {barkodPaneliAcik && (
         <div className="stock-modal" role="dialog" aria-modal="true">
           <div className="stock-modal__card">
-            <h2>Barkod ile ürün ekle</h2>
-            <p>Barkod okuyucudan ürün barkodunu okutun.</p>
+            <h2>Barkod okut</h2>
             <input
               ref={barcodeInputRef}
               value={barkodDegeri}
@@ -708,7 +707,7 @@ export function UrunStokSayfasi({ yenileAnahtari }: UrunStokSayfasiProps) {
               }}
               placeholder="Barkod"
             />
-            <small>{barkodMesaji || "Cihaz klavye gibi çalışır; barkod otomatik yazılır ve Enter ile tamamlanır."}</small>
+            {barkodMesaji ? <small>{barkodMesaji}</small> : null}
             <div className="stock-modal__actions">
               <button type="button" className="stock-btn" onClick={() => setBarkodPaneliAcik(false)}>Vazgeç</button>
               <button type="button" className="stock-btn stock-btn--primary" onClick={() => void barkoduIsle()}>Tamam</button>
