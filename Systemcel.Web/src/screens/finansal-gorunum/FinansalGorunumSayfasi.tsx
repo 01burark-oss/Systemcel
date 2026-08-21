@@ -4,6 +4,7 @@ import {
   ArrowDownRight,
   ArrowUpRight,
   CalendarDays,
+  ChevronDown,
   CircleDollarSign,
   Clock3,
   Gauge,
@@ -373,19 +374,139 @@ function tekrarEtiketi(tip: string, aralik: number) {
 }
 
 function FinansalUyarilar({ ekran, planSayisi, riskliCariSayisi }: { ekran: FinansalGorunumEkranVerisi; planSayisi: number; riskliCariSayisi: number }) {
-  const warnings: Array<{ tone: string; title: string }> = [];
-  if (ekran.ilkNegatifHafta) warnings.push({ tone: "danger", title: `${ekran.ilkNegatifHafta}. haftada nakit açığı` });
-  if (riskliCariSayisi > 0) warnings.push({ tone: "warning", title: `${riskliCariSayisi} riskli müşteri` });
-  for (const warning of ekran.veriUyarilari) warnings.push({
+  const [acikUyari, setAcikUyari] = React.useState<string | null>(null);
+  const riskliCariler = ekran.cariRiskleri.filter((row) => row.riskSeviyesi === "Yuksek");
+  const warnings: Array<{ id: string; tone: string; title: string; detail: React.ReactNode }> = [];
+
+  if (ekran.ilkNegatifHafta) {
+    const hafta = ekran.nakitProjeksiyonu.find((row) => row.hafta === ekran.ilkNegatifHafta);
+    warnings.push({
+      id: "nakit-acigi",
+      tone: "danger",
+      title: `${ekran.ilkNegatifHafta}. haftada nakit açığı`,
+      detail: hafta ? (
+        <>
+          <UyariDetayBasligi baslik={`${hafta.hafta}. hafta`} meta={`${tarihBic(hafta.baslangic, true)} – ${tarihBic(hafta.bitis, true)}`} />
+          <div className="finance-warning-details__metrics">
+            <span><small>Giriş</small><strong>{paraBic(hafta.beklenenTahsilat + hafta.planlananGelir, ekran.paraBirimi)}</strong></span>
+            <span><small>Çıkış</small><strong>{paraBic(hafta.beklenenOdeme + hafta.planlananGider, ekran.paraBirimi)}</strong></span>
+            <span><small>Kapanış</small><strong>{paraBic(hafta.kapanisBakiyesi, ekran.paraBirimi)}</strong></span>
+          </div>
+        </>
+      ) : <p>Nakit açığı görülen haftanın ayrıntısı bulunamadı.</p>
+    });
+  }
+
+  if (riskliCariSayisi > 0) warnings.push({
+    id: "riskli-cariler",
     tone: "warning",
-    title: warning.kayitAdedi > 0
-      ? warning.kod === "VadeTarihiEksik" ? `${warning.kayitAdedi} faturanın vade tarihi eksik` : `${warning.kayitAdedi} eksik kayıt`
-      : warning.mesaj
+    title: `${riskliCariSayisi} riskli müşteri`,
+    detail: (
+      <>
+        <UyariDetayBasligi baslik="Riskli müşteriler" meta={`${riskliCariSayisi} müşteri`} />
+        <ul className="finance-warning-details__list">
+          {riskliCariler.map((row) => (
+            <li key={row.cariKartId}>
+              <span><strong>{row.unvan}</strong><small>En uzun gecikme: {row.enUzunGecikmeGunu} gün</small></span>
+              <span><strong>{paraBic(row.vadesiGecmisAlacak, ekran.paraBirimi)}</strong><small>{paraBic(row.acikAlacak, ekran.paraBirimi)} açık</small></span>
+            </li>
+          ))}
+        </ul>
+        <a className="finance-warning-details__link" href="/app/tahsilat-odeme">Tahsilatları aç</a>
+      </>
+    )
   });
-  if (ekran.acikAlacakToplami === 0) warnings.push({ tone: "neutral", title: "Açık alacak yok" });
-  if (planSayisi === 0) warnings.push({ tone: "neutral", title: "Nakit planı yok" });
+
+  for (const warning of ekran.veriUyarilari) {
+    const hedef = veriUyarisiHedefi(warning.kod);
+    warnings.push({
+      id: `veri-${warning.kod}`,
+      tone: "warning",
+      title: veriUyarisiBasligi(warning.kod, warning.kayitAdedi, warning.mesaj),
+      detail: (
+        <>
+          <UyariDetayBasligi baslik={veriUyarisiDetayBasligi(warning.kod)} meta={`${warning.kayitAdedi} kayıt`} />
+          <p>{warning.mesaj}</p>
+          {hedef ? <a className="finance-warning-details__link" href={hedef.href}>{hedef.etiket}</a> : null}
+        </>
+      )
+    });
+  }
+
+  if (ekran.acikAlacakToplami === 0) warnings.push({
+    id: "acik-alacak-yok",
+    tone: "neutral",
+    title: "Açık alacak yok",
+    detail: <><UyariDetayBasligi baslik="Açık alacak yok" /><p>Kesilmiş satış faturalarının tamamı tahsil edilmiş.</p></>
+  });
+  if (planSayisi === 0) warnings.push({
+    id: "nakit-plani-yok",
+    tone: "neutral",
+    title: "Nakit planı yok",
+    detail: <><UyariDetayBasligi baslik="Nakit planı yok" /><p>Yaklaşan düzenli gelir ve giderleri ekleyerek nakit tahminini tamamlayabilirsiniz.</p><a className="finance-warning-details__link" href="#finance-plan-form-title">Plan ekle</a></>
+  });
   if (warnings.length === 0) return null;
-  return <section className="finance-warnings" aria-label="Uyarılar">{warnings.map((row, index) => <article key={`${row.title}-${index}`} className={`finance-warning finance-warning--${row.tone}`}><AlertTriangle size={16} aria-hidden="true" /><strong>{row.title}</strong></article>)}</section>;
+
+  const seciliUyari = warnings.find((row) => row.id === acikUyari) ?? null;
+  return (
+    <section className="finance-warnings" aria-label="Uyarılar">
+      {warnings.map((row) => {
+        const acik = row.id === acikUyari;
+        const detailId = `finance-warning-detail-${row.id}`;
+        return (
+          <button
+            key={row.id}
+            className={`finance-warning finance-warning--${row.tone}${acik ? " is-open" : ""}`}
+            type="button"
+            aria-expanded={acik}
+            aria-controls={detailId}
+            onClick={() => setAcikUyari(acik ? null : row.id)}
+          >
+            <AlertTriangle size={16} aria-hidden="true" />
+            <strong>{row.title}</strong>
+            <ChevronDown className="finance-warning__chevron" size={16} aria-hidden="true" />
+          </button>
+        );
+      })}
+      {seciliUyari ? (
+        <div id={`finance-warning-detail-${seciliUyari.id}`} className={`finance-warning-details finance-warning-details--${seciliUyari.tone}`} role="region" aria-label={`${seciliUyari.title} detayları`}>
+          {seciliUyari.detail}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function UyariDetayBasligi({ baslik, meta }: { baslik: string; meta?: string }) {
+  return <div className="finance-warning-details__header"><strong>{baslik}</strong>{meta ? <span>{meta}</span> : null}</div>;
+}
+
+function veriUyarisiBasligi(kod: string, adet: number, mesaj: string) {
+  if (kod === "VadeTarihiEksik") return `${adet} faturanın vade tarihi eksik`;
+  if (kod === "OdemeDetayiUyusmazligi") return `${adet} faturada ödeme uyuşmuyor`;
+  if (kod === "FaturayaBaglanmamisOdeme") return `${adet} işlem faturaya bağlı değil`;
+  if (kod === "CariKaydiEksik") return `${adet} cari kaydı eksik`;
+  if (kod === "GelecekTarihliKasaKaydi") return `${adet} ileri tarihli kasa kaydı`;
+  if (kod === "KasaAcilisBakiyesiYok") return "Açılış bakiyesi eksik";
+  return adet > 0 ? `${adet} kayıt kontrol edilmeli` : mesaj;
+}
+
+function veriUyarisiDetayBasligi(kod: string) {
+  if (kod === "VadeTarihiEksik") return "Vade tarihi olmayan faturalar";
+  if (kod === "OdemeDetayiUyusmazligi") return "Ödeme toplamı uyuşmayan faturalar";
+  if (kod === "FaturayaBaglanmamisOdeme") return "Faturaya bağlanmamış işlemler";
+  if (kod === "CariKaydiEksik") return "Cari kartı bulunamayan faturalar";
+  if (kod === "GelecekTarihliKasaKaydi") return "İleri tarihli kasa hareketleri";
+  if (kod === "KasaAcilisBakiyesiYok") return "Açılış bakiyesi";
+  return "Kontrol edilmesi gereken kayıtlar";
+}
+
+function veriUyarisiHedefi(kod: string) {
+  if (kod === "VadeTarihiEksik" || kod === "OdemeDetayiUyusmazligi") return { href: "/app/faturalar", etiket: "Faturaları aç" };
+  if (kod === "FaturayaBaglanmamisOdeme") return { href: "/app/tahsilat-odeme", etiket: "İşlemleri aç" };
+  if (kod === "CariKaydiEksik") return { href: "/app/cari-hesaplar", etiket: "Cari hesapları aç" };
+  if (kod === "GelecekTarihliKasaKaydi" || kod === "KasaAcilisBakiyesiYok") return { href: "/app/gelir-gider", etiket: "Kasa kayıtlarını aç" };
+  return null;
 }
 
 function CariRiskSatiri({ currency, row }: { currency: string; row: CariOdemeRitmi }) {

@@ -161,6 +161,32 @@ describe("FinansalGorunumSayfasi", () => {
     expect(screen.getByText(/Her ay/)).toBeVisible();
   });
 
+  it("opens risk and missing-data details from the warning cards", async () => {
+    const user = userEvent.setup();
+    render(<FinansalGorunumSayfasi yenileAnahtari={0} />);
+
+    const warnings = await screen.findByRole("region", { name: "Uyarılar" });
+    const riskButton = within(warnings).getByRole("button", { name: "1 riskli müşteri" });
+    const missingDataButton = within(warnings).getByRole("button", { name: "2 faturanın vade tarihi eksik" });
+
+    expect(riskButton).toHaveAttribute("aria-expanded", "false");
+    await user.click(riskButton);
+
+    expect(riskButton).toHaveAttribute("aria-expanded", "true");
+    const riskDetails = within(warnings).getByRole("region", { name: "1 riskli müşteri detayları" });
+    expect(within(riskDetails).getByText("Riskli Müşteri")).toBeVisible();
+    expect(within(riskDetails).getByText(/4\.200,00/)).toBeVisible();
+    expect(within(riskDetails).getByRole("link", { name: "Tahsilatları aç" })).toHaveAttribute("href", "/app/tahsilat-odeme");
+
+    await user.click(missingDataButton);
+
+    expect(riskButton).toHaveAttribute("aria-expanded", "false");
+    expect(missingDataButton).toHaveAttribute("aria-expanded", "true");
+    const missingDataDetails = within(warnings).getByRole("region", { name: "2 faturanın vade tarihi eksik detayları" });
+    expect(within(missingDataDetails).getByText("Vade tarihi olmayan faturalar için fatura tarihi kullanıldı.")).toBeVisible();
+    expect(within(missingDataDetails).getByRole("link", { name: "Faturaları aç" })).toHaveAttribute("href", "/app/faturalar");
+  });
+
   it("posts a recurring plan payload, reloads, and deletes after confirmation", async () => {
     const user = userEvent.setup();
     const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
