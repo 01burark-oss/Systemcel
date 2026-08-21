@@ -6301,50 +6301,34 @@ select:disabled {
 }
 
 .payment-chart {
-  position: relative;
   width: min(100%, 370px);
-  aspect-ratio: 1;
+  display: grid;
+  justify-items: center;
+  gap: 14px;
   margin: 0 auto;
 }
 
-.payment-chart svg {
+.payment-chart__pie {
   width: 100%;
-  height: 100%;
-  transform: rotate(-90deg);
-}
-
-.payment-chart__track,
-.payment-chart__segment {
-  fill: none;
-  stroke-width: 22;
-  stroke-linecap: round;
-}
-
-.payment-chart__track {
-  stroke: rgba(229, 235, 243, 0.95);
-}
-
-.payment-chart__center {
-  position: absolute;
-  inset: 50% auto auto 50%;
-  transform: translate(-50%, -50%);
-  width: 114px;
-  height: 114px;
-  display: grid;
-  place-items: center;
-  text-align: center;
+  aspect-ratio: 1;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: inset 0 0 0 1px rgba(215, 223, 233, 0.95);
+  box-shadow: inset 0 0 0 1px rgba(17, 17, 15, 0.08);
 }
 
-.payment-chart__center strong {
+.payment-chart__summary {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  text-align: center;
+}
+
+.payment-chart__summary strong {
   color: #1a2434;
-  font-size: 28px;
+  font-size: 18px;
   line-height: 1;
 }
 
-.payment-chart__center span {
+.payment-chart__summary span {
   color: #768398;
   font-size: 12px;
   font-weight: 700;
@@ -6352,9 +6336,21 @@ select:disabled {
   letter-spacing: 0.08em;
 }
 
-.payment-chart__center small {
-  color: #31415c;
-  font-size: 12px;
+@media (prefers-reduced-motion: no-preference) {
+  .payment-chart__pie {
+    animation: payment-pie-reveal 420ms cubic-bezier(.22, 1, .36, 1) both;
+  }
+}
+
+@keyframes payment-pie-reveal {
+  from {
+    opacity: 0;
+    transform: scale(.94) rotate(-4deg);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) rotate(0);
+  }
 }
 
 .legacy-summary-block h2 {
@@ -11452,20 +11448,19 @@ tbody tr.secili {
 :root[data-theme="dark"] .legacy-summary-card h3,
 :root[data-theme="dark"] .payment-legend__name,
 :root[data-theme="dark"] .legacy-summary-card__rows span,
-:root[data-theme="dark"] .payment-chart__center strong {
+:root[data-theme="dark"] .payment-chart__summary strong {
   color: var(--color-text-primary);
 }
 
 :root[data-theme="dark"] .legacy-panel__header p,
 :root[data-theme="dark"] .payment-legend__values small,
 :root[data-theme="dark"] .share-rail__hint,
-:root[data-theme="dark"] .payment-chart__center span,
+:root[data-theme="dark"] .payment-chart__summary span,
 :root[data-theme="dark"] .snapshot-card__value .currency {
   color: var(--color-text-secondary);
 }
 
-:root[data-theme="dark"] .payment-legend__values strong,
-:root[data-theme="dark"] .payment-chart__center small {
+:root[data-theme="dark"] .payment-legend__values strong {
   color: #dbe9ff;
 }
 
@@ -11499,25 +11494,8 @@ tbody tr.secili {
   background: rgba(169, 190, 224, 0.16);
 }
 
-:root[data-theme="dark"] .payment-chart__track {
-  stroke: rgba(165, 189, 224, 0.2);
-}
-
-:root[data-theme="dark"] .payment-chart__center {
-  background: rgba(226, 236, 250, 0.94);
-  box-shadow: inset 0 0 0 1px rgba(165, 189, 224, 0.34);
-}
-
-:root[data-theme="dark"] .payment-chart__center strong {
-  color: #1a2434;
-}
-
-:root[data-theme="dark"] .payment-chart__center span {
-  color: #6d7b91;
-}
-
-:root[data-theme="dark"] .payment-chart__center small {
-  color: #31415c;
+:root[data-theme="dark"] .payment-chart__pie {
+  box-shadow: inset 0 0 0 1px rgba(165, 189, 224, 0.24);
 }
 
 :root[data-theme="dark"] .settings-field input,
@@ -18759,15 +18737,8 @@ tbody tr.secili {
 :root[data-theme="light"] .net-benchmark__bar { background: rgba(251, 250, 245, .16); }
 :root[data-theme="light"] .net-benchmark__fill.pozitif { background: var(--app-lime); }
 
-:root[data-theme="light"] .payment-chart__track { stroke: #dedbcc; }
-:root[data-theme="light"] .payment-chart__center {
-  border: 1px solid var(--app-line);
-  background: var(--app-paper);
-  box-shadow: none;
-}
-
-:root[data-theme="light"] .payment-chart__center strong,
-:root[data-theme="light"] .payment-chart__center small,
+:root[data-theme="light"] .payment-chart__pie { box-shadow: inset 0 0 0 1px var(--app-line); }
+:root[data-theme="light"] .payment-chart__summary strong,
 :root[data-theme="light"] .payment-legend__name,
 :root[data-theme="light"] .payment-legend__values strong,
 :root[data-theme="light"] .legacy-panel__header h2,

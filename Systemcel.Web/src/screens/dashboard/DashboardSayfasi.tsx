@@ -172,46 +172,33 @@ function NetBenchmarkMetni(veriSayisi: number, ortalama: number, bugunNet: numbe
     : `Son zamanlara göre net sonuç %${yuzde} daha zayıf.`;
 }
 
-function DonutChart({ odemeler }: { odemeler: OdemeDagilim[] }) {
+function PastaChart({ odemeler }: { odemeler: OdemeDagilim[] }) {
   const toplam = odemeler.reduce((sum, item) => sum + item.toplam, 0);
-  const oranlar = odemeler.map((item) => (toplam > 0 ? item.toplam / toplam : 1 / Math.max(odemeler.length, 1)));
-  const cevre = 2 * Math.PI * 68;
-
-  const segments = oranlar.map((oran, index) => {
-    const uzunluk = cevre * oran;
-    const offset = oranlar
-      .slice(0, index)
-      .reduce((sum, previousRatio) => sum + cevre * previousRatio, 0);
-    return {
-      color: ODEME_RENKLERI[index % ODEME_RENKLERI.length],
-      dasharray: `${Math.max(uzunluk - 4, 0)} ${cevre}`,
-      dashoffset: -offset
-    };
-  });
+  let oncekiOran = 0;
+  const dilimler = odemeler
+    .map((item, index) => {
+      const baslangic = oncekiOran;
+      const oran = toplam > 0 ? Math.max(item.toplam, 0) / toplam : 0;
+      oncekiOran += oran;
+      return `${ODEME_RENKLERI[index % ODEME_RENKLERI.length]} ${baslangic * 100}% ${oncekiOran * 100}%`;
+    })
+    .filter((_, index) => odemeler[index]?.toplam > 0);
+  const pastaArkaPlani = toplam > 0 && dilimler.length > 0
+    ? `conic-gradient(from -90deg, ${dilimler.join(", ")})`
+    : "#dedbcc";
 
   return (
-    <div className="payment-chart no-drag" draggable={false} onDragStart={preventNativeDrag}>
-      <svg viewBox="0 0 180 180" aria-hidden="true">
-        <circle cx="90" cy="90" r="68" className="payment-chart__track" />
-        {segments.map((segment) => (
-          <circle
-            key={`${segment.color}-${segment.dashoffset}`}
-            cx="90"
-            cy="90"
-            r="68"
-            className="payment-chart__segment"
-            style={{
-              stroke: segment.color,
-              strokeDasharray: segment.dasharray,
-              strokeDashoffset: segment.dashoffset
-            }}
-          />
-        ))}
-      </svg>
-      <div className="payment-chart__center">
-        <strong>{toplam > 0 ? "100%" : "0%"}</strong>
+    <div
+      className="payment-chart no-drag"
+      draggable={false}
+      onDragStart={preventNativeDrag}
+      role="img"
+      aria-label={`Ödeme yöntemleri pasta grafiği. Toplam ${paraBic(toplam)}`}
+    >
+      <div className="payment-chart__pie" style={{ background: pastaArkaPlani }} />
+      <div className="payment-chart__summary">
         <span>Toplam</span>
-        <small>{paraBic(toplam)}</small>
+        <strong>{paraBic(toplam)}</strong>
       </div>
     </div>
   );
@@ -397,7 +384,7 @@ export function DashboardSayfasi({
               ))}
             </div>
 
-            <DonutChart odemeler={ekran?.odemeDagilimi ?? []} />
+            <PastaChart odemeler={ekran?.odemeDagilimi ?? []} />
           </div>
         </section>
 
