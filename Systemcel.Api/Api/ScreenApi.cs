@@ -37,6 +37,7 @@ namespace Systemcel.Api.Api
         private readonly IFaturaService? _faturaService;
         private readonly IGibPortalService? _gibPortalService;
         private readonly ITahsilatOdemeService? _tahsilatOdemeService;
+        private readonly IOdemeHatirlatmaService? _odemeHatirlatmaService;
         private readonly IOnMuhasebeReportService? _onMuhasebeReportService;
         private readonly AppRuntimeOptions? _runtimeOptions;
         private readonly IAppSecurityService? _appSecurityService;
@@ -74,7 +75,8 @@ namespace Systemcel.Api.Api
             IMuhasebeciSohbetMerkeziService? muhasebeciSohbetMerkeziService = null,
             IEntitlementGuard? entitlementGuard = null,
             IDbContextFactory<CashTrackerDbContext>? dbFactory = null,
-            IPaymentPricingService? paymentPricingService = null)
+            IPaymentPricingService? paymentPricingService = null,
+            IOdemeHatirlatmaService? odemeHatirlatmaService = null)
         {
             _kasaService = kasaService;
             _summaryService = summaryService;
@@ -101,6 +103,7 @@ namespace Systemcel.Api.Api
             _entitlementGuard = entitlementGuard;
             _dbFactory = dbFactory;
             _paymentPricingService = paymentPricingService;
+            _odemeHatirlatmaService = odemeHatirlatmaService;
         }
 
         public void MapApi(WebApplication app)
@@ -1222,6 +1225,42 @@ namespace Systemcel.Api.Api
                     catch (Exception ex)
                     {
                         return Results.Problem($"Tahsilat/ödeme verileri yüklenemedi: {ex.Message}");
+                    }
+                });
+
+                app.MapGet("/api/ekran/tahsilat-odeme/faturalar/{id:int}/hatirlatma", async (int id) =>
+                {
+                    if (_odemeHatirlatmaService is null)
+                        return Results.BadRequest(new ApiHata("Hatırlatma servisi hazır değil."));
+
+                    try
+                    {
+                        return Results.Ok(await _odemeHatirlatmaService.GetPreviewAsync(id));
+                    }
+                    catch (Exception ex)
+                    {
+                        return Results.BadRequest(new ApiHata($"Hatırlatma hazırlanamadı: {ex.Message}"));
+                    }
+                });
+
+                app.MapPost("/api/ekran/tahsilat-odeme/faturalar/{id:int}/hatirlatma", async (int id) =>
+                {
+                    var readOnly = await RejectReadOnlyAccountantContextAsync();
+                    if (readOnly is not null)
+                        return readOnly;
+                    if (_odemeHatirlatmaService is null)
+                        return Results.BadRequest(new ApiHata("Hatırlatma servisi hazır değil."));
+
+                    try
+                    {
+                        var result = await _odemeHatirlatmaService.SendAsync(id);
+                        return result.Gonderildi
+                            ? Results.Ok(result)
+                            : Results.BadRequest(new ApiHata(result.Mesaj));
+                    }
+                    catch (Exception ex)
+                    {
+                        return Results.BadRequest(new ApiHata($"Hatırlatma gönderilemedi: {ex.Message}"));
                     }
                 });
 

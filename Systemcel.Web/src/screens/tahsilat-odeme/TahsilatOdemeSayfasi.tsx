@@ -5,16 +5,20 @@ import {
   Clock3,
   CreditCard,
   Filter,
+  Mail,
   MoreVertical,
   Plus,
   Save,
   Search,
   Trash2,
-  WalletCards
+  WalletCards,
+  X
 } from "lucide-react";
 import type { UstBarDurumu } from "../../shared/chrome";
 import { jsonOku } from "../../shared/json";
 import type {
+  OdemeHatirlatmaGonderimSonucu,
+  OdemeHatirlatmaOnizleme,
   TahsilatOdemeEkranVerisi,
   TahsilatOdemeFormu,
   TahsilatOdemeListeKaydi
@@ -140,6 +144,12 @@ export function TahsilatOdemeSayfasi({ yenileAnahtari }: TahsilatOdemeSayfasiPro
   const [, setDurum] = React.useState("Tahsilat/ödeme verileri yükleniyor...");
   const [islemde, setIslemde] = React.useState(false);
   const [formPaneliAcik, setFormPaneliAcik] = React.useState(true);
+  const [hatirlatmaFaturaId, setHatirlatmaFaturaId] = React.useState<number | null>(null);
+  const [hatirlatma, setHatirlatma] = React.useState<OdemeHatirlatmaOnizleme | null>(null);
+  const [hatirlatmaYukleniyor, setHatirlatmaYukleniyor] = React.useState(false);
+  const [hatirlatmaGonderiliyor, setHatirlatmaGonderiliyor] = React.useState(false);
+  const [hatirlatmaHatasi, setHatirlatmaHatasi] = React.useState("");
+  const [hatirlatmaSonucu, setHatirlatmaSonucu] = React.useState("");
 
   const filtreliHareketler = React.useMemo(() => {
     const query = arama.trim().toLocaleLowerCase("tr-TR");
@@ -249,6 +259,48 @@ export function TahsilatOdemeSayfasi({ yenileAnahtari }: TahsilatOdemeSayfasiPro
     }
 
     faturaFormunaAktar(Math.abs(row.id));
+  };
+
+  const hatirlatmaAc = async (row: TahsilatOdemeListeKaydi) => {
+    const faturaId = Math.abs(row.id);
+    setHatirlatmaFaturaId(faturaId);
+    setHatirlatma(null);
+    setHatirlatmaHatasi("");
+    setHatirlatmaSonucu("");
+    setHatirlatmaYukleniyor(true);
+    try {
+      const preview = await jsonOku<OdemeHatirlatmaOnizleme>(`/api/ekran/tahsilat-odeme/faturalar/${faturaId}/hatirlatma`);
+      setHatirlatma(preview);
+    } catch (error) {
+      setHatirlatmaHatasi(error instanceof Error ? error.message : "Hatırlatma hazırlanamadı.");
+    } finally {
+      setHatirlatmaYukleniyor(false);
+    }
+  };
+
+  const hatirlatmaKapat = () => {
+    if (hatirlatmaGonderiliyor) return;
+    setHatirlatmaFaturaId(null);
+    setHatirlatma(null);
+    setHatirlatmaHatasi("");
+    setHatirlatmaSonucu("");
+  };
+
+  const hatirlatmaGonder = async () => {
+    if (!hatirlatmaFaturaId || !hatirlatma?.gonderilebilir) return;
+    setHatirlatmaGonderiliyor(true);
+    setHatirlatmaHatasi("");
+    try {
+      const result = await jsonOku<OdemeHatirlatmaGonderimSonucu>(`/api/ekran/tahsilat-odeme/faturalar/${hatirlatmaFaturaId}/hatirlatma`, {
+        method: "POST"
+      });
+      setHatirlatmaSonucu(result.mesaj);
+      setHatirlatma((current) => current ? { ...current, gonderilebilir: false, engel: "Bu faturanın hatırlatması son 24 saat içinde gönderildi.", sonGonderimAt: result.gonderildiAt } : current);
+    } catch (error) {
+      setHatirlatmaHatasi(error instanceof Error ? error.message : "Hatırlatma gönderilemedi.");
+    } finally {
+      setHatirlatmaGonderiliyor(false);
+    }
   };
 
   const kaydet = async () => {
@@ -368,7 +420,7 @@ export function TahsilatOdemeSayfasi({ yenileAnahtari }: TahsilatOdemeSayfasiPro
               )}
             </div>
 
-            <PaymentTable rows={filtreliHareketler} onInvoiceSelect={bekleyenFaturaSec} />
+            <PaymentTable rows={filtreliHareketler} onInvoiceSelect={bekleyenFaturaSec} onReminder={hatirlatmaAc} />
 
             <div className="payment-table-footer">
               <span>Toplam {filtreliHareketler.length} kayıt</span>
@@ -549,6 +601,18 @@ export function TahsilatOdemeSayfasi({ yenileAnahtari }: TahsilatOdemeSayfasiPro
         </aside> : null}
       </section>
 
+      {hatirlatmaFaturaId ? (
+        <OdemeHatirlatmaModal
+          error={hatirlatmaHatasi}
+          loading={hatirlatmaYukleniyor}
+          onClose={hatirlatmaKapat}
+          onSend={hatirlatmaGonder}
+          preview={hatirlatma}
+          sending={hatirlatmaGonderiliyor}
+          success={hatirlatmaSonucu}
+        />
+      ) : null}
+
       {hata && (
         <p className="payment-feedback">
           <span className="payment-feedback__error">{hata}</span>
@@ -595,9 +659,11 @@ function FormSection({ children, title }: { children: React.ReactNode; title: st
 
 function PaymentTable({
   onInvoiceSelect,
+  onReminder,
   rows
 }: {
   onInvoiceSelect: (row: TahsilatOdemeListeKaydi) => void;
+  onReminder: (row: TahsilatOdemeListeKaydi) => void;
   rows: TahsilatOdemeListeKaydi[];
 }) {
   return (
@@ -611,7 +677,7 @@ function PaymentTable({
           <col style={{ width: "128px" }} />
           <col style={{ width: "124px" }} />
           <col style={{ width: "112px" }} />
-          <col className="payment-table__action" />
+          <col style={{ width: "204px" }} />
         </colgroup>
         <thead>
           <tr>
@@ -653,13 +719,17 @@ function PaymentTable({
                 </td>
                 <td className="payment-table__action">
                   {row.durum === "Bekliyor" && row.kaynak === "Fatura" ? (
-                    <button
-                      className="payment-row-action"
-                      type="button"
-                      onClick={() => onInvoiceSelect(row)}
-                    >
-                      {row.tip === "Odeme" ? "Öde" : "Tahsil Et"}
-                    </button>
+                    <div className="payment-row-actions">
+                      {row.tip === "Tahsilat" ? (
+                        <button className="payment-row-action payment-row-action--reminder" type="button" onClick={() => onReminder(row)}>
+                          <Mail size={14} />
+                          Hatırlat
+                        </button>
+                      ) : null}
+                      <button className="payment-row-action" type="button" onClick={() => onInvoiceSelect(row)}>
+                        {row.tip === "Odeme" ? "Öde" : "Tahsil Et"}
+                      </button>
+                    </div>
                   ) : (
                     <MoreVertical size={18} />
                   )}
@@ -669,6 +739,69 @@ function PaymentTable({
           )}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+function OdemeHatirlatmaModal({
+  error,
+  loading,
+  onClose,
+  onSend,
+  preview,
+  sending,
+  success
+}: {
+  error: string;
+  loading: boolean;
+  onClose: () => void;
+  onSend: () => void;
+  preview: OdemeHatirlatmaOnizleme | null;
+  sending: boolean;
+  success: string;
+}) {
+  return (
+    <div className="payment-reminder-modal" role="dialog" aria-modal="true" aria-labelledby="payment-reminder-title">
+      <section className="payment-reminder-modal__panel">
+        <div className="payment-reminder-modal__header">
+          <div>
+            <span className="payment-reminder-modal__icon"><Mail size={20} /></span>
+            <h2 id="payment-reminder-title">Ödeme hatırlatması</h2>
+          </div>
+          <button type="button" onClick={onClose} aria-label="Kapat" disabled={sending}><X size={20} /></button>
+        </div>
+
+        {loading ? <p className="payment-reminder-modal__loading">Hatırlatma hazırlanıyor…</p> : null}
+        {!loading && preview ? (
+          <>
+            <dl className="payment-reminder-summary">
+              <div><dt>Alıcı</dt><dd>{preview.cariUnvan}<small>{preview.aliciEposta || "E-posta yok"}</small></dd></div>
+              <div><dt>Fatura</dt><dd>{preview.faturaNo}<small>Vade: {preview.vadeTarihi ? tarihBic(preview.vadeTarihi) : "Eklenmemiş"}</small></dd></div>
+              <div><dt>Kalan</dt><dd>{paraBic(preview.kalanTutar)}</dd></div>
+            </dl>
+
+            <section className="payment-reminder-preview" aria-label="Gönderilecek e-posta">
+              <span>Konu</span>
+              <strong>{preview.konu}</strong>
+              {preview.mesaj ? <p>{preview.mesaj}</p> : null}
+            </section>
+
+            {preview.engel && !success ? <p className="payment-reminder-modal__notice">{preview.engel}</p> : null}
+          </>
+        ) : null}
+        {error ? <p className="payment-reminder-modal__error" role="alert">{error}</p> : null}
+        {success ? <p className="payment-reminder-modal__success" role="status">{success}</p> : null}
+
+        <div className="payment-reminder-modal__actions">
+          <button className="payment-btn" type="button" onClick={onClose} disabled={sending}>{success ? "Kapat" : "Vazgeç"}</button>
+          {!success ? (
+            <button className="payment-btn payment-btn--primary" type="button" onClick={onSend} disabled={sending || loading || !preview?.gonderilebilir}>
+              <Mail size={16} />
+              {sending ? "Gönderiliyor…" : "Hatırlatmayı gönder"}
+            </button>
+          ) : null}
+        </div>
+      </section>
     </div>
   );
 }

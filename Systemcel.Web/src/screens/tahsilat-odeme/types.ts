@@ -74,3 +74,26 @@ export interface TahsilatOdemeFormu {
   faturaIleEslestir: boolean;
   hizliNot: string;
 }
+
+export interface OdemeHatirlatmaOnizleme {
+  faturaId: number;
+  isletmeAdi: string;
+  aliciEposta: string;
+  cariUnvan: string;
+  faturaNo: string;
+  faturaTarihi: string;
+  vadeTarihi: string | null;
+  kalanTutar: number;
+  paraBirimi: string;
+  konu: string;
+  mesaj: string;
+  gonderilebilir: boolean;
+  engel: string;
+  sonGonderimAt: string | null;
+}
+
+export interface OdemeHatirlatmaGonderimSonucu {
+  gonderildi: boolean;
+  mesaj: string;
+  gonderildiAt: string | null;
+}

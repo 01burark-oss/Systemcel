@@ -45,6 +45,7 @@ namespace CashTracker.Infrastructure.Persistence
         public DbSet<Fatura> Faturalar => Set<Fatura>();
         public DbSet<FaturaSatir> FaturaSatirlari => Set<FaturaSatir>();
         public DbSet<TahsilatOdeme> TahsilatOdemeleri => Set<TahsilatOdeme>();
+        public DbSet<OdemeHatirlatma> OdemeHatirlatmalari => Set<OdemeHatirlatma>();
         public DbSet<BelgeDosya> BelgeDosyalari => Set<BelgeDosya>();
         public DbSet<GibPortalAyar> GibPortalAyarlari => Set<GibPortalAyar>();
         public DbSet<GibPortalIslemLog> GibPortalIslemLoglari => Set<GibPortalIslemLog>();
@@ -545,6 +546,18 @@ namespace CashTracker.Infrastructure.Persistence
                 e.HasIndex(x => new { x.IsletmeId, x.FaturaId });
                 e.HasIndex(x => new { x.IsletmeId, x.FaturaId, x.Tarih });
                 e.HasIndex(x => new { x.IsletmeId, x.CariKartId, x.Tarih });
+            });
+
+            modelBuilder.Entity<OdemeHatirlatma>(e =>
+            {
+                e.ToTable("OdemeHatirlatma");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.AliciEposta).IsRequired().HasMaxLength(320);
+                e.Property(x => x.Konu).IsRequired().HasMaxLength(240);
+                e.Property(x => x.Durum).IsRequired().HasMaxLength(24);
+                e.Property(x => x.Hata).IsRequired().HasMaxLength(500);
+                e.HasIndex(x => x.IsletmeId);
+                e.HasIndex(x => new { x.IsletmeId, x.FaturaId, x.GonderildiAt });
             });
 
             modelBuilder.Entity<BelgeDosya>(e =>

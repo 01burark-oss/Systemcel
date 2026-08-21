@@ -130,6 +130,12 @@ builder.Services.AddSingleton<IStokService, StokService>();
 builder.Services.AddSingleton<IHizliSatisService, HizliSatisService>();
 builder.Services.AddSingleton<IFaturaService, FaturaService>();
 builder.Services.AddSingleton<ITahsilatOdemeService, TahsilatOdemeService>();
+builder.Services.AddSingleton<IOdemeHatirlatmaSender>(_ => reminderEmailOptions.IsConfigured
+    ? new SmtpOdemeHatirlatmaSender(
+        reminderEmailOptions,
+        _.GetRequiredService<ILogger<SmtpOdemeHatirlatmaSender>>())
+    : new UnconfiguredOdemeHatirlatmaSender());
+builder.Services.AddSingleton<IOdemeHatirlatmaService, OdemeHatirlatmaService>();
 builder.Services.AddSingleton<IOnMuhasebeReportService, OnMuhasebeReportService>();
 builder.Services.AddSingleton<IFinansalGorunumService, FinansalGorunumService>();
 builder.Services.AddSingleton<ISubscriptionEntitlementService, SubscriptionEntitlementService>();

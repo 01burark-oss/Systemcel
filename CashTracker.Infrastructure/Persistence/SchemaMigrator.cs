@@ -28,6 +28,7 @@ namespace CashTracker.Infrastructure.Persistence
             EnsureFaturaTable(db);
             EnsureFaturaSatirTable(db);
             EnsureTahsilatOdemeTable(db);
+            EnsureOdemeHatirlatmaTable(db);
             EnsureBelgeDosyaTable(db);
             EnsureGibPortalAyarTable(db);
             EnsureGibPortalIslemLogTable(db);
@@ -135,6 +136,7 @@ WHERE NOT EXISTS (
         private static partial void EnsureFaturaTable(CashTrackerDbContext db);
         private static partial void EnsureFaturaSatirTable(CashTrackerDbContext db);
         private static partial void EnsureTahsilatOdemeTable(CashTrackerDbContext db);
+        private static partial void EnsureOdemeHatirlatmaTable(CashTrackerDbContext db);
         private static partial void EnsureBelgeDosyaTable(CashTrackerDbContext db);
         private static partial void EnsureGibPortalAyarTable(CashTrackerDbContext db);
         private static partial void EnsureGibPortalIslemLogTable(CashTrackerDbContext db);

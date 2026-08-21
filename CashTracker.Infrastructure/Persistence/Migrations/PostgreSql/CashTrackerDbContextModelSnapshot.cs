@@ -1729,6 +1729,58 @@ namespace CashTracker.Infrastructure.Persistence.Migrations.PostgreSql
                     b.ToTable("NakitPlanKalemi", (string)null);
                 });
 
+            modelBuilder.Entity("CashTracker.Core.Entities.OdemeHatirlatma", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AliciEposta")
+                        .IsRequired()
+                        .HasMaxLength(320)
+                        .HasColumnType("character varying(320)");
+
+                    b.Property<int>("CariKartId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("Durum")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)");
+
+                    b.Property<int>("FaturaId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("GonderildiAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("Hata")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<int>("IsletmeId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Konu")
+                        .IsRequired()
+                        .HasMaxLength(240)
+                        .HasColumnType("character varying(240)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IsletmeId");
+
+                    b.HasIndex("IsletmeId", "FaturaId", "GonderildiAt");
+
+                    b.ToTable("OdemeHatirlatma", (string)null);
+                });
+
             modelBuilder.Entity("CashTracker.Core.Entities.OdemeIslemi", b =>
                 {
                     b.Property<int>("Id")

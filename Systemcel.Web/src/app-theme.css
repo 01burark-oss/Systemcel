@@ -632,6 +632,101 @@
   background: var(--sc-lime);
 }
 
+:root[data-theme="light"] .payment-row-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+:root[data-theme="light"] .payment-table td.payment-table__action {
+  width: 204px;
+  overflow: visible;
+  text-overflow: clip;
+}
+
+:root[data-theme="light"] .payment-row-action--reminder {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #425b00;
+  border-color: rgba(83, 110, 0, .28);
+  background: rgba(200, 255, 0, .16);
+}
+
+:root[data-theme="light"] .payment-row-action--reminder:hover {
+  color: var(--sc-ink);
+  border-color: rgba(83, 110, 0, .45);
+  background: rgba(200, 255, 0, .3);
+}
+
+:root[data-theme="light"] .payment-reminder-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 340;
+  padding: 22px;
+  display: grid;
+  place-items: center;
+  background: rgba(11, 11, 9, .56);
+  backdrop-filter: blur(8px);
+}
+
+:root[data-theme="light"] .payment-reminder-modal__panel {
+  width: min(620px, 100%);
+  max-height: calc(100vh - 44px);
+  padding: 24px;
+  display: grid;
+  gap: 17px;
+  overflow-y: auto;
+  color: var(--sc-ink);
+  border: 1px solid var(--sc-line);
+  border-radius: 20px;
+  background: var(--sc-paper);
+  box-shadow: 0 28px 80px rgba(11, 11, 9, .24);
+  animation: payment-reminder-in 170ms cubic-bezier(.2, .8, .2, 1);
+}
+
+:root[data-theme="light"] .payment-reminder-modal__header,
+:root[data-theme="light"] .payment-reminder-modal__header > div,
+:root[data-theme="light"] .payment-reminder-modal__actions {
+  display: flex;
+  align-items: center;
+}
+
+:root[data-theme="light"] .payment-reminder-modal__header { justify-content: space-between; gap: 16px; }
+:root[data-theme="light"] .payment-reminder-modal__header > div { gap: 10px; }
+:root[data-theme="light"] .payment-reminder-modal__header h2 { margin: 0; font-size: 22px; }
+:root[data-theme="light"] .payment-reminder-modal__icon { width: 38px; height: 38px; display: grid; place-items: center; border-radius: 11px; background: var(--sc-lime); }
+:root[data-theme="light"] .payment-reminder-modal__header > button { width: 38px; height: 38px; display: grid; place-items: center; color: var(--sc-paper); border: 0; border-radius: 11px; background: var(--sc-ink); }
+:root[data-theme="light"] .payment-reminder-modal__header > button:disabled { opacity: .55; }
+
+:root[data-theme="light"] .payment-reminder-summary { margin: 0; display: grid; grid-template-columns: 1.25fr 1fr .8fr; gap: 8px; }
+:root[data-theme="light"] .payment-reminder-summary > div { min-width: 0; padding: 11px 12px; display: grid; gap: 4px; border: 1px solid var(--sc-line); border-radius: 11px; background: #fff; }
+:root[data-theme="light"] .payment-reminder-summary dt { color: var(--sc-muted); font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; }
+:root[data-theme="light"] .payment-reminder-summary dd { min-width: 0; margin: 0; color: var(--sc-ink); font-size: 13px; font-weight: 800; overflow-wrap: anywhere; }
+:root[data-theme="light"] .payment-reminder-summary small { margin-top: 3px; display: block; color: var(--sc-muted); font-size: 10px; font-weight: 600; }
+
+:root[data-theme="light"] .payment-reminder-preview { padding: 15px; display: grid; gap: 7px; border: 1px solid var(--sc-line); border-radius: 13px; background: var(--sc-cream-deep); }
+:root[data-theme="light"] .payment-reminder-preview > span { color: var(--sc-muted); font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; }
+:root[data-theme="light"] .payment-reminder-preview > strong { font-size: 13px; }
+:root[data-theme="light"] .payment-reminder-preview > p { margin: 6px 0 0; padding-top: 13px; white-space: pre-line; color: #3e3d38; border-top: 1px solid var(--sc-line); font-size: 12px; line-height: 1.6; }
+
+:root[data-theme="light"] :is(.payment-reminder-modal__loading, .payment-reminder-modal__notice, .payment-reminder-modal__error, .payment-reminder-modal__success) { margin: 0; padding: 11px 12px; border-radius: 10px; font-size: 12px; line-height: 1.45; }
+:root[data-theme="light"] .payment-reminder-modal__loading { color: var(--sc-muted); background: var(--sc-cream-deep); }
+:root[data-theme="light"] .payment-reminder-modal__notice { color: #765000; background: #faf2dc; }
+:root[data-theme="light"] .payment-reminder-modal__error { color: var(--sc-danger); background: var(--sc-danger-soft); }
+:root[data-theme="light"] .payment-reminder-modal__success { color: #425b00; background: rgba(200, 255, 0, .18); }
+:root[data-theme="light"] .payment-reminder-modal__actions { justify-content: flex-end; gap: 8px; }
+
+@keyframes payment-reminder-in {
+  from { opacity: 0; transform: translateY(8px) scale(.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-theme="light"] .payment-reminder-modal__panel { animation: none; }
+}
+
 :root[data-theme="light"] :is(.invoice-type, .payment-type, .invoice-pill, .payment-pill) {
   border-radius: 999px;
 }
@@ -833,6 +928,12 @@
     grid-column: auto;
     width: 100%;
   }
+
+  :root[data-theme="light"] .payment-reminder-modal { padding: 12px; place-items: end center; }
+  :root[data-theme="light"] .payment-reminder-modal__panel { max-height: calc(100vh - 24px); padding: 18px; gap: 14px; border-radius: 18px; }
+  :root[data-theme="light"] .payment-reminder-summary { grid-template-columns: 1fr; }
+  :root[data-theme="light"] .payment-reminder-modal__actions { display: grid; grid-template-columns: 1fr; }
+  :root[data-theme="light"] .payment-reminder-modal__actions .payment-btn--primary { grid-row: 1; }
 
   :root[data-theme="light"] .reports-form-grid--package,
   :root[data-theme="light"] .reports-print-form {
