@@ -7,6 +7,7 @@ import {
   Filter,
   Mail,
   MoreVertical,
+  Pencil,
   Plus,
   Save,
   Search,
@@ -36,12 +37,19 @@ interface ApiMesaj {
 }
 
 function bugun() {
-  return new Date().toISOString().slice(0, 10);
+  return yerelTarihDegeri();
 }
 
 function ayBasi() {
   const now = new Date();
-  return new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
+  return yerelTarihDegeri(new Date(now.getFullYear(), now.getMonth(), 1));
+}
+
+function yerelTarihDegeri(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function bosForm(tarih = bugun()): TahsilatOdemeFormu {
@@ -119,6 +127,14 @@ function etiketBic(value: string) {
   }
 }
 
+function odemeYontemiDegeri(value: string) {
+  const normalized = value.toLocaleLowerCase("tr-TR").replaceAll(" ", "");
+  if (normalized === "kredikartı" || normalized === "kredikarti") return "KrediKarti";
+  if (normalized === "onlineödeme" || normalized === "onlineodeme") return "OnlineOdeme";
+  if (normalized === "havale") return "Havale";
+  return "Nakit";
+}
+
 function kisaTarihBic(tarih: string) {
   const parsed = new Date(tarih);
   if (Number.isNaN(parsed.getTime())) {
@@ -150,6 +166,9 @@ export function TahsilatOdemeSayfasi({ yenileAnahtari }: TahsilatOdemeSayfasiPro
   const [hatirlatmaGonderiliyor, setHatirlatmaGonderiliyor] = React.useState(false);
   const [hatirlatmaHatasi, setHatirlatmaHatasi] = React.useState("");
   const [hatirlatmaSonucu, setHatirlatmaSonucu] = React.useState("");
+  const [duzenlenenHareket, setDuzenlenenHareket] = React.useState<TahsilatOdemeListeKaydi | null>(null);
+  const [silinecekHareket, setSilinecekHareket] = React.useState<TahsilatOdemeListeKaydi | null>(null);
+  const [siliniyor, setSiliniyor] = React.useState(false);
 
   const filtreliHareketler = React.useMemo(() => {
     const query = arama.trim().toLocaleLowerCase("tr-TR");
@@ -213,6 +232,7 @@ export function TahsilatOdemeSayfasi({ yenileAnahtari }: TahsilatOdemeSayfasiPro
 
     setHata("");
     setDurum(`${fatura.no} seçildi. Kalan tutar forma aktarıldı.`);
+    setDuzenlenenHareket(null);
     setFormPaneliAcik(true);
     setForm((current) => ({
       ...current,
@@ -303,6 +323,44 @@ export function TahsilatOdemeSayfasi({ yenileAnahtari }: TahsilatOdemeSayfasiPro
     }
   };
 
+  const hareketDuzenle = (row: TahsilatOdemeListeKaydi) => {
+    setHata("");
+    setDurum(`${row.no} düzenleniyor.`);
+    setDuzenlenenHareket(row);
+    setFormPaneliAcik(true);
+    setForm({
+      ...bosForm(row.tarih.slice(0, 10)),
+      islemTipi: row.tip,
+      cariKartId: String(row.cariKartId),
+      tarih: row.tarih.slice(0, 10),
+      odemeYontemi: odemeYontemiDegeri(row.odemeYontemi),
+      aciklama: row.aciklama,
+      tutar: String(row.tutar)
+    });
+  };
+
+  const hareketSil = async () => {
+    if (!silinecekHareket) return;
+    try {
+      setSiliniyor(true);
+      setHata("");
+      const result = await jsonOku<ApiMesaj>(`/api/ekran/tahsilat-odeme/${silinecekHareket.id}`, {
+        method: "DELETE"
+      });
+      if (duzenlenenHareket?.id === silinecekHareket.id) {
+        setDuzenlenenHareket(null);
+        setForm(bosForm(ekran?.bugun || bugun()));
+      }
+      setSilinecekHareket(null);
+      await yenile();
+      setDurum(result.mesaj);
+    } catch (error) {
+      setHata(error instanceof Error ? error.message : "Tahsilat/ödeme silinemedi.");
+    } finally {
+      setSiliniyor(false);
+    }
+  };
+
   const kaydet = async () => {
     try {
       setIslemde(true);
@@ -322,11 +380,14 @@ export function TahsilatOdemeSayfasi({ yenileAnahtari }: TahsilatOdemeSayfasiPro
         faturaIleEslestir: form.faturaIleEslestir,
         hizliNot: form.hizliNot
       };
-      const result = await jsonOku<ApiMesaj>("/api/ekran/tahsilat-odeme", {
-        method: "POST",
+      const result = await jsonOku<ApiMesaj>(duzenlenenHareket
+        ? `/api/ekran/tahsilat-odeme/${duzenlenenHareket.id}`
+        : "/api/ekran/tahsilat-odeme", {
+        method: duzenlenenHareket ? "PUT" : "POST",
         body: JSON.stringify(payload)
       });
       setDurum(result.mesaj);
+      setDuzenlenenHareket(null);
       setForm(bosForm(ekran?.bugun || bugun()));
       await yenile();
     } catch (error) {
@@ -339,6 +400,7 @@ export function TahsilatOdemeSayfasi({ yenileAnahtari }: TahsilatOdemeSayfasiPro
   const yeniForm = () => {
     setHata("");
     setDurum("Yeni tahsilat/ödeme hazır.");
+    setDuzenlenenHareket(null);
     setForm(bosForm(ekran?.bugun || bugun()));
     setFormPaneliAcik(true);
   };
@@ -410,7 +472,6 @@ export function TahsilatOdemeSayfasi({ yenileAnahtari }: TahsilatOdemeSayfasiPro
                       type="button"
                       onClick={() => {
                         setTipFiltresi(value);
-                        setFiltreAcik(false);
                       }}
                     >
                       {label}
@@ -420,7 +481,13 @@ export function TahsilatOdemeSayfasi({ yenileAnahtari }: TahsilatOdemeSayfasiPro
               )}
             </div>
 
-            <PaymentTable rows={filtreliHareketler} onInvoiceSelect={bekleyenFaturaSec} onReminder={hatirlatmaAc} />
+            <PaymentTable
+              rows={filtreliHareketler}
+              onDelete={setSilinecekHareket}
+              onEdit={hareketDuzenle}
+              onInvoiceSelect={bekleyenFaturaSec}
+              onReminder={hatirlatmaAc}
+            />
 
             <div className="payment-table-footer">
               <span>Toplam {filtreliHareketler.length} kayıt</span>
@@ -432,7 +499,7 @@ export function TahsilatOdemeSayfasi({ yenileAnahtari }: TahsilatOdemeSayfasiPro
         {formPaneliAcik ? <aside className="payment-side payment-side--drawer">
           <section className="payment-card payment-form-card">
             <div className="payment-card__header">
-              <h2>Yeni işlem</h2>
+              <h2>{duzenlenenHareket ? "İşlemi düzenle" : "Yeni işlem"}</h2>
               <button
                 type="button"
                 className="side-panel-close"
@@ -448,7 +515,7 @@ export function TahsilatOdemeSayfasi({ yenileAnahtari }: TahsilatOdemeSayfasiPro
               <div className="payment-form-grid">
                 <label className="payment-field">
                   <span>İşlem Tipi</span>
-                  <select value={form.islemTipi} onChange={(event) => formGuncelle("islemTipi", event.target.value)}>
+                  <select disabled={Boolean(duzenlenenHareket && duzenlenenHareket.kaynak !== "Manuel")} value={form.islemTipi} onChange={(event) => formGuncelle("islemTipi", event.target.value)}>
                     {(ekran?.islemTipleri ?? []).map((option) => (
                       <option key={option.deger} value={option.deger}>
                         {etiketBic(option.etiket)}
@@ -458,7 +525,7 @@ export function TahsilatOdemeSayfasi({ yenileAnahtari }: TahsilatOdemeSayfasiPro
                 </label>
                 <label className="payment-field">
                   <span>Cari</span>
-                  <select value={form.cariKartId} onChange={(event) => formGuncelle("cariKartId", event.target.value)}>
+                  <select disabled={Boolean(duzenlenenHareket && duzenlenenHareket.kaynak !== "Manuel")} value={form.cariKartId} onChange={(event) => formGuncelle("cariKartId", event.target.value)}>
                     <option value="0">Cari seçin...</option>
                     {(ekran?.cariler ?? []).map((option) => (
                       <option key={option.id} value={option.id}>
@@ -572,7 +639,7 @@ export function TahsilatOdemeSayfasi({ yenileAnahtari }: TahsilatOdemeSayfasiPro
               <div className="payment-actions">
                 <button className="payment-btn payment-btn--primary" disabled={islemde} type="button" onClick={kaydet}>
                   <Save size={17} />
-                  Kaydet
+                  {duzenlenenHareket ? "Güncelle" : "Kaydet"}
                 </button>
                 <button className="payment-btn payment-btn--danger" disabled={islemde} type="button" onClick={yeniForm}>
                   <Trash2 size={17} />
@@ -593,7 +660,7 @@ export function TahsilatOdemeSayfasi({ yenileAnahtari }: TahsilatOdemeSayfasiPro
                 </label>
                 <button className="payment-btn payment-btn--primary" disabled={islemde} type="button" onClick={kaydet}>
                   <Save size={17} />
-                  Tahsilat / Ödeme Ekle
+                  {duzenlenenHareket ? "İşlemi Güncelle" : "Tahsilat / Ödeme Ekle"}
                 </button>
               </div>
             </FormSection>
@@ -611,6 +678,24 @@ export function TahsilatOdemeSayfasi({ yenileAnahtari }: TahsilatOdemeSayfasiPro
           sending={hatirlatmaGonderiliyor}
           success={hatirlatmaSonucu}
         />
+      ) : null}
+
+      {silinecekHareket ? (
+        <div className="payment-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="payment-delete-title">
+          <section className="payment-confirm-modal__panel">
+            <span className="payment-confirm-modal__icon"><Trash2 size={22} /></span>
+            <h2 id="payment-delete-title">İşlem silinsin mi?</h2>
+            <p><strong>{silinecekHareket.no}</strong> numaralı {silinecekHareket.tip === "Odeme" ? "ödeme" : "tahsilat"} kaydı silinecek.</p>
+            {silinecekHareket.kaynak !== "Manuel" ? <small>Bağlı fatura bakiyesi ve kasa kaydı otomatik güncellenecek.</small> : null}
+            <div className="payment-confirm-modal__actions">
+              <button className="payment-btn" type="button" onClick={() => setSilinecekHareket(null)} disabled={siliniyor}>Vazgeç</button>
+              <button className="payment-btn payment-btn--danger" type="button" onClick={hareketSil} disabled={siliniyor}>
+                <Trash2 size={16} />
+                {siliniyor ? "Siliniyor…" : "Sil"}
+              </button>
+            </div>
+          </section>
+        </div>
       ) : null}
 
       {hata && (
@@ -658,14 +743,34 @@ function FormSection({ children, title }: { children: React.ReactNode; title: st
 }
 
 function PaymentTable({
+  onDelete,
+  onEdit,
   onInvoiceSelect,
   onReminder,
   rows
 }: {
+  onDelete: (row: TahsilatOdemeListeKaydi) => void;
+  onEdit: (row: TahsilatOdemeListeKaydi) => void;
   onInvoiceSelect: (row: TahsilatOdemeListeKaydi) => void;
   onReminder: (row: TahsilatOdemeListeKaydi) => void;
   rows: TahsilatOdemeListeKaydi[];
 }) {
+  const [acikMenuId, setAcikMenuId] = React.useState<number | null>(null);
+
+  React.useEffect(() => {
+    if (acikMenuId === null) return;
+    const close = () => setAcikMenuId(null);
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") close();
+    };
+    window.addEventListener("click", close);
+    window.addEventListener("keydown", escape);
+    return () => {
+      window.removeEventListener("click", close);
+      window.removeEventListener("keydown", escape);
+    };
+  }, [acikMenuId]);
+
   return (
     <div className={`payment-table-wrap${rows.length === 0 ? " payment-table-wrap--empty" : ""}`}>
       <table className="payment-table">
@@ -700,7 +805,7 @@ function PaymentTable({
               <td className="payment-empty" colSpan={8} aria-label="Liste boş" />
             </tr>
           ) : (
-            rows.map((row) => (
+            rows.map((row, index) => (
               <tr key={row.id}>
                 <td>{row.no}</td>
                 <td>{tarihBic(row.tarih)}</td>
@@ -731,7 +836,27 @@ function PaymentTable({
                       </button>
                     </div>
                   ) : (
-                    <MoreVertical size={18} />
+                    <div className="payment-row-menu" onClick={(event) => event.stopPropagation()}>
+                      <button
+                        className="payment-row-menu__trigger"
+                        type="button"
+                        aria-label={`${row.no} işlemleri`}
+                        aria-expanded={acikMenuId === row.id}
+                        onClick={() => setAcikMenuId((current) => current === row.id ? null : row.id)}
+                      >
+                        <MoreVertical size={18} />
+                      </button>
+                      {acikMenuId === row.id ? (
+                        <div className={`payment-row-menu__dropdown${index >= rows.length - 2 ? " payment-row-menu__dropdown--up" : ""}`} role="menu">
+                          <button type="button" role="menuitem" onClick={() => { setAcikMenuId(null); onEdit(row); }}>
+                            <Pencil size={15} /> Düzenle
+                          </button>
+                          <button className="danger" type="button" role="menuitem" onClick={() => { setAcikMenuId(null); onDelete(row); }}>
+                            <Trash2 size={15} /> Sil
+                          </button>
+                        </div>
+                      ) : null}
+                    </div>
                   )}
                 </td>
               </tr>

@@ -112,6 +112,161 @@ namespace CashTracker.Infrastructure.Services
             return row.Id;
         }
 
+        public async Task UpdateMovementAsync(
+            int cariHareketId,
+            TahsilatOdemeHareketGuncelleRequest request,
+            CancellationToken ct = default)
+        {
+            ArgumentNullException.ThrowIfNull(request);
+            if (cariHareketId <= 0)
+                throw new ArgumentException("Tahsilat/odeme hareketi secilmelidir.", nameof(cariHareketId));
+            if (request.CariKartId <= 0)
+                throw new ArgumentException("Cari kart secilmelidir.", nameof(request));
+            if (request.Tutar <= 0)
+                throw new ArgumentException("Tutar sifirdan buyuk olmalidir.", nameof(request));
+
+            var activeIsletmeId = await _isletmeService.GetActiveIdAsync();
+            await using var db = await _dbFactory.CreateDbContextAsync(ct);
+            await using var tx = await db.Database.BeginTransactionAsync(ct);
+            var hareket = await db.CariHareketleri
+                .FirstOrDefaultAsync(x => x.Id == cariHareketId && x.IsletmeId == activeIsletmeId, ct);
+
+            if (hareket is null)
+                throw new InvalidOperationException("Tahsilat/odeme hareketi bulunamadi.");
+            if (NormalizeMovementType(hareket.HareketTipi) is not ("Tahsilat" or "Odeme"))
+                throw new InvalidOperationException("Secilen cari hareket tahsilat/odeme degil.");
+
+            var linkedPayment = await db.TahsilatOdemeleri
+                .FirstOrDefaultAsync(x => x.IsletmeId == activeIsletmeId && x.CariHareketId == cariHareketId, ct);
+            var paymentMethod = FaturaService.NormalizeOdemeYontemi(request.OdemeYontemi);
+
+            if (linkedPayment is null)
+            {
+                var cariExists = await db.CariKartlari
+                    .AnyAsync(x => x.Id == request.CariKartId && x.IsletmeId == activeIsletmeId && x.Aktif, ct);
+                if (!cariExists)
+                    throw new InvalidOperationException("Cari kart bulunamadi.");
+
+                hareket.CariKartId = request.CariKartId;
+                hareket.Tarih = request.Tarih;
+                hareket.HareketTipi = NormalizeMovementType(request.IslemTipi);
+                hareket.Tutar = request.Tutar;
+                hareket.Aciklama = NormalizeNote(request.Aciklama);
+            }
+            else
+            {
+                var fatura = await db.Faturalar
+                    .FirstOrDefaultAsync(x => x.Id == linkedPayment.FaturaId && x.IsletmeId == activeIsletmeId, ct);
+                if (fatura is null)
+                    throw new InvalidOperationException("Bagli fatura bulunamadi.");
+
+                var digerOdemeler = Math.Max(0m, fatura.OdenenTutar - linkedPayment.Tutar);
+                var kullanilabilirTutar = Math.Max(0m, fatura.GenelToplam - digerOdemeler);
+                if (request.Tutar > kullanilabilirTutar)
+                    throw new InvalidOperationException($"Tutar bagli faturanin kalan tutarini ({kullanilabilirTutar:0.00}) asamaz.");
+
+                var isSale = fatura.FaturaTipi == "Satis";
+                var movementType = isSale ? "Tahsilat" : "Odeme";
+
+                hareket.CariKartId = fatura.CariKartId;
+                hareket.Tarih = request.Tarih;
+                hareket.HareketTipi = movementType;
+                hareket.Tutar = request.Tutar;
+                hareket.Aciklama = NormalizeNote(request.Aciklama);
+
+                linkedPayment.CariKartId = fatura.CariKartId;
+                linkedPayment.Tarih = request.Tarih;
+                linkedPayment.Tip = movementType;
+                linkedPayment.Tutar = request.Tutar;
+                linkedPayment.OdemeYontemi = paymentMethod;
+                linkedPayment.Aciklama = NormalizeNote(request.Aciklama);
+
+                if (linkedPayment.KasaId.HasValue)
+                {
+                    var kasa = await db.Kasalar
+                        .FirstOrDefaultAsync(x => x.Id == linkedPayment.KasaId.Value && x.IsletmeId == activeIsletmeId, ct);
+                    if (kasa is not null)
+                    {
+                        kasa.Tarih = request.Tarih;
+                        kasa.Tip = isSale ? "Gelir" : "Gider";
+                        kasa.Tutar = request.Tutar;
+                        kasa.OdemeYontemi = paymentMethod;
+                    }
+                }
+
+                ApplyInvoicePaymentState(fatura, digerOdemeler + request.Tutar);
+            }
+
+            await db.SaveChangesAsync(ct);
+            await tx.CommitAsync(ct);
+        }
+
+        public async Task DeleteMovementAsync(int cariHareketId, CancellationToken ct = default)
+        {
+            if (cariHareketId <= 0)
+                throw new ArgumentException("Tahsilat/odeme hareketi secilmelidir.", nameof(cariHareketId));
+
+            var activeIsletmeId = await _isletmeService.GetActiveIdAsync();
+            await using var db = await _dbFactory.CreateDbContextAsync(ct);
+            await using var tx = await db.Database.BeginTransactionAsync(ct);
+            var hareket = await db.CariHareketleri
+                .FirstOrDefaultAsync(x => x.Id == cariHareketId && x.IsletmeId == activeIsletmeId, ct);
+
+            if (hareket is null)
+                throw new InvalidOperationException("Tahsilat/odeme hareketi bulunamadi.");
+            if (NormalizeMovementType(hareket.HareketTipi) is not ("Tahsilat" or "Odeme"))
+                throw new InvalidOperationException("Secilen cari hareket tahsilat/odeme degil.");
+
+            var linkedPayment = await db.TahsilatOdemeleri
+                .FirstOrDefaultAsync(x => x.IsletmeId == activeIsletmeId && x.CariHareketId == cariHareketId, ct);
+
+            if (linkedPayment is not null)
+            {
+                var fatura = await db.Faturalar
+                    .FirstOrDefaultAsync(x => x.Id == linkedPayment.FaturaId && x.IsletmeId == activeIsletmeId, ct);
+                if (fatura is not null)
+                    ApplyInvoicePaymentState(fatura, Math.Max(0m, fatura.OdenenTutar - linkedPayment.Tutar));
+
+                if (linkedPayment.KasaId.HasValue)
+                {
+                    var kasa = await db.Kasalar
+                        .FirstOrDefaultAsync(x => x.Id == linkedPayment.KasaId.Value && x.IsletmeId == activeIsletmeId, ct);
+                    if (kasa is not null)
+                        db.Kasalar.Remove(kasa);
+                }
+
+                db.TahsilatOdemeleri.Remove(linkedPayment);
+            }
+
+            db.CariHareketleri.Remove(hareket);
+            await db.SaveChangesAsync(ct);
+            await tx.CommitAsync(ct);
+        }
+
+        private static string NormalizeMovementType(string? value)
+        {
+            return string.Equals(value?.Trim(), "Odeme", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(value?.Trim(), "Ödeme", StringComparison.OrdinalIgnoreCase)
+                ? "Odeme"
+                : "Tahsilat";
+        }
+
+        private static string? NormalizeNote(string? value)
+        {
+            return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+        }
+
+        private static void ApplyInvoicePaymentState(Fatura fatura, decimal paidAmount)
+        {
+            fatura.OdenenTutar = Math.Min(fatura.GenelToplam, Math.Max(0m, paidAmount));
+            fatura.Durum = fatura.OdenenTutar <= 0m
+                ? FaturaDurum.Kesildi
+                : fatura.OdenenTutar >= fatura.GenelToplam
+                    ? FaturaDurum.Odendi
+                    : FaturaDurum.KismiOdendi;
+            fatura.UpdatedAt = DateTime.Now;
+        }
+
         private static async Task IssueDraftInvoiceAsync(
             CashTrackerDbContext db,
             Fatura fatura,

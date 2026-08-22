@@ -660,6 +660,22 @@
   background: rgba(200, 255, 0, .3);
 }
 
+:root[data-theme="light"] .payment-row-menu { position: relative; display: inline-flex; }
+:root[data-theme="light"] .payment-row-menu__trigger { width: 32px; height: 32px; display: grid; place-items: center; color: var(--sc-ink); border: 1px solid transparent; border-radius: 9px; background: transparent; }
+:root[data-theme="light"] .payment-row-menu__trigger:hover,
+:root[data-theme="light"] .payment-row-menu__trigger[aria-expanded="true"] { border-color: var(--sc-line); background: var(--sc-cream-deep); }
+:root[data-theme="light"] .payment-row-menu__dropdown { position: absolute; z-index: 24; top: calc(100% + 5px); right: 0; width: 132px; padding: 5px; display: grid; gap: 2px; border: 1px solid var(--sc-line); border-radius: 11px; background: var(--sc-paper); box-shadow: 0 16px 38px -22px rgba(11, 11, 9, .48); animation: payment-menu-in 120ms ease-out; }
+:root[data-theme="light"] .payment-row-menu__dropdown--up { top: auto; bottom: calc(100% + 5px); }
+:root[data-theme="light"] .payment-row-menu__dropdown button { min-height: 34px; padding: 0 9px; display: flex; align-items: center; gap: 8px; color: var(--sc-ink); border: 0; border-radius: 7px; background: transparent; font-size: 12px; font-weight: 750; text-align: left; }
+:root[data-theme="light"] .payment-row-menu__dropdown button:hover { background: var(--sc-cream-deep); }
+:root[data-theme="light"] .payment-row-menu__dropdown button.danger { color: var(--sc-danger); }
+:root[data-theme="light"] .payment-row-menu__dropdown button.danger:hover { background: var(--sc-danger-soft); }
+
+@keyframes payment-menu-in {
+  from { opacity: 0; transform: translateY(-3px) scale(.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
 :root[data-theme="light"] .payment-reminder-modal {
   position: fixed;
   inset: 0;
@@ -670,6 +686,15 @@
   background: rgba(11, 11, 9, .56);
   backdrop-filter: blur(8px);
 }
+
+:root[data-theme="light"] .payment-confirm-modal { position: fixed; inset: 0; z-index: 345; padding: 22px; display: grid; place-items: center; background: rgba(11, 11, 9, .56); backdrop-filter: blur(8px); }
+:root[data-theme="light"] .payment-confirm-modal__panel { width: min(420px, 100%); padding: 24px; display: grid; justify-items: start; gap: 12px; border: 1px solid rgba(11, 11, 9, .12); border-radius: 18px; background: var(--sc-paper); box-shadow: 0 28px 80px rgba(11, 11, 9, .24); animation: payment-reminder-in 170ms cubic-bezier(.2, .8, .2, 1); }
+:root[data-theme="light"] .payment-confirm-modal__icon { width: 42px; height: 42px; display: grid; place-items: center; color: var(--sc-danger); border-radius: 12px; background: var(--sc-danger-soft); }
+:root[data-theme="light"] .payment-confirm-modal h2 { margin: 4px 0 0; font-size: 21px; letter-spacing: -.025em; }
+:root[data-theme="light"] .payment-confirm-modal p { margin: 0; color: var(--sc-muted); font-size: 13px; line-height: 1.55; }
+:root[data-theme="light"] .payment-confirm-modal p strong { color: var(--sc-ink); }
+:root[data-theme="light"] .payment-confirm-modal small { color: #765000; font-size: 11px; line-height: 1.45; }
+:root[data-theme="light"] .payment-confirm-modal__actions { width: 100%; margin-top: 6px; display: flex; justify-content: flex-end; gap: 8px; }
 
 :root[data-theme="light"] .payment-reminder-modal__panel {
   width: min(620px, 100%);
@@ -724,7 +749,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  :root[data-theme="light"] .payment-reminder-modal__panel { animation: none; }
+  :root[data-theme="light"] :is(.payment-reminder-modal__panel, .payment-confirm-modal__panel, .payment-row-menu__dropdown) { animation: none; }
 }
 
 :root[data-theme="light"] :is(.invoice-type, .payment-type, .invoice-pill, .payment-pill) {
@@ -934,6 +959,9 @@
   :root[data-theme="light"] .payment-reminder-summary { grid-template-columns: 1fr; }
   :root[data-theme="light"] .payment-reminder-modal__actions { display: grid; grid-template-columns: 1fr; }
   :root[data-theme="light"] .payment-reminder-modal__actions .payment-btn--primary { grid-row: 1; }
+  :root[data-theme="light"] .payment-confirm-modal { padding: 12px; place-items: end center; }
+  :root[data-theme="light"] .payment-confirm-modal__panel { padding: 20px; border-radius: 18px; }
+  :root[data-theme="light"] .payment-confirm-modal__actions { display: grid; grid-template-columns: 1fr; }
 
   :root[data-theme="light"] .reports-form-grid--package,
   :root[data-theme="light"] .reports-print-form {

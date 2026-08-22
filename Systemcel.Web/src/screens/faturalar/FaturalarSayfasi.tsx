@@ -44,12 +44,19 @@ interface GibSmsBaslatSonucu {
 const BIRIM_SECENEKLERI = ["Adet", "Paket", "Kutu", "Kilogram", "Gram", "Litre", "Metre", "Saat", "Hizmet"];
 
 function bugun() {
-  return new Date().toISOString().slice(0, 10);
+  return yerelTarihDegeri();
 }
 
 function ayBasi() {
   const now = new Date();
-  return new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
+  return yerelTarihDegeri(new Date(now.getFullYear(), now.getMonth(), 1));
+}
+
+function yerelTarihDegeri(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function bosFaturaFormu(tarih = bugun()): FaturaFormu {
@@ -187,6 +194,7 @@ export function FaturalarSayfasi({
   const pageRef = React.useRef<HTMLElement | null>(null);
   const [ekran, setEkran] = React.useState<FaturaEkranVerisi | null>(null);
   const [seciliId, setSeciliId] = React.useState<number | null>(null);
+  const [isaretliFaturaIdleri, setIsaretliFaturaIdleri] = React.useState<Set<number>>(() => new Set());
   const [form, setForm] = React.useState<FaturaFormu>(() => bosFaturaFormu());
   const [arama, setArama] = React.useState("");
   const [filtreAcik, setFiltreAcik] = React.useState(false);
@@ -202,6 +210,7 @@ export function FaturalarSayfasi({
   const [smsKodu, setSmsKodu] = React.useState("");
   const [formPaneliAcik, setFormPaneliAcik] = React.useState(false);
   const seciliIdRef = React.useRef<number | null>(null);
+  const tumunuSecRef = React.useRef<HTMLInputElement | null>(null);
 
   const seciliFatura = React.useMemo(
     () => ekran?.faturalar.find((row) => row.id === seciliId) ?? null,
@@ -224,6 +233,16 @@ export function FaturalarSayfasi({
     });
   }, [arama, baslangic, bitis, durumFiltresi, ekran, tipFiltresi]);
 
+  const gorunenFaturaIdleri = React.useMemo(() => filtreliFaturalar.map((row) => row.id), [filtreliFaturalar]);
+  const gorunenlerinTumuSecili = gorunenFaturaIdleri.length > 0 && gorunenFaturaIdleri.every((id) => isaretliFaturaIdleri.has(id));
+  const gorunenlerdenBiriSecili = gorunenFaturaIdleri.some((id) => isaretliFaturaIdleri.has(id));
+
+  React.useEffect(() => {
+    if (tumunuSecRef.current) {
+      tumunuSecRef.current.indeterminate = gorunenlerdenBiriSecili && !gorunenlerinTumuSecili;
+    }
+  }, [gorunenlerdenBiriSecili, gorunenlerinTumuSecili]);
+
   const tahsilOrani = React.useMemo(() => {
     const toplam = ekran?.ozet.toplamFatura ?? 0;
     return toplam <= 0 ? 0 : Math.round(((ekran?.ozet.tahsilEdilen ?? 0) / toplam) * 100);
@@ -234,6 +253,8 @@ export function FaturalarSayfasi({
     setDurum("Faturalar yükleniyor...");
     const data = await jsonOku<FaturaEkranVerisi>("/api/ekran/faturalar");
     setEkran(data);
+    const mevcutIdler = new Set(data.faturalar.map((row) => row.id));
+    setIsaretliFaturaIdleri((current) => new Set([...current].filter((id) => mevcutIdler.has(id))));
 
     const hedefId = tercihId === undefined
       ? seciliIdRef.current
@@ -277,6 +298,23 @@ export function FaturalarSayfasi({
     setForm(bosFaturaFormu(ekran?.bugun || bugun()));
     setFormPaneliAcik(true);
     setDurum("Yeni fatura taslağı.");
+  }
+
+  function gorunenFaturalariIsaretle(checked: boolean) {
+    setIsaretliFaturaIdleri((current) => {
+      const next = new Set(current);
+      gorunenFaturaIdleri.forEach((id) => checked ? next.add(id) : next.delete(id));
+      return next;
+    });
+  }
+
+  function faturaIsaretle(id: number, checked: boolean) {
+    setIsaretliFaturaIdleri((current) => {
+      const next = new Set(current);
+      if (checked) next.add(id);
+      else next.delete(id);
+      return next;
+    });
   }
 
   function formPaneliniKapat() {
@@ -531,7 +569,16 @@ export function FaturalarSayfasi({
               <table className="invoice-table">
                 <thead>
                   <tr>
-                    <th className="invoice-table__check"><input type="checkbox" aria-label="Tümünü seç" /></th>
+                    <th className="invoice-table__check">
+                      <input
+                        ref={tumunuSecRef}
+                        type="checkbox"
+                        aria-label="Görünen faturaların tümünü seç"
+                        checked={gorunenlerinTumuSecili}
+                        disabled={gorunenFaturaIdleri.length === 0}
+                        onChange={(event) => gorunenFaturalariIsaretle(event.target.checked)}
+                      />
+                    </th>
                     <th>No</th>
                     <th>Tarih</th>
                     <th>Tip</th>
@@ -554,7 +601,14 @@ export function FaturalarSayfasi({
                         className={row.id === seciliId ? "secili" : ""}
                         onClick={() => faturaSec(row.id).catch((error: Error) => setHata(error.message))}
                       >
-                        <td className="invoice-table__check"><input type="checkbox" aria-label="Fatura seç" /></td>
+                        <td className="invoice-table__check" onClick={(event) => event.stopPropagation()}>
+                          <input
+                            type="checkbox"
+                            aria-label={`${row.no || `FAT-${row.id}`} faturasını seç`}
+                            checked={isaretliFaturaIdleri.has(row.id)}
+                            onChange={(event) => faturaIsaretle(row.id, event.target.checked)}
+                          />
+                        </td>
                         <td>{row.no || `FAT-${row.id}`}</td>
                         <td>{tarihBic(row.tarih)}</td>
                         <td><span className={`invoice-type ${row.faturaTipi === "Alis" ? "buy" : ""}`}>{etiketBic(row.faturaTipi)}</span></td>

@@ -1309,6 +1309,55 @@ namespace Systemcel.Api.Api
                         return Results.BadRequest(new ApiHata($"Tahsilat/ödeme eklenemedi: {ex.Message}"));
                     }
                 });
+
+                app.MapPut("/api/ekran/tahsilat-odeme/{id:int}", async (int id, TahsilatOdemeHareketGuncelleIstek request) =>
+                {
+                    var validation = ValidatePaymentMovementUpdateRequest(request);
+                    if (validation is not null)
+                        return Results.BadRequest(validation);
+                    var readOnly = await RejectReadOnlyAccountantContextAsync();
+                    if (readOnly is not null)
+                        return readOnly;
+                    if (_tahsilatOdemeService is null)
+                        return Results.BadRequest(new ApiHata("Tahsilat/ödeme servisi hazır değil."));
+
+                    try
+                    {
+                        await _tahsilatOdemeService.UpdateMovementAsync(id, new TahsilatOdemeHareketGuncelleRequest
+                        {
+                            IslemTipi = NormalizeCariMovementType(request.islemTipi),
+                            CariKartId = request.cariKartId,
+                            Tarih = ParseDate(request.tarih),
+                            Tutar = request.tutar,
+                            OdemeYontemi = ToDomainPayment(request.odemeYontemi),
+                            Aciklama = BuildPaymentMovementNote(request)
+                        });
+                        return Results.Ok(new ApiMesaj("Tahsilat/ödeme güncellendi."));
+                    }
+                    catch (Exception ex)
+                    {
+                        return Results.BadRequest(new ApiHata($"Tahsilat/ödeme güncellenemedi: {ex.Message}"));
+                    }
+                });
+
+                app.MapDelete("/api/ekran/tahsilat-odeme/{id:int}", async (int id) =>
+                {
+                    var readOnly = await RejectReadOnlyAccountantContextAsync();
+                    if (readOnly is not null)
+                        return readOnly;
+                    if (_tahsilatOdemeService is null)
+                        return Results.BadRequest(new ApiHata("Tahsilat/ödeme servisi hazır değil."));
+
+                    try
+                    {
+                        await _tahsilatOdemeService.DeleteMovementAsync(id);
+                        return Results.Ok(new ApiMesaj("Tahsilat/ödeme silindi."));
+                    }
+                    catch (Exception ex)
+                    {
+                        return Results.BadRequest(new ApiHata($"Tahsilat/ödeme silinemedi: {ex.Message}"));
+                    }
+                });
             }
 
             if (_appSecurityService is not null)
@@ -2456,13 +2505,22 @@ namespace Systemcel.Api.Api
             var cariler = await _cariService!.GetAllAsync();
             var cariNames = cariler.ToDictionary(x => x.Id, x => (x.Unvan ?? string.Empty).Trim());
             var hareketler = new List<TahsilatOdemeListeSatirDto>();
+            var linkedPayments = new Dictionary<int, TahsilatOdeme>();
+            if (_dbFactory is not null)
+            {
+                await using var db = await _dbFactory.CreateDbContextAsync();
+                linkedPayments = await db.TahsilatOdemeleri
+                    .AsNoTracking()
+                    .Where(x => x.IsletmeId == activeBusiness.Id && x.CariHareketId.HasValue)
+                    .ToDictionaryAsync(x => x.CariHareketId!.Value);
+            }
 
             foreach (var cari in cariler)
             {
                 var cariHareketleri = await _cariService.GetHareketlerAsync(cari.Id);
                 hareketler.AddRange(cariHareketleri
                     .Where(x => NormalizeCariMovementType(x.HareketTipi) is "Tahsilat" or "Odeme")
-                    .Select(x => ToPaymentMovementRowDto(x, cari)));
+                    .Select(x => ToPaymentMovementRowDto(x, cari, linkedPayments.GetValueOrDefault(x.Id))));
             }
 
             var siraliHareketler = hareketler
@@ -2797,6 +2855,24 @@ namespace Systemcel.Api.Api
             return null;
         }
 
+        private static ApiHata? ValidatePaymentMovementUpdateRequest(TahsilatOdemeHareketGuncelleIstek request)
+        {
+            if (request is null)
+                return new ApiHata("Tahsilat/ödeme bilgileri alınamadı.");
+
+            var movementType = NormalizeCariMovementType(request.islemTipi);
+            if (movementType is not ("Tahsilat" or "Odeme"))
+                return new ApiHata("İşlem tipi tahsilat veya ödeme olmalıdır.");
+            if (request.cariKartId <= 0)
+                return new ApiHata("Cari seçin.");
+            if (request.tutar <= 0)
+                return new ApiHata("Tutar sıfırdan büyük olmalıdır.");
+            if (!TryParseDate(request.tarih, out _))
+                return new ApiHata("Tarih geçerli değil.");
+
+            return null;
+        }
+
         private static CariKart ToDomainCari(CariKaydetIstek request)
         {
             return new CariKart
@@ -3057,7 +3133,7 @@ namespace Systemcel.Api.Api
             };
         }
 
-        private static TahsilatOdemeListeSatirDto ToPaymentMovementRowDto(CariHareket row, CariKart cari)
+        private static TahsilatOdemeListeSatirDto ToPaymentMovementRowDto(CariHareket row, CariKart cari, TahsilatOdeme? linkedPayment)
         {
             var tip = NormalizeCariMovementType(row.HareketTipi);
             return new TahsilatOdemeListeSatirDto
@@ -3068,11 +3144,11 @@ namespace Systemcel.Api.Api
                 tip = tip is "Odeme" ? "Odeme" : "Tahsilat",
                 cariKartId = row.CariKartId,
                 cariUnvan = string.IsNullOrWhiteSpace(cari.Unvan) ? $"Cari #{row.CariKartId}" : cari.Unvan.Trim(),
-                odemeYontemi = ExtractPaymentMethod(row.Aciklama),
+                odemeYontemi = linkedPayment is null ? ExtractPaymentMethod(row.Aciklama) : ToUiPaymentLabel(linkedPayment.OdemeYontemi),
                 tutar = row.Tutar,
                 durum = "Tamamlandi",
                 kaynak = string.IsNullOrWhiteSpace(row.Kaynak) ? "Manuel" : row.Kaynak.Trim(),
-                aciklama = ExtractVisiblePaymentNote(row.Aciklama)
+                aciklama = ExtractVisiblePaymentNote(linkedPayment?.Aciklama ?? row.Aciklama)
             };
         }
 
@@ -3138,6 +3214,18 @@ namespace Systemcel.Api.Api
 
             if (!string.IsNullOrWhiteSpace(request.hizliNot))
                 parts.Add(request.hizliNot.Trim());
+
+            return parts.Count == 0 ? null : string.Join(" | ", parts);
+        }
+
+        private static string? BuildPaymentMovementNote(TahsilatOdemeHareketGuncelleIstek request)
+        {
+            var parts = new List<string>();
+            var payment = ToUiPaymentLabel(request.odemeYontemi);
+            if (!string.IsNullOrWhiteSpace(payment))
+                parts.Add(payment);
+            if (!string.IsNullOrWhiteSpace(request.aciklama))
+                parts.Add(request.aciklama.Trim());
 
             return parts.Count == 0 ? null : string.Join(" | ", parts);
         }
@@ -4180,6 +4268,16 @@ namespace Systemcel.Api.Api
             public int faturaId { get; set; }
             public bool faturaIleEslestir { get; set; }
             public string? hizliNot { get; set; }
+        }
+
+        public sealed class TahsilatOdemeHareketGuncelleIstek
+        {
+            public string? islemTipi { get; set; }
+            public int cariKartId { get; set; }
+            public string? tarih { get; set; }
+            public string? odemeYontemi { get; set; }
+            public string? aciklama { get; set; }
+            public decimal tutar { get; set; }
         }
 
         public sealed class PinDogrulaIstek

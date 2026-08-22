@@ -61,6 +61,16 @@ namespace CashTracker.Core.Models
         public string? Aciklama { get; set; }
     }
 
+    public sealed class TahsilatOdemeHareketGuncelleRequest
+    {
+        public string IslemTipi { get; set; } = "Tahsilat";
+        public int CariKartId { get; set; }
+        public DateTime Tarih { get; set; } = DateTime.Now;
+        public decimal Tutar { get; set; }
+        public string OdemeYontemi { get; set; } = "Nakit";
+        public string? Aciklama { get; set; }
+    }
+
     public sealed class GibPortalSettingsModel
     {
         public string KullaniciKodu { get; set; } = string.Empty;

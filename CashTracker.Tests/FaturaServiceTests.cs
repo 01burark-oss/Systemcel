@@ -168,6 +168,110 @@ namespace CashTracker.Tests
         }
 
         [Fact]
+        public async Task TahsilatOdemeService_UpdateMovement_ReconcilesInvoiceCariAndKasa()
+        {
+            using var fixture = await FaturaFixture.CreateAsync();
+            var faturaService = fixture.CreateFaturaService();
+            var paymentService = new TahsilatOdemeService(fixture.Factory, fixture.Isletme);
+            var invoiceId = await faturaService.CreateDraftAsync(new FaturaCreateRequest
+            {
+                CariKartId = fixture.CariId,
+                FaturaTipi = "Satis",
+                Satirlar =
+                [
+                    new FaturaSatirRequest
+                    {
+                        Aciklama = "Hizmet",
+                        Miktar = 1,
+                        BirimFiyat = 100,
+                        KdvOrani = 20,
+                        StokEtkilesin = false
+                    }
+                ]
+            });
+            await faturaService.MarkAsIssuedAsync(invoiceId);
+            var paymentId = await paymentService.CreateAsync(new TahsilatOdemeRequest
+            {
+                FaturaId = invoiceId,
+                Tutar = 100,
+                OdemeYontemi = "Nakit"
+            });
+
+            int movementId;
+            await using (var lookup = fixture.CreateDbContext())
+                movementId = (await lookup.TahsilatOdemeleri.SingleAsync(x => x.Id == paymentId)).CariHareketId!.Value;
+
+            await paymentService.UpdateMovementAsync(movementId, new TahsilatOdemeHareketGuncelleRequest
+            {
+                IslemTipi = "Tahsilat",
+                CariKartId = fixture.CariId,
+                Tarih = new DateTime(2026, 8, 22),
+                Tutar = 40,
+                OdemeYontemi = "Havale",
+                Aciklama = "Havale | Kismi tahsilat"
+            });
+
+            await using var db = fixture.CreateDbContext();
+            var invoice = await db.Faturalar.SingleAsync(x => x.Id == invoiceId);
+            var payment = await db.TahsilatOdemeleri.SingleAsync(x => x.Id == paymentId);
+            var movement = await db.CariHareketleri.SingleAsync(x => x.Id == movementId);
+            var cash = await db.Kasalar.SingleAsync();
+
+            Assert.Equal(FaturaDurum.KismiOdendi, invoice.Durum);
+            Assert.Equal(40, invoice.OdenenTutar);
+            Assert.Equal(40, payment.Tutar);
+            Assert.Equal("Havale", payment.OdemeYontemi);
+            Assert.Equal(40, movement.Tutar);
+            Assert.Equal(40, cash.Tutar);
+            Assert.Equal("Havale", cash.OdemeYontemi);
+        }
+
+        [Fact]
+        public async Task TahsilatOdemeService_DeleteMovement_ReopensInvoiceAndRemovesLinkedRows()
+        {
+            using var fixture = await FaturaFixture.CreateAsync();
+            var faturaService = fixture.CreateFaturaService();
+            var paymentService = new TahsilatOdemeService(fixture.Factory, fixture.Isletme);
+            var invoiceId = await faturaService.CreateDraftAsync(new FaturaCreateRequest
+            {
+                CariKartId = fixture.CariId,
+                FaturaTipi = "Satis",
+                Satirlar =
+                [
+                    new FaturaSatirRequest
+                    {
+                        Aciklama = "Hizmet",
+                        Miktar = 1,
+                        BirimFiyat = 100,
+                        KdvOrani = 20,
+                        StokEtkilesin = false
+                    }
+                ]
+            });
+            await faturaService.MarkAsIssuedAsync(invoiceId);
+            var paymentId = await paymentService.CreateAsync(new TahsilatOdemeRequest
+            {
+                FaturaId = invoiceId,
+                Tutar = 100,
+                OdemeYontemi = "Nakit"
+            });
+
+            int movementId;
+            await using (var lookup = fixture.CreateDbContext())
+                movementId = (await lookup.TahsilatOdemeleri.SingleAsync(x => x.Id == paymentId)).CariHareketId!.Value;
+
+            await paymentService.DeleteMovementAsync(movementId);
+
+            await using var db = fixture.CreateDbContext();
+            var invoice = await db.Faturalar.SingleAsync(x => x.Id == invoiceId);
+            Assert.Equal(FaturaDurum.Kesildi, invoice.Durum);
+            Assert.Equal(0, invoice.OdenenTutar);
+            Assert.False(await db.TahsilatOdemeleri.AnyAsync());
+            Assert.False(await db.Kasalar.AnyAsync());
+            Assert.False(await db.CariHareketleri.AnyAsync(x => x.Id == movementId));
+        }
+
+        [Fact]
         public async Task CreateDraftAsync_TreatsUnitPriceAsVatIncluded()
         {
             using var fixture = await FaturaFixture.CreateAsync();
