@@ -201,7 +201,20 @@ namespace CashTracker.Infrastructure.Services
             await tx.CommitAsync(ct);
         }
 
-        public async Task DeleteMovementAsync(int cariHareketId, CancellationToken ct = default)
+        public Task UndoCollectionAsync(int cariHareketId, CancellationToken ct = default)
+        {
+            return ReverseMovementAsync(cariHareketId, requireCollection: true, ct);
+        }
+
+        public Task DeleteMovementAsync(int cariHareketId, CancellationToken ct = default)
+        {
+            return ReverseMovementAsync(cariHareketId, requireCollection: false, ct);
+        }
+
+        private async Task ReverseMovementAsync(
+            int cariHareketId,
+            bool requireCollection,
+            CancellationToken ct)
         {
             if (cariHareketId <= 0)
                 throw new ArgumentException("Tahsilat/odeme hareketi secilmelidir.", nameof(cariHareketId));
@@ -214,8 +227,11 @@ namespace CashTracker.Infrastructure.Services
 
             if (hareket is null)
                 throw new InvalidOperationException("Tahsilat/odeme hareketi bulunamadi.");
-            if (NormalizeMovementType(hareket.HareketTipi) is not ("Tahsilat" or "Odeme"))
+            var movementType = NormalizeMovementType(hareket.HareketTipi);
+            if (movementType is not ("Tahsilat" or "Odeme"))
                 throw new InvalidOperationException("Secilen cari hareket tahsilat/odeme degil.");
+            if (requireCollection && movementType != "Tahsilat")
+                throw new InvalidOperationException("Yalnizca tahsilat kayitlari geri alinabilir.");
 
             var linkedPayment = await db.TahsilatOdemeleri
                 .FirstOrDefaultAsync(x => x.IsletmeId == activeIsletmeId && x.CariHareketId == cariHareketId, ct);

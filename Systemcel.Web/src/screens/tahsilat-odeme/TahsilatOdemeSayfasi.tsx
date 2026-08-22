@@ -9,6 +9,7 @@ import {
   MoreVertical,
   Pencil,
   Plus,
+  RotateCcw,
   Save,
   Search,
   Trash2,
@@ -167,6 +168,8 @@ export function TahsilatOdemeSayfasi({ yenileAnahtari }: TahsilatOdemeSayfasiPro
   const [hatirlatmaHatasi, setHatirlatmaHatasi] = React.useState("");
   const [hatirlatmaSonucu, setHatirlatmaSonucu] = React.useState("");
   const [duzenlenenHareket, setDuzenlenenHareket] = React.useState<TahsilatOdemeListeKaydi | null>(null);
+  const [geriAlinacakTahsilat, setGeriAlinacakTahsilat] = React.useState<TahsilatOdemeListeKaydi | null>(null);
+  const [geriAliniyor, setGeriAliniyor] = React.useState(false);
   const [silinecekHareket, setSilinecekHareket] = React.useState<TahsilatOdemeListeKaydi | null>(null);
   const [siliniyor, setSiliniyor] = React.useState(false);
 
@@ -361,6 +364,28 @@ export function TahsilatOdemeSayfasi({ yenileAnahtari }: TahsilatOdemeSayfasiPro
     }
   };
 
+  const tahsilatiGeriAl = async () => {
+    if (!geriAlinacakTahsilat) return;
+    try {
+      setGeriAliniyor(true);
+      setHata("");
+      const result = await jsonOku<ApiMesaj>(`/api/ekran/tahsilat-odeme/${geriAlinacakTahsilat.id}/geri-al`, {
+        method: "POST"
+      });
+      if (duzenlenenHareket?.id === geriAlinacakTahsilat.id) {
+        setDuzenlenenHareket(null);
+        setForm(bosForm(ekran?.bugun || bugun()));
+      }
+      setGeriAlinacakTahsilat(null);
+      await yenile();
+      setDurum(result.mesaj);
+    } catch (error) {
+      setHata(error instanceof Error ? error.message : "Tahsilat geri alınamadı.");
+    } finally {
+      setGeriAliniyor(false);
+    }
+  };
+
   const kaydet = async () => {
     try {
       setIslemde(true);
@@ -485,6 +510,7 @@ export function TahsilatOdemeSayfasi({ yenileAnahtari }: TahsilatOdemeSayfasiPro
               rows={filtreliHareketler}
               onDelete={setSilinecekHareket}
               onEdit={hareketDuzenle}
+              onUndoCollection={setGeriAlinacakTahsilat}
               onInvoiceSelect={bekleyenFaturaSec}
               onReminder={hatirlatmaAc}
             />
@@ -680,6 +706,26 @@ export function TahsilatOdemeSayfasi({ yenileAnahtari }: TahsilatOdemeSayfasiPro
         />
       ) : null}
 
+      {geriAlinacakTahsilat ? (
+        <div className="payment-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="payment-undo-title">
+          <section className="payment-confirm-modal__panel">
+            <span className="payment-confirm-modal__icon payment-confirm-modal__icon--undo"><RotateCcw size={22} /></span>
+            <h2 id="payment-undo-title">Tahsilat geri alınsın mı?</h2>
+            <p><strong>{geriAlinacakTahsilat.no}</strong> numaralı tahsilat geri alınacak.</p>
+            <small>{geriAlinacakTahsilat.kaynak === "TahsilatOdeme"
+              ? "Faturanın kalan bakiyesi yeniden açılacak; bağlı kasa ve cari hareketi kaldırılacak."
+              : "Tahsilat kaydı cari hesaptan kaldırılacak."}</small>
+            <div className="payment-confirm-modal__actions">
+              <button className="payment-btn" type="button" onClick={() => setGeriAlinacakTahsilat(null)} disabled={geriAliniyor}>Vazgeç</button>
+              <button className="payment-btn payment-btn--primary" type="button" onClick={tahsilatiGeriAl} disabled={geriAliniyor}>
+                <RotateCcw size={16} />
+                {geriAliniyor ? "Geri alınıyor…" : "Tahsilatı geri al"}
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
+
       {silinecekHareket ? (
         <div className="payment-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="payment-delete-title">
           <section className="payment-confirm-modal__panel">
@@ -745,12 +791,14 @@ function FormSection({ children, title }: { children: React.ReactNode; title: st
 function PaymentTable({
   onDelete,
   onEdit,
+  onUndoCollection,
   onInvoiceSelect,
   onReminder,
   rows
 }: {
   onDelete: (row: TahsilatOdemeListeKaydi) => void;
   onEdit: (row: TahsilatOdemeListeKaydi) => void;
+  onUndoCollection: (row: TahsilatOdemeListeKaydi) => void;
   onInvoiceSelect: (row: TahsilatOdemeListeKaydi) => void;
   onReminder: (row: TahsilatOdemeListeKaydi) => void;
   rows: TahsilatOdemeListeKaydi[];
@@ -847,7 +895,12 @@ function PaymentTable({
                         <MoreVertical size={18} />
                       </button>
                       {acikMenuId === row.id ? (
-                        <div className={`payment-row-menu__dropdown${index >= rows.length - 2 ? " payment-row-menu__dropdown--up" : ""}`} role="menu">
+                        <div className={`payment-row-menu__dropdown${rows.length > 2 && index >= rows.length - 2 ? " payment-row-menu__dropdown--up" : ""}`} role="menu">
+                          {row.tip === "Tahsilat" ? (
+                            <button type="button" role="menuitem" onClick={() => { setAcikMenuId(null); onUndoCollection(row); }}>
+                              <RotateCcw size={15} /> Tahsilatı geri al
+                            </button>
+                          ) : null}
                           <button type="button" role="menuitem" onClick={() => { setAcikMenuId(null); onEdit(row); }}>
                             <Pencil size={15} /> Düzenle
                           </button>

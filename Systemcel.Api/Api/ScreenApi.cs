@@ -1340,6 +1340,25 @@ namespace Systemcel.Api.Api
                     }
                 });
 
+                app.MapPost("/api/ekran/tahsilat-odeme/{id:int}/geri-al", async (int id) =>
+                {
+                    var readOnly = await RejectReadOnlyAccountantContextAsync();
+                    if (readOnly is not null)
+                        return readOnly;
+                    if (_tahsilatOdemeService is null)
+                        return Results.BadRequest(new ApiHata("Tahsilat/ödeme servisi hazır değil."));
+
+                    try
+                    {
+                        await _tahsilatOdemeService.UndoCollectionAsync(id);
+                        return Results.Ok(new ApiMesaj("Tahsilat geri alındı."));
+                    }
+                    catch (Exception ex)
+                    {
+                        return Results.BadRequest(new ApiHata($"Tahsilat geri alınamadı: {ex.Message}"));
+                    }
+                });
+
                 app.MapDelete("/api/ekran/tahsilat-odeme/{id:int}", async (int id) =>
                 {
                     var readOnly = await RejectReadOnlyAccountantContextAsync();

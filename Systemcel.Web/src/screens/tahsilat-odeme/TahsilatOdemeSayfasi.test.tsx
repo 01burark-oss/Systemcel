@@ -86,6 +86,7 @@ describe("TahsilatOdemeSayfasi ödeme hatırlatması", () => {
         return { gonderildi: true, mesaj: "Hatırlatma muhasebe@atlas.test adresine gönderildi.", gonderildiAt: "2026-08-22T10:00:00" };
       }
       if (url === "/api/ekran/tahsilat-odeme/9" && init?.method === "PUT") return { mesaj: "Tahsilat/ödeme güncellendi." };
+      if (url === "/api/ekran/tahsilat-odeme/9/geri-al" && init?.method === "POST") return { mesaj: "Tahsilat geri alındı." };
       if (url === "/api/ekran/tahsilat-odeme/9" && init?.method === "DELETE") return { mesaj: "Tahsilat/ödeme silindi." };
       throw new Error(`Unexpected request: ${url} ${init?.method ?? "GET"}`);
     });
@@ -129,11 +130,20 @@ describe("TahsilatOdemeSayfasi ödeme hatırlatması", () => {
     expect(screen.getByText("SAT-2026-0042")).toBeVisible();
   });
 
-  it("opens edit and delete actions from the three-dot menu", async () => {
+  it("opens undo, edit and delete actions from the three-dot menu", async () => {
     const user = userEvent.setup();
     render(<TahsilatOdemeSayfasi onIsletmeDegistir={vi.fn()} ustBar={null} ustBarIslemde={false} yenileAnahtari={0} />);
 
     await screen.findByText("HRK-2026-00009");
+    await user.click(screen.getByRole("button", { name: "HRK-2026-00009 işlemleri" }));
+    await user.click(screen.getByRole("menuitem", { name: "Tahsilatı geri al" }));
+    const undoDialog = screen.getByRole("dialog", { name: "Tahsilat geri alınsın mı?" });
+    await user.click(within(undoDialog).getByRole("button", { name: "Tahsilatı geri al" }));
+    await waitFor(() => expect(vi.mocked(jsonOku)).toHaveBeenCalledWith(
+      "/api/ekran/tahsilat-odeme/9/geri-al",
+      { method: "POST" }
+    ));
+
     await user.click(screen.getByRole("button", { name: "HRK-2026-00009 işlemleri" }));
     await user.click(screen.getByRole("menuitem", { name: "Düzenle" }));
     expect(screen.getByRole("heading", { name: "İşlemi düzenle" })).toBeVisible();
