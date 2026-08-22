@@ -19,6 +19,12 @@ const OAuthCallbackSayfasi = React.lazy(() =>
 const PublicContentPage = React.lazy(() =>
   import("./marketing/PublicContentPage").then((module) => ({ default: module.PublicContentPage }))
 );
+const FaturaMusteriOnaySayfasi = React.lazy(() =>
+  import("./screens/faturalar/FaturaMusteriOnaySayfasi").then((module) => ({ default: module.FaturaMusteriOnaySayfasi }))
+);
+const KaynakIndirmeSayfasi = React.lazy(() =>
+  import("./marketing/KaynakIndirmeSayfasi").then((module) => ({ default: module.KaynakIndirmeSayfasi }))
+);
 const CariHesaplarSayfasi = React.lazy(() =>
   import("./screens/cari/CariHesaplarSayfasi").then((module) => ({ default: module.CariHesaplarSayfasi }))
 );
@@ -126,6 +132,16 @@ function AppRoutes() {
 
   if (path === "/oauth-callback") {
     return <OAuthCallbackSayfasi />;
+  }
+
+  if (rawPath.startsWith("/fatura-onayi/")) {
+    const token = rawPath.slice("/fatura-onayi/".length);
+    return <FaturaMusteriOnaySayfasi token={token} />;
+  }
+
+  if (rawPath.startsWith("/kaynaklar/")) {
+    const kod = rawPath.slice("/kaynaklar/".length).split("/")[0];
+    return <KaynakIndirmeSayfasi kod={kod} />;
   }
 
   if (pathMatches(path, "/giris")) {

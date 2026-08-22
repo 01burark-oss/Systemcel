@@ -8958,6 +8958,67 @@ tbody tr.secili {
   grid-column: 1 / -1;
 }
 
+.invoice-actions .invoice-btn--customer-confirmation {
+  grid-column: span 2;
+  border-color: #b5cdf3;
+  color: #1556a6;
+  background: #f3f8ff;
+}
+
+.invoice-customer-confirmation {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 10px;
+  padding: 9px 10px;
+  border: 1px solid #cbd9eb;
+  border-radius: 8px;
+  background: #f7faff;
+  color: #173553;
+}
+
+.invoice-customer-confirmation > div {
+  display: grid;
+  gap: 2px;
+}
+
+.invoice-customer-confirmation strong,
+.invoice-customer-confirmation span {
+  font-size: 12px;
+}
+
+.invoice-customer-confirmation span {
+  color: #607089;
+}
+
+.invoice-customer-confirmation button {
+  flex: 0 0 auto;
+  border: 0;
+  background: transparent;
+  color: #1d64ba;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.invoice-customer-confirmation.is-onaylandi {
+  border-color: #9bd9b7;
+  background: #f0fbf5;
+}
+
+.invoice-customer-confirmation.is-duzeltmeistendi,
+.invoice-customer-confirmation.is-gonderilemedi {
+  border-color: #efc0a1;
+  background: #fff8f2;
+}
+
+.invoice-customer-confirmation-note {
+  margin: 7px 0 0;
+  color: #607089;
+  font-size: 11.5px;
+  line-height: 1.4;
+}
+
 .invoice-btn {
   min-height: 38px;
   display: inline-flex;

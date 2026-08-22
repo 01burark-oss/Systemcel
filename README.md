@@ -50,9 +50,26 @@ Telegram__AllowedUserIds=
 Telegram__ChatId=
 ReceiptOcr__ApiKey=
 DeepSeek__ApiKey=
+SYSTEMCEL_SMS_PROVIDER=Netgsm
+NETGSM_USERNAME=
+NETGSM_PASSWORD=
+NETGSM_MSGHEADER=
+NETGSM_APPNAME=systemcel
 ```
 
 For local Vite development, include local origins in `SYSTEMCEL_ALLOWED_ORIGINS` and `SYSTEMCEL_CLERK_AUTHORIZED_PARTIES`, then run the API and Vite dev server separately.
+
+## Public Resources and ManyChat
+
+The September 2026 lead magnets are served from stable public pages:
+
+- `/kaynaklar/ai`
+- `/kaynaklar/nakit`
+- `/kaynaklar/defter`
+- `/kaynaklar/takvim`
+- `/kaynaklar/50`
+
+Use `Systemcel.Web/public/kaynaklar/manychat-links.csv` when configuring the matching ManyChat keyword replies. The downloadable files live under `Systemcel.Web/public/kaynaklar/dosyalar`; the source builders are in `tools/lead-magnets`.
 
 ## Local Development
 

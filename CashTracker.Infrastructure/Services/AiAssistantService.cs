@@ -24,6 +24,7 @@ namespace CashTracker.Infrastructure.Services
         private readonly IUrunHizmetService _urunHizmetService;
         private readonly IStokService _stokService;
         private readonly IFaturaService _faturaService;
+        private readonly IFinansalGorunumService _finansalGorunumService;
         private readonly IAiUsageQuotaService _usageQuotaService;
 
         public AiAssistantService(
@@ -36,6 +37,7 @@ namespace CashTracker.Infrastructure.Services
             IUrunHizmetService urunHizmetService,
             IStokService stokService,
             IFaturaService faturaService,
+            IFinansalGorunumService finansalGorunumService,
             IAiUsageQuotaService usageQuotaService)
         {
             _settings = settings;
@@ -47,6 +49,7 @@ namespace CashTracker.Infrastructure.Services
             _urunHizmetService = urunHizmetService;
             _stokService = stokService;
             _faturaService = faturaService;
+            _finansalGorunumService = finansalGorunumService;
             _usageQuotaService = usageQuotaService;
         }
 
@@ -253,6 +256,7 @@ namespace CashTracker.Infrastructure.Services
             var invoices = await _faturaService.GetAllAsync(ct);
             var cariCards = await _cariService.GetAllAsync(ct);
             var products = await _urunHizmetService.GetAllAsync(ct);
+            var financialView = await _finansalGorunumService.GetAsync(today, 13, ct);
 
             var activeProducts = products
                 .Where(x => x.Aktif && string.Equals(x.Tip, "Urun", StringComparison.OrdinalIgnoreCase))
@@ -307,6 +311,7 @@ namespace CashTracker.Infrastructure.Services
                     .OrderBy(x => x.VadeTarihi)
                     .Take(5)
                     .ToList(),
+                FinancialView = financialView,
                 CariCount = cariCards.Count,
                 ProductCount = products.Count(x => x.Aktif),
                 StockWarnings = stockWarnings
@@ -439,6 +444,8 @@ namespace CashTracker.Infrastructure.Services
                 "Panel içinde okunacağı için yanıtı en fazla 5 madde ve 180 kelimeyle sınırla; tablo verme.\n" +
                 "Markdown sembolleri, kalın yazı işaretleri veya kod bloğu kullanma; düz metin yaz.\n" +
                 "Yalnızca verilen işletme bağlamından çıkarım yap; veri yoksa bunu açıkça söyle.\n" +
+                "Cari risk sorularında karar verme; açık alacak, gecikme, ödeme örneği ve veri kalitesini birlikte açıkla.\n" +
+                "Nakit yeterliliği sorularında yalnız 13 haftalık projeksiyonu ve kayıtlı planları kullan; maaş veya başka plan kalemi kayıtlı değilse kesin sonuç verme.\n" +
                 "Kayıt ekleme, silme veya değiştirme yetkin yok; böyle taleplerde danışmanlık ve kontrol listesi sun.\n" +
                 "Vergi, hukuk veya resmi muhasebe konularında kesin hüküm verme; gerektiğinde mali müşavir kontrolü öner.\n" +
                 "Gereksiz pazarlama dili kullanma.";
@@ -511,6 +518,8 @@ namespace CashTracker.Infrastructure.Services
                 }
             }
 
+            AppendFinancialView(sb, context.FinancialView);
+
             sb.AppendLine($"Cari kart: {context.CariCount}, aktif ürün/hizmet: {context.ProductCount}");
             if (context.StockWarnings.Count > 0)
             {
@@ -541,8 +550,91 @@ namespace CashTracker.Infrastructure.Services
                 sb.AppendLine($"- {group.Name}: {FormatMoney(group.Amount)} ({group.Count} kayıt)");
         }
 
+        private static void AppendFinancialView(StringBuilder sb, FinansalGorunum view)
+        {
+            sb.AppendLine("Finansal görünüm:");
+            sb.AppendLine($"- Kasa bakiyesi: {FormatMoney(view.KasaBakiyesi)}");
+            sb.AppendLine($"- Açık alacak: {FormatMoney(view.AcikAlacakToplami)}, vadesi geçmiş: {FormatMoney(view.VadesiGecmisAlacakToplami)}");
+            sb.AppendLine($"- Alacak yoğunlaşması: {view.Yogunlasma.RiskSeviyesi}; en büyük cari %{view.Yogunlasma.EnBuyukCariOrani.ToString("N1", TrCulture)}, ilk üç cari %{view.Yogunlasma.IlkUcCariOrani.ToString("N1", TrCulture)}");
+
+            if (view.CariRiskleri.Count > 0)
+            {
+                sb.AppendLine("Cari ödeme ritmi ve riskleri:");
+                foreach (var customer in view.CariRiskleri.Take(10))
+                {
+                    var medianDelay = customer.OrtancaOdemeSapmasiGunu.HasValue
+                        ? $", ortanca vade sapması {customer.OrtancaOdemeSapmasiGunu.Value.ToString("N1", TrCulture)} gün"
+                        : ", ödeme ritmi için örnek yetersiz";
+                    var onTimeRate = customer.ZamanindaOdemeOrani.HasValue
+                        ? $", zamanında ödeme %{customer.ZamanindaOdemeOrani.Value.ToString("N0", TrCulture)}"
+                        : string.Empty;
+                    sb.AppendLine($"- {customer.Unvan}: risk {customer.RiskSeviyesi}, ritim {customer.RitimDurumu}, açık {FormatMoney(customer.AcikAlacak)}, gecikmiş {FormatMoney(customer.VadesiGecmisAlacak)}, en uzun gecikme {customer.EnUzunGecikmeGunu} gün{medianDelay}{onTimeRate}, tamamlanan ödeme {customer.TamamlananOdemeAdedi}");
+                }
+            }
+
+            if (view.NakitProjeksiyonu.Count > 0)
+            {
+                sb.AppendLine($"13 haftalık nakit projeksiyonu; ilk negatif hafta: {(view.IlkNegatifHafta.HasValue ? view.IlkNegatifHafta.Value.ToString(TrCulture) : "yok")}");
+                foreach (var week in view.NakitProjeksiyonu.Take(13))
+                {
+                    sb.AppendLine($"- Hafta {week.Hafta} ({week.Baslangic:yyyy-MM-dd}/{week.Bitis:yyyy-MM-dd}): açılış {FormatMoney(week.AcilisBakiyesi)}, tahsilat {FormatMoney(week.BeklenenTahsilat + week.PlanlananGelir)}, ödeme {FormatMoney(week.BeklenenOdeme + week.PlanlananGider)}, kapanış {FormatMoney(week.KapanisBakiyesi)}");
+                }
+            }
+
+            if (view.VeriUyarilari.Count > 0)
+            {
+                sb.AppendLine("Finansal veri uyarıları:");
+                foreach (var warning in view.VeriUyarilari.Take(8))
+                    sb.AppendLine($"- {warning.Mesaj} ({warning.KayitAdedi} kayıt)");
+            }
+        }
+
         private static string BuildOfflineAnswer(string message, BusinessContext context)
         {
+            var normalizedMessage = message.ToLower(TrCulture);
+            if ((normalizedMessage.Contains("kim") && (normalizedMessage.Contains("geç öd") || normalizedMessage.Contains("gec od"))) ||
+                normalizedMessage.Contains("sürekli geç") || normalizedMessage.Contains("surekli gec"))
+            {
+                var delayed = context.FinancialView.CariRiskleri
+                    .Where(x => x.VadesiGecmisAlacak > 0 || (x.OrtancaOdemeSapmasiGunu ?? 0) > 0)
+                    .Take(3)
+                    .ToList();
+                if (delayed.Count == 0)
+                    return "Sürekli geç ödeyen bir cari göstermek için yeterli tamamlanmış ödeme ve gecikmiş alacak verisi yok.";
+
+                var lines = delayed.Select(x =>
+                    $"{x.Unvan}: {FormatMoney(x.VadesiGecmisAlacak)} gecikmiş alacak, en uzun gecikme {x.EnUzunGecikmeGunu} gün, risk {x.RiskSeviyesi}.");
+                return string.Join(Environment.NewLine, lines) + Environment.NewLine +
+                       "Karar vermeden önce örnek sayısını ve son ödeme tarihlerini cari detayından kontrol edin.";
+            }
+
+            if ((normalizedMessage.Contains("maaş") || normalizedMessage.Contains("maas")) &&
+                (normalizedMessage.Contains("kasa") || normalizedMessage.Contains("yeter")))
+            {
+                var projection = context.FinancialView.NakitProjeksiyonu;
+                if (projection.Count == 0)
+                    return "Maaş gününe kadar kasa yeterliliğini hesaplamak için nakit projeksiyonu verisi yok.";
+
+                var minimum = projection.MinBy(x => x.KapanisBakiyesi)!;
+                var status = context.FinancialView.IlkNegatifHafta.HasValue
+                    ? $"Projeksiyon {context.FinancialView.IlkNegatifHafta}. haftada negatife dönüyor."
+                    : "13 haftalık projeksiyonda negatif kapanış görünmüyor.";
+                return $"{status} En düşük haftalık kapanış {minimum.Hafta}. haftada {FormatMoney(minimum.KapanisBakiyesi)}. " +
+                       "Maaş tutarı ve tarihi nakit planına ekli değilse bu sonuç maaş ödemesini kapsamaz.";
+            }
+
+            if ((normalizedMessage.Contains("mal vere") || normalizedMessage.Contains("satış yap") || normalizedMessage.Contains("satis yap")) &&
+                context.FinancialView.CariRiskleri.Count > 0)
+            {
+                var customer = context.FinancialView.CariRiskleri.FirstOrDefault(x =>
+                    normalizedMessage.Contains(x.Unvan.ToLower(TrCulture)));
+                if (customer is null)
+                    return "Cari riskini değerlendirebilmem için müşteri unvanını soruya ekleyin.";
+
+                return $"{customer.Unvan} için açık alacak {FormatMoney(customer.AcikAlacak)}, gecikmiş alacak {FormatMoney(customer.VadesiGecmisAlacak)}, en uzun gecikme {customer.EnUzunGecikmeGunu} gün ve risk seviyesi {customer.RiskSeviyesi}. " +
+                       $"Bu veri tek başına satış kararı değildir; limit, teminat ve sipariş tutarıyla birlikte değerlendirin. Tamamlanan ödeme örneği: {customer.TamamlananOdemeAdedi}.";
+            }
+
             var topExpense = context.ExpenseGroups.FirstOrDefault();
             var sb = new StringBuilder();
             sb.AppendLine($"Son 30 günde gelir {FormatMoney(context.CurrentSummary.IncomeTotal)}, gider {FormatMoney(context.CurrentSummary.ExpenseTotal)}, net {FormatMoney(context.CurrentSummary.Net)}.");
@@ -573,6 +665,7 @@ namespace CashTracker.Infrastructure.Services
                 "stok", "ürün", "urun", "fatura", "cari", "tahsilat", "ödeme", "odeme",
                 "rapor", "işletme", "isletme", "kalem", "bakiye", "borç", "borc",
                 "alacak", "kasa", "vergi", "kdv", "ocr", "fiş", "fis", "dekont",
+                "geç öd", "gec od", "maaş", "maas",
                 "öner", "oner", "analiz", "durum", "risk", "tasarruf", "düşür",
                 "dusur", "artır", "artir", "ne yap", "iyi mi", "kötü", "kotu",
                 "batıyor", "batiyor"
@@ -636,6 +729,7 @@ namespace CashTracker.Infrastructure.Services
             public int InvoiceCount { get; set; }
             public decimal OutstandingInvoiceTotal { get; set; }
             public List<Fatura> OverdueInvoices { get; set; } = [];
+            public FinansalGorunum FinancialView { get; set; } = new();
             public int CariCount { get; set; }
             public int ProductCount { get; set; }
             public List<StockWarning> StockWarnings { get; set; } = [];

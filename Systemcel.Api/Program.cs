@@ -40,6 +40,7 @@ var deepSeekSettings = ResolveDeepSeekSettings(builder.Configuration);
 var receiptOcrSettings = builder.Configuration.GetSection("ReceiptOcr").Get<ReceiptOcrSettings>() ?? new ReceiptOcrSettings();
 var paymentOptions = ResolvePaymentOptions(builder.Configuration, builder.Environment);
 var reminderEmailOptions = ResolveSubscriptionReminderEmailOptions(builder.Configuration);
+var musteriSmsSettings = ResolveMusteriSmsSettings(builder.Configuration);
 var secretEncryptionKey = ResolveSecretEncryptionKey(builder.Configuration, builder.Environment, appDataPath);
 builder.Services.AddSingleton(databasePaths);
 builder.Services.AddSingleton(databaseOptions);
@@ -115,6 +116,7 @@ builder.Services.AddSingleton(deepSeekSettings);
 builder.Services.AddSingleton(receiptOcrSettings);
 builder.Services.AddSingleton(paymentOptions);
 builder.Services.AddSingleton(reminderEmailOptions);
+builder.Services.AddSingleton(musteriSmsSettings);
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddSingleton<ICurrentUserContext, HttpCurrentUserContext>();
 
@@ -136,6 +138,14 @@ builder.Services.AddSingleton<IOdemeHatirlatmaSender>(_ => reminderEmailOptions.
         _.GetRequiredService<ILogger<SmtpOdemeHatirlatmaSender>>())
     : new UnconfiguredOdemeHatirlatmaSender());
 builder.Services.AddSingleton<IOdemeHatirlatmaService, OdemeHatirlatmaService>();
+builder.Services.AddHttpClient("MusteriSms", client => client.Timeout = TimeSpan.FromSeconds(30));
+builder.Services.AddSingleton<IMusteriSmsSender>(sp => musteriSmsSettings.IsConfigured
+    ? new NetgsmMusteriSmsSender(
+        sp.GetRequiredService<IHttpClientFactory>().CreateClient("MusteriSms"),
+        musteriSmsSettings,
+        sp.GetRequiredService<ILogger<NetgsmMusteriSmsSender>>())
+    : new UnconfiguredMusteriSmsSender());
+builder.Services.AddSingleton<IFaturaMusteriOnayService, FaturaMusteriOnayService>();
 builder.Services.AddSingleton<IOnMuhasebeReportService, OnMuhasebeReportService>();
 builder.Services.AddSingleton<IFinansalGorunumService, FinansalGorunumService>();
 builder.Services.AddSingleton<ISubscriptionEntitlementService, SubscriptionEntitlementService>();
@@ -357,6 +367,7 @@ app.MapSohbetMerkeziApi();
 app.MapYonetimApi();
 app.MapUyelikApi();
 app.MapFinansalGorunumApi();
+app.MapFaturaMusteriOnayApi();
 var sohbetHub = app.MapHub<MuhasebeciSohbetHub>("/hubs/muhasebeci-sohbet");
 if (clerkAuthenticationOptions.Enabled)
     sohbetHub.RequireAuthorization();
@@ -536,6 +547,43 @@ static SubscriptionReminderEmailOptions ResolveSubscriptionReminderEmailOptions(
         PublicBaseUrl = FirstNonEmpty(
             Environment.GetEnvironmentVariable("SYSTEMCEL_PUBLIC_BASE_URL"),
             configuration["Systemcel:PublicBaseUrl"]) ?? "https://systemcel.app"
+    };
+}
+
+static MusteriSmsSettings ResolveMusteriSmsSettings(IConfiguration configuration)
+{
+    var configuredExpiry = FirstNonEmpty(
+        Environment.GetEnvironmentVariable("SYSTEMCEL_CUSTOMER_APPROVAL_EXPIRY_HOURS"),
+        configuration["Systemcel:Sms:CustomerApprovalExpiryHours"]);
+    var configuredCooldown = FirstNonEmpty(
+        Environment.GetEnvironmentVariable("SYSTEMCEL_CUSTOMER_APPROVAL_RESEND_MINUTES"),
+        configuration["Systemcel:Sms:CustomerApprovalResendMinutes"]);
+
+    return new MusteriSmsSettings
+    {
+        Provider = FirstNonEmpty(
+            Environment.GetEnvironmentVariable("SYSTEMCEL_SMS_PROVIDER"),
+            configuration["Systemcel:Sms:Provider"]) ?? "Netgsm",
+        BaseUrl = FirstNonEmpty(
+            Environment.GetEnvironmentVariable("NETGSM_BASE_URL"),
+            configuration["Systemcel:Sms:Netgsm:BaseUrl"]) ?? "https://api.netgsm.com.tr",
+        Username = FirstNonEmpty(
+            Environment.GetEnvironmentVariable("NETGSM_USERNAME"),
+            configuration["Systemcel:Sms:Netgsm:Username"]) ?? string.Empty,
+        Password = FirstNonEmpty(
+            Environment.GetEnvironmentVariable("NETGSM_PASSWORD"),
+            configuration["Systemcel:Sms:Netgsm:Password"]) ?? string.Empty,
+        Header = FirstNonEmpty(
+            Environment.GetEnvironmentVariable("NETGSM_MSGHEADER"),
+            configuration["Systemcel:Sms:Netgsm:Header"]) ?? string.Empty,
+        AppName = FirstNonEmpty(
+            Environment.GetEnvironmentVariable("NETGSM_APPNAME"),
+            configuration["Systemcel:Sms:Netgsm:AppName"]) ?? "systemcel",
+        PublicBaseUrl = FirstNonEmpty(
+            Environment.GetEnvironmentVariable("SYSTEMCEL_PUBLIC_BASE_URL"),
+            configuration["Systemcel:PublicBaseUrl"]) ?? "https://systemcel.app",
+        LinkExpiryHours = int.TryParse(configuredExpiry, out var expiry) ? expiry : 72,
+        ResendCooldownMinutes = int.TryParse(configuredCooldown, out var cooldown) ? cooldown : 15
     };
 }
 

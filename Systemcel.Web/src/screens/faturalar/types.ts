@@ -107,6 +107,23 @@ export interface FaturaFormu {
   stokEtkilesin: boolean;
 }
 
+export interface FaturaMusteriOnayDurumu {
+  onayId: number | null;
+  faturaId: number;
+  durum: string;
+  aliciTelefonMaskeli: string;
+  gonderildiAt: string | null;
+  sonGecerlilikAt: string | null;
+  yanitAt: string | null;
+  yanitNotu: string;
+}
+
+export interface FaturaMusteriOnayGonderimSonucu extends FaturaMusteriOnayDurumu {
+  onayId: number;
+  onayUrl: string;
+  mesaj: string;
+}
+
 export interface TahsilatFormu {
   tutar: string;
   tarih: string;

@@ -11,7 +11,7 @@ namespace Systemcel.Api.Api;
 
 internal static class BillingApi
 {
-    private const string ConsentVersion = "abonelik-onayi-2026-08-v4";
+    private const string ConsentVersion = "abonelik-onayi-2026-08-v5";
 
     public static void MapBillingApi(this WebApplication app)
     {
@@ -415,7 +415,7 @@ internal static class BillingApi
         return new Uri($"{scheme}://{request.Host}");
     }
 
-    private static string BuildConsentText(PaymentQuote quote)
+    internal static string BuildConsentText(PaymentQuote quote)
     {
         var culture = CultureInfo.GetCultureInfo("tr-TR");
         var period = string.Equals(quote.BillingPeriod, PaymentBillingPeriods.Annual, StringComparison.OrdinalIgnoreCase)
@@ -435,7 +435,9 @@ internal static class BillingApi
             var renewalVat = renewalVatAmount.ToString("N2", culture);
             var renewalTotal = (quote.RenewalNetAmount + renewalVatAmount).ToString("N2", culture);
             var campaign = quote.IsFounderPrice
-                ? $" Lansman fiyatının ilk 3 ay için geçerli olduğunu; yıllık toplu ödemede yalnızca ilk 3 aylık kısma uygulandığını kabul ediyorum. Lansman bitiminden sonraki yenilemelerde yenileme tarihinde geçerli liste fiyatı uygulanır. Bugünkü {period} liste fiyatı {renewalNet} TL + {renewalVat} TL KDV, toplam {renewalTotal} TL'dir. Fiyat değişikliği en az 30 gün önce e-posta ve uygulama içinden bildirilir; yenilemeden önce dönem sonu iptal talebi verebilirim."
+                ? string.Equals(quote.BillingPeriod, PaymentBillingPeriods.Annual, StringComparison.OrdinalIgnoreCase)
+                    ? $" İlk 50 kurucu kampanyası fiyatının bugün peşin ödenen 12 aylık dönemin tamamına uygulandığını kabul ediyorum. Sonraki yıllık yenilemede yenileme tarihinde geçerli liste fiyatı uygulanır. Bugünkü yıllık liste fiyatı {renewalNet} TL + {renewalVat} TL KDV, toplam {renewalTotal} TL'dir. Fiyat değişikliği en az 30 gün önce e-posta ve uygulama içinden bildirilir; yenilemeden önce dönem sonu iptal talebi verebilirim."
+                    : $" İlk 50 kurucu kampanyası fiyatının ilk {quote.DiscountedPeriodCount} aylık dönem için geçerli olduğunu kabul ediyorum. Kampanya bittikten sonraki aylık yenilemelerde yenileme tarihinde geçerli liste fiyatı uygulanır. Bugünkü aylık liste fiyatı {renewalNet} TL + {renewalVat} TL KDV, toplam {renewalTotal} TL'dir. Fiyat değişikliği en az 30 gün önce e-posta ve uygulama içinden bildirilir; yenilemeden önce dönem sonu iptal talebi verebilirim."
                 : $" Aboneliğin sonraki {period} dönemde {renewalNet} TL + {renewalVat} TL KDV, toplam {renewalTotal} TL üzerinden yenileneceğini kabul ediyorum.";
             return $"{period} planın hemen başlamasını; " +
                    $"{net} TL + {vat} TL KDV, toplam {total} TL'nin kayıtlı ödeme yöntemimden bugün tahsil edilmesini onaylıyorum.{credits}{campaign} İptalin mevcut ücretli dönemin " +

@@ -1729,6 +1729,48 @@ namespace CashTracker.Infrastructure.Persistence.Migrations.PostgreSql
                     b.ToTable("NakitPlanKalemi", (string)null);
                 });
 
+            modelBuilder.Entity("CashTracker.Core.Entities.FaturaMusteriOnayi", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AliciTelefonMaskeli").IsRequired().HasMaxLength(32).HasColumnType("character varying(32)");
+                    b.Property<string>("CariAdres").IsRequired().HasMaxLength(500).HasColumnType("character varying(500)");
+                    b.Property<int>("CariKartId").HasColumnType("integer");
+                    b.Property<string>("CariUnvan").IsRequired().HasMaxLength(200).HasColumnType("character varying(200)");
+                    b.Property<string>("CariVergiNoMaskeli").IsRequired().HasMaxLength(32).HasColumnType("character varying(32)");
+                    b.Property<DateTime>("CreatedAt").HasColumnType("timestamp without time zone");
+                    b.Property<string>("Durum").IsRequired().HasMaxLength(24).HasColumnType("character varying(24)");
+                    b.Property<int>("FaturaId").HasColumnType("integer");
+                    b.Property<string>("FaturaNo").IsRequired().HasMaxLength(80).HasColumnType("character varying(80)");
+                    b.Property<DateTime>("FaturaTarihi").HasColumnType("timestamp without time zone");
+                    b.Property<decimal>("FaturaToplami").HasColumnType("NUMERIC");
+                    b.Property<DateTime?>("GonderildiAt").HasColumnType("timestamp without time zone");
+                    b.Property<string>("Hata").IsRequired().HasMaxLength(500).HasColumnType("character varying(500)");
+                    b.Property<int>("IsletmeId").HasColumnType("integer");
+                    b.Property<string>("IsletmeAdi").IsRequired().HasMaxLength(160).HasColumnType("character varying(160)");
+                    b.Property<string>("IstemciIpHash").IsRequired().HasMaxLength(64).HasColumnType("character varying(64)");
+                    b.Property<string>("ParaBirimi").IsRequired().HasMaxLength(3).HasColumnType("character varying(3)");
+                    b.Property<string>("Saglayici").IsRequired().HasMaxLength(32).HasColumnType("character varying(32)");
+                    b.Property<string>("SaglayiciIslemId").IsRequired().HasMaxLength(120).HasColumnType("character varying(120)");
+                    b.Property<DateTime>("SonGecerlilikAt").HasColumnType("timestamp without time zone");
+                    b.Property<string>("TokenHash").IsRequired().HasMaxLength(64).HasColumnType("character varying(64)");
+                    b.Property<DateTime>("UpdatedAt").HasColumnType("timestamp without time zone");
+                    b.Property<string>("UserAgentHash").IsRequired().HasMaxLength(64).HasColumnType("character varying(64)");
+                    b.Property<DateTime?>("YanitAt").HasColumnType("timestamp without time zone");
+                    b.Property<string>("YanitNotu").IsRequired().HasMaxLength(500).HasColumnType("character varying(500)");
+
+                    b.HasKey("Id");
+                    b.HasIndex("FaturaId");
+                    b.HasIndex("TokenHash").IsUnique();
+                    b.HasIndex("IsletmeId", "Durum", "SonGecerlilikAt");
+                    b.HasIndex("IsletmeId", "FaturaId", "CreatedAt");
+                    b.ToTable("FaturaMusteriOnayi", (string)null);
+                });
+
             modelBuilder.Entity("CashTracker.Core.Entities.OdemeHatirlatma", b =>
                 {
                     b.Property<int>("Id")
@@ -2171,6 +2213,15 @@ namespace CashTracker.Infrastructure.Persistence.Migrations.PostgreSql
                         .WithMany()
                         .HasForeignKey("TargetIsletmeId")
                         .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("CashTracker.Core.Entities.FaturaMusteriOnayi", b =>
+                {
+                    b.HasOne("CashTracker.Core.Entities.Fatura", null)
+                        .WithMany()
+                        .HasForeignKey("FaturaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("CashTracker.Core.Entities.NakitPlanKalemi", b =>

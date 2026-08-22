@@ -224,6 +224,39 @@ CREATE TABLE IF NOT EXISTS OdemeHatirlatma (
 );");
         }
 
+        private static partial void EnsureFaturaMusteriOnayiTable(CashTrackerDbContext db)
+        {
+            db.Database.ExecuteSqlRaw(@"
+CREATE TABLE IF NOT EXISTS FaturaMusteriOnayi (
+    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+    IsletmeId INTEGER NOT NULL,
+    FaturaId INTEGER NOT NULL,
+    CariKartId INTEGER NOT NULL,
+    TokenHash TEXT NOT NULL,
+    Durum TEXT NOT NULL DEFAULT 'Bekliyor',
+    IsletmeAdi TEXT NOT NULL DEFAULT '',
+    CariUnvan TEXT NOT NULL DEFAULT '',
+    CariVergiNoMaskeli TEXT NOT NULL DEFAULT '',
+    CariAdres TEXT NOT NULL DEFAULT '',
+    AliciTelefonMaskeli TEXT NOT NULL DEFAULT '',
+    FaturaNo TEXT NOT NULL DEFAULT '',
+    FaturaTarihi TEXT NOT NULL,
+    FaturaToplami NUMERIC NOT NULL DEFAULT 0,
+    ParaBirimi TEXT NOT NULL DEFAULT 'TRY',
+    Saglayici TEXT NOT NULL DEFAULT '',
+    SaglayiciIslemId TEXT NOT NULL DEFAULT '',
+    Hata TEXT NOT NULL DEFAULT '',
+    GonderildiAt TEXT,
+    SonGecerlilikAt TEXT NOT NULL,
+    YanitAt TEXT,
+    YanitNotu TEXT NOT NULL DEFAULT '',
+    IstemciIpHash TEXT NOT NULL DEFAULT '',
+    UserAgentHash TEXT NOT NULL DEFAULT '',
+    CreatedAt TEXT NOT NULL,
+    UpdatedAt TEXT NOT NULL
+);");
+        }
+
         private static partial void EnsureBelgeDosyaTable(CashTrackerDbContext db)
         {
             db.Database.ExecuteSqlRaw(@"
@@ -897,6 +930,9 @@ CREATE TABLE IF NOT EXISTS YonetimDenetimKaydi (
             db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS IX_TahsilatOdeme_IsletmeId_CariKartId_Tarih ON TahsilatOdeme(IsletmeId, CariKartId, Tarih);");
             db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS IX_OdemeHatirlatma_IsletmeId ON OdemeHatirlatma(IsletmeId);");
             db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS IX_OdemeHatirlatma_IsletmeId_FaturaId_GonderildiAt ON OdemeHatirlatma(IsletmeId, FaturaId, GonderildiAt);");
+            db.Database.ExecuteSqlRaw("CREATE UNIQUE INDEX IF NOT EXISTS IX_FaturaMusteriOnayi_TokenHash ON FaturaMusteriOnayi(TokenHash);");
+            db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS IX_FaturaMusteriOnayi_IsletmeId_FaturaId_CreatedAt ON FaturaMusteriOnayi(IsletmeId, FaturaId, CreatedAt);");
+            db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS IX_FaturaMusteriOnayi_IsletmeId_Durum_SonGecerlilikAt ON FaturaMusteriOnayi(IsletmeId, Durum, SonGecerlilikAt);");
             db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS IX_BelgeDosya_IsletmeId ON BelgeDosya(IsletmeId);");
             db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS IX_BelgeDosya_IsletmeId_FaturaId ON BelgeDosya(IsletmeId, FaturaId);");
             db.Database.ExecuteSqlRaw("CREATE UNIQUE INDEX IF NOT EXISTS IX_GibPortalAyar_IsletmeId ON GibPortalAyar(IsletmeId);");

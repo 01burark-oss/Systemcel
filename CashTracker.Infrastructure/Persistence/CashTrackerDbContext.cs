@@ -46,6 +46,7 @@ namespace CashTracker.Infrastructure.Persistence
         public DbSet<FaturaSatir> FaturaSatirlari => Set<FaturaSatir>();
         public DbSet<TahsilatOdeme> TahsilatOdemeleri => Set<TahsilatOdeme>();
         public DbSet<OdemeHatirlatma> OdemeHatirlatmalari => Set<OdemeHatirlatma>();
+        public DbSet<FaturaMusteriOnayi> FaturaMusteriOnaylari => Set<FaturaMusteriOnayi>();
         public DbSet<BelgeDosya> BelgeDosyalari => Set<BelgeDosya>();
         public DbSet<GibPortalAyar> GibPortalAyarlari => Set<GibPortalAyar>();
         public DbSet<GibPortalIslemLog> GibPortalIslemLoglari => Set<GibPortalIslemLog>();
@@ -558,6 +559,35 @@ namespace CashTracker.Infrastructure.Persistence
                 e.Property(x => x.Hata).IsRequired().HasMaxLength(500);
                 e.HasIndex(x => x.IsletmeId);
                 e.HasIndex(x => new { x.IsletmeId, x.FaturaId, x.GonderildiAt });
+            });
+
+            modelBuilder.Entity<FaturaMusteriOnayi>(e =>
+            {
+                e.ToTable("FaturaMusteriOnayi");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.TokenHash).IsRequired().HasMaxLength(64);
+                e.Property(x => x.Durum).IsRequired().HasMaxLength(24);
+                e.Property(x => x.IsletmeAdi).IsRequired().HasMaxLength(160);
+                e.Property(x => x.CariUnvan).IsRequired().HasMaxLength(200);
+                e.Property(x => x.CariVergiNoMaskeli).IsRequired().HasMaxLength(32);
+                e.Property(x => x.CariAdres).IsRequired().HasMaxLength(500);
+                e.Property(x => x.AliciTelefonMaskeli).IsRequired().HasMaxLength(32);
+                e.Property(x => x.FaturaNo).IsRequired().HasMaxLength(80);
+                e.Property(x => x.FaturaToplami).HasColumnType("NUMERIC");
+                e.Property(x => x.ParaBirimi).IsRequired().HasMaxLength(3);
+                e.Property(x => x.Saglayici).IsRequired().HasMaxLength(32);
+                e.Property(x => x.SaglayiciIslemId).IsRequired().HasMaxLength(120);
+                e.Property(x => x.Hata).IsRequired().HasMaxLength(500);
+                e.Property(x => x.YanitNotu).IsRequired().HasMaxLength(500);
+                e.Property(x => x.IstemciIpHash).IsRequired().HasMaxLength(64);
+                e.Property(x => x.UserAgentHash).IsRequired().HasMaxLength(64);
+                e.HasIndex(x => x.TokenHash).IsUnique();
+                e.HasIndex(x => new { x.IsletmeId, x.FaturaId, x.CreatedAt });
+                e.HasIndex(x => new { x.IsletmeId, x.Durum, x.SonGecerlilikAt });
+                e.HasOne<Fatura>()
+                    .WithMany()
+                    .HasForeignKey(x => x.FaturaId)
+                    .OnDelete(DeleteBehavior.Cascade);
             });
 
             modelBuilder.Entity<BelgeDosya>(e =>

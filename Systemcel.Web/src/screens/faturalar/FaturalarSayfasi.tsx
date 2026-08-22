@@ -6,6 +6,7 @@ import {
   FileText,
   Filter,
   MoreVertical,
+  MessageSquareText,
   Plus,
   Search,
   Send,
@@ -17,7 +18,9 @@ import { jsonOku } from "../../shared/json";
 import type {
   FaturaDetay,
   FaturaEkranVerisi,
-  FaturaFormu
+  FaturaFormu,
+  FaturaMusteriOnayDurumu,
+  FaturaMusteriOnayGonderimSonucu
 } from "./types";
 
 interface FaturalarSayfasiProps {
@@ -208,6 +211,8 @@ export function FaturalarSayfasi({
   const [islemde, setIslemde] = React.useState(false);
   const [smsOnayi, setSmsOnayi] = React.useState<{ operationId: string; mesaj: string } | null>(null);
   const [smsKodu, setSmsKodu] = React.useState("");
+  const [musteriTeyidi, setMusteriTeyidi] = React.useState<FaturaMusteriOnayDurumu | null>(null);
+  const [musteriTeyitUrl, setMusteriTeyitUrl] = React.useState("");
   const [formPaneliAcik, setFormPaneliAcik] = React.useState(false);
   const seciliIdRef = React.useRef<number | null>(null);
   const tumunuSecRef = React.useRef<HTMLInputElement | null>(null);
@@ -281,10 +286,15 @@ export function FaturalarSayfasi({
   }, [yenile, yenileAnahtari]);
 
   async function faturaSec(id: number) {
-    const detay = await jsonOku<FaturaDetay>(`/api/ekran/faturalar/${id}`);
+    const [detay, teyit] = await Promise.all([
+      jsonOku<FaturaDetay>(`/api/ekran/faturalar/${id}`),
+      jsonOku<FaturaMusteriOnayDurumu>(`/api/ekran/faturalar/${id}/musteri-onayi`)
+    ]);
     seciliIdRef.current = id;
     setSeciliId(id);
     setForm(formaAktar(detay));
+    setMusteriTeyidi(teyit);
+    setMusteriTeyitUrl("");
     setFormPaneliAcik(true);
   }
 
@@ -296,6 +306,8 @@ export function FaturalarSayfasi({
     seciliIdRef.current = null;
     setSeciliId(null);
     setForm(bosFaturaFormu(ekran?.bugun || bugun()));
+    setMusteriTeyidi(null);
+    setMusteriTeyitUrl("");
     setFormPaneliAcik(true);
     setDurum("Yeni fatura taslağı.");
   }
@@ -320,6 +332,8 @@ export function FaturalarSayfasi({
   function formPaneliniKapat() {
     seciliIdRef.current = null;
     setSeciliId(null);
+    setMusteriTeyidi(null);
+    setMusteriTeyitUrl("");
     setFormPaneliAcik(false);
   }
 
@@ -429,6 +443,35 @@ export function FaturalarSayfasi({
     } finally {
       setIslemde(false);
     }
+  }
+
+  async function musteriTeyidiGonder() {
+    if (!seciliId) {
+      setHata("Önce kaydedilmiş bir satış faturası taslağı seçin.");
+      return;
+    }
+
+    try {
+      setIslemde(true);
+      setHata("");
+      const result = await jsonOku<FaturaMusteriOnayGonderimSonucu>(
+        `/api/ekran/faturalar/${seciliId}/musteri-onayi/gonder`,
+        { method: "POST" }
+      );
+      setMusteriTeyidi(result);
+      setMusteriTeyitUrl(result.onayUrl);
+      setDurum(result.mesaj);
+    } catch (error) {
+      setHata(error instanceof Error ? error.message : "Müşteri teyit bağlantısı gönderilemedi.");
+    } finally {
+      setIslemde(false);
+    }
+  }
+
+  async function musteriTeyitBaglantisiniKopyala() {
+    if (!musteriTeyitUrl) return;
+    await navigator.clipboard.writeText(musteriTeyitUrl);
+    setDurum("Müşteri teyit bağlantısı kopyalandı.");
   }
 
   async function smsOnayla() {
@@ -734,6 +777,13 @@ export function FaturalarSayfasi({
                 <button className="invoice-btn" onClick={() => seciliIslem("gib-taslak", "GİB taslak")} disabled={islemde || !seciliId}>
                   <Send size={18} /> GİB Taslak
                 </button>
+                <button
+                  className="invoice-btn invoice-btn--customer-confirmation"
+                  onClick={musteriTeyidiGonder}
+                  disabled={islemde || !seciliId || form.faturaTipi !== "Satis" || !["YerelTaslak", "PortalTaslak"].includes(seciliFatura?.durum ?? "")}
+                >
+                  <MessageSquareText size={18} /> Müşteriye teyit gönder
+                </button>
                 <button className="invoice-btn invoice-btn--success" onClick={kesOnayla} disabled={islemde || !seciliId}>
                   <CheckCircle2 size={18} /> Kes / Onayla
                 </button>
@@ -741,6 +791,22 @@ export function FaturalarSayfasi({
                   <Trash2 size={18} /> İptal
                 </button>
               </div>
+              {musteriTeyidi && musteriTeyidi.durum !== "Yok" ? (
+                <div className={`invoice-customer-confirmation is-${musteriTeyidi.durum.toLocaleLowerCase("tr-TR")}`}>
+                  <div>
+                    <strong>Müşteri teyidi: {musteriTeyidi.durum === "Onaylandi" ? "Bilgiler doğru" : musteriTeyidi.durum === "DuzeltmeIstendi" ? "Düzeltme istendi" : musteriTeyidi.durum === "Bekliyor" ? "Yanıt bekleniyor" : musteriTeyidi.durum === "Gonderilemedi" ? "SMS gönderilemedi" : musteriTeyidi.durum}</strong>
+                    <span>{musteriTeyidi.aliciTelefonMaskeli}{musteriTeyidi.yanitNotu ? ` · ${musteriTeyidi.yanitNotu}` : ""}</span>
+                  </div>
+                  {musteriTeyitUrl ? (
+                    <button type="button" onClick={() => musteriTeyitBaglantisiniKopyala().catch(() => setHata("Bağlantı kopyalanamadı."))}>
+                      Bağlantıyı kopyala
+                    </button>
+                  ) : null}
+                </div>
+              ) : null}
+              <p className="invoice-customer-confirmation-note">
+                Bu adım müşterinin taslaktaki bilgilerini teyit eder; resmi GİB onayı yerine geçmez.
+              </p>
             </div>
 
           </section>

@@ -1,0 +1,70 @@
+.resource-download-page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 34px 18px;
+  background: #eef3f7;
+  color: #10140d;
+}
+
+.resource-download-card {
+  width: min(100%, 650px);
+  overflow: hidden;
+  border: 1px solid #dce5ed;
+  border-radius: 22px;
+  background: #fff;
+  box-shadow: 0 25px 70px rgba(24, 44, 65, .12);
+}
+
+.resource-download-card > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 24px;
+  border-bottom: 1px solid #e6edf3;
+}
+
+.resource-download-card > header img,
+.resource-download-card.is-missing > img { width: 118px; }
+.resource-download-card > header span { color: #617082; font-size: 13px; font-weight: 700; }
+
+.resource-download-body { padding: 38px 34px 28px; }
+.resource-download-icon {
+  width: 58px;
+  height: 58px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 22px;
+  border-radius: 14px;
+  background: #cbff35;
+  color: #10140d;
+}
+.resource-download-kicker { margin: 0 0 8px; color: #1769aa; font-size: 12px; font-weight: 900; letter-spacing: .1em; }
+.resource-download-body h1 { max-width: 520px; margin: 0; font-family: Georgia, serif; font-size: clamp(30px, 6vw, 45px); line-height: 1.05; }
+.resource-download-description { max-width: 540px; margin: 18px 0 25px; color: #536578; font-size: 17px; line-height: 1.55; }
+.resource-download-button {
+  min-height: 50px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  padding: 0 21px;
+  border-radius: 10px;
+  background: #10140d;
+  color: #cbff35;
+  font-weight: 900;
+  text-decoration: none;
+}
+.resource-download-note { margin: 24px 0 0; padding: 13px 15px; border-left: 4px solid #cbff35; background: #f5ffd8; color: #3c4a3a; font-size: 13px; line-height: 1.5; }
+.resource-download-card > footer { padding: 15px 24px; border-top: 1px solid #e6edf3; color: #738195; font-size: 12px; }
+.resource-download-card.is-missing { padding: 36px; }
+.resource-download-card.is-missing h1 { margin-top: 36px; font-family: Georgia, serif; }
+.resource-download-card.is-missing a { color: #1769aa; font-weight: 800; }
+
+@media (max-width: 560px) {
+  .resource-download-page { padding: 0; place-items: stretch; background: #fff; }
+  .resource-download-card { min-height: 100vh; border: 0; border-radius: 0; box-shadow: none; }
+  .resource-download-card > header { align-items: flex-start; gap: 10px; }
+  .resource-download-body { padding: 34px 24px 26px; }
+  .resource-download-button { width: 100%; }
+}

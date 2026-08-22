@@ -1,0 +1,11 @@
+{
+  "campaign": "eylul_2026",
+  "baseUrl": "https://systemcel.app",
+  "keywords": {
+    "AI": "/kaynaklar/ai?utm_source=manychat&utm_medium=dm&utm_campaign=eylul_2026",
+    "NAKİT": "/kaynaklar/nakit?utm_source=manychat&utm_medium=dm&utm_campaign=eylul_2026",
+    "DEFTER": "/kaynaklar/defter?utm_source=manychat&utm_medium=dm&utm_campaign=eylul_2026",
+    "TAKVİM": "/kaynaklar/takvim?utm_source=manychat&utm_medium=dm&utm_campaign=eylul_2026",
+    "50": "/kaynaklar/50?utm_source=manychat&utm_medium=dm&utm_campaign=eylul_2026"
+  }
+}

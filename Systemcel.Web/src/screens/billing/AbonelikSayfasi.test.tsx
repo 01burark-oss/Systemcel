@@ -90,7 +90,7 @@ const quote: TeklifYaniti = {
     discountedPeriodCount: 3
   },
   kampanyaKodu: "kurucu-100-2026",
-  onayMetniSurumu: "abonelik-onayi-2026-08-v4",
+  onayMetniSurumu: "abonelik-onayi-2026-08-v5",
   onayMetni: "Aylık planın hemen başlamasını ve lansman bitiminde geçerli liste fiyatıyla yenilenmesini kabul ediyorum."
 };
 

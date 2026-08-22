@@ -61,6 +61,7 @@ Microsoft/
 NuGet/
 
 # Local scratch outputs
+/qa/
 app-build.txt
 test-output.txt
 tests-build.txt
