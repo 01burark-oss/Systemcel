@@ -12,9 +12,29 @@ namespace CashTracker.Core.Models
     public static class MuhasebeciTalepDurumlari
     {
         public const string Beklemede = "Beklemede";
+        public const string OdemeBekliyor = "OdemeBekliyor";
         public const string Kabul = "Kabul";
         public const string Red = "Red";
         public const string Iptal = "Iptal";
+    }
+
+    public static class MuhasebeciHizmetOdemeDurumlari
+    {
+        public const string OdemeBekliyor = "OdemeBekliyor";
+        public const string CheckoutAcik = "CheckoutAcik";
+        public const string TahsilEdildi = "TahsilEdildi";
+        public const string Basarisiz = "Basarisiz";
+        public const string IadeEdildi = "IadeEdildi";
+        public const string IptalEdildi = "IptalEdildi";
+    }
+
+    public static class MuhasebeciAktarimDurumlari
+    {
+        public const string Olusmadi = "Olusmadi";
+        public const string Bekliyor = "Bekliyor";
+        public const string Aktarildi = "Aktarildi";
+        public const string Iptal = "Iptal";
+        public const string TersKayit = "TersKayit";
     }
 
     public static class MuhasebeciTalepTurleri
@@ -59,6 +79,7 @@ namespace CashTracker.Core.Models
     {
         public string YetkiSeviyesi { get; init; } = MuhasebeciYetkiSeviyeleri.OkumaRapor;
         public string Mesaj { get; init; } = string.Empty;
+        public decimal AylikHizmetBedeli { get; init; }
     }
 
     public sealed class MuhasebeciSohbetMesajiGonderRequest
@@ -69,6 +90,7 @@ namespace CashTracker.Core.Models
     public sealed class MuhasebeciTalepKararRequest
     {
         public string YetkiSeviyesi { get; init; } = MuhasebeciYetkiSeviyeleri.OkumaRapor;
+        public decimal AylikHizmetBedeli { get; init; }
     }
 
     public sealed class MuhasebeciDavetKabulRequest
@@ -116,6 +138,7 @@ namespace CashTracker.Core.Models
     public sealed class MuhasebeciLinkDavetKabulRequest
     {
         public string Token { get; init; } = string.Empty;
+        public decimal AylikHizmetBedeli { get; init; }
     }
 
     public sealed class MuhasebeciLinkDavetDto
@@ -141,7 +164,42 @@ namespace CashTracker.Core.Models
         public string DavetKodu { get; init; } = string.Empty;
         public string DavetLinki { get; init; } = string.Empty;
         public string Mesaj { get; init; } = string.Empty;
+        public decimal AylikHizmetBedeli { get; init; }
+        public string OdemeDurumu { get; init; } = string.Empty;
+        public bool OdemeYapilabilir { get; init; }
         public DateTime CreatedAt { get; init; }
+    }
+
+    public sealed record MuhasebeciOdemeCheckoutCommand(
+        int TalepId,
+        int MusteriIsletmeId,
+        string IdempotencyKey,
+        string KullaniciReferansi,
+        string Eposta,
+        Uri BasariliUrl,
+        Uri BasarisizUrl,
+        Uri CallbackUrl);
+
+    public sealed record MuhasebeciOdemeCheckoutResult(
+        int OdemeIslemiId,
+        Uri CheckoutUrl,
+        DateTime ExpiresAt,
+        bool Reused,
+        decimal AylikHizmetBedeli,
+        string ParaBirimi);
+
+    public sealed class MuhasebeciOdemeOzetiDto
+    {
+        public int TalepId { get; init; }
+        public int MuhasebeciIsletmeId { get; init; }
+        public int MusteriIsletmeId { get; init; }
+        public decimal AylikHizmetBedeli { get; init; }
+        public string ParaBirimi { get; init; } = "TRY";
+        public string OdemeDurumu { get; init; } = string.Empty;
+        public bool OdemeYapilabilir { get; init; }
+        public decimal AktarilacakTutar { get; init; }
+        public string AktarimDonemi { get; init; } = string.Empty;
+        public string AktarimDurumu { get; init; } = string.Empty;
     }
 
     public sealed class MuhasebeciSohbetMesajiDto

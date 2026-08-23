@@ -111,7 +111,9 @@ namespace CashTracker.Infrastructure.Services
                 : new Dictionary<int, BelgeSaglikOzeti>();
 
             var pending = await db.MuhasebeciMusteriTalepleri.AsNoTracking()
-                .Where(x => x.MuhasebeciIsletmeId == accountant.Id && x.Durum == MuhasebeciTalepDurumlari.Beklemede)
+                .Where(x => x.MuhasebeciIsletmeId == accountant.Id &&
+                    (x.Durum == MuhasebeciTalepDurumlari.Beklemede ||
+                     x.Durum == MuhasebeciTalepDurumlari.OdemeBekliyor))
                 .OrderByDescending(x => x.CreatedAt)
                 .ToListAsync(ct);
 
@@ -227,6 +229,7 @@ namespace CashTracker.Infrastructure.Services
                 : await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
             await EnsureCustomerCapacityAsync(db, accountant.Id, null, ct);
             var now = DateTime.Now;
+            var monthlyFee = NormalizeAylikHizmetBedeli(request.AylikHizmetBedeli);
             var code = await GenerateInviteCodeAsync(db, ct);
             var talep = new MuhasebeciMusteriTalebi
             {
@@ -237,6 +240,7 @@ namespace CashTracker.Infrastructure.Services
                 YetkiSeviyesi = NormalizeYetki(request.YetkiSeviyesi),
                 DavetKodu = code,
                 Mesaj = NormalizeConversationText(request.Mesaj, allowEmpty: true),
+                AylikHizmetBedeli = monthlyFee,
                 CreatedAt = now,
                 UpdatedAt = now
             };
@@ -299,14 +303,25 @@ namespace CashTracker.Infrastructure.Services
             var code = NormalizeInviteCode(request.DavetKodu);
             var talep = await db.MuhasebeciMusteriTalepleri.FirstOrDefaultAsync(x =>
                 x.Tur == MuhasebeciTalepTurleri.Davet &&
-                x.Durum == MuhasebeciTalepDurumlari.Beklemede &&
+                (x.Durum == MuhasebeciTalepDurumlari.Beklemede ||
+                 x.Durum == MuhasebeciTalepDurumlari.OdemeBekliyor ||
+                 x.Durum == MuhasebeciTalepDurumlari.Kabul) &&
                 x.DavetKodu == code, ct)
                 ?? throw new InvalidOperationException("Davet bulunamadı veya artık aktif değil.");
+
+            if (talep.MusteriIsletmeId.HasValue && talep.MusteriIsletmeId.Value != customer.Id)
+                throw new InvalidOperationException("Bu davet başka bir işletme tarafından kullanılmış.");
+
+            if (talep.Durum is MuhasebeciTalepDurumlari.OdemeBekliyor or MuhasebeciTalepDurumlari.Kabul)
+            {
+                var accountantReplay = await db.Isletmeler.AsNoTracking().FirstAsync(x => x.Id == talep.MuhasebeciIsletmeId, ct);
+                return BuildTalepDto(talep, accountantReplay, customer);
+            }
 
             talep.MusteriIsletmeId = customer.Id;
             talep.YetkiSeviyesi = NormalizeYetki(request.YetkiSeviyesi);
             await EnsureCustomerCapacityAsync(db, talep.MuhasebeciIsletmeId, customer.Id, ct);
-            await AcceptTalepAsync(db, talep, customer.Id, talep.YetkiSeviyesi, ct);
+            await PreparePaymentAsync(db, talep, customer.Id, talep.YetkiSeviyesi, talep.AylikHizmetBedeli, ct);
 
             if (transaction is not null)
                 await transaction.CommitAsync(ct);
@@ -391,7 +406,8 @@ namespace CashTracker.Infrastructure.Services
 
             var tokenHash = HashCustomerInviteToken(request.Token);
             var invite = await db.MuhasebeciBaglantiDavetleri.FirstOrDefaultAsync(x =>
-                x.TokenHash == tokenHash && x.Durum == MuhasebeciTalepDurumlari.Beklemede, ct)
+                x.TokenHash == tokenHash &&
+                (x.Durum == MuhasebeciTalepDurumlari.Beklemede || x.Durum == MuhasebeciTalepDurumlari.Kabul), ct)
                 ?? throw new InvalidOperationException("Davet bağlantısı bulunamadı veya artık aktif değil.");
             if (invite.SonGecerlilikAt <= DateTime.Now)
                 throw new InvalidOperationException("Davet bağlantısının süresi dolmuş.");
@@ -399,8 +415,22 @@ namespace CashTracker.Infrastructure.Services
             var customer = await db.Isletmeler.FirstOrDefaultAsync(x =>
                 x.Id == invite.MusteriIsletmeId && x.TenantTipi == HesapTipleri.Isletme, ct)
                 ?? throw new InvalidOperationException("Davet sahibi işletme bulunamadı.");
+
+            if (invite.Durum == MuhasebeciTalepDurumlari.Kabul)
+            {
+                if (invite.MuhasebeciIsletmeId != accountant.Id)
+                    throw new InvalidOperationException("Bu davet başka bir muhasebeci tarafından kabul edilmiş.");
+                var existingRequest = await db.MuhasebeciMusteriTalepleri.FirstAsync(x =>
+                    x.MuhasebeciIsletmeId == accountant.Id &&
+                    x.MusteriIsletmeId == customer.Id &&
+                    x.Tur == MuhasebeciTalepTurleri.MusteriDaveti &&
+                    (x.Durum == MuhasebeciTalepDurumlari.OdemeBekliyor || x.Durum == MuhasebeciTalepDurumlari.Kabul), ct);
+                return BuildTalepDto(existingRequest, accountant, customer);
+            }
+
             await EnsureNoActiveOrPendingPairAsync(db, accountant.Id, customer.Id, ct);
             await EnsureCustomerCapacityAsync(db, accountant.Id, customer.Id, ct);
+            var monthlyFee = NormalizeAylikHizmetBedeli(request.AylikHizmetBedeli);
 
             var now = DateTime.Now;
             var talep = new MuhasebeciMusteriTalebi
@@ -412,12 +442,13 @@ namespace CashTracker.Infrastructure.Services
                 Durum = MuhasebeciTalepDurumlari.Beklemede,
                 YetkiSeviyesi = NormalizeYetki(invite.YetkiSeviyesi),
                 Mesaj = invite.Mesaj,
+                AylikHizmetBedeli = monthlyFee,
                 CreatedAt = now,
                 UpdatedAt = now
             };
             db.MuhasebeciMusteriTalepleri.Add(talep);
             await db.SaveChangesAsync(ct);
-            await AcceptTalepAsync(db, talep, customer.Id, talep.YetkiSeviyesi, ct);
+            await PreparePaymentAsync(db, talep, customer.Id, talep.YetkiSeviyesi, monthlyFee, ct);
 
             invite.MuhasebeciIsletmeId = accountant.Id;
             invite.Durum = MuhasebeciTalepDurumlari.Kabul;
@@ -437,7 +468,8 @@ namespace CashTracker.Infrastructure.Services
                 ? null
                 : await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
             var user = await EnsureCurrentUserAsync(db, ct);
-            var talep = await RequirePendingRequestAsync(db, talepId, ct);
+            var talep = await db.MuhasebeciMusteriTalepleri.FirstOrDefaultAsync(x => x.Id == talepId, ct)
+                ?? throw new InvalidOperationException("Talep bulunamadı.");
             if (!talep.MusteriIsletmeId.HasValue)
                 throw new InvalidOperationException("Talep henüz bir müşteriye bağlı değil.");
 
@@ -446,9 +478,22 @@ namespace CashTracker.Infrastructure.Services
             else
                 await RequireAccountantParticipantAsync(db, user.Id, talep.MuhasebeciIsletmeId, ct);
             RequireApprovedAccountantUser(user);
+            var monthlyFee = NormalizeAylikHizmetBedeli(request.AylikHizmetBedeli);
+
+            if (talep.Durum is MuhasebeciTalepDurumlari.OdemeBekliyor or MuhasebeciTalepDurumlari.Kabul)
+            {
+                if (talep.AylikHizmetBedeli != monthlyFee ||
+                    !string.Equals(talep.YetkiSeviyesi, NormalizeYetki(request.YetkiSeviyesi), StringComparison.Ordinal))
+                    throw new InvalidOperationException("Kabul edilmiş talebin ücret veya yetki bilgisi değiştirilemez.");
+                return await BuildTalepDtoAsync(db, talep, ct);
+            }
+
+            if (talep.Durum != MuhasebeciTalepDurumlari.Beklemede)
+                throw new InvalidOperationException("Talep artık kabul edilebilir durumda değil.");
+
             talep.YetkiSeviyesi = NormalizeYetki(request.YetkiSeviyesi);
             await EnsureCustomerCapacityAsync(db, talep.MuhasebeciIsletmeId, talep.MusteriIsletmeId.Value, ct);
-            await AcceptTalepAsync(db, talep, talep.MusteriIsletmeId.Value, talep.YetkiSeviyesi, ct);
+            await PreparePaymentAsync(db, talep, talep.MusteriIsletmeId.Value, talep.YetkiSeviyesi, monthlyFee, ct);
 
             if (transaction is not null)
                 await transaction.CommitAsync(ct);
@@ -468,6 +513,7 @@ namespace CashTracker.Infrastructure.Services
             talep.Durum = MuhasebeciTalepDurumlari.Red;
             talep.SonucAt = DateTime.Now;
             talep.UpdatedAt = DateTime.Now;
+            await CancelPendingPaymentAsync(db, talep.Id, ct);
             await db.SaveChangesAsync(ct);
             return await BuildTalepDtoAsync(db, talep, ct);
         }
@@ -484,6 +530,7 @@ namespace CashTracker.Infrastructure.Services
             talep.Durum = MuhasebeciTalepDurumlari.Iptal;
             talep.SonucAt = DateTime.Now;
             talep.UpdatedAt = DateTime.Now;
+            await CancelPendingPaymentAsync(db, talep.Id, ct);
             await db.SaveChangesAsync(ct);
             return await BuildTalepDtoAsync(db, talep, ct);
         }
@@ -609,7 +656,8 @@ namespace CashTracker.Infrastructure.Services
             var pendingRequests = await db.MuhasebeciMusteriTalepleri.AsNoTracking()
                 .Where(x =>
                     x.MusteriIsletmeId.HasValue &&
-                    x.Durum == MuhasebeciTalepDurumlari.Beklemede &&
+                    (x.Durum == MuhasebeciTalepDurumlari.Beklemede ||
+                     x.Durum == MuhasebeciTalepDurumlari.OdemeBekliyor) &&
                     accountantIds.Contains(x.MuhasebeciIsletmeId) &&
                     customerIds.Contains(x.MusteriIsletmeId.Value))
                 .ToListAsync(ct);
@@ -713,7 +761,9 @@ namespace CashTracker.Infrastructure.Services
             if (viewerBusinessId.HasValue)
             {
                 pendingIds = (await db.MuhasebeciMusteriTalepleri.AsNoTracking()
-                        .Where(x => x.MusteriIsletmeId == viewerBusinessId.Value && x.Durum == MuhasebeciTalepDurumlari.Beklemede)
+                        .Where(x => x.MusteriIsletmeId == viewerBusinessId.Value &&
+                            (x.Durum == MuhasebeciTalepDurumlari.Beklemede ||
+                             x.Durum == MuhasebeciTalepDurumlari.OdemeBekliyor))
                         .Select(x => x.MuhasebeciIsletmeId)
                         .ToListAsync(ct))
                     .ToHashSet();
@@ -886,7 +936,8 @@ namespace CashTracker.Infrastructure.Services
         {
             return await db.MuhasebeciMusteriTalepleri.FirstOrDefaultAsync(x =>
                 x.Id == talepId &&
-                x.Durum == MuhasebeciTalepDurumlari.Beklemede, ct)
+                (x.Durum == MuhasebeciTalepDurumlari.Beklemede ||
+                 x.Durum == MuhasebeciTalepDurumlari.OdemeBekliyor), ct)
                 ?? throw new InvalidOperationException("Bekleyen talep bulunamadı.");
         }
 
@@ -906,7 +957,8 @@ namespace CashTracker.Infrastructure.Services
             var pending = await db.MuhasebeciMusteriTalepleri.AnyAsync(x =>
                 x.MuhasebeciIsletmeId == muhasebeciIsletmeId &&
                 x.MusteriIsletmeId == musteriIsletmeId &&
-                x.Durum == MuhasebeciTalepDurumlari.Beklemede, ct);
+                (x.Durum == MuhasebeciTalepDurumlari.Beklemede ||
+                 x.Durum == MuhasebeciTalepDurumlari.OdemeBekliyor), ct);
             if (pending)
                 throw new InvalidOperationException("Bu muhasebeci için bekleyen talep var.");
         }
@@ -929,7 +981,8 @@ namespace CashTracker.Infrastructure.Services
                 .FirstOrDefaultAsync(x =>
                     x.MuhasebeciIsletmeId == muhasebeciIsletmeId &&
                     x.MusteriIsletmeId == musteriIsletmeId &&
-                    x.Durum == MuhasebeciTalepDurumlari.Beklemede, ct);
+                    (x.Durum == MuhasebeciTalepDurumlari.Beklemede ||
+                     x.Durum == MuhasebeciTalepDurumlari.OdemeBekliyor), ct);
             if (request != null)
                 return new ConversationContext(muhasebeciIsletmeId, musteriIsletmeId, request.Id, null, "Talep bekliyor");
 
@@ -946,7 +999,8 @@ namespace CashTracker.Infrastructure.Services
                 .FirstOrDefaultAsync(x =>
                     x.Id == talepId &&
                     x.MusteriIsletmeId.HasValue &&
-                    x.Durum == MuhasebeciTalepDurumlari.Beklemede, ct)
+                    (x.Durum == MuhasebeciTalepDurumlari.Beklemede ||
+                     x.Durum == MuhasebeciTalepDurumlari.OdemeBekliyor), ct)
                 ?? throw new InvalidOperationException("Sohbet edilecek bekleyen talep bulunamadı.");
 
             await RequireAccountantParticipantAsync(db, userId, talep.MuhasebeciIsletmeId, ct);
@@ -1092,45 +1146,48 @@ namespace CashTracker.Infrastructure.Services
                 entitlement.AktifMusteriSayisi ?? 0);
         }
 
-        private static async Task AcceptTalepAsync(
+        private static async Task PreparePaymentAsync(
             CashTrackerDbContext db,
             MuhasebeciMusteriTalebi talep,
             int musteriIsletmeId,
             string yetkiSeviyesi,
+            decimal monthlyFee,
             CancellationToken ct)
         {
             var now = DateTime.Now;
-            var relation = await db.MuhasebeciMusterileri.FirstOrDefaultAsync(x =>
-                x.MuhasebeciIsletmeId == talep.MuhasebeciIsletmeId &&
-                x.MusteriIsletmeId == musteriIsletmeId, ct);
-
-            if (relation == null)
-            {
-                relation = new MuhasebeciMusteri
-                {
-                    MuhasebeciIsletmeId = talep.MuhasebeciIsletmeId,
-                    MusteriIsletmeId = musteriIsletmeId,
-                    CreatedAt = now
-                };
-                db.MuhasebeciMusterileri.Add(relation);
-            }
-
-            relation.Durum = "Aktif";
-            relation.YetkiSeviyesi = NormalizeYetki(yetkiSeviyesi);
-            relation.Kaynak = talep.Tur;
-            relation.TalepId = talep.Id;
-            relation.DavetKodu = string.IsNullOrWhiteSpace(talep.DavetKodu) ? relation.DavetKodu : talep.DavetKodu;
-            relation.BaslangicAt = now;
-            relation.BitisAt = null;
-            relation.KabulAt = now;
-            relation.UpdatedAt = now;
-
-            talep.Durum = MuhasebeciTalepDurumlari.Kabul;
+            talep.Durum = MuhasebeciTalepDurumlari.OdemeBekliyor;
             talep.MusteriIsletmeId = musteriIsletmeId;
-            talep.YetkiSeviyesi = relation.YetkiSeviyesi;
+            talep.YetkiSeviyesi = NormalizeYetki(yetkiSeviyesi);
+            talep.AylikHizmetBedeli = monthlyFee;
             talep.SonucAt = now;
             talep.UpdatedAt = now;
             await db.SaveChangesAsync(ct);
+
+            var payment = await db.MuhasebeciHizmetOdemeleri.FirstOrDefaultAsync(x => x.TalepId == talep.Id, ct);
+            if (payment is null)
+            {
+                db.MuhasebeciHizmetOdemeleri.Add(new MuhasebeciHizmetOdemesi
+                {
+                    TalepId = talep.Id,
+                    MuhasebeciIsletmeId = talep.MuhasebeciIsletmeId,
+                    MusteriIsletmeId = musteriIsletmeId,
+                    AylikHizmetBedeli = monthlyFee,
+                    ParaBirimi = "TRY",
+                    Durum = MuhasebeciHizmetOdemeDurumlari.OdemeBekliyor,
+                    CreatedAt = now,
+                    UpdatedAt = now
+                });
+                await db.SaveChangesAsync(ct);
+            }
+        }
+
+        private static async Task CancelPendingPaymentAsync(CashTrackerDbContext db, int talepId, CancellationToken ct)
+        {
+            var payment = await db.MuhasebeciHizmetOdemeleri.FirstOrDefaultAsync(x => x.TalepId == talepId, ct);
+            if (payment is null || payment.Durum == MuhasebeciHizmetOdemeDurumlari.TahsilEdildi)
+                return;
+            payment.Durum = MuhasebeciHizmetOdemeDurumlari.IptalEdildi;
+            payment.UpdatedAt = DateTime.UtcNow;
         }
 
         private static async Task<HashSet<int>> GetActiveProAccountantIdsAsync(
@@ -1276,8 +1333,24 @@ namespace CashTracker.Infrastructure.Services
                 DavetKodu = talep.DavetKodu,
                 DavetLinki = inviteLink,
                 Mesaj = talep.Mesaj,
+                AylikHizmetBedeli = talep.AylikHizmetBedeli,
+                OdemeDurumu = talep.Durum == MuhasebeciTalepDurumlari.OdemeBekliyor
+                    ? MuhasebeciHizmetOdemeDurumlari.OdemeBekliyor
+                    : talep.Durum == MuhasebeciTalepDurumlari.Kabul
+                        ? MuhasebeciHizmetOdemeDurumlari.TahsilEdildi
+                        : string.Empty,
+                OdemeYapilabilir = talep.Durum == MuhasebeciTalepDurumlari.OdemeBekliyor,
                 CreatedAt = talep.CreatedAt
             };
+        }
+
+        private static decimal NormalizeAylikHizmetBedeli(decimal value)
+        {
+            if (value <= 0 || value > 1_000_000m)
+                throw new InvalidOperationException("Aylık hizmet bedeli 0'dan büyük ve 1.000.000 TL'den küçük olmalıdır.");
+            if (decimal.Round(value, 2, MidpointRounding.AwayFromZero) != value)
+                throw new InvalidOperationException("Aylık hizmet bedeli en fazla iki ondalık basamak içerebilir.");
+            return value;
         }
 
         private static string NormalizeYetki(string? value)

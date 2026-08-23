@@ -58,6 +58,7 @@ export function MuhasebeciPanelSayfasi({ onUstBarYenile }: MuhasebeciPanelSayfas
   const [hata, setHata] = React.useState("");
   const [mesaj, setMesaj] = React.useState("");
   const [talepYetkileri, setTalepYetkileri] = React.useState<Record<number, YetkiSeviyesi>>({});
+  const [talepUcretleri, setTalepUcretleri] = React.useState<Record<number, string>>({});
   const [profilResmiYukleniyor, setProfilResmiYukleniyor] = React.useState(false);
   const [sohbetIslemde, setSohbetIslemde] = React.useState(false);
   const konumDatalistId = React.useId();
@@ -83,10 +84,13 @@ export function MuhasebeciPanelSayfasi({ onUstBarYenile }: MuhasebeciPanelSayfas
       setPanel(data);
       setProfilFormu(profilFormuOlustur(data));
       const pending: Record<number, YetkiSeviyesi> = {};
+      const fees: Record<number, string> = {};
       data.bekleyenTalepler.forEach((talep) => {
         pending[talep.id] = talep.yetkiSeviyesi || "OkumaRapor";
+        fees[talep.id] = talep.aylikHizmetBedeli ? String(talep.aylikHizmetBedeli) : "";
       });
       setTalepYetkileri(pending);
+      setTalepUcretleri(fees);
     } catch (error) {
       setHata(error instanceof Error ? error.message : "Muhasebeci paneli yüklenemedi.");
     } finally {
@@ -131,14 +135,21 @@ export function MuhasebeciPanelSayfasi({ onUstBarYenile }: MuhasebeciPanelSayfas
   }
 
   async function talepKabulEt(talep: MuhasebeciTalep) {
+    const aylikHizmetBedeli = Number(talepUcretleri[talep.id]);
+    if (!Number.isFinite(aylikHizmetBedeli) || aylikHizmetBedeli <= 0) {
+      setHata("Aylık ücreti girin.");
+      return;
+    }
+
     await calistir(`kabul-${talep.id}`, async () => {
       await jsonOku<MuhasebeciTalep>(`/api/ekran/muhasebeci/talepler/${talep.id}/kabul`, {
         method: "POST",
         body: JSON.stringify({
-          yetkiSeviyesi: talepYetkileri[talep.id] ?? talep.yetkiSeviyesi ?? "OkumaRapor"
+          yetkiSeviyesi: talepYetkileri[talep.id] ?? talep.yetkiSeviyesi ?? "OkumaRapor",
+          aylikHizmetBedeli
         })
       });
-      setMesaj(`${talep.musteriAdi || "Müşteri"} bağlantısı aktif edildi.`);
+      setMesaj(`${talep.musteriAdi || "Müşteri"} için ödeme adımı açıldı.`);
       await onUstBarYenile?.();
       await yukle();
     });
@@ -369,13 +380,38 @@ export function MuhasebeciPanelSayfasi({ onUstBarYenile }: MuhasebeciPanelSayfas
                   <span>{talep.mesaj || "Mesaj eklenmemiş."}</span>
                   <small>{tarihBic(talep.createdAt)}</small>
                 </div>
-                <select
-                  value={talepYetkileri[talep.id] ?? talep.yetkiSeviyesi}
-                  onChange={(event) => setTalepYetkileri((current) => ({ ...current, [talep.id]: event.target.value as YetkiSeviyesi }))}
-                >
-                  <option value="OkumaRapor">Okuma + rapor</option>
-                  <option value="TamIslem">Tam işlem</option>
-                </select>
+                {talep.durum === "OdemeBekliyor" ? (
+                  <span className="accountant-request-list__payment-state">
+                    <strong>{paraBic(talep.aylikHizmetBedeli ?? 0)}</strong>
+                    <small>Müşteri ödemesi bekleniyor</small>
+                  </span>
+                ) : (
+                  <>
+                    <select
+                      aria-label={`${talep.musteriAdi || "Müşteri"} yetkisi`}
+                      value={talepYetkileri[talep.id] ?? talep.yetkiSeviyesi}
+                      onChange={(event) => setTalepYetkileri((current) => ({ ...current, [talep.id]: event.target.value as YetkiSeviyesi }))}
+                    >
+                      <option value="OkumaRapor">Okuma + rapor</option>
+                      <option value="TamIslem">Tam işlem</option>
+                    </select>
+                    <label className="accountant-request-list__fee">
+                      <span>Aylık ücret</span>
+                      <span>
+                        <b>₺</b>
+                        <input
+                          aria-label={`${talep.musteriAdi || "Müşteri"} aylık ücreti`}
+                          type="number"
+                          min="1"
+                          step="0.01"
+                          inputMode="decimal"
+                          value={talepUcretleri[talep.id] ?? ""}
+                          onChange={(event) => setTalepUcretleri((current) => ({ ...current, [talep.id]: event.target.value }))}
+                        />
+                      </span>
+                    </label>
+                  </>
+                )}
                 <button
                   type="button"
                   onClick={() => sohbetAc({ tur: "talep", id: talep.id, baslik: talep.musteriAdi || "Müşteri" })}
@@ -384,14 +420,18 @@ export function MuhasebeciPanelSayfasi({ onUstBarYenile }: MuhasebeciPanelSayfas
                   <MessageCircle size={15} />
                   <span>Sohbet</span>
                 </button>
-                <button type="button" onClick={() => talepKabulEt(talep)} disabled={islemde === `kabul-${talep.id}`}>
-                  {islemde === `kabul-${talep.id}` ? <Loader2 size={15} className="spin" /> : <Check size={15} />}
-                  <span>Kabul</span>
-                </button>
-                <button type="button" className="accountant-danger-button" onClick={() => talepReddet(talep)} disabled={islemde === `red-${talep.id}`}>
-                  {islemde === `red-${talep.id}` ? <Loader2 size={15} className="spin" /> : <X size={15} />}
-                  <span>Red</span>
-                </button>
+                {talep.durum === "OdemeBekliyor" ? null : (
+                  <>
+                    <button type="button" onClick={() => talepKabulEt(talep)} disabled={islemde === `kabul-${talep.id}`}>
+                      {islemde === `kabul-${talep.id}` ? <Loader2 size={15} className="spin" /> : <Check size={15} />}
+                      <span>Ödemeye gönder</span>
+                    </button>
+                    <button type="button" className="accountant-danger-button" onClick={() => talepReddet(talep)} disabled={islemde === `red-${talep.id}`}>
+                      {islemde === `red-${talep.id}` ? <Loader2 size={15} className="spin" /> : <X size={15} />}
+                      <span>Red</span>
+                    </button>
+                  </>
+                )}
               </article>
             ))}
           </div>
@@ -439,6 +479,14 @@ function formatLocationName(value: string) {
     .split(" ")
     .map((part) => part ? `${part[0].toLocaleUpperCase("tr-TR")}${part.slice(1)}` : part)
     .join(" ");
+}
+
+function paraBic(value: number) {
+  return new Intl.NumberFormat("tr-TR", {
+    style: "currency",
+    currency: "TRY",
+    minimumFractionDigits: 2
+  }).format(value);
 }
 
 function tarihBic(value: string) {

@@ -27,6 +27,8 @@ namespace CashTracker.Tests
                 Assert.True(TableExists(conn, "Kullanici"));
                 Assert.True(TableExists(conn, "IsletmeUyelik"));
                 Assert.True(TableExists(conn, "MuhasebeciMusteri"));
+                Assert.True(TableExists(conn, "MuhasebeciHizmetOdemesi"));
+                Assert.True(TableExists(conn, "MuhasebeciAktarimAlacagi"));
                 Assert.True(TableExists(conn, "Abonelik"));
                 Assert.True(TableExists(conn, "IsletmeDeneme"));
                 Assert.True(TableExists(conn, "AbonelikOnayi"));
@@ -49,11 +51,14 @@ namespace CashTracker.Tests
                 Assert.True(ColumnExists(conn, "IsletmeDeneme", "YediGunHatirlatmaAt"));
                 Assert.True(ColumnExists(conn, "OdemeIslemi", "SonOlayAt"));
                 Assert.True(ColumnExists(conn, "OdemeIslemi", "EkMusteriKredisi"));
+                Assert.True(ColumnExists(conn, "MuhasebeciMusteriTalebi", "AylikHizmetBedeli"));
                 Assert.True(ColumnExists(conn, "AbonelikOnayi", "EkMusteriKredisi"));
                 Assert.True(IndexExists(conn, "IX_IsletmeDeneme_IsletmeId_HesapTipi"));
                 Assert.True(IndexExists(conn, "IX_AbonelikOnayi_IsletmeId_CheckoutAnahtari"));
                 Assert.True(IndexExists(conn, "IX_OdemeIslemi_IsletmeId_CheckoutAnahtari"));
                 Assert.True(IndexExists(conn, "IX_OdemeOlayi_OdemeSaglayici_OlayId"));
+                Assert.True(IndexExists(conn, "IX_MuhasebeciHizmetOdemesi_TalepId"));
+                Assert.True(IndexExists(conn, "IX_MuhasebeciAktarimAlacagi_MuhasebeciHizmetOdemesiId"));
                 Assert.True(IndexExists(conn, "IX_YonetimDenetimKaydi_IsletmeId"));
                 Assert.True(IndexExists(conn, "IX_YonetimDenetimKaydi_CreatedAt"));
             }

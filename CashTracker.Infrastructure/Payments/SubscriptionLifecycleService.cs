@@ -548,6 +548,9 @@ public sealed class SubscriptionLifecycleService : ISubscriptionLifecycleService
         payment.SonOlayAt = occurredAt;
         payment.UpdatedAt = DateTime.UtcNow;
 
+        if (string.Equals(payment.IslemTipi, PaymentTransactionTypes.AccountantService, StringComparison.Ordinal))
+            return ApplyAccountantServiceEvent(db, payment, paymentEvent, occurredAt);
+
         switch (paymentEvent.EventType)
         {
             case PaymentEventTypes.TrialAuthorized:
@@ -587,6 +590,137 @@ public sealed class SubscriptionLifecycleService : ISubscriptionLifecycleService
         }
 
         return true;
+    }
+
+    private static bool ApplyAccountantServiceEvent(
+        CashTrackerDbContext db,
+        OdemeIslemi payment,
+        PaymentWebhookEvent paymentEvent,
+        DateTime occurredAt)
+    {
+        var servicePayment = db.MuhasebeciHizmetOdemeleri.SingleOrDefault(x => x.OdemeIslemiId == payment.Id)
+            ?? throw new InvalidOperationException("Muhasebeci hizmet ödemesi kaydı bulunamadı.");
+        var request = db.MuhasebeciMusteriTalepleri.SingleOrDefault(x => x.Id == servicePayment.TalepId)
+            ?? throw new InvalidOperationException("Muhasebeci talebi bulunamadı.");
+
+        switch (paymentEvent.EventType)
+        {
+            case PaymentEventTypes.PaymentSucceeded:
+                if (servicePayment.Durum == MuhasebeciHizmetOdemeDurumlari.IptalEdildi ||
+                    request.Durum != MuhasebeciTalepDurumlari.OdemeBekliyor)
+                    return false;
+                if (servicePayment.Durum == MuhasebeciHizmetOdemeDurumlari.TahsilEdildi)
+                    return false;
+
+                var relation = db.MuhasebeciMusterileri.SingleOrDefault(x =>
+                    x.MuhasebeciIsletmeId == servicePayment.MuhasebeciIsletmeId &&
+                    x.MusteriIsletmeId == servicePayment.MusteriIsletmeId);
+                if (relation is null)
+                {
+                    relation = new MuhasebeciMusteri
+                    {
+                        MuhasebeciIsletmeId = servicePayment.MuhasebeciIsletmeId,
+                        MusteriIsletmeId = servicePayment.MusteriIsletmeId,
+                        CreatedAt = occurredAt
+                    };
+                    db.MuhasebeciMusterileri.Add(relation);
+                }
+
+                relation.Durum = "Aktif";
+                relation.YetkiSeviyesi = request.YetkiSeviyesi;
+                relation.Kaynak = request.Tur;
+                relation.TalepId = request.Id;
+                relation.DavetKodu = string.IsNullOrWhiteSpace(request.DavetKodu) ? relation.DavetKodu : request.DavetKodu;
+                relation.BaslangicAt = occurredAt;
+                relation.BitisAt = null;
+                relation.KabulAt = occurredAt;
+                relation.UpdatedAt = occurredAt;
+
+                request.Durum = MuhasebeciTalepDurumlari.Kabul;
+                request.SonucAt = occurredAt;
+                request.UpdatedAt = occurredAt;
+                servicePayment.Durum = MuhasebeciHizmetOdemeDurumlari.TahsilEdildi;
+                servicePayment.TahsilEdilenTutar = paymentEvent.Amount;
+                servicePayment.TahsilEdildiAt = occurredAt;
+                servicePayment.UpdatedAt = occurredAt;
+
+                if (!db.MuhasebeciAktarimAlacaklari.Any(x => x.MuhasebeciHizmetOdemesiId == servicePayment.Id))
+                {
+                    db.MuhasebeciAktarimAlacaklari.Add(new MuhasebeciAktarimAlacagi
+                    {
+                        MuhasebeciHizmetOdemesiId = servicePayment.Id,
+                        MuhasebeciIsletmeId = servicePayment.MuhasebeciIsletmeId,
+                        MusteriIsletmeId = servicePayment.MusteriIsletmeId,
+                        TalepId = servicePayment.TalepId,
+                        TahsilEdilenTutar = paymentEvent.Amount,
+                        PlatformKomisyonTutari = 0m,
+                        AktarilacakTutar = paymentEvent.Amount,
+                        ParaBirimi = paymentEvent.Currency,
+                        AktarimDonemi = occurredAt.ToString("yyyy-MM", System.Globalization.CultureInfo.InvariantCulture),
+                        Durum = MuhasebeciAktarimDurumlari.Bekliyor,
+                        AktarimReferansi = $"pending-{servicePayment.Id}",
+                        TahakkukAt = occurredAt,
+                        CreatedAt = occurredAt,
+                        UpdatedAt = occurredAt
+                    });
+                }
+
+                payment.Durum = PaymentTransactionStates.Succeeded;
+                payment.TamamlandiAt = occurredAt;
+                payment.HataKodu = string.Empty;
+                payment.HataMesaji = string.Empty;
+                return true;
+
+            case PaymentEventTypes.PaymentFailed:
+                servicePayment.Durum = MuhasebeciHizmetOdemeDurumlari.Basarisiz;
+                servicePayment.UpdatedAt = occurredAt;
+                payment.Durum = PaymentTransactionStates.Failed;
+                payment.HataKodu = "provider_payment_failed";
+                payment.HataMesaji = "Odeme saglayicisi tahsilatin basarisiz oldugunu bildirdi.";
+                return true;
+
+            case PaymentEventTypes.PaymentRefunded:
+                servicePayment.Durum = MuhasebeciHizmetOdemeDurumlari.IadeEdildi;
+                servicePayment.UpdatedAt = occurredAt;
+                request.Durum = MuhasebeciTalepDurumlari.Iptal;
+                request.UpdatedAt = occurredAt;
+                var activeRelation = db.MuhasebeciMusterileri.SingleOrDefault(x =>
+                    x.MuhasebeciIsletmeId == servicePayment.MuhasebeciIsletmeId &&
+                    x.MusteriIsletmeId == servicePayment.MusteriIsletmeId &&
+                    x.Durum == "Aktif");
+                if (activeRelation is not null)
+                {
+                    activeRelation.Durum = "Pasif";
+                    activeRelation.BitisAt = occurredAt;
+                    activeRelation.UpdatedAt = occurredAt;
+                }
+                var payable = db.MuhasebeciAktarimAlacaklari.SingleOrDefault(x =>
+                    x.MuhasebeciHizmetOdemesiId == servicePayment.Id);
+                if (payable is not null)
+                {
+                    payable.Durum = MuhasebeciAktarimDurumlari.TersKayit;
+                    payable.TersKayitAt = occurredAt;
+                    payable.UpdatedAt = occurredAt;
+                }
+                payment.Durum = PaymentTransactionStates.Refunded;
+                payment.TamamlandiAt = occurredAt;
+                return true;
+
+            case PaymentEventTypes.SubscriptionCancelled:
+                servicePayment.Durum = MuhasebeciHizmetOdemeDurumlari.IptalEdildi;
+                servicePayment.UpdatedAt = occurredAt;
+                request.Durum = MuhasebeciTalepDurumlari.Iptal;
+                request.UpdatedAt = occurredAt;
+                payment.Durum = PaymentTransactionStates.Cancelled;
+                payment.TamamlandiAt = occurredAt;
+                return true;
+
+            case PaymentEventTypes.TrialAuthorized:
+                return false;
+
+            default:
+                return false;
+        }
     }
 
     private static void ApplyTrialAuthorized(CashTrackerDbContext db, OdemeIslemi payment, DateTime occurredAt)

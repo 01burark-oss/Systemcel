@@ -29,6 +29,11 @@ namespace CashTracker.Core.Models
         public const string Cancelled = "IptalEdildi";
     }
 
+    public static class PaymentTransactionTypes
+    {
+        public const string AccountantService = "MuhasebeciHizmeti";
+    }
+
     public sealed record PaymentQuote(
         string PlanCode,
         string AccountType,

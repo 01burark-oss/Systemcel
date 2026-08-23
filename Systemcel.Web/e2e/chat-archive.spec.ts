@@ -2,6 +2,72 @@ import { expect, test, type Page, type Route } from "@playwright/test";
 
 const publishableKey = "pk_test_ZXhhbXBsZS5jb20k";
 
+test("data sharing controls require a completed accountant match", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium", "Deterministic chat controls project");
+
+  await mockConversationPage(page, { baglantiId: null, talepId: 15, durum: "Beklemede" });
+  await page.goto("/app/sohbetler?sohbetId=1");
+
+  await expect(page.getByPlaceholder("Bir mesaj yazın...")).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Hızlı finans işlemleri" })).toHaveCount(0);
+  await expect(page.getByRole("combobox", { name: "Dönem" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Veri paylaş" })).toHaveCount(0);
+});
+
+test("customer pays through Systemcel before the match opens", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium", "Deterministic accountant checkout project");
+
+  await mockConversationPage(page, { baglantiId: null, talepId: 15, durum: "OdemeBekliyor" });
+  await page.route("**/api/ekran/muhasebeciler/talepler/15/odeme", (route) => json(route, {
+    talepId: 15,
+    aylikHizmetBedeli: 2_400,
+    paraBirimi: "TRY",
+    odemeDurumu: "OdemeBekliyor",
+    odemeYapilabilir: true
+  }));
+  await page.route("**/api/ekran/muhasebeciler/talepler/15/checkout", (route) => json(route, {
+    checkoutUrl: "/fake-accountant-checkout"
+  }));
+  await page.route("**/fake-accountant-checkout", (route) => route.fulfill({ status: 200, body: "checkout" }));
+  await page.goto("/app/sohbetler?sohbetId=1");
+
+  const payment = page.getByRole("region", { name: "Muhasebeci ödemesi" });
+  await expect(payment.getByText("Eşleşme için ödeme gerekli")).toBeVisible();
+  await expect(payment.getByText("₺2.400,00 / ay")).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Hızlı finans işlemleri" })).toHaveCount(0);
+
+  const checkoutButton = payment.getByRole("button", { name: "Ödemeye geç" });
+  await expect(checkoutButton).toBeDisabled();
+  await payment.getByRole("checkbox", { name: "Aylık hizmet bedelini onaylıyorum." }).check();
+  const checkoutRequest = page.waitForRequest("**/api/ekran/muhasebeciler/talepler/15/checkout");
+  await checkoutButton.click();
+  const request = await checkoutRequest;
+  expect(request.postDataJSON()).toMatchObject({ onaylandi: true });
+  expect(request.headers()["idempotency-key"]).toBeTruthy();
+});
+
+test("matched chat data toolbar reflows without clipped controls", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium", "Deterministic responsive chat project");
+
+  await page.setViewportSize({ width: 1100, height: 760 });
+  await mockConversationPage(page, { baglantiId: 9, talepId: null, durum: "Aktif" });
+  await page.goto("/app/sohbetler?sohbetId=1");
+
+  const toolbar = page.locator(".chat-thread__composer-toolbar");
+  await expect(toolbar).toBeVisible();
+  await expect(page.getByRole("button", { name: "Veri paylaş" })).toBeVisible();
+  await expect.poll(() => toolbar.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+
+  await page.setViewportSize({ width: 320, height: 700 });
+  await expect(page.locator(".chat-thread__header")).toBeVisible();
+  await expect.poll(() => toolbar.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+  await expect(page.getByRole("button", { name: "Veri paylaş" })).toBeInViewport();
+  await expect(page.getByRole("button", { name: "Raporlar verisini paylaş" })).toBeInViewport();
+  await expect(page.getByRole("button", { name: "Sohbeti arşivle" })).toBeInViewport();
+  await expect.poll(() => page.getByRole("button", { name: "Sohbeti arşivle" }).evaluate((element) => element.getBoundingClientRect().right <= window.innerWidth)).toBe(true);
+  await expect.poll(() => page.locator(".chat-thread__header").evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+});
+
 test("archive state stays unique through rapid archive, restore and re-archive", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "desktop-chromium", "Deterministic archive race project");
 
@@ -92,6 +158,26 @@ function conversation(arsivlendi: boolean) {
     arsivlendi,
     hedefUrl: "/app/sohbetler?sohbetId=1"
   };
+}
+
+async function mockConversationPage(
+  page: Page,
+  overrides: Partial<ReturnType<typeof conversation>>
+) {
+  const current = { ...conversation(false), ...overrides };
+  await mockAuthenticatedWorkspace(page);
+  await page.route("**/hubs/muhasebeci-sohbet/**", (route) => route.abort());
+  await page.route("**/api/ekran/sohbetler?**", (route) => json(route, {
+    sohbetler: [current],
+    okunmamisMesajSayisi: 0
+  }));
+  await page.route(/\/api\/ekran\/sohbetler\/1\/mesajlar(?:\?.*)?$/, (route) => json(route, {
+    sohbetId: 1,
+    sohbet: current,
+    mesajlar: [],
+    hasMore: false,
+    nextBeforeId: null
+  }));
 }
 
 async function mockAuthenticatedWorkspace(page: Page) {

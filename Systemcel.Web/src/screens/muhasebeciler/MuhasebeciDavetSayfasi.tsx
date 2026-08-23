@@ -18,6 +18,7 @@ export function MuhasebeciDavetSayfasi({ token }: { token: string }) {
   const [davet, setDavet] = React.useState<MuhasebeciLinkDaveti | null>(null);
   const [hata, setHata] = React.useState("");
   const [islemde, setIslemde] = React.useState(false);
+  const [aylikHizmetBedeli, setAylikHizmetBedeli] = React.useState("");
 
   React.useEffect(() => {
     document.title = "Muhasebeci daveti";
@@ -31,14 +32,20 @@ export function MuhasebeciDavetSayfasi({ token }: { token: string }) {
   const authQuery = `hesapTipi=Muhasebeci&returnUrl=${encodeURIComponent(returnUrl)}`;
 
   async function kabulEt() {
+    const monthlyFee = Number(aylikHizmetBedeli);
+    if (!Number.isFinite(monthlyFee) || monthlyFee <= 0) {
+      setHata("Aylık ücreti girin.");
+      return;
+    }
+
     try {
       setIslemde(true);
       setHata("");
       await jsonOku("/api/ekran/muhasebeci/link-davetleri/kabul", {
         method: "POST",
-        body: JSON.stringify({ token })
+        body: JSON.stringify({ token, aylikHizmetBedeli: monthlyFee })
       });
-      setDavet((current) => current ? { ...current, durum: "Kabul" } : current);
+      setDavet((current) => current ? { ...current, durum: "OdemeBekliyor" } : current);
     } catch (error) {
       setHata(error instanceof Error ? error.message : "Davet kabul edilemedi.");
     } finally {
@@ -47,7 +54,7 @@ export function MuhasebeciDavetSayfasi({ token }: { token: string }) {
   }
 
   const bekliyor = davet?.durum === "Beklemede";
-  const kabulEdildi = davet?.durum === "Kabul";
+  const odemeBekliyor = davet?.durum === "OdemeBekliyor";
 
   return (
     <main className="accountant-invite-page">
@@ -60,11 +67,11 @@ export function MuhasebeciDavetSayfasi({ token }: { token: string }) {
           <div className="accountant-invite-state is-error"><AlertCircle size={30} /><h1>Bağlantı açılamadı</h1><p>{hata}</p></div>
         ) : (
           <>
-            <div className={`accountant-invite-intro ${kabulEdildi ? "is-success" : ""}`}>
-              {kabulEdildi ? <CheckCircle2 size={30} /> : <Link2 size={30} />}
+            <div className={`accountant-invite-intro ${odemeBekliyor ? "is-success" : ""}`}>
+              {odemeBekliyor ? <CheckCircle2 size={30} /> : <Link2 size={30} />}
               <div>
                 <p>{davet.musteriAdi}</p>
-                <h1>{kabulEdildi ? "Bağlantı kuruldu" : "Sizi muhasebecisi olarak davet ediyor"}</h1>
+                <h1>{odemeBekliyor ? "Müşteri ödemesi bekleniyor" : "Sizi muhasebecisi olarak davet ediyor"}</h1>
               </div>
             </div>
 
@@ -75,22 +82,30 @@ export function MuhasebeciDavetSayfasi({ token }: { token: string }) {
             </dl>
 
             {bekliyor ? (
-              <div className="accountant-invite-actions">
+              <div className="accountant-invite-acceptance">
                 {signedIn ? (
-                  <button type="button" disabled={islemde} onClick={kabulEt}>
-                    {islemde ? <Loader2 className="spin" size={17} /> : <ShieldCheck size={17} />}
-                    Daveti kabul et
-                  </button>
-                ) : (
                   <>
+                    <label>
+                      <span>Aylık ücret</span>
+                      <span><b>₺</b><input aria-label="Aylık ücret" type="number" min="1" step="0.01" inputMode="decimal" value={aylikHizmetBedeli} onChange={(event) => setAylikHizmetBedeli(event.target.value)} /></span>
+                    </label>
+                    <div className="accountant-invite-actions">
+                      <button type="button" disabled={islemde} onClick={kabulEt}>
+                        {islemde ? <Loader2 className="spin" size={17} /> : <ShieldCheck size={17} />}
+                        Ödemeye gönder
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <div className="accountant-invite-actions">
                     <a className="is-primary" href={`/kayit?${authQuery}`}>Muhasebeci hesabı oluştur</a>
                     <a href={`/giris?${authQuery}`}>Giriş yap</a>
-                  </>
+                  </div>
                 )}
               </div>
             ) : null}
 
-            {kabulEdildi ? <a className="accountant-invite-workspace-link" href="/app/muhasebeci/musteriler">Müşterilerime git</a> : null}
+            {odemeBekliyor ? <a className="accountant-invite-workspace-link" href="/app/sohbetler">Sohbete git</a> : null}
             {hata ? <p className="accountant-invite-error">{hata}</p> : null}
           </>
         )}

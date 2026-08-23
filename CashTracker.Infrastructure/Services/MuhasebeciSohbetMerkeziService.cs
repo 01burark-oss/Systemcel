@@ -227,6 +227,7 @@ namespace CashTracker.Infrastructure.Services
             var sohbet = await RequireConversationAsync(db, sohbetId, viewerBusinessId, ct);
             if (viewerBusinessId != sohbet.MuhasebeciIsletmeId)
                 throw new InvalidOperationException("Veri istegini muhasebeci baslatabilir.");
+            await RequireActivePaidRelationAsync(db, sohbet, ct);
 
             var range = ResolveRange(request.AralikKodu, request.Baslangic, request.Bitis);
             var dataRequest = new MuhasebeciSohbetVeriIstegi
@@ -267,6 +268,7 @@ namespace CashTracker.Infrastructure.Services
             await using var db = await _dbFactory.CreateDbContextAsync(ct);
             var viewerBusinessId = await GetViewerBusinessIdAsync(ct);
             var sohbet = await RequireConversationAsync(db, sohbetId, viewerBusinessId, ct);
+            await RequireActivePaidRelationAsync(db, sohbet, ct);
             if (viewerBusinessId != sohbet.MusteriIsletmeId && !CanAutoShareData(db, sohbet))
                 throw new InvalidOperationException("Bu veriyi paylasmak icin aktif okuma/rapor yetkisi gerekir.");
 
@@ -334,7 +336,8 @@ namespace CashTracker.Infrastructure.Services
                 .FirstOrDefaultAsync(x => x.MuhasebeciIsletmeId == muhasebeciIsletmeId && x.MusteriIsletmeId == customer.Id && x.Durum == "Aktif", ct);
             var request = relation == null
                 ? await db.MuhasebeciMusteriTalepleri.AsNoTracking()
-                    .FirstOrDefaultAsync(x => x.MuhasebeciIsletmeId == muhasebeciIsletmeId && x.MusteriIsletmeId == customer.Id && x.Durum == MuhasebeciTalepDurumlari.Beklemede, ct)
+                    .FirstOrDefaultAsync(x => x.MuhasebeciIsletmeId == muhasebeciIsletmeId && x.MusteriIsletmeId == customer.Id &&
+                        (x.Durum == MuhasebeciTalepDurumlari.Beklemede || x.Durum == MuhasebeciTalepDurumlari.OdemeBekliyor), ct)
                 : null;
             if (relation == null && request == null)
                 throw new InvalidOperationException("Bu muhasebeci ile sohbet baslatmak icin once talep veya baglanti gerekir.");
@@ -348,7 +351,8 @@ namespace CashTracker.Infrastructure.Services
             await using var db = await _dbFactory.CreateDbContextAsync(ct);
             var viewerBusinessId = await GetViewerBusinessIdAsync(ct);
             var talep = await db.MuhasebeciMusteriTalepleri.AsNoTracking()
-                .FirstOrDefaultAsync(x => x.Id == talepId && x.MusteriIsletmeId.HasValue && x.MuhasebeciIsletmeId == viewerBusinessId && x.Durum == MuhasebeciTalepDurumlari.Beklemede, ct)
+                .FirstOrDefaultAsync(x => x.Id == talepId && x.MusteriIsletmeId.HasValue && x.MuhasebeciIsletmeId == viewerBusinessId &&
+                    (x.Durum == MuhasebeciTalepDurumlari.Beklemede || x.Durum == MuhasebeciTalepDurumlari.OdemeBekliyor), ct)
                 ?? throw new InvalidOperationException("Sohbet edilecek bekleyen talep bulunamadi.");
             var sohbet = await EnsureConversationAsync(db, talep.MuhasebeciIsletmeId, talep.MusteriIsletmeId!.Value, talep.Id, null, "Talep bekliyor", ct);
             return sohbet.Id;
@@ -393,7 +397,8 @@ namespace CashTracker.Infrastructure.Services
                 await EnsureConversationAsync(db, relation.MuhasebeciIsletmeId, relation.MusteriIsletmeId, relation.TalepId, relation.Id, "Aktif baglanti", ct);
 
             var requests = await db.MuhasebeciMusteriTalepleri.AsNoTracking()
-                .Where(x => x.MusteriIsletmeId.HasValue && x.Durum == MuhasebeciTalepDurumlari.Beklemede &&
+                .Where(x => x.MusteriIsletmeId.HasValue &&
+                    (x.Durum == MuhasebeciTalepDurumlari.Beklemede || x.Durum == MuhasebeciTalepDurumlari.OdemeBekliyor) &&
                     (x.MuhasebeciIsletmeId == viewerBusinessId || x.MusteriIsletmeId == viewerBusinessId))
                 .ToListAsync(ct);
             foreach (var request in requests)
@@ -1105,6 +1110,26 @@ namespace CashTracker.Infrastructure.Services
                 "FinansalRapor" => "FinansalRapor",
                 _ => "GelirGiderOzeti"
             };
+        }
+
+        private static async Task RequireActivePaidRelationAsync(
+            CashTrackerDbContext db,
+            MuhasebeciSohbet sohbet,
+            CancellationToken ct)
+        {
+            var relation = await db.MuhasebeciMusterileri.AsNoTracking().SingleOrDefaultAsync(x =>
+                x.MuhasebeciIsletmeId == sohbet.MuhasebeciIsletmeId &&
+                x.MusteriIsletmeId == sohbet.MusteriIsletmeId &&
+                x.Durum == "Aktif", ct);
+            if (relation is null)
+                throw new InvalidOperationException("Finansal veri isteği ve paylaşımı için ödeme sonrası aktif bağlantı gerekir.");
+
+            if (!relation.TalepId.HasValue)
+                return;
+            var trackedPayment = await db.MuhasebeciHizmetOdemeleri.AsNoTracking()
+                .SingleOrDefaultAsync(x => x.TalepId == relation.TalepId.Value, ct);
+            if (trackedPayment is not null && trackedPayment.Durum != MuhasebeciHizmetOdemeDurumlari.TahsilEdildi)
+                throw new InvalidOperationException("Finansal veri isteği ve paylaşımı için hizmet ödemesinin tamamlanması gerekir.");
         }
 
         private static string BuildDataRequestMessage(MuhasebeciSohbetVeriIstegi request)

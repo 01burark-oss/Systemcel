@@ -382,8 +382,13 @@ internal static class BillingApi
 
                     var succeeded = !string.Equals(result, "fail", StringComparison.OrdinalIgnoreCase);
                     var startsPaidSubscription = string.Equals(payment.IslemTipi, "AbonelikBaslatma", StringComparison.Ordinal);
+                    var isAccountantService = string.Equals(
+                        payment.IslemTipi,
+                        PaymentTransactionTypes.AccountantService,
+                        StringComparison.Ordinal);
+                    var isPaidCharge = startsPaidSubscription || isAccountantService;
                     var eventType = succeeded
-                        ? startsPaidSubscription ? PaymentEventTypes.PaymentSucceeded : PaymentEventTypes.TrialAuthorized
+                        ? isPaidCharge ? PaymentEventTypes.PaymentSucceeded : PaymentEventTypes.TrialAuthorized
                         : PaymentEventTypes.PaymentFailed;
                     var payload = JsonSerializer.Serialize(new
                     {
@@ -391,15 +396,16 @@ internal static class BillingApi
                         eventType,
                         merchantReference,
                         providerTransactionId = $"fake-tx-{sessionId}",
-                        amount = succeeded && startsPaidSubscription ? payment.ToplamTutar : 0m,
+                        amount = succeeded && isPaidCharge ? payment.ToplamTutar : 0m,
                         currency = payment.ParaBirimi,
                         occurredAt = DateTime.UtcNow
                     });
                     var processed = await lifecycle.ProcessWebhookAsync(
                         new PaymentWebhookEnvelope(payload, fakeProvider.SignPayload(payload)), ct);
+                    var redirectBase = isAccountantService ? "/app/muhasebeciler" : "/app/abonelik";
                     var redirect = processed.Accepted
-                        ? "/app/abonelik?odeme=test-basarili"
-                        : "/app/abonelik?odeme=test-basarisiz";
+                        ? $"{redirectBase}?odeme=test-basarili"
+                        : $"{redirectBase}?odeme=test-basarisiz";
                     return Results.Redirect(redirect);
                 })
             .AllowAnonymous();

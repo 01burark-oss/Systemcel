@@ -13,6 +13,7 @@ namespace CashTracker.Core.Entities
         public string YetkiSeviyesi { get; set; } = "OkumaRapor";
         public string DavetKodu { get; set; } = string.Empty;
         public string Mesaj { get; set; } = string.Empty;
+        public decimal AylikHizmetBedeli { get; set; }
         public DateTime? SonucAt { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.Now;
         public DateTime UpdatedAt { get; set; } = DateTime.Now;

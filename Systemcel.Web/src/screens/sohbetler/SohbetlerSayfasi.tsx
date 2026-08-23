@@ -8,6 +8,7 @@ import {
   ChartNoAxesCombined,
   ChevronRight,
   ChevronLeft,
+  CreditCard,
   Download,
   FileDown,
   FileUp,
@@ -142,6 +143,10 @@ export function SohbetlerSayfasi({ mobileMode = false, ustBar, onUstBarYenile }:
   const [aktifVeriTipi, setAktifVeriTipi] = React.useState<SohbetVeriTipi | null>(null);
   const [dosyaIslemde, setDosyaIslemde] = React.useState(false);
   const [arsivIslemde, setArsivIslemde] = React.useState(false);
+  const [odemeOzeti, setOdemeOzeti] = React.useState<MuhasebeciOdemeOzeti | null>(null);
+  const [odemeOnaylandi, setOdemeOnaylandi] = React.useState(false);
+  const [odemeYukleniyor, setOdemeYukleniyor] = React.useState(false);
+  const [odemeBaslatiliyor, setOdemeBaslatiliyor] = React.useState(false);
   const [sesKaydi, setSesKaydi] = React.useState(false);
   const [sesKaydiKilitli, setSesKaydiKilitli] = React.useState(false);
   const [sesKaydiSuresi, setSesKaydiSuresi] = React.useState(0);
@@ -157,6 +162,7 @@ export function SohbetlerSayfasi({ mobileMode = false, ustBar, onUstBarYenile }:
   const sohbetDurumSirasiRef = React.useRef(0);
   const mesajYuklemeRef = React.useRef<Map<number, Promise<void>>>(new Map());
   const arsivIslemdeRef = React.useRef(false);
+  const odemeAnahtarlariRef = React.useRef<Record<number, string>>({});
   const mediaRecorderRef = React.useRef<MediaRecorder | null>(null);
   const mediaStreamRef = React.useRef<MediaStream | null>(null);
   const audioChunksRef = React.useRef<Blob[]>([]);
@@ -169,6 +175,7 @@ export function SohbetlerSayfasi({ mobileMode = false, ustBar, onUstBarYenile }:
 
   const viewerAccountantId = ustBar?.muhasebeciMusteriBaglami ? ustBar.muhasebeciIsletmeId : ustBar?.aktifIsletmeId;
   const viewerIsAccountant = Boolean(aktifSohbet && viewerAccountantId && aktifSohbet.muhasebeciIsletmeId === viewerAccountantId);
+  const eslesmeTamamlandi = Boolean(aktifSohbet?.baglantiId);
   const dataActionLabel = viewerIsAccountant ? "Veri iste" : "Veri paylaş";
   const filtreliSohbetler = React.useMemo(() => {
     const sorgu = arama.trim().toLocaleLowerCase("tr-TR");
@@ -185,6 +192,37 @@ export function SohbetlerSayfasi({ mobileMode = false, ustBar, onUstBarYenile }:
   React.useEffect(() => {
     document.title = "Sohbetler";
   }, []);
+
+  React.useEffect(() => {
+    const talepId = aktifSohbet?.talepId;
+    const odemeBekliyor = aktifSohbet?.durum === "OdemeBekliyor" && !aktifSohbet.baglantiId;
+    setOdemeOnaylandi(false);
+    if (!talepId || !odemeBekliyor || viewerIsAccountant) {
+      setOdemeOzeti(null);
+      setOdemeYukleniyor(false);
+      return;
+    }
+
+    let cancelled = false;
+    setOdemeYukleniyor(true);
+    jsonOku<MuhasebeciOdemeOzeti>(`/api/ekran/muhasebeciler/talepler/${talepId}/odeme`)
+      .then((data) => {
+        if (!cancelled)
+          setOdemeOzeti(data);
+      })
+      .catch((error) => {
+        if (!cancelled)
+          setHata(error instanceof Error ? error.message : "Ödeme bilgisi yüklenemedi.");
+      })
+      .finally(() => {
+        if (!cancelled)
+          setOdemeYukleniyor(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [aktifSohbet?.baglantiId, aktifSohbet?.durum, aktifSohbet?.talepId, viewerIsAccountant]);
 
   React.useEffect(() => {
     selectedRef.current = aktifSohbetId;
@@ -634,7 +672,7 @@ export function SohbetlerSayfasi({ mobileMode = false, ustBar, onUstBarYenile }:
   }
 
   async function veriAksiyonu(veriTipi: SohbetVeriTipi = "GelirGiderOzeti") {
-    if (!aktifSohbetId)
+    if (!aktifSohbetId || !eslesmeTamamlandi)
       return;
 
     setVeriIslemde(true);
@@ -660,6 +698,29 @@ export function SohbetlerSayfasi({ mobileMode = false, ustBar, onUstBarYenile }:
     } finally {
       setVeriIslemde(false);
       setAktifVeriTipi(null);
+    }
+  }
+
+  async function muhasebeciOdemesiniBaslat() {
+    const talepId = aktifSohbet?.talepId;
+    if (!talepId || !odemeOzeti?.odemeYapilabilir || !odemeOnaylandi)
+      return;
+
+    const idempotencyKey = odemeAnahtarlariRef.current[talepId]
+      ?? (crypto.randomUUID?.() ?? `accountant-${talepId}-${Date.now()}`);
+    odemeAnahtarlariRef.current[talepId] = idempotencyKey;
+    setOdemeBaslatiliyor(true);
+    setHata("");
+    try {
+      const result = await jsonOku<MuhasebeciCheckout>(`/api/ekran/muhasebeciler/talepler/${talepId}/checkout`, {
+        method: "POST",
+        headers: { "Idempotency-Key": idempotencyKey },
+        body: JSON.stringify({ onaylandi: true, idempotencyKey })
+      });
+      window.location.assign(result.checkoutUrl);
+    } catch (error) {
+      setHata(error instanceof Error ? error.message : "Ödeme başlatılamadı.");
+      setOdemeBaslatiliyor(false);
     }
   }
 
@@ -827,6 +888,35 @@ export function SohbetlerSayfasi({ mobileMode = false, ustBar, onUstBarYenile }:
                 </p>
               ) : null}
 
+              {aktifSohbet?.durum === "OdemeBekliyor" && !aktifSohbet.baglantiId ? (
+                <section className="chat-payment-gate" aria-label="Muhasebeci ödemesi">
+                  <span className="chat-payment-gate__icon"><CreditCard size={19} /></span>
+                  <div>
+                    <strong>{viewerIsAccountant ? "Müşteri ödemesi bekleniyor" : "Eşleşme için ödeme gerekli"}</strong>
+                    <small>
+                      {viewerIsAccountant
+                        ? "Ödeme tamamlandığında müşteri bağlantısı açılır."
+                        : "Ödeme Systemcel üzerinden alınır; muhasebeciye aylık aktarılır."}
+                    </small>
+                  </div>
+                  {!viewerIsAccountant ? (
+                    odemeYukleniyor ? <Loader2 className="spin" size={18} /> : odemeOzeti ? (
+                      <div className="chat-payment-gate__checkout">
+                        <b>{paraBic(odemeOzeti.aylikHizmetBedeli, odemeOzeti.paraBirimi)} / ay</b>
+                        <label>
+                          <input type="checkbox" checked={odemeOnaylandi} onChange={(event) => setOdemeOnaylandi(event.target.checked)} />
+                          <span>Aylık hizmet bedelini onaylıyorum.</span>
+                        </label>
+                        <button type="button" onClick={muhasebeciOdemesiniBaslat} disabled={!odemeOnaylandi || !odemeOzeti.odemeYapilabilir || odemeBaslatiliyor}>
+                          {odemeBaslatiliyor ? <Loader2 className="spin" size={16} /> : <CreditCard size={16} />}
+                          <span>Ödemeye geç</span>
+                        </button>
+                      </div>
+                    ) : null
+                  ) : null}
+                </section>
+              ) : null}
+
               <div className="chat-thread__messages" ref={messagesRef} onScroll={scrollKontrol}>
                 {eskiYukleniyor ? <p className="chat-center__state"><Loader2 size={15} className="spin" /> Eski mesajlar yükleniyor...</p> : null}
                 {mesajYukleniyor ? (
@@ -896,44 +986,46 @@ export function SohbetlerSayfasi({ mobileMode = false, ustBar, onUstBarYenile }:
                     ) : null}
                   </div>
                 ) : null}
-                <div className="chat-thread__composer-toolbar">
-                  <nav className="chat-thread__quick-actions" aria-label="Hızlı finans işlemleri">
-                    {QUICK_DATA_ACTIONS.map((action) => {
-                      const Icon = action.icon;
-                      const loading = veriIslemde && aktifVeriTipi === action.type;
-                      return (
-                        <button
-                          key={action.type}
-                          type="button"
-                          onClick={() => veriAksiyonu(action.type)}
-                          disabled={veriIslemde || !aktifSohbetId}
-                          aria-label={`${action.label} verisini ${viewerIsAccountant ? "iste" : "paylaş"}`}
-                          title={`${action.label}: ${viewerIsAccountant ? "veri iste" : "veri paylaş"}`}
-                        >
-                          {loading ? <Loader2 size={14} className="spin" /> : <Icon size={14} />}
-                          <span>{action.label}</span>
-                        </button>
-                      );
-                    })}
-                  </nav>
-                  <div className="chat-thread__composer-tools">
-                    <label className="chat-thread__composer-period">
-                      <CalendarDays aria-hidden="true" size={15} />
-                      <span className="sr-only">Dönem</span>
-                      <select value={veriAraligi} onChange={(event) => setVeriAraligi(event.target.value)}>
-                        <option value="last30">Son 30 gün</option>
-                        <option value="thisMonth">Bu ay</option>
-                        <option value="previousMonth">Önceki ay</option>
-                        <option value="selectedMonth">Seçili ay</option>
-                        <option value="custom">Özel aralık</option>
-                      </select>
-                    </label>
-                    <button type="button" className="chat-thread__composer-data" onClick={() => veriAksiyonu()} disabled={veriIslemde}>
-                      {veriIslemde ? <Loader2 size={15} className="spin" /> : <FileUp size={15} />}
-                      <span>{dataActionLabel}</span>
-                    </button>
+                {eslesmeTamamlandi ? (
+                  <div className="chat-thread__composer-toolbar">
+                    <nav className="chat-thread__quick-actions" aria-label="Hızlı finans işlemleri">
+                      {QUICK_DATA_ACTIONS.map((action) => {
+                        const Icon = action.icon;
+                        const loading = veriIslemde && aktifVeriTipi === action.type;
+                        return (
+                          <button
+                            key={action.type}
+                            type="button"
+                            onClick={() => veriAksiyonu(action.type)}
+                            disabled={veriIslemde || !aktifSohbetId}
+                            aria-label={`${action.label} verisini ${viewerIsAccountant ? "iste" : "paylaş"}`}
+                            title={`${action.label}: ${viewerIsAccountant ? "veri iste" : "veri paylaş"}`}
+                          >
+                            {loading ? <Loader2 size={14} className="spin" /> : <Icon size={14} />}
+                            <span>{action.label}</span>
+                          </button>
+                        );
+                      })}
+                    </nav>
+                    <div className="chat-thread__composer-tools">
+                      <label className="chat-thread__composer-period">
+                        <CalendarDays aria-hidden="true" size={15} />
+                        <span className="sr-only">Dönem</span>
+                        <select value={veriAraligi} onChange={(event) => setVeriAraligi(event.target.value)}>
+                          <option value="last30">Son 30 gün</option>
+                          <option value="thisMonth">Bu ay</option>
+                          <option value="previousMonth">Önceki ay</option>
+                          <option value="selectedMonth">Seçili ay</option>
+                          <option value="custom">Özel aralık</option>
+                        </select>
+                      </label>
+                      <button type="button" className="chat-thread__composer-data" onClick={() => veriAksiyonu()} disabled={veriIslemde}>
+                        {veriIslemde ? <Loader2 size={15} className="spin" /> : <FileUp size={15} />}
+                        <span>{dataActionLabel}</span>
+                      </button>
+                    </div>
                   </div>
-                </div>
+                ) : null}
                 <div className="chat-thread__composer-row">
                   <button
                     type="button"
@@ -976,12 +1068,12 @@ export function SohbetlerSayfasi({ mobileMode = false, ustBar, onUstBarYenile }:
                     <Send size={18} />
                   </button>
                 </div>
-                {veriAraligi === "selectedMonth" ? (
+                {eslesmeTamamlandi && veriAraligi === "selectedMonth" ? (
                   <div className="chat-thread__range-fields">
                     <input type="month" value={seciliAy} onChange={(event) => setSeciliAy(event.target.value)} />
                   </div>
                 ) : null}
-                {veriAraligi === "custom" ? (
+                {eslesmeTamamlandi && veriAraligi === "custom" ? (
                   <div className="chat-thread__range-fields">
                     <input type="date" value={ozelBaslangic} onChange={(event) => setOzelBaslangic(event.target.value)} />
                     <input type="date" value={ozelBitis} onChange={(event) => setOzelBitis(event.target.value)} />
@@ -994,6 +1086,18 @@ export function SohbetlerSayfasi({ mobileMode = false, ustBar, onUstBarYenile }:
       </section>
     </main>
   );
+}
+
+interface MuhasebeciOdemeOzeti {
+  talepId: number;
+  aylikHizmetBedeli: number;
+  paraBirimi: string;
+  odemeDurumu: string;
+  odemeYapilabilir: boolean;
+}
+
+interface MuhasebeciCheckout {
+  checkoutUrl: string;
 }
 
 function AuthenticatedAudio({ attachment, onError }: { attachment: SohbetEki; onError: (message: string) => void }) {
@@ -1144,6 +1248,13 @@ function sadeceSaat(value: string) {
 function para(value: unknown) {
   const numeric = typeof value === "number" ? value : Number(value ?? 0);
   return numeric.toLocaleString("tr-TR", { style: "currency", currency: "TRY" });
+}
+
+function paraBic(value: number, currency: string) {
+  return value.toLocaleString("tr-TR", {
+    style: "currency",
+    currency: currency || "TRY"
+  });
 }
 
 function sesSuresi(totalSeconds: number) {

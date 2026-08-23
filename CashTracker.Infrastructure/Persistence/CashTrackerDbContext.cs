@@ -23,6 +23,8 @@ namespace CashTracker.Infrastructure.Persistence
         public DbSet<MuhasebeciMusteri> MuhasebeciMusterileri => Set<MuhasebeciMusteri>();
         public DbSet<MuhasebeciProfil> MuhasebeciProfilleri => Set<MuhasebeciProfil>();
         public DbSet<MuhasebeciMusteriTalebi> MuhasebeciMusteriTalepleri => Set<MuhasebeciMusteriTalebi>();
+        public DbSet<MuhasebeciHizmetOdemesi> MuhasebeciHizmetOdemeleri => Set<MuhasebeciHizmetOdemesi>();
+        public DbSet<MuhasebeciAktarimAlacagi> MuhasebeciAktarimAlacaklari => Set<MuhasebeciAktarimAlacagi>();
         public DbSet<MuhasebeciBaglantiDaveti> MuhasebeciBaglantiDavetleri => Set<MuhasebeciBaglantiDaveti>();
         public DbSet<MuhasebeciSohbet> MuhasebeciSohbetleri => Set<MuhasebeciSohbet>();
         public DbSet<MuhasebeciSohbetMesaji> MuhasebeciSohbetMesajlari => Set<MuhasebeciSohbetMesaji>();
@@ -198,6 +200,7 @@ namespace CashTracker.Infrastructure.Persistence
                 e.Property(x => x.YetkiSeviyesi).IsRequired();
                 e.Property(x => x.DavetKodu).IsRequired();
                 e.Property(x => x.Mesaj).IsRequired();
+                e.Property(x => x.AylikHizmetBedeli).HasColumnType("NUMERIC");
                 e.HasIndex(x => x.MuhasebeciIsletmeId);
                 e.HasIndex(x => x.MusteriIsletmeId);
                 e.HasIndex(x => x.TalepEdenIsletmeId);
@@ -329,6 +332,35 @@ namespace CashTracker.Infrastructure.Persistence
                 e.HasIndex(x => x.MusteriIsletmeId);
                 e.HasIndex(x => x.MuhasebeciIsletmeId);
                 e.HasIndex(x => new { x.MusteriIsletmeId, x.Durum });
+            });
+
+            modelBuilder.Entity<MuhasebeciHizmetOdemesi>(e =>
+            {
+                e.ToTable("MuhasebeciHizmetOdemesi");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.AylikHizmetBedeli).HasColumnType("NUMERIC");
+                e.Property(x => x.ParaBirimi).IsRequired().HasMaxLength(3);
+                e.Property(x => x.Durum).IsRequired();
+                e.Property(x => x.TahsilEdilenTutar).HasColumnType("NUMERIC");
+                e.HasIndex(x => x.TalepId).IsUnique();
+                e.HasIndex(x => x.OdemeIslemiId).IsUnique();
+                e.HasIndex(x => new { x.MusteriIsletmeId, x.Durum });
+            });
+
+            modelBuilder.Entity<MuhasebeciAktarimAlacagi>(e =>
+            {
+                e.ToTable("MuhasebeciAktarimAlacagi");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.TahsilEdilenTutar).HasColumnType("NUMERIC");
+                e.Property(x => x.PlatformKomisyonTutari).HasColumnType("NUMERIC");
+                e.Property(x => x.AktarilacakTutar).HasColumnType("NUMERIC");
+                e.Property(x => x.ParaBirimi).IsRequired().HasMaxLength(3);
+                e.Property(x => x.AktarimDonemi).IsRequired().HasMaxLength(7);
+                e.Property(x => x.Durum).IsRequired();
+                e.Property(x => x.AktarimReferansi).IsRequired();
+                e.HasIndex(x => x.MuhasebeciHizmetOdemesiId).IsUnique();
+                e.HasIndex(x => new { x.MuhasebeciIsletmeId, x.AktarimDonemi, x.Durum });
+                e.HasIndex(x => x.AktarimReferansi);
             });
 
             modelBuilder.Entity<YonetimDenetimKaydi>(e =>

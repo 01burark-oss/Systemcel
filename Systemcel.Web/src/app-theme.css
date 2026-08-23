@@ -2319,11 +2319,55 @@
 
 :root[data-theme="light"] .accountant-panel .accountant-request-list article {
   display: grid;
-  grid-template-columns: minmax(220px, 1fr) minmax(145px, 165px) auto auto auto;
+  grid-template-columns: minmax(220px, 1fr) minmax(145px, 165px) minmax(126px, 145px) auto auto auto;
   align-items: center;
   gap: 10px;
   padding: 13px;
   border-radius: 14px;
+}
+
+:root[data-theme="light"] .accountant-request-list__fee {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+  color: var(--sc-muted);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+:root[data-theme="light"] .accountant-request-list__fee > span:last-child {
+  min-height: var(--accountant-control-height);
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  border: 1px solid var(--sc-line);
+  border-radius: 10px;
+  background: #fffef9;
+}
+
+:root[data-theme="light"] .accountant-request-list__fee b {
+  padding-left: 10px;
+}
+
+:root[data-theme="light"] .accountant-request-list__fee input {
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  padding: 0 9px 0 5px;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  font: inherit;
+}
+
+:root[data-theme="light"] .accountant-request-list__payment-state {
+  min-width: 180px;
+  display: grid;
+  gap: 2px;
+}
+
+:root[data-theme="light"] .accountant-request-list__payment-state small {
+  color: var(--sc-muted);
 }
 
 :root[data-theme="light"] .accountant-panel .accountant-request-list article > div {
@@ -2433,7 +2477,7 @@
   }
 
   :root[data-theme="light"] .accountant-panel .accountant-request-list article {
-    grid-template-columns: minmax(220px, 1fr) minmax(145px, 170px) repeat(3, auto);
+    grid-template-columns: minmax(220px, 1fr) minmax(145px, 170px) minmax(126px, 145px) repeat(3, auto);
   }
 }
 
@@ -3869,7 +3913,7 @@
 
 @media (max-width: 900px) {
   :root[data-theme="light"] .accountant-panel .accountant-request-list article {
-    grid-template-columns: minmax(0, 1fr) repeat(3, auto);
+    grid-template-columns: minmax(0, 1fr) minmax(126px, 145px) repeat(3, auto);
   }
 
   :root[data-theme="light"] .accountant-panel .accountant-request-list article > div {
@@ -3944,6 +3988,11 @@
   }
 
   :root[data-theme="light"] .accountant-panel .accountant-request-list :is(select, button) {
+    width: 100%;
+  }
+
+  :root[data-theme="light"] .accountant-request-list__fee,
+  :root[data-theme="light"] .accountant-request-list__payment-state {
     width: 100%;
   }
 
@@ -7781,6 +7830,10 @@
 }
 
 @media (max-width: 700px) {
+  :root[data-theme="light"] .mobile-workspace-view__content {
+    min-width: 0;
+  }
+
   :root[data-theme="light"] .mobile-workspace-view__content > .chat-center-page,
   :root[data-theme="light"] .mobile-workspace-view__content > .chat-center-page .chat-center,
   :root[data-theme="light"] .mobile-workspace-view__content > .chat-center-page .chat-center__sidebar,
@@ -8244,9 +8297,110 @@
 :root[data-theme="light"] .chat-thread__composer-toolbar {
   min-width: 0;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
+}
+
+:root[data-theme="light"] .chat-payment-gate {
+  margin: 10px 12px 0;
+  padding: 12px;
+  display: grid;
+  grid-template-columns: auto minmax(180px, 1fr) auto;
+  align-items: center;
+  gap: 11px;
+  border: 1px solid rgba(83, 110, 0, .26);
+  border-radius: 14px;
+  background: rgba(200, 255, 0, .12);
+}
+
+:root[data-theme="light"] .chat-payment-gate__icon {
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: var(--sc-lime);
+}
+
+:root[data-theme="light"] .chat-payment-gate > div:not(.chat-payment-gate__checkout) {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+:root[data-theme="light"] .chat-payment-gate small {
+  color: var(--sc-muted);
+  font-size: 12px;
+}
+
+:root[data-theme="light"] .chat-payment-gate__checkout {
+  display: grid;
+  grid-template-columns: auto auto;
+  align-items: center;
+  gap: 5px 10px;
+}
+
+:root[data-theme="light"] .chat-payment-gate__checkout > b {
+  text-align: right;
+}
+
+:root[data-theme="light"] .chat-payment-gate__checkout label {
+  grid-column: 1 / -1;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--sc-muted);
+  font-size: 11px;
+  font-weight: 750;
+}
+
+:root[data-theme="light"] .chat-payment-gate__checkout input {
+  accent-color: var(--sc-ink);
+}
+
+:root[data-theme="light"] .chat-payment-gate__checkout button {
+  min-height: 36px;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid var(--sc-ink);
+  border-radius: 999px;
+  color: var(--sc-paper);
+  background: var(--sc-ink);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+:root[data-theme="light"] .chat-payment-gate__checkout button:disabled {
+  cursor: not-allowed;
+  opacity: .5;
+}
+
+@media (max-width: 700px) {
+  :root[data-theme="light"] .chat-payment-gate {
+    margin: 8px 9px 0;
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  :root[data-theme="light"] .chat-payment-gate__checkout {
+    grid-column: 1 / -1;
+    grid-template-columns: 1fr;
+  }
+
+  :root[data-theme="light"] .chat-payment-gate__checkout > b {
+    text-align: left;
+  }
+
+  :root[data-theme="light"] .chat-payment-gate__checkout label {
+    grid-column: auto;
+  }
 }
 
 :root[data-theme="light"] .chat-thread__quick-actions,
@@ -8258,8 +8412,14 @@
 }
 
 :root[data-theme="light"] .chat-thread__quick-actions {
-  overflow-x: auto;
-  scrollbar-width: none;
+  flex: 1 1 420px;
+  flex-wrap: wrap;
+  overflow: visible;
+}
+
+:root[data-theme="light"] .chat-thread__composer-tools {
+  flex: 0 1 auto;
+  flex-wrap: wrap;
 }
 
 :root[data-theme="light"] .chat-thread__quick-actions::-webkit-scrollbar {
@@ -8361,14 +8521,16 @@
 
 @media (max-width: 1180px) {
   :root[data-theme="light"] .chat-thread__composer-toolbar {
-    overflow-x: auto;
+    align-items: flex-start;
     justify-content: flex-start;
-    scrollbar-width: none;
   }
 
-  :root[data-theme="light"] .chat-thread__quick-actions,
+  :root[data-theme="light"] .chat-thread__quick-actions {
+    flex: 1 1 100%;
+  }
+
   :root[data-theme="light"] .chat-thread__composer-tools {
-    flex: 0 0 auto;
+    flex: 0 1 auto;
   }
 
   :root[data-theme="light"] .chat-thread__composer-data {
@@ -8468,23 +8630,20 @@
 
   :root[data-theme="light"] .chat-thread__composer-toolbar {
     gap: 5px;
-    overflow-x: auto;
     justify-content: flex-start;
-    scrollbar-width: none;
   }
 
-  :root[data-theme="light"] .chat-thread__composer-toolbar::-webkit-scrollbar {
-    display: none;
-  }
-
-  :root[data-theme="light"] .chat-thread__quick-actions,
-  :root[data-theme="light"] .chat-thread__composer-tools {
+  :root[data-theme="light"] .chat-thread__quick-actions {
     display: flex;
-    flex: 0 0 auto;
+    flex: 1 1 100%;
+    flex-wrap: wrap;
   }
 
   :root[data-theme="light"] .chat-thread__composer-tools {
     order: -1;
+    display: flex;
+    flex: 0 1 auto;
+    flex-wrap: wrap;
   }
 
   :root[data-theme="light"] .chat-thread__quick-actions button {

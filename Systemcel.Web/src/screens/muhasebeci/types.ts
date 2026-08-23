@@ -54,6 +54,9 @@ export interface MuhasebeciTalep {
   davetLinki: string;
   mesaj: string;
   createdAt: string;
+  aylikHizmetBedeli?: number;
+  odemeDurumu?: string;
+  odemeYapilabilir?: boolean;
 }
 
 export interface MuhasebeciPanel {

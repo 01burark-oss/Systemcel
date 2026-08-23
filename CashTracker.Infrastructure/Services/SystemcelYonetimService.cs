@@ -9,6 +9,7 @@ using CashTracker.Core.Services;
 using CashTracker.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
+using System.Data;
 
 namespace CashTracker.Infrastructure.Services
 {
@@ -244,6 +245,141 @@ namespace CashTracker.Infrastructure.Services
                     };
                 }).ToList()
             };
+        }
+
+        public async Task<MuhasebeciAktarimListeDto> GetMuhasebeciAktarimlariAsync(
+            string aktarimDonemi,
+            int? muhasebeciIsletmeId = null,
+            CancellationToken ct = default)
+        {
+            await RequireAdminAsync(ct);
+            var period = NormalizeTransferPeriod(aktarimDonemi);
+            await using var db = await _dbFactory.CreateDbContextAsync(ct);
+            var query = db.MuhasebeciAktarimAlacaklari.AsNoTracking()
+                .Where(x => x.AktarimDonemi == period);
+            if (muhasebeciIsletmeId.HasValue)
+                query = query.Where(x => x.MuhasebeciIsletmeId == muhasebeciIsletmeId.Value);
+
+            var rows = await query.OrderBy(x => x.MuhasebeciIsletmeId).ThenBy(x => x.Id).ToListAsync(ct);
+            var ids = rows.Select(x => x.MuhasebeciIsletmeId).Distinct().ToList();
+            var names = await db.Isletmeler.AsNoTracking()
+                .Where(x => ids.Contains(x.Id))
+                .ToDictionaryAsync(x => x.Id, x => x.Ad, ct);
+
+            return new MuhasebeciAktarimListeDto
+            {
+                YoneticiMi = true,
+                AktarimDonemi = period,
+                Aktarimlar = rows
+                    .GroupBy(x => new
+                    {
+                        x.MuhasebeciIsletmeId,
+                        x.ParaBirimi,
+                        x.Durum,
+                        AktarimReferansi = x.Durum == MuhasebeciAktarimDurumlari.Aktarildi
+                            ? x.AktarimReferansi
+                            : string.Empty
+                    })
+                    .Select(group => BuildTransferSummary(
+                        group.ToList(),
+                        names.GetValueOrDefault(group.Key.MuhasebeciIsletmeId, $"Muhasebeci #{group.Key.MuhasebeciIsletmeId}")))
+                    .ToList()
+            };
+        }
+
+        public async Task<MuhasebeciAktarimOzetDto> CompleteMuhasebeciAktarimiAsync(
+            int muhasebeciIsletmeId,
+            MuhasebeciAktarimTamamlaRequest request,
+            CancellationToken ct = default)
+        {
+            await RequireAdminAsync(ct);
+            if (muhasebeciIsletmeId <= 0)
+                throw new ArgumentOutOfRangeException(nameof(muhasebeciIsletmeId));
+            var period = NormalizeTransferPeriod(request.AktarimDonemi);
+            var reference = (request.AktarimReferansi ?? string.Empty).Trim();
+            if (reference.Length is < 6 or > 120)
+                throw new ArgumentException("Aktarım referansı 6-120 karakter olmalıdır.");
+
+            await using var db = await _dbFactory.CreateDbContextAsync(ct);
+            await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
+            var referenceUsedElsewhere = await db.MuhasebeciAktarimAlacaklari.AsNoTracking().AnyAsync(x =>
+                x.AktarimReferansi == reference &&
+                (x.MuhasebeciIsletmeId != muhasebeciIsletmeId || x.AktarimDonemi != period), ct);
+            if (referenceUsedElsewhere)
+                throw new InvalidOperationException("Aktarım referansı başka bir dönem veya muhasebeci için kullanılmış.");
+
+            var rows = await db.MuhasebeciAktarimAlacaklari
+                .Where(x => x.MuhasebeciIsletmeId == muhasebeciIsletmeId && x.AktarimDonemi == period)
+                .OrderBy(x => x.Id)
+                .ToListAsync(ct);
+            if (rows.Count == 0)
+                throw new InvalidOperationException("Aktarılacak muhasebeci bakiyesi bulunamadı.");
+
+            var completed = rows.Where(x => x.Durum == MuhasebeciAktarimDurumlari.Aktarildi).ToList();
+            if (completed.Count > 0)
+            {
+                if (completed.Count == rows.Count && completed.All(x => x.AktarimReferansi == reference))
+                {
+                    var completedName = await db.Isletmeler.AsNoTracking()
+                        .Where(x => x.Id == muhasebeciIsletmeId)
+                        .Select(x => x.Ad)
+                        .SingleOrDefaultAsync(ct) ?? $"Muhasebeci #{muhasebeciIsletmeId}";
+                    await transaction.CommitAsync(ct);
+                    return BuildTransferSummary(rows, completedName);
+                }
+                throw new InvalidOperationException("Bu dönem daha önce farklı bir referansla aktarılmış veya kısmi durumda.");
+            }
+
+            if (rows.Any(x => x.Durum != MuhasebeciAktarimDurumlari.Bekliyor))
+                throw new InvalidOperationException("Ters kayıt veya iptal içeren dönem aktarım için uygun değil.");
+
+            var now = DateTime.UtcNow;
+            foreach (var row in rows)
+            {
+                row.Durum = MuhasebeciAktarimDurumlari.Aktarildi;
+                row.AktarimReferansi = reference;
+                row.AktarildiAt = now;
+                row.UpdatedAt = now;
+            }
+            await db.SaveChangesAsync(ct);
+            await transaction.CommitAsync(ct);
+            var name = await db.Isletmeler.AsNoTracking()
+                .Where(x => x.Id == muhasebeciIsletmeId)
+                .Select(x => x.Ad)
+                .SingleOrDefaultAsync(ct) ?? $"Muhasebeci #{muhasebeciIsletmeId}";
+            return BuildTransferSummary(rows, name);
+        }
+
+        private static MuhasebeciAktarimOzetDto BuildTransferSummary(
+            IReadOnlyCollection<MuhasebeciAktarimAlacagi> rows,
+            string accountantName)
+        {
+            var first = rows.First();
+            return new MuhasebeciAktarimOzetDto
+            {
+                MuhasebeciIsletmeId = first.MuhasebeciIsletmeId,
+                MuhasebeciAdi = accountantName,
+                AktarimDonemi = first.AktarimDonemi,
+                ParaBirimi = first.ParaBirimi,
+                AlacakSayisi = rows.Count,
+                TahsilEdilenTutar = rows.Sum(x => x.TahsilEdilenTutar),
+                PlatformKomisyonTutari = rows.Sum(x => x.PlatformKomisyonTutari),
+                AktarilacakTutar = rows.Sum(x => x.AktarilacakTutar),
+                Durum = first.Durum,
+                AktarimReferansi = first.Durum == MuhasebeciAktarimDurumlari.Aktarildi ? first.AktarimReferansi : string.Empty,
+                AktarildiAt = rows.Max(x => x.AktarildiAt)
+            };
+        }
+
+        private static string NormalizeTransferPeriod(string value)
+        {
+            var normalized = (value ?? string.Empty).Trim();
+            if (normalized.Length != 7 || normalized[4] != '-' ||
+                !int.TryParse(normalized[..4], out var year) ||
+                !int.TryParse(normalized[5..], out var month) ||
+                year is < 2020 or > 2200 || month is < 1 or > 12)
+                throw new ArgumentException("Aktarım dönemi YYYY-MM biçiminde olmalıdır.");
+            return $"{year:0000}-{month:00}";
         }
 
         public async Task<EntitlementOverrideResult> ApplyEntitlementOverrideAsync(int isletmeId, EntitlementOverrideRequest request, CancellationToken ct = default)

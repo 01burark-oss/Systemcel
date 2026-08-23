@@ -5,6 +5,8 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Systemcel.Api;
 using CashTracker.Infrastructure.Security;
+using CashTracker.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
 
 namespace Systemcel.Api.Api;
 
@@ -230,6 +232,93 @@ internal static class MuhasebeciApi
             }
         });
 
+        app.MapGet("/api/ekran/muhasebeciler/talepler/{talepId:int}/odeme", async (
+            int talepId,
+            IIsletmeService isletmeService,
+            IMuhasebeciOdemeService paymentService,
+            CancellationToken ct) =>
+        {
+            try
+            {
+                var customer = await isletmeService.GetActiveAsync();
+                if (!string.Equals(customer.TenantTipi, HesapTipleri.Isletme, StringComparison.OrdinalIgnoreCase))
+                    return Results.Json(new ApiHata("Ödemeyi yalnız teklifin sahibi işletme yapabilir."), statusCode: StatusCodes.Status403Forbidden);
+                return Results.Ok(await paymentService.GetAsync(talepId, customer.Id, ct));
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Results.BadRequest(new ApiHata(ex.Message));
+            }
+        });
+
+        app.MapPost("/api/ekran/muhasebeciler/talepler/{talepId:int}/checkout", async (
+            int talepId,
+            MuhasebeciCheckoutRequest request,
+            HttpContext http,
+            IIsletmeService isletmeService,
+            ICurrentUserContext currentUserContext,
+            IMuhasebeciOdemeService paymentService,
+            IDbContextFactory<CashTrackerDbContext> dbFactory,
+            PaymentRuntimeOptions paymentOptions,
+            CancellationToken ct) =>
+        {
+            if (!request.Onaylandi)
+                return Results.BadRequest(new ApiHata("Muhasebeci hizmeti ödeme koşullarını onaylamalısınız."));
+
+            try
+            {
+                var customer = await isletmeService.GetActiveAsync();
+                if (!string.Equals(customer.TenantTipi, HesapTipleri.Isletme, StringComparison.OrdinalIgnoreCase))
+                    return Results.Json(new ApiHata("Ödemeyi yalnız teklifin sahibi işletme yapabilir."), statusCode: StatusCodes.Status403Forbidden);
+                var identity = currentUserContext.GetCurrentUser();
+                var email = identity?.Email ?? request.EPosta;
+                if (string.IsNullOrWhiteSpace(email) && identity is not null)
+                {
+                    await using var db = await dbFactory.CreateDbContextAsync(ct);
+                    email = await db.Kullanicilar.AsNoTracking()
+                        .Where(x => x.AuthProviderUserId == identity.ProviderUserId)
+                        .Select(x => x.Eposta)
+                        .SingleOrDefaultAsync(ct);
+                }
+                if (string.IsNullOrWhiteSpace(email) || !email.Contains('@'))
+                    return Results.BadRequest(new ApiHata("Checkout için geçerli bir e-posta adresi gerekli."));
+
+                var idempotencyKey = http.Request.Headers["Idempotency-Key"].FirstOrDefault() ?? request.IdempotencyKey;
+                if (string.IsNullOrWhiteSpace(idempotencyKey))
+                    return Results.BadRequest(new ApiHata("Idempotency-Key başlığı zorunludur."));
+
+                var baseUri = ResolveBaseUri(http.Request, paymentOptions);
+                var result = await paymentService.BeginCheckoutAsync(new MuhasebeciOdemeCheckoutCommand(
+                    talepId,
+                    customer.Id,
+                    idempotencyKey,
+                    identity?.ProviderUserId ?? "local-development-user",
+                    email,
+                    new Uri(baseUri, $"/app/muhasebeciler?talep={talepId}&odeme=basarili"),
+                    new Uri(baseUri, $"/app/muhasebeciler?talep={talepId}&odeme=basarisiz"),
+                    new Uri(baseUri, "/api/odeme/webhook")), ct);
+                var consentText = $"{result.AylikHizmetBedeli:N2} {result.ParaBirimi} muhasebeci hizmet bedelinin Systemcel tarafından tahsil edilmesini; başarılı ödeme sonrası muhasebeci bağlantısının açılmasını ve bedelin muhasebeciye aylık aktarım bakiyesine alınmasını onaylıyorum.";
+                return Results.Ok(new
+                {
+                    odemeIslemiId = result.OdemeIslemiId,
+                    checkoutUrl = result.CheckoutUrl.AbsoluteUri,
+                    expiresAt = result.ExpiresAt,
+                    reused = result.Reused,
+                    onayMetniSurumu = "muhasebeci-hizmeti-2026-08-v1",
+                    onayMetni = consentText,
+                    tutar = new { aylikHizmetBedeli = result.AylikHizmetBedeli, paraBirimi = result.ParaBirimi }
+                });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Results.BadRequest(new ApiHata(ex.Message));
+            }
+            catch (ArgumentException ex)
+            {
+                return Results.BadRequest(new ApiHata(ex.Message));
+            }
+        }).RequireRateLimiting("sensitive");
+
         app.MapPost("/api/ekran/muhasebeci/link-davetleri", async (
             HttpContext context,
             MuhasebeciLinkDavetOlusturRequest request,
@@ -438,6 +527,16 @@ internal static class MuhasebeciApi
     private sealed record ApiHata(string mesaj);
     private sealed record ApiMesaj(string mesaj);
     private sealed record ProfilResmiYukleSonuc(string url);
+    private sealed record MuhasebeciCheckoutRequest(bool Onaylandi, string? EPosta, string? IdempotencyKey);
+
+    private static Uri ResolveBaseUri(HttpRequest request, PaymentRuntimeOptions options)
+    {
+        if (Uri.TryCreate(options.PublicBaseUrl, UriKind.Absolute, out var configured))
+            return configured;
+        var forwardedProto = request.Headers["X-Forwarded-Proto"].FirstOrDefault();
+        var scheme = string.IsNullOrWhiteSpace(forwardedProto) ? request.Scheme : forwardedProto.Split(',')[0].Trim();
+        return new Uri($"{scheme}://{request.Host}");
+    }
 
     private static string GetAccountantProfileImageDirectory(AppRuntimeOptions runtimeOptions)
     {

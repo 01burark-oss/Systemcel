@@ -93,4 +93,32 @@ namespace CashTracker.Core.Models
         public int IslenemeyenOlaySayisi { get; init; }
         public List<YonetimOdemeIslemiDto> Islemler { get; init; } = new();
     }
+
+    public sealed class MuhasebeciAktarimOzetDto
+    {
+        public int MuhasebeciIsletmeId { get; init; }
+        public string MuhasebeciAdi { get; init; } = string.Empty;
+        public string AktarimDonemi { get; init; } = string.Empty;
+        public string ParaBirimi { get; init; } = "TRY";
+        public int AlacakSayisi { get; init; }
+        public decimal TahsilEdilenTutar { get; init; }
+        public decimal PlatformKomisyonTutari { get; init; }
+        public decimal AktarilacakTutar { get; init; }
+        public string Durum { get; init; } = string.Empty;
+        public string AktarimReferansi { get; init; } = string.Empty;
+        public DateTime? AktarildiAt { get; init; }
+    }
+
+    public sealed class MuhasebeciAktarimListeDto
+    {
+        public bool YoneticiMi { get; init; }
+        public string AktarimDonemi { get; init; } = string.Empty;
+        public List<MuhasebeciAktarimOzetDto> Aktarimlar { get; init; } = new();
+    }
+
+    public sealed class MuhasebeciAktarimTamamlaRequest
+    {
+        public string AktarimDonemi { get; init; } = string.Empty;
+        public string AktarimReferansi { get; init; } = string.Empty;
+    }
 }

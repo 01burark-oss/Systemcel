@@ -160,6 +160,7 @@ builder.Services.AddSingleton<IPaymentProvider>(_ => paymentOptions.UsesFakeProv
     ? new FakePaymentProvider(paymentOptions.FakeSecret)
     : new UnconfiguredPaymentProvider());
 builder.Services.AddSingleton<ISubscriptionLifecycleService, SubscriptionLifecycleService>();
+builder.Services.AddSingleton<IMuhasebeciOdemeService, MuhasebeciOdemeService>();
 builder.Services.AddSingleton<IPaymentReconciliationService, PaymentReconciliationService>();
 builder.Services.AddSingleton<ISubscriptionReminderSender>(_ => reminderEmailOptions.IsConfigured
     ? new SmtpSubscriptionReminderSender(

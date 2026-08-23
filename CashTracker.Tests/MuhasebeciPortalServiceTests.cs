@@ -47,7 +47,7 @@ namespace CashTracker.Tests
         }
 
         [Fact]
-        public async Task PazaryeriTalebi_KabulEdilinceAktifIliskiyeDonusur()
+        public async Task PazaryeriTalebi_KabulEdilinceOdemeOncesiAktifIliskiOlusmaz()
         {
             using var fixture = await MuhasebeciPortalFixture.CreateAsync();
             var ids = await fixture.CreateAccountantAndCustomerAsync();
@@ -63,19 +63,19 @@ namespace CashTracker.Tests
             fixture.CurrentUser.Set("accountant", "accountant@example.com", "Ada Muhasebe");
             await fixture.Portal.AcceptRequestAsync(talep.Id, new MuhasebeciTalepKararRequest
             {
-                YetkiSeviyesi = MuhasebeciYetkiSeviyeleri.TamIslem
+                YetkiSeviyesi = MuhasebeciYetkiSeviyeleri.TamIslem,
+                AylikHizmetBedeli = 2_500m
             });
 
             await using var db = fixture.CreateDbContext();
-            var relation = await db.MuhasebeciMusterileri.SingleAsync(x =>
+            var relationExists = await db.MuhasebeciMusterileri.AnyAsync(x =>
                 x.MuhasebeciIsletmeId == ids.AccountantId &&
                 x.MusteriIsletmeId == ids.CustomerId);
             var savedRequest = await db.MuhasebeciMusteriTalepleri.SingleAsync(x => x.Id == talep.Id);
 
-            Assert.Equal("Aktif", relation.Durum);
-            Assert.Equal(MuhasebeciYetkiSeviyeleri.TamIslem, relation.YetkiSeviyesi);
-            Assert.Equal(MuhasebeciTalepDurumlari.Kabul, savedRequest.Durum);
-            Assert.Equal(talep.Id, relation.TalepId);
+            Assert.False(relationExists);
+            Assert.Equal(MuhasebeciTalepDurumlari.OdemeBekliyor, savedRequest.Durum);
+            Assert.Equal(2_500m, savedRequest.AylikHizmetBedeli);
         }
 
         [Fact]
@@ -167,7 +167,7 @@ namespace CashTracker.Tests
         }
 
         [Fact]
-        public async Task DavetKodu_KabulEdilinceMusteriBaglantisiOlusur()
+        public async Task DavetKodu_KabulEdilinceOdemeOncesiMusteriBaglantisiOlusmaz()
         {
             using var fixture = await MuhasebeciPortalFixture.CreateAsync();
             var ids = await fixture.CreateAccountantAndCustomerAsync();
@@ -176,7 +176,8 @@ namespace CashTracker.Tests
             var davet = await fixture.Portal.CreateInviteAsync(new MuhasebeciTalepOlusturRequest
             {
                 YetkiSeviyesi = MuhasebeciYetkiSeviyeleri.OkumaRapor,
-                Mesaj = "Aylik raporlama icin baglanalim."
+                Mesaj = "Aylik raporlama icin baglanalim.",
+                AylikHizmetBedeli = 2_500m
             }, "https://systemcel.test");
 
             fixture.CurrentUser.Set("customer", "customer@example.com", "Bahar Kafe");
@@ -187,17 +188,19 @@ namespace CashTracker.Tests
             });
 
             await using var db = fixture.CreateDbContext();
-            var relation = await db.MuhasebeciMusterileri.SingleAsync(x =>
+            var relationExists = await db.MuhasebeciMusterileri.AnyAsync(x =>
                 x.MuhasebeciIsletmeId == ids.AccountantId &&
                 x.MusteriIsletmeId == ids.CustomerId);
+            var request = await db.MuhasebeciMusteriTalepleri.SingleAsync(x => x.Id == davet.Id);
+            var payment = await db.MuhasebeciHizmetOdemeleri.SingleAsync(x => x.TalepId == davet.Id);
 
-            Assert.Equal("Aktif", relation.Durum);
-            Assert.Equal(MuhasebeciTalepTurleri.Davet, relation.Kaynak);
-            Assert.Equal(davet.DavetKodu, relation.DavetKodu);
+            Assert.False(relationExists);
+            Assert.Equal(MuhasebeciTalepDurumlari.OdemeBekliyor, request.Durum);
+            Assert.Equal(2_500m, payment.AylikHizmetBedeli);
         }
 
         [Fact]
-        public async Task IsletmeDavetLinki_MuhasebeciKabulEdinceSecilenYetkiyleBaglanir()
+        public async Task IsletmeDavetLinki_MuhasebeciKabulEdinceOdemeBekler()
         {
             using var fixture = await MuhasebeciPortalFixture.CreateAsync();
             var ids = await fixture.CreateAccountantAndCustomerAsync();
@@ -223,18 +226,21 @@ namespace CashTracker.Tests
             fixture.CurrentUser.Set("accountant", "accountant@example.com", "Ada Muhasebe");
             await fixture.Portal.AcceptCustomerLinkInviteAsync(new MuhasebeciLinkDavetKabulRequest
             {
-                Token = token
+                Token = token,
+                AylikHizmetBedeli = 2_500m
             });
 
             await using (var db = fixture.CreateDbContext())
             {
-                var relation = await db.MuhasebeciMusterileri.SingleAsync(x =>
+                var relationExists = await db.MuhasebeciMusterileri.AnyAsync(x =>
                     x.MuhasebeciIsletmeId == ids.AccountantId &&
                     x.MusteriIsletmeId == ids.CustomerId);
                 var kayit = await db.MuhasebeciBaglantiDavetleri.SingleAsync();
+                var request = await db.MuhasebeciMusteriTalepleri.SingleAsync();
 
-                Assert.Equal(MuhasebeciYetkiSeviyeleri.TamIslem, relation.YetkiSeviyesi);
-                Assert.Equal(MuhasebeciTalepTurleri.MusteriDaveti, relation.Kaynak);
+                Assert.False(relationExists);
+                Assert.Equal(MuhasebeciYetkiSeviyeleri.TamIslem, request.YetkiSeviyesi);
+                Assert.Equal(MuhasebeciTalepDurumlari.OdemeBekliyor, request.Durum);
                 Assert.Equal(MuhasebeciTalepDurumlari.Kabul, kayit.Durum);
                 Assert.Equal(ids.AccountantId, kayit.MuhasebeciIsletmeId);
             }

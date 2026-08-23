@@ -37,6 +37,28 @@ internal static class YonetimApi
             }
         });
 
+        app.MapGet("/api/ekran/yonetim/muhasebeci-aktarimlari", async (
+            string aktarimDonemi,
+            int? muhasebeciIsletmeId,
+            ISystemcelYonetimService service,
+            CancellationToken ct) =>
+        {
+            try { return Results.Ok(await service.GetMuhasebeciAktarimlariAsync(aktarimDonemi, muhasebeciIsletmeId, ct)); }
+            catch (UnauthorizedAccessException ex) { return Results.Json(new ApiHata(ex.Message), statusCode: StatusCodes.Status403Forbidden); }
+            catch (Exception ex) { return Results.BadRequest(new ApiHata(ex.Message)); }
+        });
+
+        app.MapPost("/api/ekran/yonetim/muhasebeci-aktarimlari/{muhasebeciIsletmeId:int}/tamamla", async (
+            int muhasebeciIsletmeId,
+            MuhasebeciAktarimTamamlaRequest request,
+            ISystemcelYonetimService service,
+            CancellationToken ct) =>
+        {
+            try { return Results.Ok(await service.CompleteMuhasebeciAktarimiAsync(muhasebeciIsletmeId, request, ct)); }
+            catch (UnauthorizedAccessException ex) { return Results.Json(new ApiHata(ex.Message), statusCode: StatusCodes.Status403Forbidden); }
+            catch (Exception ex) { return Results.BadRequest(new ApiHata(ex.Message)); }
+        }).RequireRateLimiting("sensitive");
+
         app.MapGet("/api/ekran/yonetim/muhasebeci-basvurulari", async (
             string? durum,
             ISystemcelYonetimService service,

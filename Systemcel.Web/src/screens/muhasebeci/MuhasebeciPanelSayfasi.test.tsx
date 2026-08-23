@@ -1,4 +1,5 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { jsonOku } from "../../shared/json";
 import { MuhasebeciPanelSayfasi } from "./MuhasebeciPanelSayfasi";
@@ -88,5 +89,74 @@ describe("MuhasebeciPanelSayfasi", () => {
     expect(screen.queryByRole("columnheader", { name: "Belge durumu" })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Davet linki oluştur" })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Davet kodları" })).not.toBeInTheDocument();
+  });
+
+  it("talebi bağlantı kurmadan aylık ücretle ödeme adımına gönderir", async () => {
+    const user = userEvent.setup();
+    const pendingPanel = {
+      ...panel,
+      musteriler: [],
+      bekleyenTalepler: [{
+        id: 41,
+        muhasebeciAdi: panel.muhasebeciAdi,
+        musteriAdi: "Bahar Kafe",
+        tur: "Pazaryeri",
+        durum: "Beklemede",
+        yetkiSeviyesi: "OkumaRapor",
+        davetKodu: "",
+        davetLinki: "",
+        mesaj: "Aylık kayıtlar için destek istiyorum.",
+        createdAt: "2026-08-24T10:00:00Z"
+      }]
+    };
+    vi.mocked(jsonOku).mockImplementation(async (url, options) => {
+      if (url === "/api/ekran/muhasebeci" && !options)
+        return pendingPanel as never;
+      return pendingPanel.bekleyenTalepler[0] as never;
+    });
+
+    render(<MuhasebeciPanelSayfasi />);
+
+    await user.type(await screen.findByRole("spinbutton", { name: "Bahar Kafe aylık ücreti" }), "1250");
+    await user.click(screen.getByRole("button", { name: "Ödemeye gönder" }));
+
+    await waitFor(() => expect(jsonOku).toHaveBeenCalledWith(
+      "/api/ekran/muhasebeci/talepler/41/kabul",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ yetkiSeviyesi: "OkumaRapor", aylikHizmetBedeli: 1250 })
+      })
+    ));
+    expect(await screen.findByText("Bahar Kafe için ödeme adımı açıldı.")).toBeVisible();
+    expect(screen.queryByText("bağlantısı aktif edildi")).not.toBeInTheDocument();
+  });
+
+  it("ödeme bekleyen talebi yeniden kabul ettirmez", async () => {
+    vi.mocked(jsonOku).mockResolvedValue({
+      ...panel,
+      musteriler: [],
+      bekleyenTalepler: [{
+        id: 42,
+        muhasebeciAdi: panel.muhasebeciAdi,
+        musteriAdi: "Bahar Kafe",
+        tur: "Pazaryeri",
+        durum: "OdemeBekliyor",
+        yetkiSeviyesi: "OkumaRapor",
+        davetKodu: "",
+        davetLinki: "",
+        mesaj: "",
+        createdAt: "2026-08-24T10:00:00Z",
+        aylikHizmetBedeli: 1250,
+        odemeDurumu: "Bekliyor",
+        odemeYapilabilir: true
+      }]
+    } as never);
+
+    render(<MuhasebeciPanelSayfasi />);
+
+    expect(await screen.findByText("Müşteri ödemesi bekleniyor")).toBeVisible();
+    expect(screen.getByText("₺1.250,00")).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Ödemeye gönder" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Red" })).not.toBeInTheDocument();
   });
 });
