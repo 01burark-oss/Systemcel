@@ -106,7 +106,7 @@ export function GibPortalSayfasi({ yenileAnahtari }: GibPortalSayfasiProps) {
         <div>
           <h1>GİB bağlantısı</h1>
         </div>
-        <button className="gib-icon-btn" disabled={islemde} type="button" onClick={yukle}>
+        <button className="gib-icon-btn" disabled={islemde} type="button" onClick={yukle} aria-label="GİB bağlantısını yenile">
           <RefreshCw className={islemde ? "spin" : ""} size={20} />
         </button>
       </section>

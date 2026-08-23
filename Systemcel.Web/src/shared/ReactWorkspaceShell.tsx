@@ -61,17 +61,17 @@ interface Bildirim {
 }
 
 const anaMenu: Array<{ href: string; label: string; icon: LucideIcon; adminOnly?: boolean }> = [
-  { href: "/", label: "Ana Sayfa", icon: Home },
-  { href: "/finansal-gorunum", label: "Finans Durumu", icon: ChartNoAxesCombined },
-  { href: "/gelir-gider", label: "Gelir / Gider", icon: ArrowDownUp },
-  { href: "/hizli-satis", label: "Hızlı Satış", icon: ShoppingCart },
-  { href: "/urun-stok", label: "Ürün / Stok", icon: Package },
-  { href: "/cari-hesaplar", label: "Cari Hesaplar", icon: CreditCard },
+  { href: "/", label: "Ana sayfa", icon: Home },
+  { href: "/finansal-gorunum", label: "Finans durumu", icon: ChartNoAxesCombined },
+  { href: "/gelir-gider", label: "Gelir / gider", icon: ArrowDownUp },
+  { href: "/hizli-satis", label: "Hızlı satış", icon: ShoppingCart },
+  { href: "/urun-stok", label: "Ürün ve stok", icon: Package },
+  { href: "/cari-hesaplar", label: "Cari hesaplar", icon: CreditCard },
   { href: "/faturalar", label: "Faturalar", icon: FileText },
-  { href: "/tahsilat-odeme", label: "Tahsilat / Ödeme", icon: WalletCards },
+  { href: "/tahsilat-odeme", label: "Tahsilat ve ödeme", icon: WalletCards },
   { href: "/raporlar", label: "Raporlar", icon: BarChart3 },
   { href: "/sohbetler", label: "Sohbetler", icon: MessageCircle },
-  { href: "/muhasebeci", label: "Muhasebeci Paneli", icon: BriefcaseBusiness },
+  { href: "/muhasebeci", label: "Muhasebeci paneli", icon: BriefcaseBusiness },
   { href: "/muhasebeci/musteriler", label: "Müşterilerim", icon: UsersRound },
   { href: "/muhasebeciler", label: "Muhasebeciler", icon: Search },
   { href: "/yonetim/muhasebeci-basvurulari", label: "Yönetim", icon: ShieldCheck, adminOnly: true },
@@ -94,8 +94,8 @@ function menuForWorkspace(ustBar: UstBarDurumu | null, musteriBaglami: boolean) 
 
 const ayarlarAltMenu = [
   { href: "/ayarlar?sekme=isletme", label: "İşletme", icon: Building2, sekme: "isletme" },
-  { href: "/abonelik", label: "Plan ve Faturalama", icon: CalendarClock, sekme: "plan" },
-  { href: "/ayarlar?sekme=gib", label: "GİB Portal", icon: Landmark, sekme: "gib" },
+  { href: "/abonelik", label: "Plan ve faturalama", icon: CalendarClock, sekme: "plan" },
+  { href: "/ayarlar?sekme=gib", label: "GİB portal", icon: Landmark, sekme: "gib" },
   { href: "/ayarlar?sekme=telegram", label: "Telegram", icon: Send, sekme: "telegram" }
 ];
 
@@ -165,7 +165,7 @@ function workspacePageMeta(path: string, settingsTab: string): WorkspacePageMeta
   if (path === "/gelir-gider") {
     return {
       icon: ArrowDownUp,
-      title: "Gelir / Gider"
+      title: "Gelir / gider"
     };
   }
 
@@ -434,7 +434,12 @@ export function ReactWorkspaceShell({ children, ustBar, baslik, sagAksiyon }: Re
             const active = menuAktifMi(menuCurrentPath, item.href);
             return (
               <React.Fragment key={item.href}>
-                <a className={`react-sidebar__link ${active ? "active" : ""}`} href={item.href === "/" ? "/app" : `/app${item.href}`}>
+                <a
+                  className={`react-sidebar__link ${active ? "active" : ""}`}
+                  href={item.href === "/" ? "/app" : `/app${item.href}`}
+                  aria-current={active ? "page" : undefined}
+                  onClick={() => setMobilMenuAcik(false)}
+                >
                   <Icon size={19} />
                   <span>{item.label}</span>
                 </a>
@@ -447,7 +452,13 @@ export function ReactWorkspaceShell({ children, ustBar, baslik, sagAksiyon }: Re
                         (subItem.sekme === "gib" && aktifAyarlarSekmesi === "gib-portal") ||
                         (subItem.sekme === "telegram" && aktifAyarlarSekmesi === "bot");
                       return (
-                        <a key={subItem.href} className={`react-sidebar__sublink ${subActive ? "active" : ""}`} href={`/app${subItem.href}`}>
+                        <a
+                          key={subItem.href}
+                          className={`react-sidebar__sublink ${subActive ? "active" : ""}`}
+                          href={`/app${subItem.href}`}
+                          aria-current={subActive ? "page" : undefined}
+                          onClick={() => setMobilMenuAcik(false)}
+                        >
                           <SubIcon size={16} />
                           <span>{subItem.label}</span>
                         </a>
@@ -465,7 +476,7 @@ export function ReactWorkspaceShell({ children, ustBar, baslik, sagAksiyon }: Re
         </div>
       </aside>
 
-      <main className="react-shell__main">
+      <div className="react-shell__main">
         <header className="react-topbar">
           <div className="react-topbar__title-slot">
             {baslik ?? (
@@ -503,7 +514,7 @@ export function ReactWorkspaceShell({ children, ustBar, baslik, sagAksiyon }: Re
                 <Send size={22} />
               </span>
               <span className={`react-topbar__badge ${ustBar?.telegramAktif ? "aktif" : "pasif"}`}>
-                {ustBar?.telegramAktif ? "Bağlı" : "Bağlı değil"}
+                {ustBar?.telegramAktif ? "Bağlı" : "Telegram kapalı"}
               </span>
             </div>
 
@@ -525,13 +536,15 @@ export function ReactWorkspaceShell({ children, ustBar, baslik, sagAksiyon }: Re
                   setBildirimPaneliAcik(false);
                 }}
                 aria-label="Sohbetleri göster"
+                aria-expanded={sohbetPaneliAcik}
+                aria-controls="react-topbar-chat-panel"
               >
                 <MessageCircle size={24} />
                 {sohbetSayisi > 0 ? <i>{sohbetSayisi > 9 ? "9+" : sohbetSayisi}</i> : null}
               </button>
 
               {sohbetPaneliAcik && (
-                <div className="react-topbar__chat-panel" role="dialog" aria-label="Sohbetler">
+                <div id="react-topbar-chat-panel" className="react-topbar__chat-panel" role="dialog" aria-label="Sohbetler">
                   <div className="react-topbar__panel-head">
                     <strong>Sohbetler</strong>
                     {sohbetSayisi ? <span>{sohbetSayisi}</span> : null}
@@ -574,13 +587,15 @@ export function ReactWorkspaceShell({ children, ustBar, baslik, sagAksiyon }: Re
                   setSohbetPaneliAcik(false);
                 }}
                 aria-label="Bildirimleri göster"
+                aria-expanded={bildirimPaneliAcik}
+                aria-controls="react-topbar-notification-panel"
               >
                 <Bell size={24} />
                 {ustBar?.bildirimVar ? <i>{ustBar.bildirimSayisi > 9 ? "9+" : ustBar.bildirimSayisi}</i> : null}
               </button>
 
               {bildirimPaneliAcik && (
-                <div className="react-topbar__panel" role="dialog" aria-label="Bildirimler">
+                <div id="react-topbar-notification-panel" className="react-topbar__panel" role="dialog" aria-label="Bildirimler">
                   <div className="react-topbar__panel-head">
                     <strong>Bildirimler</strong>
                     {ustBar?.bildirimSayisi ? <span>{ustBar.bildirimSayisi}</span> : null}
@@ -638,7 +653,7 @@ export function ReactWorkspaceShell({ children, ustBar, baslik, sagAksiyon }: Re
 
         <div className="react-shell__body">{children}</div>
         <AiAssistantPanel />
-      </main>
+      </div>
       {planUyarisi ? (
         <div className="entitlement-modal-backdrop" role="presentation" onMouseDown={() => setPlanUyarisi(null)}>
           <section

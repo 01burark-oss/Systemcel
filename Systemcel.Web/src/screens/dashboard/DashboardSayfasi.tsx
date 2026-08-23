@@ -444,7 +444,7 @@ export function DashboardSayfasi({
           </div>
 
           <div className="legacy-dashboard__header-actions">
-            <button className="ghost-refresh" onClick={() => yenile().catch(() => undefined)} disabled={yenileniyor} title="Yenile">
+            <button className="ghost-refresh" onClick={() => yenile().catch(() => undefined)} disabled={yenileniyor} title="Yenile" aria-label="Finansal özeti yenile">
               <RefreshCw className={yenileniyor ? "spin" : ""} size={16} />
             </button>
 

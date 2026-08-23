@@ -97,6 +97,18 @@ describe("TahsilatOdemeSayfasi ödeme hatırlatması", () => {
     vi.restoreAllMocks();
   });
 
+  it("form eylemlerini aynı yerel düğme grubunda tutar", async () => {
+    render(<TahsilatOdemeSayfasi onIsletmeDegistir={vi.fn()} ustBar={null} ustBarIslemde={false} yenileAnahtari={0} />);
+
+    const save = await screen.findByRole("button", { name: /^Kaydet$/ });
+    const cancel = screen.getByRole("button", { name: /^İptal$/ });
+    const actions = save.closest(".payment-actions");
+    expect(actions).not.toBeNull();
+    expect(actions).toContainElement(cancel);
+    expect(save).toHaveAttribute("type", "button");
+    expect(cancel).toHaveAttribute("type", "button");
+  });
+
   it("shows the email preview and sends only after confirmation", async () => {
     const user = userEvent.setup();
     render(<TahsilatOdemeSayfasi onIsletmeDegistir={vi.fn()} ustBar={null} ustBarIslemde={false} yenileAnahtari={0} />);

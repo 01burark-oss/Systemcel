@@ -9,7 +9,7 @@
   --sc-paper: #fbfaf5;
   --sc-cream: #f2f0e7;
   --sc-cream-deep: #e9e6da;
-  --sc-muted: #737268;
+  --sc-muted: #66655d;
   --sc-line: rgba(11, 11, 9, .14);
   --sc-line-strong: rgba(11, 11, 9, .28);
   --sc-lime: #c8ff00;
@@ -205,6 +205,25 @@
 :root[data-theme="light"] .tablo-kapsayici tbody tr:nth-child(even) { background: #f6f4ec; }
 :root[data-theme="light"] .tablo-kapsayici tbody tr:hover,
 :root[data-theme="light"] .tablo-kapsayici tbody tr.secili { background: rgba(200, 255, 0, .12); }
+
+:root[data-theme="light"] .tablo-kapsayici :is(th, td).ledger-table__action {
+  position: sticky;
+  right: 0;
+  z-index: 1;
+  width: 44px;
+  min-width: 44px;
+  padding-inline: 6px;
+  text-align: center;
+}
+
+:root[data-theme="light"] .tablo-kapsayici th.ledger-table__action {
+  z-index: 2;
+  background: var(--sc-cream-deep);
+}
+
+:root[data-theme="light"] .tablo-kapsayici td.ledger-table__action {
+  background: inherit;
+}
 
 :root[data-theme="light"] .form-karti {
   padding: 22px;
@@ -940,11 +959,9 @@
     grid-column: auto;
   }
 
-  :root[data-theme="light"] :is(.stock-actions, .invoice-actions, .payment-actions) {
+  :root[data-theme="light"] :is(.stock-actions, .invoice-actions) {
     grid-template-columns: 1fr;
   }
-
-  :root[data-theme="light"] .payment-actions .payment-btn--danger { grid-column: auto; }
 
   :root[data-theme="light"] :is(.stock-list-tools, .invoice-list-tools, .payment-list-tools) {
     grid-template-columns: 1fr;

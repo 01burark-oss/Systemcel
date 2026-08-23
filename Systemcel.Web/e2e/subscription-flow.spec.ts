@@ -216,7 +216,7 @@ test("period-end cancellation remains visible until access ends", async ({ page 
     const mainNavigation = page.getByRole("navigation", { name: "Ana menü" });
     await expect(mainNavigation.getByRole("link", { name: "Abonelik", exact: true })).toHaveCount(0);
     await expect(mainNavigation.getByRole("link", { name: "Ayarlar", exact: true })).toHaveClass(/active/);
-    await expect(page.getByRole("navigation", { name: "Ayarlar alt menüsü" }).getByRole("link", { name: "Plan ve Faturalama" })).toHaveClass(/active/);
+    await expect(page.getByRole("navigation", { name: "Ayarlar alt menüsü" }).getByRole("link", { name: "Plan ve faturalama" })).toHaveClass(/active/);
   }
 
   await expect(page.getByText("İptal talebi alındı")).toBeVisible();

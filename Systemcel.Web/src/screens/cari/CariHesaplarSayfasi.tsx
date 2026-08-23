@@ -1,5 +1,5 @@
 import React from "react";
-import { CalendarDays, Plus, RefreshCw, Save, Trash2 } from "lucide-react";
+import { CalendarDays, Pencil, Plus, RefreshCw, Save, Trash2 } from "lucide-react";
 import { BusinessSelector } from "../../shared/BusinessSelector";
 import type { UstBarDurumu } from "../../shared/chrome";
 import { jsonOku } from "../../shared/json";
@@ -278,7 +278,7 @@ export function CariHesaplarSayfasi({
         </div>
 
         <div className="cari-hero__actions">
-          <button type="button" className="ghost-refresh" onClick={() => yenile().catch((error: Error) => setHata(error.message))} disabled={islemde}>
+          <button type="button" className="ghost-refresh" onClick={() => yenile().catch((error: Error) => setHata(error.message))} disabled={islemde} aria-label="Cari hesapları yenile">
             <RefreshCw size={18} />
           </button>
           <BusinessSelector
@@ -301,12 +301,13 @@ export function CariHesaplarSayfasi({
           <div className="cari-table-wrap">
             <table className="cari-table cari-table--list">
               <colgroup>
-                <col style={{ width: "12%" }} />
-                <col style={{ width: "18%" }} />
+                <col style={{ width: "8%" }} />
+                <col style={{ width: "16%" }} />
                 <col style={{ width: "22%" }} />
-                <col style={{ width: "18%" }} />
-                <col style={{ width: "18%" }} />
+                <col style={{ width: "17%" }} />
+                <col style={{ width: "17%" }} />
                 <col style={{ width: "12%" }} />
+                <col style={{ width: "8%" }} />
               </colgroup>
               <thead>
                 <tr>
@@ -316,6 +317,7 @@ export function CariHesaplarSayfasi({
                   <th>Telefon</th>
                   <th>Vergi No</th>
                   <th>Aktif</th>
+                  <th aria-label="İşlem" />
                 </tr>
               </thead>
               <tbody>
@@ -336,11 +338,25 @@ export function CariHesaplarSayfasi({
                     <td className="cari-table__check">
                       <input type="checkbox" checked={kart.aktif} readOnly />
                     </td>
+                    <td>
+                      <button
+                        className="payment-row-menu__trigger"
+                        type="button"
+                        aria-label={`${kart.unvan || "Hesap"} cari hesabını aç`}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          void detayYukle(kart.id);
+                          setDurum(`${kart.unvan || "Hesap"} seçildi.`);
+                        }}
+                      >
+                        <Pencil size={16} />
+                      </button>
+                    </td>
                   </tr>
                 ))}
                 {(ekran?.kartlar.length ?? 0) === 0 && (
                   <tr>
-                    <td className="bos" colSpan={6}>Cari kayıt bulunamadı.</td>
+                    <td className="bos" colSpan={7}>Cari kayıt bulunamadı.</td>
                   </tr>
                 )}
               </tbody>

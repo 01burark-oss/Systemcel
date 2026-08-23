@@ -92,6 +92,12 @@ const OdemeIncelemeSayfasi = React.lazy(() =>
   import("./screens/yonetim/OdemeIncelemeSayfasi").then((module) => ({ default: module.OdemeIncelemeSayfasi }))
 );
 
+const routeLoadingState = (
+  <div className="react-shell__status" role="status" aria-live="polite">
+    Sayfa yükleniyor…
+  </div>
+);
+
 function normalizePath(pathname: string) {
   const normalized = pathname.replace(/\/+$/, "");
   return normalized.length === 0 ? "/" : normalized;
@@ -110,7 +116,7 @@ export function App() {
   useNumericInputGuard();
 
   return (
-    <React.Suspense fallback={null}>
+    <React.Suspense fallback={routeLoadingState}>
       <AppRoutes />
     </React.Suspense>
   );
@@ -620,7 +626,7 @@ function WorkspaceRoutes({ path }: { path: string }) {
       sagAksiyon={shellUstAksiyon}
       ustBar={ustBar}
     >
-      <React.Suspense fallback={null}>
+      <React.Suspense fallback={routeLoadingState}>
         {routePath === "/gelir-gider" ? (
           <GelirGiderSayfasi
             ustBar={ustBar}

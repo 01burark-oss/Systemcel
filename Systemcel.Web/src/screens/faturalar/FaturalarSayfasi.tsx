@@ -659,7 +659,19 @@ export function FaturalarSayfasi({
                         <td>{paraBic(row.genelToplam)}</td>
                         <td>{paraBic(row.odenenTutar)}</td>
                         <td><span className={`invoice-pill ${row.durum}`}>{durumEtiketi(row.durum)}</span></td>
-                        <td className="invoice-table__menu"><MoreVertical size={18} /></td>
+                        <td className="invoice-table__menu">
+                          <button
+                            className="payment-row-menu__trigger"
+                            type="button"
+                            aria-label={`${row.no || `FAT-${row.id}`} faturasını aç`}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              faturaSec(row.id).catch((error: Error) => setHata(error.message));
+                            }}
+                          >
+                            <MoreVertical size={18} />
+                          </button>
+                        </td>
                       </tr>
                     ))
                   )}

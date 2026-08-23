@@ -692,11 +692,12 @@ export function UrunStokSayfasi({ yenileAnahtari }: UrunStokSayfasiProps) {
       ) : null}
 
       {barkodPaneliAcik && (
-        <div className="stock-modal" role="dialog" aria-modal="true">
+        <div className="stock-modal" role="dialog" aria-modal="true" aria-labelledby="stock-barcode-dialog-title">
           <div className="stock-modal__card">
-            <h2>Barkod okut</h2>
+            <h2 id="stock-barcode-dialog-title">Barkod okut</h2>
             <input
               ref={barcodeInputRef}
+              aria-label="Barkod"
               value={barkodDegeri}
               onChange={(event) => setBarkodDegeri(event.target.value)}
               onKeyDown={(event) => {

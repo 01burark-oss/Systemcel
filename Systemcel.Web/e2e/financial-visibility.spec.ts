@@ -23,7 +23,7 @@ test("financial visibility is reachable and responsive on desktop and mobile", a
     await expect(page.getByRole("link", { name: "Finans durumu" })).toHaveClass(/active/);
   } else {
     await expect(page.getByRole("heading", { name: "Finans durumu" })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Finans Durumu" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Finans durumu" })).toBeVisible();
   }
 
 });

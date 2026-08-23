@@ -3,6 +3,7 @@ import {
   CalendarDays,
   Check,
   Eraser,
+  Pencil,
   Plus,
   RefreshCw,
   Save,
@@ -218,6 +219,7 @@ export function GelirGiderSayfasi({
                 <th className="sayi">Tutar</th>
                 <th>Kalem</th>
                 <th>Açıklama</th>
+                <th className="ledger-table__action" aria-label="İşlem" />
               </tr>
             </thead>
             <tbody>
@@ -235,11 +237,24 @@ export function GelirGiderSayfasi({
                   <td className={`sayi tutar ${kayit.tur}`}>{paraBic(kayit.tutar)}</td>
                   <td>{kalemEtiketi(kayit.kalem)}</td>
                   <td className="aciklama">{kayit.aciklama}</td>
+                  <td className="ledger-table__action">
+                    <button
+                      className="payment-row-menu__trigger"
+                      type="button"
+                      aria-label={`${tarihBic(kayit.tarih)} tarihli ${paraBic(kayit.tutar)} ${kayit.tur} kaydını aç`}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        kayitSec(kayit);
+                      }}
+                    >
+                      <Pencil size={16} />
+                    </button>
+                  </td>
                 </tr>
               ))}
               {filtreliKayitlar.length === 0 && (
                 <tr>
-                  <td className="bos" colSpan={6}>
+                  <td className="bos" colSpan={7}>
                     Kayıt bulunamadı.
                   </td>
                 </tr>
@@ -279,12 +294,12 @@ export function GelirGiderSayfasi({
           <label className="satir">
             <span>Tutar</span>
             <div className="tutar-alani">
-              <strong>TL</strong>
               <input value={form.tutar} disabled={saltOkunur} onChange={(e) => formGuncelle({ tutar: e.target.value })} placeholder="Tutar girin" inputMode="decimal" />
+              <strong>TL</strong>
             </div>
           </label>
 
-          <div className="satir">
+          <div className="satir satir--payment-methods">
             <span>Yöntem</span>
             <div className="odeme-grid">
               {(ekran?.odemeYontemleri ?? []).map((odeme) => (

@@ -181,7 +181,7 @@ export function RaporlarSayfasi({ yenileAnahtari }: RaporlarSayfasiProps) {
               <div>
                 <h2>Rapor oluştur</h2>
               </div>
-              <button className="reports-icon-btn" disabled={islemde} type="button" onClick={yenile}>
+              <button className="reports-icon-btn" disabled={islemde} type="button" onClick={yenile} aria-label="Raporları yenile">
                 <RefreshCw size={19} />
               </button>
             </div>

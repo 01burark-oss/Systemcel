@@ -13,6 +13,43 @@ test("mobile sign-up uses the full viewport without horizontal overflow", async 
   await expect(page.getByLabel("E-posta")).toBeVisible();
   await expect(page.getByLabel("Parola", { exact: true })).toBeVisible();
 
+  if (viewport?.width === 320 && viewport.height === 568) {
+    const geometry = await page.evaluate(() => {
+      const shell = document.querySelector<HTMLElement>(".auth-shell--sign-up.auth-shell--branded");
+      const brand = document.querySelector<HTMLElement>(".auth-shell__brand--top");
+      const language = document.querySelector<HTMLElement>(".auth-shell__language");
+      const card = document.querySelector<HTMLElement>(".auth-shell__card");
+      const heading = document.querySelector<HTMLElement>(".auth-shell__card-head h2");
+      if (!shell || !brand || !language || !card || !heading) throw new Error("Sign-up geometry targets are missing");
+
+      const brandBox = brand.getBoundingClientRect();
+      const languageBox = language.getBoundingClientRect();
+      const cardBox = card.getBoundingClientRect();
+      const headingBox = heading.getBoundingClientRect();
+      return {
+        headerBottom: Math.max(brandBox.bottom, languageBox.bottom),
+        cardTop: cardBox.top,
+        headingTop: headingBox.top,
+        headingBottom: headingBox.bottom,
+        viewportHeight: window.innerHeight
+      };
+    });
+    const headerGap = geometry.cardTop - geometry.headerBottom;
+    expect(headerGap, "sign-up card must start below the branded header").toBeGreaterThanOrEqual(0);
+    expect(headerGap, "sign-up card/header gap should stay compact").toBeLessThanOrEqual(16);
+    expect(geometry.headingTop, "sign-up heading must start inside the viewport").toBeGreaterThanOrEqual(0);
+    expect(geometry.headingBottom, "sign-up heading must be visible before scrolling").toBeLessThanOrEqual(geometry.viewportHeight);
+
+    const finalAction = page.locator(".auth-shell__switch");
+    await finalAction.scrollIntoViewIfNeeded();
+    const actionBox = await finalAction.boundingBox();
+    const shellScrollTop = await page.locator(".auth-shell--sign-up.auth-shell--branded").evaluate((shell) => shell.scrollTop);
+    expect(actionBox, "final sign-up action must have a rendered box").not.toBeNull();
+    expect(shellScrollTop, "the compact sign-up shell must allow reaching its final action by scrolling").toBeGreaterThan(0);
+    expect(actionBox!.y, "final sign-up action must be reachable by scrolling").toBeGreaterThanOrEqual(0);
+    expect(actionBox!.y + actionBox!.height, "final sign-up action must fit in the viewport after scrolling").toBeLessThanOrEqual(viewport.height);
+  }
+
   const overflow = await page.evaluate(() => ({
     viewport: window.innerWidth,
     document: document.documentElement.scrollWidth,
