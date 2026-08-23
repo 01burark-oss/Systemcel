@@ -23,6 +23,7 @@ namespace CashTracker.Infrastructure.Persistence
         public DbSet<MuhasebeciMusteri> MuhasebeciMusterileri => Set<MuhasebeciMusteri>();
         public DbSet<MuhasebeciProfil> MuhasebeciProfilleri => Set<MuhasebeciProfil>();
         public DbSet<MuhasebeciMusteriTalebi> MuhasebeciMusteriTalepleri => Set<MuhasebeciMusteriTalebi>();
+        public DbSet<MuhasebeciBaglantiDaveti> MuhasebeciBaglantiDavetleri => Set<MuhasebeciBaglantiDaveti>();
         public DbSet<MuhasebeciSohbet> MuhasebeciSohbetleri => Set<MuhasebeciSohbet>();
         public DbSet<MuhasebeciSohbetMesaji> MuhasebeciSohbetMesajlari => Set<MuhasebeciSohbetMesaji>();
         public DbSet<MuhasebeciSohbetEki> MuhasebeciSohbetEkleri => Set<MuhasebeciSohbetEki>();
@@ -314,6 +315,20 @@ namespace CashTracker.Infrastructure.Persistence
                 e.HasIndex(x => x.IsletmeId);
                 e.HasIndex(x => new { x.IsletmeId, x.HesapTipi }).IsUnique();
                 e.HasIndex(x => x.Durum);
+            });
+
+            modelBuilder.Entity<MuhasebeciBaglantiDaveti>(e =>
+            {
+                e.ToTable("MuhasebeciBaglantiDaveti");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.TokenHash).IsRequired();
+                e.Property(x => x.Durum).IsRequired();
+                e.Property(x => x.YetkiSeviyesi).IsRequired();
+                e.Property(x => x.Mesaj).IsRequired();
+                e.HasIndex(x => x.TokenHash).IsUnique();
+                e.HasIndex(x => x.MusteriIsletmeId);
+                e.HasIndex(x => x.MuhasebeciIsletmeId);
+                e.HasIndex(x => new { x.MusteriIsletmeId, x.Durum });
             });
 
             modelBuilder.Entity<YonetimDenetimKaydi>(e =>

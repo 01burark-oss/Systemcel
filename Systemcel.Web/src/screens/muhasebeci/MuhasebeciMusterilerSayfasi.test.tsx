@@ -1,8 +1,8 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { jsonOku } from "../../shared/json";
-import { MuhasebeciPanelSayfasi } from "./MuhasebeciPanelSayfasi";
 import type { BelgeSaglikOzeti } from "../dashboard/types";
+import { MuhasebeciMusterilerSayfasi } from "./MuhasebeciMusterilerSayfasi";
 
 vi.mock("../../shared/json", () => ({ jsonOku: vi.fn() }));
 
@@ -36,9 +36,7 @@ const panel = {
     aylikTutar: 1_499,
     paraBirimi: "TRY",
     aiAktif: true,
-    aiMesajLimiti: null,
     aiSinirsiz: true,
-    musteriLimiti: null,
     musteriSinirsiz: true,
     aktifMusteriSayisi: 2,
     oneCikmaAktif: true,
@@ -69,9 +67,9 @@ const panel = {
   davetler: []
 };
 
-describe("MuhasebeciPanelSayfasi", () => {
+describe("MuhasebeciMusterilerSayfasi", () => {
   beforeEach(() => {
-    window.history.replaceState({}, "", "/app/muhasebeci");
+    window.history.replaceState({}, "", "/app/muhasebeci/musteriler");
     vi.mocked(jsonOku).mockResolvedValue(panel);
   });
 
@@ -80,13 +78,13 @@ describe("MuhasebeciPanelSayfasi", () => {
     vi.clearAllMocks();
   });
 
-  it("müşteri listesini ayrı Müşterilerim ekranına taşır", async () => {
-    render(<MuhasebeciPanelSayfasi />);
+  it("müşterileri ve belge durumlarını ayrı ekranda gösterir", async () => {
+    render(<MuhasebeciMusterilerSayfasi />);
 
-    expect(await screen.findByRole("heading", { name: "Muhasebeci paneli" })).toBeVisible();
-    expect(screen.getByRole("link", { name: "Müşterilerim" })).toHaveAttribute("href", "/app/muhasebeci/musteriler");
-    expect(screen.queryByRole("columnheader", { name: "Belge durumu" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: "Davet linki oluştur" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: "Davet kodları" })).not.toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Müşterilerim" })).toBeVisible();
+    const tablo = screen.getByRole("table");
+    expect(within(tablo).getByRole("columnheader", { name: "Belge durumu" })).toBeVisible();
+    expect(within(tablo).getByLabelText("Örnek Market belge durumu: 91 puan, Hazır, 0 eksik belge")).toBeVisible();
+    expect(within(tablo).getByLabelText("Yeni Atölye belge durumu: Pro ile açılır")).toHaveTextContent("Pro ile açılır");
   });
 });

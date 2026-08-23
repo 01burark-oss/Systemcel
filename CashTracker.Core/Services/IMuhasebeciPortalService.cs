@@ -13,6 +13,9 @@ namespace CashTracker.Core.Services
         Task<MuhasebeciTalepDto> CreateInviteAsync(MuhasebeciTalepOlusturRequest request, string publicBaseUrl, CancellationToken ct = default);
         Task<MuhasebeciTalepDto> SubmitMarketplaceRequestAsync(int muhasebeciIsletmeId, MuhasebeciTalepOlusturRequest request, CancellationToken ct = default);
         Task<MuhasebeciTalepDto> AcceptInviteAsync(MuhasebeciDavetKabulRequest request, CancellationToken ct = default);
+        Task<MuhasebeciLinkDavetDto> CreateCustomerLinkInviteAsync(MuhasebeciLinkDavetOlusturRequest request, string publicBaseUrl, CancellationToken ct = default);
+        Task<MuhasebeciLinkDavetDto?> GetCustomerLinkInviteAsync(string token, CancellationToken ct = default);
+        Task<MuhasebeciTalepDto> AcceptCustomerLinkInviteAsync(MuhasebeciLinkDavetKabulRequest request, CancellationToken ct = default);
         Task<MuhasebeciTalepDto> AcceptRequestAsync(int talepId, MuhasebeciTalepKararRequest request, CancellationToken ct = default);
         Task<MuhasebeciTalepDto> RejectRequestAsync(int talepId, CancellationToken ct = default);
         Task<MuhasebeciTalepDto> CancelRequestAsync(int talepId, CancellationToken ct = default);

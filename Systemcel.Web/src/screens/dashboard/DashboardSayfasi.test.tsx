@@ -77,7 +77,7 @@ describe("DashboardSayfasi belge sağlığı", () => {
     expect(within(kart).getByText("Vade tarihi eksik")).toBeVisible();
     expect(within(kart).queryByText("Cari bilgisi eksik")).not.toBeInTheDocument();
     expect(within(kart).getByRole("link", { name: "Muhasebecini bağla" })).toHaveAttribute("href", "/app/muhasebeciler");
-    expect(within(kart).getByRole("link", { name: "Belgeleri otomatik aktar" })).toHaveAttribute("href", "/app/telegram");
+    expect(within(kart).queryByRole("link", { name: "Belgeleri otomatik aktar" })).not.toBeInTheDocument();
   });
 
   it("bağlı muhasebeci için sohbet yolunu gösterir", async () => {

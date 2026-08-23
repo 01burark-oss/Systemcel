@@ -27,6 +27,22 @@ internal static class MuhasebeciApi
             }
         });
 
+        app.MapGet("/api/public/muhasebeci-davetleri/{token}", async (
+            string token,
+            IMuhasebeciPortalService service,
+            CancellationToken ct) =>
+        {
+            try
+            {
+                var invite = await service.GetCustomerLinkInviteAsync(token, ct);
+                return invite is null ? Results.NotFound(new ApiHata("Davet bağlantısı bulunamadı.")) : Results.Ok(invite);
+            }
+            catch (Exception ex)
+            {
+                return Results.BadRequest(new ApiHata($"Davet bağlantısı açılamadı: {ex.Message}"));
+            }
+        });
+
         app.MapGet("/api/public/muhasebeciler/profil-resimleri/{fileName}", (
             string fileName,
             AppRuntimeOptions runtimeOptions) =>
@@ -211,6 +227,42 @@ internal static class MuhasebeciApi
             catch (Exception ex)
             {
                 return Results.BadRequest(new ApiHata($"Davet olusturulamadi: {ex.Message}"));
+            }
+        });
+
+        app.MapPost("/api/ekran/muhasebeci/link-davetleri", async (
+            HttpContext context,
+            MuhasebeciLinkDavetOlusturRequest request,
+            IMuhasebeciPortalService service,
+            CancellationToken ct) =>
+        {
+            try
+            {
+                var baseUrl = $"{context.Request.Scheme}://{context.Request.Host}";
+                return Results.Ok(await service.CreateCustomerLinkInviteAsync(request, baseUrl, ct));
+            }
+            catch (Exception ex)
+            {
+                return Results.BadRequest(new ApiHata($"Davet bağlantısı oluşturulamadı: {ex.Message}"));
+            }
+        });
+
+        app.MapPost("/api/ekran/muhasebeci/link-davetleri/kabul", async (
+            MuhasebeciLinkDavetKabulRequest request,
+            IMuhasebeciPortalService service,
+            CancellationToken ct) =>
+        {
+            try
+            {
+                return Results.Ok(await service.AcceptCustomerLinkInviteAsync(request, ct));
+            }
+            catch (EntitlementViolationException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Results.BadRequest(new ApiHata($"Davet kabul edilemedi: {ex.Message}"));
             }
         });
 

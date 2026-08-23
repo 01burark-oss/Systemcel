@@ -6,6 +6,7 @@ import {
   ChevronDown,
   Clock3,
   Copy,
+  Link2,
   Loader2,
   MapPin,
   MessageCircle,
@@ -88,9 +89,17 @@ function AccountantAvatar({ src, name }: { src: string; name: string }) {
   );
 }
 
-export function MuhasebecilerSayfasi({ mobileMode = false, publicMode = false, ustBar, onUstBarYenile }: MuhasebecilerSayfasiProps) {
+interface MuhasebeciLinkDaveti {
+  musteriAdi: string;
+  durum: string;
+  yetkiSeviyesi: YetkiSeviyesi;
+  mesaj: string;
+  davetLinki: string;
+  sonGecerlilikAt: string;
+}
+
+export function MuhasebecilerSayfasi({ mobileMode = false, publicMode = false, ustBar }: MuhasebecilerSayfasiProps) {
   const auth = useSystemcelAuth();
-  const urlDavetKodu = React.useMemo(() => new URLSearchParams(window.location.search).get("davet") ?? "", []);
   const [arama, setArama] = React.useState("");
   const [aktifArama, setAktifArama] = React.useState("");
   const [veri, setVeri] = React.useState<MuhasebeciPazaryeri | null>(null);
@@ -102,9 +111,11 @@ export function MuhasebecilerSayfasi({ mobileMode = false, publicMode = false, u
   const [talepYetki, setTalepYetki] = React.useState<YetkiSeviyesi>("OkumaRapor");
   const [talepMesaji, setTalepMesaji] = React.useState("");
   const [talepGonderiliyor, setTalepGonderiliyor] = React.useState(false);
-  const [davetKodu, setDavetKodu] = React.useState(urlDavetKodu);
-  const [davetYetki, setDavetYetki] = React.useState<YetkiSeviyesi>("OkumaRapor");
-  const [davetIslemde, setDavetIslemde] = React.useState(false);
+  const [linkDavetAcik, setLinkDavetAcik] = React.useState(false);
+  const [linkDavetYetki, setLinkDavetYetki] = React.useState<YetkiSeviyesi>("OkumaRapor");
+  const [linkDavetMesaji, setLinkDavetMesaji] = React.useState("");
+  const [linkDavetIslemde, setLinkDavetIslemde] = React.useState(false);
+  const [olusanDavet, setOlusanDavet] = React.useState<MuhasebeciLinkDaveti | null>(null);
   const [, setSohbetIslemde] = React.useState(false);
   const [sehirFiltresi, setSehirFiltresi] = React.useState("");
   const [ilceFiltresi, setIlceFiltresi] = React.useState("");
@@ -138,7 +149,7 @@ export function MuhasebecilerSayfasi({ mobileMode = false, publicMode = false, u
     }
   }, [aktifArama, publicMode]);
 
-  const publicTalepHref = oturumAcik ? appMarketplaceHref(urlDavetKodu) : loginHref(urlDavetKodu);
+  const publicTalepHref = oturumAcik ? appMarketplaceHref() : loginHref();
   const publicHomeHref = oturumAcik ? "/app" : "/";
   const publicLoginHref = oturumAcik ? "/app" : "/giris";
   const publicTalepLabel = oturumAcik ? "Panelde pazaryerini aç" : "Giriş yap ve talep gönder";
@@ -148,9 +159,9 @@ export function MuhasebecilerSayfasi({ mobileMode = false, publicMode = false, u
       return;
 
     event.preventDefault();
-    const target = oturumAcik ? appMarketplaceHref(urlDavetKodu) : loginHref(urlDavetKodu);
+    const target = oturumAcik ? appMarketplaceHref() : loginHref();
     window.location.assign(target);
-  }, [oturumAcik, publicMode, urlDavetKodu]);
+  }, [oturumAcik, publicMode]);
 
   React.useEffect(() => {
     document.title = publicMode ? "Systemcel Muhasebeciler" : "Muhasebeciler";
@@ -225,28 +236,47 @@ export function MuhasebecilerSayfasi({ mobileMode = false, publicMode = false, u
     }
   }
 
-  async function davetKabulEt(event: React.FormEvent) {
+  async function linkDavetOlustur(event: React.FormEvent) {
     event.preventDefault();
-    setDavetIslemde(true);
+    setLinkDavetIslemde(true);
     setHata("");
     setMesaj("");
     try {
-      const sonuc = await jsonOku<MuhasebeciTalep>("/api/ekran/muhasebeci/davetler/kabul", {
+      const sonuc = await jsonOku<MuhasebeciLinkDaveti>("/api/ekran/muhasebeci/link-davetleri", {
         method: "POST",
         body: JSON.stringify({
-          davetKodu,
-          yetkiSeviyesi: davetYetki
+          yetkiSeviyesi: linkDavetYetki,
+          mesaj: linkDavetMesaji
         })
       });
-      setMesaj(`${sonuc.muhasebeciAdi} bağlantısı kabul edildi.`);
-      setDavetKodu("");
-      await onUstBarYenile?.();
-      await yukle();
+      setOlusanDavet(sonuc);
+      setMesaj("Davet bağlantısı hazır.");
     } catch (error) {
-      setHata(error instanceof Error ? error.message : "Davet kabul edilemedi.");
+      setHata(error instanceof Error ? error.message : "Davet bağlantısı oluşturulamadı.");
     } finally {
-      setDavetIslemde(false);
+      setLinkDavetIslemde(false);
     }
+  }
+
+  async function davetLinkiniKopyala() {
+    if (!olusanDavet?.davetLinki)
+      return;
+
+    try {
+      await navigator.clipboard.writeText(olusanDavet.davetLinki);
+      setMesaj("Davet bağlantısı kopyalandı.");
+    } catch {
+      setHata("Bağlantı kopyalanamadı. Metni seçip kopyalayabilirsiniz.");
+    }
+  }
+
+  function linkDavetiniAc() {
+    setLinkDavetYetki("OkumaRapor");
+    setLinkDavetMesaji("");
+    setOlusanDavet(null);
+    setHata("");
+    setMesaj("");
+    setLinkDavetAcik(true);
   }
 
   const profiller = React.useMemo(() => veri?.profiller ?? [], [veri?.profiller]);
@@ -316,29 +346,19 @@ export function MuhasebecilerSayfasi({ mobileMode = false, publicMode = false, u
         ) : null}
       </section>
 
-      {publicMode && urlDavetKodu ? (
-        <section className="accountant-invite-strip">
-          <Copy size={18} />
-          <div>
-            <strong>Davet kodu hazır: {urlDavetKodu}</strong>
-          </div>
-          <a href={publicTalepHref} onClick={publicTalepTikla}>{oturumAcik ? "Panelde aç" : "Giriş yap"}</a>
-        </section>
-      ) : null}
-
       {!publicMode && !saltOkunur ? (
-        <section className="accountant-toolbar accountant-toolbar--invite">
-          <form onSubmit={davetKabulEt}>
-            <label>
-              <span>Davet kodu</span>
-              <input value={davetKodu} onChange={(event) => setDavetKodu(event.target.value)} placeholder="MUS-123456" required />
-            </label>
-            <YetkiSecimi value={davetYetki} onChange={setDavetYetki} />
-            <button type="submit" disabled={davetIslemde}>
-              {davetIslemde ? <Loader2 size={16} className="spin" /> : <Check size={16} />}
-              <span>Davet kabul et</span>
-            </button>
-          </form>
+        <section className="accountant-toolbar accountant-link-invite">
+          <div>
+            <span className="accountant-link-invite__icon"><Link2 size={19} /></span>
+            <span>
+              <strong>Muhasebeciniz listede yok mu?</strong>
+              <small>Bağlantıyı paylaşın; yetki, daveti hazırlarken belirlenir.</small>
+            </span>
+          </div>
+          <button type="button" onClick={linkDavetiniAc}>
+            <Send size={16} />
+            <span>Muhasebecini davet et</span>
+          </button>
         </section>
       ) : null}
 
@@ -582,7 +602,7 @@ export function MuhasebecilerSayfasi({ mobileMode = false, publicMode = false, u
               İletişim bilgisi paylaşmak yasaktır. Görüşmeler sadece Systemcel üzerinden yapılmalıdır. Aksi halde hesabınız askıya alınır ve ücret iadesi yapılmaz.
             </p>
             <div className="accountant-profile-detail__actions">
-              <a className="accountant-modal__primary accountant-profile-detail__request-link" href={oturumAcik ? appMarketplaceHref(urlDavetKodu, detayProfil.muhasebeciIsletmeId) : loginHref(urlDavetKodu, detayProfil.muhasebeciIsletmeId)}>
+              <a className="accountant-modal__primary accountant-profile-detail__request-link" href={oturumAcik ? appMarketplaceHref(detayProfil.muhasebeciIsletmeId) : loginHref(detayProfil.muhasebeciIsletmeId)}>
                 <Send size={16} />
                 <span>{oturumAcik ? "Talep gönder" : "Giriş yap ve talep gönder"}</span>
               </a>
@@ -615,6 +635,58 @@ export function MuhasebecilerSayfasi({ mobileMode = false, publicMode = false, u
               {talepGonderiliyor ? <Loader2 size={16} className="spin" /> : <Send size={16} />}
               <span>Talep gönder</span>
             </button>
+          </form>
+        </div>
+      ) : null}
+
+      {linkDavetAcik && !publicMode && !saltOkunur ? (
+        <div className="accountant-modal" role="dialog" aria-modal="true" aria-labelledby="accountant-link-invite-title">
+          <form className="accountant-modal__panel accountant-link-invite-modal" onSubmit={linkDavetOlustur}>
+            <button type="button" className="accountant-modal__close" onClick={() => setLinkDavetAcik(false)} aria-label="Kapat">
+              <X size={18} />
+            </button>
+            <header>
+              <span className="accountant-card__icon"><Link2 size={20} /></span>
+              <div>
+                <p>Bağlantı daveti</p>
+                <h2 id="accountant-link-invite-title">Muhasebecini davet et</h2>
+              </div>
+            </header>
+            {!olusanDavet ? (
+              <>
+                <div className="accountant-link-invite-modal__agreement">
+                  <strong>Çalışma yetkisini belirleyin</strong>
+                  <p>Muhasebeciniz daveti kabul ettiğinde seçtiğiniz yetkiyle işletmenize bağlanır.</p>
+                </div>
+                <YetkiSecimi value={linkDavetYetki} onChange={setLinkDavetYetki} />
+                <label className="accountant-modal__field">
+                  <span>Not (isteğe bağlı)</span>
+                  <textarea value={linkDavetMesaji} onChange={(event) => setLinkDavetMesaji(event.target.value)} rows={3} placeholder="Muhasebecinize kısa bir not yazın" />
+                </label>
+                <button type="submit" className="accountant-modal__primary" disabled={linkDavetIslemde}>
+                  {linkDavetIslemde ? <Loader2 size={16} className="spin" /> : <Link2 size={16} />}
+                  <span>Davet bağlantısı oluştur</span>
+                </button>
+              </>
+            ) : (
+              <div className="accountant-link-invite-result">
+                <div>
+                  <Check size={18} />
+                  <span>
+                    <strong>Bağlantı hazır</strong>
+                    <small>14 gün içinde muhasebecinizle paylaşın.</small>
+                  </span>
+                </div>
+                <label>
+                  <span>Davet bağlantısı</span>
+                  <input value={olusanDavet.davetLinki} readOnly onFocus={(event) => event.currentTarget.select()} />
+                </label>
+                <button type="button" className="accountant-modal__primary" onClick={() => davetLinkiniKopyala().catch(() => undefined)}>
+                  <Copy size={16} />
+                  <span>Bağlantıyı kopyala</span>
+                </button>
+              </div>
+            )}
           </form>
         </div>
       ) : null}
@@ -738,10 +810,8 @@ function profilDurumu(profil: MuhasebeciProfil) {
   return "";
 }
 
-function appMarketplaceHref(davetKodu: string, muhasebeciIsletmeId?: number) {
+function appMarketplaceHref(muhasebeciIsletmeId?: number) {
   const params = new URLSearchParams();
-  if (davetKodu)
-    params.set("davet", davetKodu);
   if (muhasebeciIsletmeId) {
     params.set("muhasebeciId", String(muhasebeciIsletmeId));
     params.set("talep", "1");
@@ -751,9 +821,9 @@ function appMarketplaceHref(davetKodu: string, muhasebeciIsletmeId?: number) {
   return query ? `/app/muhasebeciler?${query}` : "/app/muhasebeciler";
 }
 
-function loginHref(davetKodu: string, muhasebeciIsletmeId?: number) {
+function loginHref(muhasebeciIsletmeId?: number) {
   const params = new URLSearchParams({
-    returnUrl: appMarketplaceHref(davetKodu, muhasebeciIsletmeId),
+    returnUrl: appMarketplaceHref(muhasebeciIsletmeId),
     hesapTipi: "Isletme"
   });
   return `/giris?${params.toString()}`;

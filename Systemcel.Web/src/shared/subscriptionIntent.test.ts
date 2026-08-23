@@ -20,5 +20,6 @@ describe("subscription intent", () => {
     expect(sanitizeAppReturnUrl("//attacker.example/path")).toBe("/app");
     expect(sanitizeAppReturnUrl("/app/abonelik?plan=unknown&billing=Aylik")).toBe("/app");
     expect(sanitizeAppReturnUrl("/app/abonelik?plan=isletme_buyume&billing=Yillik")).toBe("/app/abonelik?plan=isletme_buyume&billing=Yillik");
+    expect(sanitizeAppReturnUrl("/muhasebeci-daveti/1234567890abcdef1234567890abcdef1234567890abcdef")).toBe("/muhasebeci-daveti/1234567890abcdef1234567890abcdef1234567890abcdef");
   });
 });

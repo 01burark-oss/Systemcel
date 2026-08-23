@@ -508,6 +508,21 @@ CREATE TABLE IF NOT EXISTS IsletmeDeneme (
 );");
 
             db.Database.ExecuteSqlRaw(@"
+CREATE TABLE IF NOT EXISTS MuhasebeciBaglantiDaveti (
+    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+    MusteriIsletmeId INTEGER NOT NULL,
+    MuhasebeciIsletmeId INTEGER,
+    TokenHash TEXT NOT NULL,
+    Durum TEXT NOT NULL DEFAULT 'Beklemede',
+    YetkiSeviyesi TEXT NOT NULL DEFAULT 'OkumaRapor',
+    Mesaj TEXT NOT NULL DEFAULT '',
+    SonGecerlilikAt TEXT NOT NULL,
+    KabulAt TEXT,
+    CreatedAt TEXT NOT NULL,
+    UpdatedAt TEXT NOT NULL
+);");
+
+            db.Database.ExecuteSqlRaw(@"
 CREATE TABLE IF NOT EXISTS AbonelikOnayi (
     Id INTEGER PRIMARY KEY AUTOINCREMENT,
     IsletmeId INTEGER NOT NULL,
@@ -835,6 +850,10 @@ WHERE UpdatedAt = '1970-01-01 00:00:00' OR TRIM(UpdatedAt) = '';");
             db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS IX_MuhasebeciMusteriTalebi_Durum ON MuhasebeciMusteriTalebi(Durum);");
             db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS IX_MuhasebeciMusteriTalebi_DavetKodu ON MuhasebeciMusteriTalebi(DavetKodu);");
             db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS IX_MuhasebeciMusteriTalebi_MuhasebeciIsletmeId_MusteriIsletmeId_Durum ON MuhasebeciMusteriTalebi(MuhasebeciIsletmeId, MusteriIsletmeId, Durum);");
+            db.Database.ExecuteSqlRaw("CREATE UNIQUE INDEX IF NOT EXISTS IX_MuhasebeciBaglantiDaveti_TokenHash ON MuhasebeciBaglantiDaveti(TokenHash);");
+            db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS IX_MuhasebeciBaglantiDaveti_MusteriIsletmeId ON MuhasebeciBaglantiDaveti(MusteriIsletmeId);");
+            db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS IX_MuhasebeciBaglantiDaveti_MuhasebeciIsletmeId ON MuhasebeciBaglantiDaveti(MuhasebeciIsletmeId);");
+            db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS IX_MuhasebeciBaglantiDaveti_MusteriIsletmeId_Durum ON MuhasebeciBaglantiDaveti(MusteriIsletmeId, Durum);");
             db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS IX_MuhasebeciSohbet_MuhasebeciIsletmeId ON MuhasebeciSohbet(MuhasebeciIsletmeId);");
             db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS IX_MuhasebeciSohbet_MusteriIsletmeId ON MuhasebeciSohbet(MusteriIsletmeId);");
             db.Database.ExecuteSqlRaw("CREATE UNIQUE INDEX IF NOT EXISTS IX_MuhasebeciSohbet_MuhasebeciIsletmeId_MusteriIsletmeId ON MuhasebeciSohbet(MuhasebeciIsletmeId, MusteriIsletmeId);");

@@ -519,7 +519,7 @@ export function LandingPage() {
         <section className="marketing-trust-strip" aria-label={language === "tr" ? "Ürün güvenceleri" : "Product assurances"}>
           <div className="marketing-wrap marketing-trust-grid marketing-reveal" data-reveal>
             <Trust icon={<ShieldCheck />} title={language === "tr" ? "İşletme bazlı güvenli alan" : "Secure business workspace"} text={language === "tr" ? "Her kayıt yalnızca yetkili işletme üyelerine görünür." : "Every record is visible only to authorized business members."} />
-            <Trust icon={<FileText />} title={language === "tr" ? "GİB e-Arşiv akışı" : "GİB e-Archive flow"} text={language === "tr" ? "Taslak, SMS onayı ve kesim adımlarını tek yerden yönet." : "Manage draft, SMS approval and issuing in one place."} />
+            <Trust icon={<FileText />} title={language === "tr" ? "GİB e-Arşiv akışı" : "GİB e-Archive flow"} text={language === "tr" ? "Müşteriden bilgi teyidi isteyin; resmi kesimi işletme telefonuna gelen GİB koduyla tamamlayın." : "Request customer detail confirmation, then issue with the GİB code sent to the business phone."} />
             <Trust icon={<MessageCircle />} title={language === "tr" ? "Muhasebeciyle ortak çalışma" : "Accountant collaboration"} text={language === "tr" ? "Talep, sohbet ve veri paylaşımı aynı çalışma alanında." : "Requests, chat and data sharing in one workspace."} />
           </div>
         </section>

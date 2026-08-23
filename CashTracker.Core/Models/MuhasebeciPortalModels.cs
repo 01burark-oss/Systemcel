@@ -20,6 +20,7 @@ namespace CashTracker.Core.Models
     public static class MuhasebeciTalepTurleri
     {
         public const string Davet = "Davet";
+        public const string MusteriDaveti = "MusteriDaveti";
         public const string Pazaryeri = "Pazaryeri";
     }
 
@@ -104,6 +105,27 @@ namespace CashTracker.Core.Models
         public string Durum { get; init; } = string.Empty;
         public DateTime BaslangicAt { get; init; }
         public BelgeSaglikOzeti? BelgeSagligi { get; init; }
+    }
+
+    public sealed class MuhasebeciLinkDavetOlusturRequest
+    {
+        public string YetkiSeviyesi { get; init; } = MuhasebeciYetkiSeviyeleri.OkumaRapor;
+        public string Mesaj { get; init; } = string.Empty;
+    }
+
+    public sealed class MuhasebeciLinkDavetKabulRequest
+    {
+        public string Token { get; init; } = string.Empty;
+    }
+
+    public sealed class MuhasebeciLinkDavetDto
+    {
+        public string MusteriAdi { get; init; } = string.Empty;
+        public string Durum { get; init; } = string.Empty;
+        public string YetkiSeviyesi { get; init; } = MuhasebeciYetkiSeviyeleri.OkumaRapor;
+        public string Mesaj { get; init; } = string.Empty;
+        public string DavetLinki { get; init; } = string.Empty;
+        public DateTime SonGecerlilikAt { get; init; }
     }
 
     public sealed class MuhasebeciTalepDto

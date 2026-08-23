@@ -130,8 +130,12 @@ const helpContent: Record<string, HelpArticle> = {
         body: "Systemcel'deki fatura bilgileriyle önce taslak hazırlanır. Kullanıcı müşteri bilgilerini, satırları ve tutarları kontrol ettikten sonra gönderim adımına geçer."
       },
       {
-        title: "SMS onayı",
-        body: "GİB tarafında gerekli olduğunda SMS doğrulaması istenir. Bu adım kullanıcı kontrolünde tamamlanır; sistem onay kodu olmadan resmi işlemi tamamlamaz."
+        title: "Müşteri bilgi teyidi",
+        body: "İşletme isterse taslak bilgilerini müşterinin cari kartındaki telefona bir bağlantıyla gönderir. Müşteri bilgileri teyit eder veya düzeltme ister; bu yanıt resmi e-belge onayı değildir."
+      },
+      {
+        title: "GİB SMS kodu",
+        body: "Resmi kesim için gereken kod, GİB Portal'da kayıtlı işletme telefonuna gider. Systemcel bu kod olmadan resmi gönderimi tamamlamaz."
       },
       {
         title: "Hata durumları",
@@ -139,7 +143,7 @@ const helpContent: Record<string, HelpArticle> = {
       },
       {
         title: "Güvenli kullanım",
-        body: "GİB bilgileri yalnızca fatura işlemi için kullanılır. Ekip içinde bu ayarlara kimlerin erişeceği işletmenin kullanıcı yönetimiyle sınırlandırılmalıdır."
+        body: "GİB bilgileri yalnızca fatura işlemi için kullanılır. Mevcut sürümde ekran veya işlem bazlı ekip yetkisi bulunmadığı için bu bilgileri yalnız işletme hesabı yetkilileri yönetmelidir."
       }
     ]
   },

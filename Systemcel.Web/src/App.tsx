@@ -49,8 +49,14 @@ const YardimSayfasi = React.lazy(() =>
 const MuhasebeciPanelSayfasi = React.lazy(() =>
   import("./screens/muhasebeci/MuhasebeciPanelSayfasi").then((module) => ({ default: module.MuhasebeciPanelSayfasi }))
 );
+const MuhasebeciMusterilerSayfasi = React.lazy(() =>
+  import("./screens/muhasebeci/MuhasebeciMusterilerSayfasi").then((module) => ({ default: module.MuhasebeciMusterilerSayfasi }))
+);
 const MuhasebecilerSayfasi = React.lazy(() =>
   import("./screens/muhasebeciler/MuhasebecilerSayfasi").then((module) => ({ default: module.MuhasebecilerSayfasi }))
+);
+const MuhasebeciDavetSayfasi = React.lazy(() =>
+  import("./screens/muhasebeciler/MuhasebeciDavetSayfasi").then((module) => ({ default: module.MuhasebeciDavetSayfasi }))
 );
 const PinKilitSayfasi = React.lazy(() =>
   import("./screens/pin/PinKilitSayfasi").then((module) => ({ default: module.PinKilitSayfasi }))
@@ -137,6 +143,11 @@ function AppRoutes() {
   if (rawPath.startsWith("/fatura-onayi/")) {
     const token = rawPath.slice("/fatura-onayi/".length);
     return <FaturaMusteriOnaySayfasi token={token} />;
+  }
+
+  if (rawPath.startsWith("/muhasebeci-daveti/")) {
+    const token = rawPath.slice("/muhasebeci-daveti/".length);
+    return <MuhasebeciDavetSayfasi token={token} />;
   }
 
   if (rawPath.startsWith("/kaynaklar/")) {
@@ -330,6 +341,7 @@ function isClientRoute(pathname: string) {
   const decoded = safeDecodePath(pathname);
   return (
     pathname === "/" ||
+    pathname.startsWith("/muhasebeci-daveti/") ||
     pathname === "/app" ||
     pathname.startsWith("/app/") ||
     decoded === "/giris" ||
@@ -506,7 +518,7 @@ function WorkspaceRoutes({ path }: { path: string }) {
 
   const muhasebeciCalismaAlani = ustBar?.hesapTipi === "Muhasebeci" && !ustBar.muhasebeciMusteriBaglami;
   const yonetimRoute = path === "/yonetim" || path.startsWith("/yonetim/");
-  const muhasebeciCalismaAlaniRoute = path === "/muhasebeci" || path === "/muhasebeciler" || path === "/sohbetler" || path === "/abonelik" || path === "/ayarlar";
+  const muhasebeciCalismaAlaniRoute = path === "/muhasebeci" || path === "/muhasebeci/musteriler" || path === "/muhasebeciler" || path === "/sohbetler" || path === "/abonelik" || path === "/ayarlar";
   const routePath = muhasebeciCalismaAlani && !yonetimRoute && !muhasebeciCalismaAlaniRoute ? "/muhasebeci" : path === "/yonetim" ? "/yonetim/muhasebeci-basvurulari" : path;
 
   const shellUstAksiyon = !ustBar?.muhasebeciMusteriBaglami && !muhasebeciCalismaAlani && routePath !== "/muhasebeci" && !yonetimRoute ? (
@@ -566,6 +578,14 @@ function WorkspaceRoutes({ path }: { path: string }) {
     return (
       <MobileWorkspaceView active="finans">
         <FinansalGorunumSayfasi yenileAnahtari={yenileAnahtari} ustBar={ustBar} />
+      </MobileWorkspaceView>
+    );
+  }
+
+  if (mobileWorkspace && routePath === "/muhasebeci/musteriler") {
+    return (
+      <MobileWorkspaceView active="merkez">
+        <MuhasebeciMusterilerSayfasi onUstBarYenile={ustBarYukle} />
       </MobileWorkspaceView>
     );
   }
@@ -649,6 +669,8 @@ function WorkspaceRoutes({ path }: { path: string }) {
           <FinansalGorunumSayfasi yenileAnahtari={yenileAnahtari} ustBar={ustBar} />
         ) : routePath === "/muhasebeci" ? (
           <MuhasebeciPanelSayfasi onUstBarYenile={ustBarYukle} />
+        ) : routePath === "/muhasebeci/musteriler" ? (
+          <MuhasebeciMusterilerSayfasi onUstBarYenile={ustBarYukle} />
         ) : routePath === "/yonetim/muhasebeci-basvurulari" ? (
           <MuhasebeciBasvurulariSayfasi onUstBarYenile={ustBarYukle} />
         ) : routePath === "/yonetim/odemeler" ? (

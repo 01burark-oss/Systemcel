@@ -2,13 +2,10 @@ import React from "react";
 import {
   BriefcaseBusiness,
   Check,
-  Copy,
-  ExternalLink,
   Loader2,
   MessageCircle,
-  ShieldCheck,
   Sparkles,
-  UserPlus,
+  UsersRound,
   X
 } from "lucide-react";
 import { jsonOku } from "../../shared/json";
@@ -17,79 +14,11 @@ import { planAdiGoster } from "../../shared/planEtiketi";
 import { ProfilResmiYukleyici } from "../../shared/ProfilResmiYukleyici";
 import { TelefonNumarasiInput } from "../../shared/TelefonNumarasiInput";
 import { TURKIYE_KONUMLARI } from "../../shared/turkiyeKonumlari";
-import type { BelgeSaglikOzeti } from "../dashboard/types";
-
-type YetkiSeviyesi = "OkumaRapor" | "TamIslem";
-
-interface Entitlement {
-  planAdi: string;
-  planKodu: string;
-  aylikTutar: number;
-  paraBirimi: string;
-  aiAktif: boolean;
-  aiMesajLimiti?: number | null;
-  aiSinirsiz?: boolean;
-  musteriLimiti?: number | null;
-  musteriSinirsiz?: boolean;
-  aktifMusteriSayisi?: number | null;
-  oneCikmaAktif: boolean;
-  muhasebeciProOnerilir: boolean;
-}
-
-interface MuhasebeciProfil {
-  muhasebeciIsletmeId: number;
-  yayinda: boolean;
-  unvan: string;
-  konum: string;
-  telefon: string;
-  deneyimYili: number;
-  profilResmiUrl: string;
-  ucretBilgisi: string;
-  uzmanliklar: string;
-  musteriTipleri: string;
-  kisaAciklama: string;
-  planAdi: string;
-  pro: boolean;
-}
-
-interface MuhasebeciMusteri {
-  isletmeId: number;
-  ad: string;
-  konum: string;
-  yetkiSeviyesi: YetkiSeviyesi;
-  durum: string;
-  baslangicAt: string;
-  belgeSagligi?: BelgeSaglikOzeti | null;
-}
-
-interface MuhasebeciTalep {
-  id: number;
-  muhasebeciAdi: string;
-  musteriAdi: string;
-  tur: string;
-  durum: string;
-  yetkiSeviyesi: YetkiSeviyesi;
-  davetKodu: string;
-  davetLinki: string;
-  mesaj: string;
-  createdAt: string;
-}
+import type { MuhasebeciPanel, MuhasebeciProfil, MuhasebeciTalep, YetkiSeviyesi } from "./types";
 
 type SohbetHedefi =
   | { tur: "talep"; id: number; baslik: string }
   | { tur: "musteri"; id: number; baslik: string };
-
-interface MuhasebeciPanel {
-  hazir: boolean;
-  muhasebeciIsletmeId: number;
-  muhasebeciAdi: string;
-  mesaj: string;
-  entitlement?: Entitlement | null;
-  profil?: MuhasebeciProfil | null;
-  musteriler: MuhasebeciMusteri[];
-  bekleyenTalepler: MuhasebeciTalep[];
-  davetler: MuhasebeciTalep[];
-}
 
 interface ProfilFormu {
   yayinda: boolean;
@@ -128,9 +57,6 @@ export function MuhasebeciPanelSayfasi({ onUstBarYenile }: MuhasebeciPanelSayfas
   const [islemde, setIslemde] = React.useState("");
   const [hata, setHata] = React.useState("");
   const [mesaj, setMesaj] = React.useState("");
-  const [davetYetki, setDavetYetki] = React.useState<YetkiSeviyesi>("OkumaRapor");
-  const [davetMesaji, setDavetMesaji] = React.useState("");
-  const [sonDavet, setSonDavet] = React.useState<MuhasebeciTalep | null>(null);
   const [talepYetkileri, setTalepYetkileri] = React.useState<Record<number, YetkiSeviyesi>>({});
   const [profilResmiYukleniyor, setProfilResmiYukleniyor] = React.useState(false);
   const [sohbetIslemde, setSohbetIslemde] = React.useState(false);
@@ -204,23 +130,6 @@ export function MuhasebeciPanelSayfasi({ onUstBarYenile }: MuhasebeciPanelSayfas
     });
   }
 
-  async function davetOlustur(event: React.FormEvent) {
-    event.preventDefault();
-    await calistir("davet", async () => {
-      const data = await jsonOku<MuhasebeciTalep>("/api/ekran/muhasebeci/davetler", {
-        method: "POST",
-        body: JSON.stringify({
-          yetkiSeviyesi: davetYetki,
-          mesaj: davetMesaji
-        })
-      });
-      setSonDavet(data);
-      setDavetMesaji("");
-      setMesaj("Davet kodu oluşturuldu.");
-      await yukle();
-    });
-  }
-
   async function talepKabulEt(talep: MuhasebeciTalep) {
     await calistir(`kabul-${talep.id}`, async () => {
       await jsonOku<MuhasebeciTalep>(`/api/ekran/muhasebeci/talepler/${talep.id}/kabul`, {
@@ -240,14 +149,6 @@ export function MuhasebeciPanelSayfasi({ onUstBarYenile }: MuhasebeciPanelSayfas
       await jsonOku<MuhasebeciTalep>(`/api/ekran/muhasebeci/talepler/${talep.id}/red`, { method: "POST" });
       setMesaj("Talep reddedildi.");
       await yukle();
-    });
-  }
-
-  async function musteriAc(musteri: MuhasebeciMusteri) {
-    await calistir(`musteri-${musteri.isletmeId}`, async () => {
-      await jsonOku<{ mesaj: string }>(`/api/ekran/muhasebeci/musteriler/${musteri.isletmeId}/ac`, { method: "POST" });
-      await onUstBarYenile?.();
-      window.location.href = "/app";
     });
   }
 
@@ -313,14 +214,20 @@ export function MuhasebeciPanelSayfasi({ onUstBarYenile }: MuhasebeciPanelSayfas
     <main className="accountant-panel">
       <section className="accountant-panel__hero">
         <div>
-          <h1>Müşteriler</h1>
+          <h1>Muhasebeci paneli</h1>
         </div>
-        {entitlement?.muhasebeciProOnerilir ? (
-          <div className="accountant-pro-note">
-            <Sparkles size={18} />
-            <span>Pro plan bu portföy için daha avantajlı görünüyor.</span>
-          </div>
-        ) : null}
+        <div className="accountant-panel__hero-actions">
+          {entitlement?.muhasebeciProOnerilir ? (
+            <div className="accountant-pro-note">
+              <Sparkles size={18} />
+              <span>Pro plan bu portföy için daha avantajlı görünüyor.</span>
+            </div>
+          ) : null}
+          <a className="accountant-primary-link" href="/app/muhasebeci/musteriler">
+            <UsersRound size={17} />
+            Müşterilerim
+          </a>
+        </div>
       </section>
 
       {mesaj ? <p className="accountant-feedback accountant-feedback--success">{mesaj}</p> : null}
@@ -344,7 +251,7 @@ export function MuhasebeciPanelSayfasi({ onUstBarYenile }: MuhasebeciPanelSayfas
         </article>
       </section>
 
-      <section className="accountant-panel__grid">
+      <section className="accountant-panel__grid accountant-panel__grid--single">
         <form className="accountant-section accountant-section--profile" onSubmit={profilKaydet}>
           <header>
             <div>
@@ -441,24 +348,6 @@ export function MuhasebeciPanelSayfasi({ onUstBarYenile }: MuhasebeciPanelSayfas
           </button>
         </form>
 
-        <form className="accountant-section" onSubmit={davetOlustur}>
-          <header>
-            <div>
-              <span className="accountant-eyebrow">Davet</span>
-              <h2>Davet linki oluştur</h2>
-            </div>
-          </header>
-          <YetkiSecimi value={davetYetki} onChange={setDavetYetki} />
-          <label className="accountant-section__field">
-            <span>Not</span>
-            <textarea value={davetMesaji} onChange={(event) => setDavetMesaji(event.target.value)} rows={3} placeholder="Müşteriye kısa bir not" />
-          </label>
-          <button type="submit" disabled={islemde === "davet"}>
-            {islemde === "davet" ? <Loader2 size={16} className="spin" /> : <UserPlus size={16} />}
-            <span>Davet oluştur</span>
-          </button>
-          {sonDavet ? <DavetKutusu talep={sonDavet} onCopied={() => setMesaj("Davet bağlantısı kopyalandı.")} /> : null}
-        </form>
       </section>
 
       <section className="accountant-section accountant-section--full">
@@ -509,155 +398,7 @@ export function MuhasebeciPanelSayfasi({ onUstBarYenile }: MuhasebeciPanelSayfas
         )}
       </section>
 
-      <section className="accountant-section accountant-section--full">
-        <header>
-          <div>
-            <span className="accountant-eyebrow">Müşteriler</span>
-            <h2>Aktif bağlantılar</h2>
-          </div>
-          <strong className="accountant-count">{panel.musteriler.length}</strong>
-        </header>
-        {panel.musteriler.length === 0 ? (
-          <p className="accountant-empty-row">Aktif müşteri bağlantısı yok.</p>
-        ) : (
-          <div className="accountant-table-wrap">
-            <table className="accountant-table">
-              <thead>
-                <tr>
-                  <th>Müşteri</th>
-                  <th>Belge durumu</th>
-                  <th>Konum</th>
-                  <th>Yetki</th>
-                  <th>Başlangıç</th>
-                  <th />
-                </tr>
-              </thead>
-              <tbody>
-                {panel.musteriler.map((musteri) => (
-                  <tr key={musteri.isletmeId}>
-                    <td>
-                      <strong>{musteri.ad}</strong>
-                    </td>
-                    <td>
-                      <BelgeSagligiHucre musteri={musteri} />
-                    </td>
-                    <td>{musteri.konum || "-"}</td>
-                    <td>{yetkiEtiketi(musteri.yetkiSeviyesi)}</td>
-                    <td>{tarihBic(musteri.baslangicAt)}</td>
-                    <td>
-                      <button
-                        type="button"
-                        onClick={() => sohbetAc({ tur: "musteri", id: musteri.isletmeId, baslik: musteri.ad })}
-                        disabled={sohbetIslemde}
-                      >
-                        <MessageCircle size={15} />
-                        <span>Sohbet</span>
-                      </button>
-                      <button type="button" onClick={() => musteriAc(musteri)} disabled={islemde === `musteri-${musteri.isletmeId}`}>
-                        {islemde === `musteri-${musteri.isletmeId}` ? <Loader2 size={15} className="spin" /> : <ExternalLink size={15} />}
-                        <span>Çalışma alanını aç</span>
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
-
-      {panel.davetler.length ? (
-        <section className="accountant-section accountant-section--full">
-          <header>
-            <div>
-              <span className="accountant-eyebrow">Açık davetler</span>
-              <h2>Davet kodları</h2>
-            </div>
-          </header>
-          <div className="accountant-invite-list">
-            {panel.davetler.map((talep) => (
-              <DavetKutusu key={talep.id} talep={talep} onCopied={() => setMesaj("Davet bağlantısı kopyalandı.")} />
-            ))}
-          </div>
-        </section>
-      ) : null}
-
     </main>
-  );
-}
-
-function YetkiSecimi({ value, onChange }: { value: YetkiSeviyesi; onChange: (value: YetkiSeviyesi) => void }) {
-  return (
-    <div className="accountant-permission" role="group" aria-label="Yetki seviyesi">
-      <button type="button" className={value === "OkumaRapor" ? "active" : ""} onClick={() => onChange("OkumaRapor")}>
-        <ShieldCheck size={16} />
-        <span>Okuma + rapor</span>
-      </button>
-      <button type="button" className={value === "TamIslem" ? "active" : ""} onClick={() => onChange("TamIslem")}>
-        <Check size={16} />
-        <span>Tam işlem</span>
-      </button>
-    </div>
-  );
-}
-
-function BelgeSagligiHucre({ musteri }: { musteri: MuhasebeciMusteri }) {
-  const ozet = musteri.belgeSagligi;
-  if (!ozet) {
-    return (
-      <span className="accountant-document-health__locked" aria-label={`${musteri.ad} belge durumu: Pro ile açılır`}>
-        Pro ile açılır
-      </span>
-    );
-  }
-
-  const skor = ozet.skor === null ? "—" : String(Math.min(100, Math.max(0, Math.round(ozet.skor))));
-  const durum = belgeDurumuEtiketi(ozet.durum);
-  const eksik = `${ozet.eksikBelgeSayisi} eksik`;
-  const sorunOzeti = ozet.sorunlar.slice(0, 3).map((sorun) => `${sorun.baslik}: ${sorun.adet}`).join("\n");
-
-  return (
-    <div
-      className={`accountant-document-health accountant-document-health--${ozet.durum.toLocaleLowerCase("tr-TR")}`}
-      aria-label={`${musteri.ad} belge durumu: ${skor} puan, ${durum}, ${ozet.eksikBelgeSayisi} eksik belge`}
-      title={sorunOzeti || undefined}
-    >
-      <strong>{skor}<small>/100</small></strong>
-      <span>{durum}</span>
-      <small>{eksik}</small>
-    </div>
-  );
-}
-
-function belgeDurumuEtiketi(durum: BelgeSaglikOzeti["durum"]) {
-  switch (durum) {
-    case "Hazir":
-      return "Hazır";
-    case "Dikkat":
-      return "Dikkat";
-    case "Eksik":
-      return "Eksik";
-    default:
-      return "Veri yok";
-  }
-}
-
-function DavetKutusu({ talep, onCopied }: { talep: MuhasebeciTalep; onCopied: () => void }) {
-  const copyValue = talep.davetLinki || talep.davetKodu;
-  return (
-    <div className="accountant-invite-box">
-      <span>{talep.davetKodu}</span>
-      <input value={copyValue} readOnly />
-      <button
-        type="button"
-        onClick={() => {
-          navigator.clipboard?.writeText(copyValue).then(onCopied).catch(() => undefined);
-        }}
-      >
-        <Copy size={15} />
-        <span>Kopyala</span>
-      </button>
-    </div>
   );
 }
 
@@ -698,10 +439,6 @@ function formatLocationName(value: string) {
     .split(" ")
     .map((part) => part ? `${part[0].toLocaleUpperCase("tr-TR")}${part.slice(1)}` : part)
     .join(" ");
-}
-
-function yetkiEtiketi(value: string) {
-  return value === "TamIslem" ? "Tam işlem" : "Okuma + rapor";
 }
 
 function tarihBic(value: string) {

@@ -6383,11 +6383,6 @@ select:disabled {
   color: #11110f !important;
 }
 
-.document-health__automation-action {
-  margin-left: auto;
-  background: var(--document-health-subtle);
-}
-
 .document-health__accountant-note {
   min-width: 0;
   display: flex;
@@ -15314,6 +15309,10 @@ tbody tr.secili {
   gap: 14px;
 }
 
+.accountant-panel__grid--single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .accountant-section {
   padding: 16px;
   display: grid;
@@ -15482,6 +15481,13 @@ tbody tr.secili {
   padding: 0 10px;
 }
 
+.accountant-panel__hero-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
 .accountant-document-health {
   width: max-content;
   display: grid;
@@ -15511,6 +15517,112 @@ tbody tr.secili {
   color: #8a5b00;
   font-size: 11px;
   font-weight: 850;
+}
+
+.accountant-link-invite {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 14px 16px;
+}
+
+.accountant-link-invite > div,
+.accountant-link-invite > div > span:last-child,
+.accountant-link-invite-result,
+.accountant-link-invite-result label {
+  min-width: 0;
+  display: grid;
+}
+
+.accountant-link-invite > div {
+  grid-template-columns: 42px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+}
+
+.accountant-link-invite__icon {
+  width: 42px;
+  height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(22, 135, 255, 0.12);
+  color: #126eda;
+}
+
+.accountant-link-invite strong,
+.accountant-link-invite small {
+  overflow-wrap: anywhere;
+}
+
+.accountant-link-invite strong {
+  color: var(--color-text-primary);
+  font-size: 14px;
+}
+
+.accountant-link-invite small {
+  margin-top: 3px;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.accountant-link-invite > button {
+  flex: 0 0 auto;
+}
+
+.accountant-link-invite-modal__agreement {
+  padding: 13px 14px;
+  border: 1px solid var(--color-border-soft);
+  border-radius: 8px;
+  background: var(--color-surface-2);
+}
+
+.accountant-link-invite-modal__agreement strong {
+  color: var(--color-text-primary);
+  font-size: 14px;
+}
+
+.accountant-link-invite-modal__agreement p {
+  margin: 5px 0 0;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.accountant-link-invite-result {
+  gap: 14px;
+}
+
+.accountant-link-invite-result > div {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #15803d;
+}
+
+.accountant-link-invite-result > div > span,
+.accountant-link-invite-result label {
+  gap: 3px;
+}
+
+.accountant-link-invite-result small,
+.accountant-link-invite-result label > span {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+}
+
+.accountant-link-invite-result input {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--color-border-soft);
+  border-radius: 8px;
+  background: var(--color-surface-1);
+  color: var(--color-text-primary);
+  outline: none;
 }
 
 .accountant-document-health > small {
@@ -15781,6 +15893,7 @@ tbody tr.secili {
   .accountant-public-nav,
   .accountant-marketplace__hero,
   .accountant-panel__hero,
+  .accountant-panel__hero-actions,
   .accountant-toolbar form,
   .accountant-toolbar--invite form,
   .accountant-request-list article,
@@ -17317,6 +17430,15 @@ tbody tr.secili {
 }
 
 @media (max-width: 560px) {
+  .accountant-link-invite {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .accountant-link-invite > button {
+    width: 100%;
+  }
+
   .accountant-modal {
     padding: 12px;
   }
@@ -19360,8 +19482,7 @@ tbody tr.secili {
     white-space: normal;
   }
 
-  .document-health__actions a,
-  .document-health__automation-action {
+  .document-health__actions a {
     width: 100%;
     margin-left: 0;
   }

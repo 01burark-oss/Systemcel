@@ -319,10 +319,6 @@ function BelgeSagligiKarti({ ozet }: { ozet: BelgeSaglikOzeti }) {
             <ArrowRight aria-hidden="true" size={16} />
           </a>
         )}
-        <a className="document-health__automation-action" href="/app/telegram">
-          Belgeleri otomatik aktar
-          <ArrowRight aria-hidden="true" size={16} />
-        </a>
       </footer>
     </section>
   );

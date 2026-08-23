@@ -1588,6 +1588,15 @@ namespace Systemcel.Api.Api
                 // Abonelik hatırlatıcısı, fatura ve cari bildirimlerinin tamamını engellememeli.
             }
 
+            try
+            {
+                await AddAccountantRequestNotificationsAsync(notifications);
+            }
+            catch
+            {
+                // Muhasebeci talepleri diğer bildirimlerin hazırlanmasını engellememeli.
+            }
+
             if (_faturaService is null || _cariService is null)
                 return notifications;
 
@@ -1725,6 +1734,40 @@ namespace Systemcel.Api.Api
                 .ThenBy(x => x.baslik)
                 .Take(5)
                 .ToList();
+        }
+
+        private async Task AddAccountantRequestNotificationsAsync(List<BildirimDto> notifications)
+        {
+            if (_muhasebeciPortalService is null)
+                return;
+
+            var panel = await _muhasebeciPortalService.GetPanelAsync();
+            notifications.AddRange(BuildAccountantRequestNotifications(panel));
+        }
+
+        internal static IReadOnlyList<BildirimDto> BuildAccountantRequestNotifications(MuhasebeciPanelDto panel)
+        {
+            if (!panel.Hazir || panel.BekleyenTalepler.Count == 0)
+                return Array.Empty<BildirimDto>();
+
+            return panel.BekleyenTalepler.Take(5).Select(request =>
+            {
+                var customerName = string.IsNullOrWhiteSpace(request.MusteriAdi)
+                    ? "Yeni bir işletme"
+                    : request.MusteriAdi.Trim();
+                return new BildirimDto
+                {
+                    id = $"muhasebeci-talep-{request.Id}",
+                    tur = "sohbet",
+                    onem = "yuksek",
+                    baslik = $"{customerName} müşteri talebi gönderdi",
+                    mesaj = string.IsNullOrWhiteSpace(request.Mesaj)
+                        ? "Bağlantı ve çalışma koşullarını görüşmek istiyor."
+                        : request.Mesaj.Trim(),
+                    aksiyon = "Talebi incele",
+                    url = $"/app/muhasebeci?talepId={request.Id}&sohbet=1"
+                };
+            }).ToList();
         }
 
         private async Task AddSubscriptionReminderAsync(List<BildirimDto> notifications)

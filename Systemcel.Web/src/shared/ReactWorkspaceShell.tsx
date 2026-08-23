@@ -24,6 +24,7 @@ import {
   Search,
   ShieldCheck,
   ShoppingCart,
+  UsersRound,
   Wallet,
   WalletCards,
   X,
@@ -71,6 +72,7 @@ const anaMenu: Array<{ href: string; label: string; icon: LucideIcon; adminOnly?
   { href: "/raporlar", label: "Raporlar", icon: BarChart3 },
   { href: "/sohbetler", label: "Sohbetler", icon: MessageCircle },
   { href: "/muhasebeci", label: "Muhasebeci Paneli", icon: BriefcaseBusiness },
+  { href: "/muhasebeci/musteriler", label: "Müşterilerim", icon: UsersRound },
   { href: "/muhasebeciler", label: "Muhasebeciler", icon: Search },
   { href: "/yonetim/muhasebeci-basvurulari", label: "Yönetim", icon: ShieldCheck, adminOnly: true },
   { href: "/ayarlar", label: "Ayarlar", icon: Settings }
@@ -80,14 +82,14 @@ function menuForWorkspace(ustBar: UstBarDurumu | null, musteriBaglami: boolean) 
   const visibleMenu = anaMenu.filter((item) => !item.adminOnly || ustBar?.yoneticiMi);
   const muhasebeciCalismaAlani = ustBar?.hesapTipi === "Muhasebeci" && !musteriBaglami;
   if (muhasebeciCalismaAlani) {
-    return visibleMenu.filter((item) => item.href === "/muhasebeci" || item.href === "/muhasebeciler" || item.href === "/sohbetler" || item.href === "/ayarlar" || item.adminOnly);
+    return visibleMenu.filter((item) => item.href === "/muhasebeci" || item.href === "/muhasebeci/musteriler" || item.href === "/muhasebeciler" || item.href === "/sohbetler" || item.href === "/ayarlar" || item.adminOnly);
   }
 
   if (musteriBaglami) {
-    return visibleMenu.filter((item) => item.href !== "/muhasebeci" && item.href !== "/muhasebeciler");
+    return visibleMenu.filter((item) => !item.href.startsWith("/muhasebeci"));
   }
 
-  return visibleMenu.filter((item) => item.href !== "/muhasebeci");
+  return visibleMenu.filter((item) => item.href !== "/muhasebeci" && item.href !== "/muhasebeci/musteriler");
 }
 
 const ayarlarAltMenu = [
@@ -109,6 +111,10 @@ function menuAktifMi(currentPath: string, href: string) {
 
   if (href === "/ayarlar" && currentPath === "/abonelik") {
     return true;
+  }
+
+  if (href === "/muhasebeci") {
+    return currentPath === href;
   }
 
   return currentPath === href || currentPath.startsWith(`${href}/`);
@@ -223,6 +229,13 @@ function workspacePageMeta(path: string, settingsTab: string): WorkspacePageMeta
     return {
       icon: BriefcaseBusiness,
       title: "Muhasebeci paneli"
+    };
+  }
+
+  if (path === "/muhasebeci/musteriler") {
+    return {
+      icon: UsersRound,
+      title: "Müşterilerim"
     };
   }
 

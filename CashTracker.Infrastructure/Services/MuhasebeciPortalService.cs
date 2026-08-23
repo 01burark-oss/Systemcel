@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -310,6 +312,121 @@ namespace CashTracker.Infrastructure.Services
                 await transaction.CommitAsync(ct);
 
             var accountant = await db.Isletmeler.AsNoTracking().FirstAsync(x => x.Id == talep.MuhasebeciIsletmeId, ct);
+            return BuildTalepDto(talep, accountant, customer);
+        }
+
+        public async Task<MuhasebeciLinkDavetDto> CreateCustomerLinkInviteAsync(
+            MuhasebeciLinkDavetOlusturRequest request,
+            string publicBaseUrl,
+            CancellationToken ct = default)
+        {
+            await using var db = await _dbFactory.CreateDbContextAsync(ct);
+            await EnsureCurrentUserAsync(db, ct);
+            var customer = await _isletmeService.GetActiveAsync();
+            if (!string.Equals(customer.TenantTipi, HesapTipleri.Isletme, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException("Muhasebeci davet bağlantısını yalnız işletme hesabı oluşturabilir.");
+
+            var now = DateTime.Now;
+            var previousInvites = await db.MuhasebeciBaglantiDavetleri
+                .Where(x => x.MusteriIsletmeId == customer.Id && x.Durum == MuhasebeciTalepDurumlari.Beklemede)
+                .ToListAsync(ct);
+            foreach (var previous in previousInvites)
+            {
+                previous.Durum = MuhasebeciTalepDurumlari.Iptal;
+                previous.UpdatedAt = now;
+            }
+
+            var token = GenerateCustomerInviteToken();
+            var invite = new MuhasebeciBaglantiDaveti
+            {
+                MusteriIsletmeId = customer.Id,
+                TokenHash = HashCustomerInviteToken(token),
+                Durum = MuhasebeciTalepDurumlari.Beklemede,
+                YetkiSeviyesi = NormalizeYetki(request.YetkiSeviyesi),
+                Mesaj = NormalizeConversationText(request.Mesaj, allowEmpty: true),
+                SonGecerlilikAt = now.AddDays(14),
+                CreatedAt = now,
+                UpdatedAt = now
+            };
+            db.MuhasebeciBaglantiDavetleri.Add(invite);
+            await db.SaveChangesAsync(ct);
+
+            return BuildCustomerLinkInviteDto(
+                invite,
+                customer,
+                $"{publicBaseUrl.TrimEnd('/')}/muhasebeci-daveti/{token}");
+        }
+
+        public async Task<MuhasebeciLinkDavetDto?> GetCustomerLinkInviteAsync(string token, CancellationToken ct = default)
+        {
+            if (string.IsNullOrWhiteSpace(token))
+                return null;
+
+            await using var db = await _dbFactory.CreateDbContextAsync(ct);
+            var tokenHash = HashCustomerInviteToken(token);
+            var invite = await db.MuhasebeciBaglantiDavetleri.AsNoTracking()
+                .FirstOrDefaultAsync(x => x.TokenHash == tokenHash, ct);
+            if (invite is null)
+                return null;
+
+            var customer = await db.Isletmeler.AsNoTracking()
+                .FirstOrDefaultAsync(x => x.Id == invite.MusteriIsletmeId, ct);
+            if (customer is null)
+                return null;
+
+            return BuildCustomerLinkInviteDto(invite, customer, string.Empty);
+        }
+
+        public async Task<MuhasebeciTalepDto> AcceptCustomerLinkInviteAsync(
+            MuhasebeciLinkDavetKabulRequest request,
+            CancellationToken ct = default)
+        {
+            await using var db = await _dbFactory.CreateDbContextAsync(ct);
+            await using var transaction = _entitlementGuard is null
+                ? null
+                : await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
+            var user = await EnsureCurrentUserAsync(db, ct);
+            var accountant = await RequireCurrentAccountantBusinessAsync(db, user, ct);
+            RequireApprovedAccountantUser(user);
+
+            var tokenHash = HashCustomerInviteToken(request.Token);
+            var invite = await db.MuhasebeciBaglantiDavetleri.FirstOrDefaultAsync(x =>
+                x.TokenHash == tokenHash && x.Durum == MuhasebeciTalepDurumlari.Beklemede, ct)
+                ?? throw new InvalidOperationException("Davet bağlantısı bulunamadı veya artık aktif değil.");
+            if (invite.SonGecerlilikAt <= DateTime.Now)
+                throw new InvalidOperationException("Davet bağlantısının süresi dolmuş.");
+
+            var customer = await db.Isletmeler.FirstOrDefaultAsync(x =>
+                x.Id == invite.MusteriIsletmeId && x.TenantTipi == HesapTipleri.Isletme, ct)
+                ?? throw new InvalidOperationException("Davet sahibi işletme bulunamadı.");
+            await EnsureNoActiveOrPendingPairAsync(db, accountant.Id, customer.Id, ct);
+            await EnsureCustomerCapacityAsync(db, accountant.Id, customer.Id, ct);
+
+            var now = DateTime.Now;
+            var talep = new MuhasebeciMusteriTalebi
+            {
+                MuhasebeciIsletmeId = accountant.Id,
+                MusteriIsletmeId = customer.Id,
+                TalepEdenIsletmeId = customer.Id,
+                Tur = MuhasebeciTalepTurleri.MusteriDaveti,
+                Durum = MuhasebeciTalepDurumlari.Beklemede,
+                YetkiSeviyesi = NormalizeYetki(invite.YetkiSeviyesi),
+                Mesaj = invite.Mesaj,
+                CreatedAt = now,
+                UpdatedAt = now
+            };
+            db.MuhasebeciMusteriTalepleri.Add(talep);
+            await db.SaveChangesAsync(ct);
+            await AcceptTalepAsync(db, talep, customer.Id, talep.YetkiSeviyesi, ct);
+
+            invite.MuhasebeciIsletmeId = accountant.Id;
+            invite.Durum = MuhasebeciTalepDurumlari.Kabul;
+            invite.KabulAt = now;
+            invite.UpdatedAt = now;
+            await db.SaveChangesAsync(ct);
+            if (transaction is not null)
+                await transaction.CommitAsync(ct);
+
             return BuildTalepDto(talep, accountant, customer);
         }
 
@@ -1042,6 +1159,36 @@ namespace CashTracker.Infrastructure.Services
             }
 
             return $"MUS-{Guid.NewGuid():N}"[..14].ToUpperInvariant();
+        }
+
+        private static string GenerateCustomerInviteToken() =>
+            Convert.ToHexString(RandomNumberGenerator.GetBytes(24)).ToLowerInvariant();
+
+        private static string HashCustomerInviteToken(string token)
+        {
+            if (string.IsNullOrWhiteSpace(token))
+                throw new InvalidOperationException("Davet bağlantısı geçersiz.");
+
+            return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token.Trim()))).ToLowerInvariant();
+        }
+
+        private static MuhasebeciLinkDavetDto BuildCustomerLinkInviteDto(
+            MuhasebeciBaglantiDaveti invite,
+            Isletme customer,
+            string inviteLink)
+        {
+            var status = invite.Durum == MuhasebeciTalepDurumlari.Beklemede && invite.SonGecerlilikAt <= DateTime.Now
+                ? "SuresiDoldu"
+                : invite.Durum;
+            return new MuhasebeciLinkDavetDto
+            {
+                MusteriAdi = DisplayName(customer.Ad, "İşletme"),
+                Durum = status,
+                YetkiSeviyesi = NormalizeYetki(invite.YetkiSeviyesi),
+                Mesaj = invite.Mesaj,
+                DavetLinki = inviteLink,
+                SonGecerlilikAt = invite.SonGecerlilikAt
+            };
         }
 
         private static MuhasebeciProfilDto BuildProfileDto(

@@ -69,11 +69,11 @@ function AboutContent({ language }: { language: "tr" | "en" }) {
 function BlogContent({ language }: { language: "tr" | "en" }) {
   const posts = language === "tr" ? [
     ["Ön muhasebede tek veri kaynağı neden önemli?", "Gelir-gider, cari, stok ve faturaların aynı işletme bağlamında tutulmasının günlük kararları nasıl sadeleştirdiğini anlatıyoruz."],
-    ["e-Arşiv fatura akışını düzenlemek", "Taslak oluşturmadan SMS onayına kadar fatura sürecindeki temel kontrol noktaları."],
+    ["e-Arşiv fatura akışını düzenlemek", "Taslak, müşteri bilgi teyidi ve işletme telefonuna gelen GİB koduyla resmi kesim adımları."],
     ["Muhasebeciyle dijital çalışma alanı", "Talep, sohbet ve finansal veri paylaşımını e-posta zincirlerinden çıkarmanın pratik faydaları."],
   ] : [
     ["Why one source of truth matters in accounting", "How keeping income, expenses, accounts, inventory and invoices in one business context simplifies daily decisions."],
-    ["Organizing the e-Archive invoice flow", "The core checkpoints from drafting an invoice to SMS approval."],
+    ["Organizing the e-Archive invoice flow", "Drafting, customer detail confirmation, and issuing with the GİB code sent to the business phone."],
     ["A digital workspace with your accountant", "Practical benefits of moving requests, chat and financial data sharing beyond email chains."],
   ];
   return <div className="marketing-content-grid">{posts.map(([title, text], index) => <article className="marketing-content-card" key={title}><Newspaper /><small>0{index + 1}</small><h2>{title}</h2><p>{text}</p><a href="mailto:merhaba@systemcel.app?subject=Systemcel%20Blog">{language === "tr" ? "Bu konu hakkında konuş" : "Talk about this topic"}<ArrowRight size={16} /></a></article>)}</div>;

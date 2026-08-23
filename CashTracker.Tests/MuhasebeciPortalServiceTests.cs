@@ -197,6 +197,79 @@ namespace CashTracker.Tests
         }
 
         [Fact]
+        public async Task IsletmeDavetLinki_MuhasebeciKabulEdinceSecilenYetkiyleBaglanir()
+        {
+            using var fixture = await MuhasebeciPortalFixture.CreateAsync();
+            var ids = await fixture.CreateAccountantAndCustomerAsync();
+
+            fixture.CurrentUser.Set("customer", "customer@example.com", "Bahar Kafe");
+            var davet = await fixture.Portal.CreateCustomerLinkInviteAsync(
+                new MuhasebeciLinkDavetOlusturRequest
+                {
+                    YetkiSeviyesi = MuhasebeciYetkiSeviyeleri.TamIslem,
+                    Mesaj = "Aylik belgelerimizi birlikte yonetelim."
+                },
+                "https://systemcel.test");
+            var token = new Uri(davet.DavetLinki).Segments.Last().Trim('/');
+
+            await using (var db = fixture.CreateDbContext())
+            {
+                var kayit = await db.MuhasebeciBaglantiDavetleri.SingleAsync();
+                Assert.NotEqual(token, kayit.TokenHash);
+                Assert.Equal(MuhasebeciTalepDurumlari.Beklemede, kayit.Durum);
+                Assert.InRange(kayit.SonGecerlilikAt, DateTime.Now.AddDays(13), DateTime.Now.AddDays(15));
+            }
+
+            fixture.CurrentUser.Set("accountant", "accountant@example.com", "Ada Muhasebe");
+            await fixture.Portal.AcceptCustomerLinkInviteAsync(new MuhasebeciLinkDavetKabulRequest
+            {
+                Token = token
+            });
+
+            await using (var db = fixture.CreateDbContext())
+            {
+                var relation = await db.MuhasebeciMusterileri.SingleAsync(x =>
+                    x.MuhasebeciIsletmeId == ids.AccountantId &&
+                    x.MusteriIsletmeId == ids.CustomerId);
+                var kayit = await db.MuhasebeciBaglantiDavetleri.SingleAsync();
+
+                Assert.Equal(MuhasebeciYetkiSeviyeleri.TamIslem, relation.YetkiSeviyesi);
+                Assert.Equal(MuhasebeciTalepTurleri.MusteriDaveti, relation.Kaynak);
+                Assert.Equal(MuhasebeciTalepDurumlari.Kabul, kayit.Durum);
+                Assert.Equal(ids.AccountantId, kayit.MuhasebeciIsletmeId);
+            }
+        }
+
+        [Fact]
+        public async Task IsletmeDavetLinki_OnaysizMuhasebeciTarafindanKabulEdilemez()
+        {
+            using var fixture = await MuhasebeciPortalFixture.CreateAsync();
+            var ids = await fixture.CreateAccountantAndCustomerAsync();
+
+            fixture.CurrentUser.Set("customer", "customer@example.com", "Bahar Kafe");
+            var davet = await fixture.Portal.CreateCustomerLinkInviteAsync(
+                new MuhasebeciLinkDavetOlusturRequest(),
+                "https://systemcel.test");
+            var token = new Uri(davet.DavetLinki).Segments.Last().Trim('/');
+
+            await using (var db = fixture.CreateDbContext())
+            {
+                var accountantUser = await db.Kullanicilar.SingleAsync(x => x.AuthProviderUserId == "accountant");
+                accountantUser.Durum = KullaniciDurumlari.MuhasebeciOnayBekliyor;
+                await db.SaveChangesAsync();
+            }
+
+            fixture.CurrentUser.Set("accountant", "accountant@example.com", "Ada Muhasebe");
+            var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                fixture.Portal.AcceptCustomerLinkInviteAsync(new MuhasebeciLinkDavetKabulRequest { Token = token }));
+
+            await using var verifyDb = fixture.CreateDbContext();
+            Assert.Contains("onay bekliyor", error.Message, StringComparison.OrdinalIgnoreCase);
+            Assert.False(await verifyDb.MuhasebeciMusterileri.AnyAsync(x =>
+                x.MuhasebeciIsletmeId == ids.AccountantId && x.MusteriIsletmeId == ids.CustomerId));
+        }
+
+        [Fact]
         public async Task StandartPlan_EkMusteriKredisiKadarDavetKapasitesiVerir()
         {
             using var fixture = await MuhasebeciPortalFixture.CreateAsync();

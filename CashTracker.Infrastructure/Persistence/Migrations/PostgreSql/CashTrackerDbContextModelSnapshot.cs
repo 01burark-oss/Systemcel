@@ -1172,6 +1172,62 @@ namespace CashTracker.Infrastructure.Persistence.Migrations.PostgreSql
                     b.ToTable("KurucuKampanyaHakki", (string)null);
                 });
 
+            modelBuilder.Entity("CashTracker.Core.Entities.MuhasebeciBaglantiDaveti", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("Durum")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("KabulAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("Mesaj")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int?>("MuhasebeciIsletmeId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("MusteriIsletmeId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("SonGecerlilikAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("YetkiSeviyesi")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MuhasebeciIsletmeId");
+
+                    b.HasIndex("MusteriIsletmeId");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique();
+
+                    b.HasIndex("MusteriIsletmeId", "Durum");
+
+                    b.ToTable("MuhasebeciBaglantiDaveti", (string)null);
+                });
+
             modelBuilder.Entity("CashTracker.Core.Entities.MuhasebeciMusteri", b =>
                 {
                     b.Property<int>("Id")

@@ -46,7 +46,8 @@ export function sanitizeAppReturnUrl(value: string | null | undefined) {
     return "/app";
   }
 
-  if (url.origin !== window.location.origin || (url.pathname !== "/app" && !url.pathname.startsWith("/app/"))) return "/app";
+  const accountantInvite = /^\/muhasebeci-daveti\/[a-f0-9]{48}$/i.test(url.pathname);
+  if (url.origin !== window.location.origin || (!accountantInvite && url.pathname !== "/app" && !url.pathname.startsWith("/app/"))) return "/app";
   const planCode = url.searchParams.get("plan");
   if (planCode && !planOwners[planCode]) return "/app";
   const billing = url.searchParams.get("billing");
