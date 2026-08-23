@@ -21,19 +21,22 @@ namespace CashTracker.Infrastructure.Services
         private readonly IIsletmeService _isletmeService;
         private readonly ISubscriptionEntitlementService _entitlementService;
         private readonly IEntitlementGuard? _entitlementGuard;
+        private readonly IBelgeSaglikService? _belgeSaglikService;
 
         public MuhasebeciPortalService(
             IDbContextFactory<CashTrackerDbContext> dbFactory,
             ICurrentUserContext currentUserContext,
             IIsletmeService isletmeService,
             ISubscriptionEntitlementService entitlementService,
-            IEntitlementGuard? entitlementGuard = null)
+            IEntitlementGuard? entitlementGuard = null,
+            IBelgeSaglikService? belgeSaglikService = null)
         {
             _dbFactory = dbFactory;
             _currentUserContext = currentUserContext;
             _isletmeService = isletmeService;
             _entitlementService = entitlementService;
             _entitlementGuard = entitlementGuard;
+            _belgeSaglikService = belgeSaglikService;
         }
 
         public async Task<MuhasebeciPazaryeriDto> GetPublicMarketplaceAsync(string? arama = null, CancellationToken ct = default)
@@ -101,6 +104,9 @@ namespace CashTracker.Infrastructure.Services
             var customers = await db.Isletmeler.AsNoTracking()
                 .Where(x => customerIds.Contains(x.Id))
                 .ToDictionaryAsync(x => x.Id, ct);
+            var belgeSagliklari = entitlement.MusteriSaglikSkoruAktif && _belgeSaglikService is not null
+                ? await GetBelgeSagliklariAsync(customerIds, ct)
+                : new Dictionary<int, BelgeSaglikOzeti>();
 
             var pending = await db.MuhasebeciMusteriTalepleri.AsNoTracking()
                 .Where(x => x.MuhasebeciIsletmeId == accountant.Id && x.Durum == MuhasebeciTalepDurumlari.Beklemede)
@@ -130,7 +136,8 @@ namespace CashTracker.Infrastructure.Services
                             Konum = customer?.Konum ?? string.Empty,
                             YetkiSeviyesi = NormalizeYetki(x.YetkiSeviyesi),
                             Durum = x.Durum,
-                            BaslangicAt = x.BaslangicAt
+                            BaslangicAt = x.BaslangicAt,
+                            BelgeSagligi = belgeSagliklari.GetValueOrDefault(x.MusteriIsletmeId)
                         };
                     })
                     .OrderBy(x => x.Ad)
@@ -144,6 +151,28 @@ namespace CashTracker.Infrastructure.Services
                     .Select(x => BuildTalepDto(x, accountant, null))
                     .ToList()
             };
+        }
+
+        private async Task<Dictionary<int, BelgeSaglikOzeti>> GetBelgeSagliklariAsync(
+            IReadOnlyCollection<int> customerIds,
+            CancellationToken ct)
+        {
+            var result = new Dictionary<int, BelgeSaglikOzeti>(customerIds.Count);
+            var referenceDate = DateTime.Today;
+
+            foreach (var batch in customerIds.Chunk(4))
+            {
+                ct.ThrowIfCancellationRequested();
+                var summaries = await Task.WhenAll(batch.Select(async customerId =>
+                    new KeyValuePair<int, BelgeSaglikOzeti>(
+                        customerId,
+                        await _belgeSaglikService!.GetAsync(customerId, referenceDate, ct))));
+
+                foreach (var summary in summaries)
+                    result[summary.Key] = summary.Value;
+            }
+
+            return result;
         }
 
         public async Task<MuhasebeciProfilDto> SaveProfileAsync(MuhasebeciProfilKaydetRequest request, CancellationToken ct = default)

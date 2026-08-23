@@ -148,6 +148,7 @@ builder.Services.AddSingleton<IMusteriSmsSender>(sp => musteriSmsSettings.IsConf
 builder.Services.AddSingleton<IFaturaMusteriOnayService, FaturaMusteriOnayService>();
 builder.Services.AddSingleton<IOnMuhasebeReportService, OnMuhasebeReportService>();
 builder.Services.AddSingleton<IFinansalGorunumService, FinansalGorunumService>();
+builder.Services.AddSingleton<IBelgeSaglikService, BelgeSaglikService>();
 builder.Services.AddSingleton<ISubscriptionEntitlementService, SubscriptionEntitlementService>();
 builder.Services.AddSingleton<IEntitlementGuard, EntitlementGuard>();
 builder.Services.AddSingleton<IPaymentPricingService>(_ => new PaymentPricingService(

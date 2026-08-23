@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using CashTracker.Core.Entities;
 using CashTracker.Core.Models;
@@ -269,6 +270,58 @@ namespace CashTracker.Tests
         }
 
         [Fact]
+        public async Task ProPlan_BelgeSagliginiYalnizAktifBagliMusteriyeAktarir()
+        {
+            using var fixture = await MuhasebeciPortalFixture.CreateAsync();
+            var ids = await fixture.CreateAccountantAndCustomerAsync();
+            await fixture.CreateRelationAsync(ids.AccountantId, ids.CustomerId, MuhasebeciYetkiSeviyeleri.OkumaRapor);
+            var excludedIds = await fixture.CreateExcludedRelationsAsync(ids.AccountantId);
+            await fixture.AddAccountantSubscriptionAsync(ids.AccountantId, PlanKodlari.MuhasebeciPro);
+            var summary = new BelgeSaglikOzeti
+            {
+                Skor = 84,
+                Durum = BelgeSaglikDurumlari.Dikkat
+            };
+            var belgeSaglik = new RecordingBelgeSaglikService(summary);
+            var portal = fixture.CreatePortal(belgeSaglik);
+
+            fixture.CurrentUser.Set("accountant", "accountant@example.com", "Ada Muhasebe");
+            var panel = await portal.GetPanelAsync();
+
+            Assert.True(panel.Entitlement!.MusteriSaglikSkoruAktif);
+            var customer = Assert.Single(panel.Musteriler);
+            Assert.Equal(ids.CustomerId, customer.IsletmeId);
+            Assert.Same(summary, customer.BelgeSagligi);
+            Assert.Equal(84, customer.BelgeSagligi!.Skor);
+            var call = Assert.Single(belgeSaglik.Calls);
+            Assert.Equal(ids.CustomerId, call.IsletmeId);
+            Assert.Equal(DateTime.Today, call.ReferenceDate!.Value);
+            Assert.DoesNotContain(belgeSaglik.Calls, x => x.IsletmeId == excludedIds.InactiveCustomerId);
+            Assert.DoesNotContain(belgeSaglik.Calls, x => x.IsletmeId == excludedIds.OtherAccountantCustomerId);
+        }
+
+        [Fact]
+        public async Task StandartPlan_BelgeSagliginiHesaplamazVeDtoAlaniniBosBirakir()
+        {
+            using var fixture = await MuhasebeciPortalFixture.CreateAsync();
+            var ids = await fixture.CreateAccountantAndCustomerAsync();
+            await fixture.CreateRelationAsync(ids.AccountantId, ids.CustomerId, MuhasebeciYetkiSeviyeleri.OkumaRapor);
+            await fixture.AddAccountantSubscriptionAsync(ids.AccountantId, PlanKodlari.MuhasebeciStandart);
+            var belgeSaglik = new RecordingBelgeSaglikService(new BelgeSaglikOzeti())
+            {
+                FailWhenCalled = true
+            };
+            var portal = fixture.CreatePortal(belgeSaglik);
+
+            fixture.CurrentUser.Set("accountant", "accountant@example.com", "Ada Muhasebe");
+            var panel = await portal.GetPanelAsync();
+
+            Assert.False(panel.Entitlement!.MusteriSaglikSkoruAktif);
+            Assert.Null(Assert.Single(panel.Musteriler).BelgeSagligi);
+            Assert.Empty(belgeSaglik.Calls);
+        }
+
+        [Fact]
         public async Task MusteriBaglami_YetkiSeviyesineGoreYazmaHakkiDondurur()
         {
             using var fixture = await MuhasebeciPortalFixture.CreateAsync();
@@ -409,6 +462,44 @@ namespace CashTracker.Tests
             }
         }
 
+        private sealed class RecordingBelgeSaglikService : IBelgeSaglikService
+        {
+            private readonly object _sync = new();
+            private readonly BelgeSaglikOzeti _summary;
+            private readonly List<(int IsletmeId, DateTime? ReferenceDate)> _calls = new();
+
+            public RecordingBelgeSaglikService(BelgeSaglikOzeti summary)
+            {
+                _summary = summary;
+            }
+
+            public bool FailWhenCalled { get; init; }
+
+            public IReadOnlyList<(int IsletmeId, DateTime? ReferenceDate)> Calls
+            {
+                get
+                {
+                    lock (_sync)
+                        return _calls.ToList();
+                }
+            }
+
+            public Task<BelgeSaglikOzeti> GetAsync(
+                int isletmeId,
+                DateTime? referenceDate = null,
+                CancellationToken ct = default)
+            {
+                ct.ThrowIfCancellationRequested();
+                lock (_sync)
+                    _calls.Add((isletmeId, referenceDate));
+
+                if (FailWhenCalled)
+                    throw new InvalidOperationException("Belge sagligi Standart plan icin cagrilmamali.");
+
+                return Task.FromResult(_summary);
+            }
+        }
+
         private sealed class MuhasebeciPortalFixture : IDisposable
         {
             private MuhasebeciPortalFixture(string dbPath, DbContextOptions<CashTrackerDbContext> options)
@@ -428,6 +519,16 @@ namespace CashTracker.Tests
             public IsletmeService IsletmeService { get; }
             public SubscriptionEntitlementService EntitlementService { get; }
             public MuhasebeciPortalService Portal { get; }
+            public MuhasebeciPortalService CreatePortal(IBelgeSaglikService belgeSaglikService)
+            {
+                return new MuhasebeciPortalService(
+                    new SingleDbContextFactory(Options),
+                    CurrentUser,
+                    IsletmeService,
+                    EntitlementService,
+                    belgeSaglikService: belgeSaglikService);
+            }
+
             public SystemcelYonetimService CreateYonetimService(string adminClerkUserIds = "")
             {
                 return new SystemcelYonetimService(
@@ -522,6 +623,84 @@ namespace CashTracker.Tests
                     KabulAt = DateTime.Now.AddDays(-1),
                     CreatedAt = DateTime.Now.AddDays(-1),
                     UpdatedAt = DateTime.Now.AddDays(-1)
+                });
+                await db.SaveChangesAsync();
+            }
+
+            public async Task<(int InactiveCustomerId, int OtherAccountantCustomerId)> CreateExcludedRelationsAsync(int accountantId)
+            {
+                await using var db = CreateDbContext();
+                var now = DateTime.UtcNow;
+                var inactiveCustomer = new Isletme
+                {
+                    Ad = "Pasif baglanti musterisi",
+                    TenantTipi = HesapTipleri.Isletme,
+                    IsAktif = true,
+                    CreatedAt = now,
+                    UpdatedAt = now
+                };
+                var otherAccountant = new Isletme
+                {
+                    Ad = "Diger muhasebeci",
+                    TenantTipi = HesapTipleri.Muhasebeci,
+                    IsAktif = true,
+                    CreatedAt = now,
+                    UpdatedAt = now
+                };
+                var otherCustomer = new Isletme
+                {
+                    Ad = "Diger muhasebecinin musterisi",
+                    TenantTipi = HesapTipleri.Isletme,
+                    IsAktif = true,
+                    CreatedAt = now,
+                    UpdatedAt = now
+                };
+                db.Isletmeler.AddRange(inactiveCustomer, otherAccountant, otherCustomer);
+                await db.SaveChangesAsync();
+
+                db.MuhasebeciMusterileri.AddRange(
+                    new MuhasebeciMusteri
+                    {
+                        MuhasebeciIsletmeId = accountantId,
+                        MusteriIsletmeId = inactiveCustomer.Id,
+                        Durum = "Pasif",
+                        YetkiSeviyesi = MuhasebeciYetkiSeviyeleri.OkumaRapor,
+                        BaslangicAt = now,
+                        CreatedAt = now,
+                        UpdatedAt = now
+                    },
+                    new MuhasebeciMusteri
+                    {
+                        MuhasebeciIsletmeId = otherAccountant.Id,
+                        MusteriIsletmeId = otherCustomer.Id,
+                        Durum = "Aktif",
+                        YetkiSeviyesi = MuhasebeciYetkiSeviyeleri.OkumaRapor,
+                        BaslangicAt = now,
+                        CreatedAt = now,
+                        UpdatedAt = now
+                    });
+                await db.SaveChangesAsync();
+
+                return (inactiveCustomer.Id, otherCustomer.Id);
+            }
+
+            public async Task AddAccountantSubscriptionAsync(int accountantId, string planCode)
+            {
+                await using var db = CreateDbContext();
+                var now = DateTime.UtcNow;
+                db.Abonelikler.Add(new Abonelik
+                {
+                    IsletmeId = accountantId,
+                    HesapTipi = HesapTipleri.Muhasebeci,
+                    PlanKodu = planCode,
+                    Durum = "Aktif",
+                    FaturalamaDonemi = PaymentBillingPeriods.Monthly,
+                    AylikTutar = 1m,
+                    DonemTutari = 1m,
+                    DonemBaslangicAt = now.AddDays(-1),
+                    DonemBitisAt = now.AddMonths(1),
+                    CreatedAt = now.AddDays(-1),
+                    UpdatedAt = now
                 });
                 await db.SaveChangesAsync();
             }

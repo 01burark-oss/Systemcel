@@ -103,6 +103,7 @@ namespace CashTracker.Core.Models
         public string YetkiSeviyesi { get; init; } = MuhasebeciYetkiSeviyeleri.OkumaRapor;
         public string Durum { get; init; } = string.Empty;
         public DateTime BaslangicAt { get; init; }
+        public BelgeSaglikOzeti? BelgeSagligi { get; init; }
     }
 
     public sealed class MuhasebeciTalepDto

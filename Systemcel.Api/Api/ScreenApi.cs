@@ -48,6 +48,7 @@ namespace Systemcel.Api.Api
         private readonly IEntitlementGuard? _entitlementGuard;
         private readonly IDbContextFactory<CashTrackerDbContext>? _dbFactory;
         private readonly IPaymentPricingService? _paymentPricingService;
+        private readonly IBelgeSaglikService? _belgeSaglikService;
         private readonly ConcurrentDictionary<int, ReportPackageState> _lastReportPackages = new();
 
         public ScreenApi(
@@ -76,7 +77,8 @@ namespace Systemcel.Api.Api
             IEntitlementGuard? entitlementGuard = null,
             IDbContextFactory<CashTrackerDbContext>? dbFactory = null,
             IPaymentPricingService? paymentPricingService = null,
-            IOdemeHatirlatmaService? odemeHatirlatmaService = null)
+            IOdemeHatirlatmaService? odemeHatirlatmaService = null,
+            IBelgeSaglikService? belgeSaglikService = null)
         {
             _kasaService = kasaService;
             _summaryService = summaryService;
@@ -104,6 +106,7 @@ namespace Systemcel.Api.Api
             _dbFactory = dbFactory;
             _paymentPricingService = paymentPricingService;
             _odemeHatirlatmaService = odemeHatirlatmaService;
+            _belgeSaglikService = belgeSaglikService;
         }
 
         public void MapApi(WebApplication app)
@@ -1427,6 +1430,13 @@ namespace Systemcel.Api.Api
             var yesterdaySummary = await _summaryService!.GetSummaryAsync(yesterday, yesterday);
             var recentRows = await _kasaService!.GetAllAsync(today.AddDays(-29), today);
             var chatStatus = await BuildChatNotificationStatusAsync();
+            var documentHealth = _belgeSaglikService is null
+                ? new BelgeSaglikOzeti
+                {
+                    DonemBaslangic = new DateTime(today.Year, today.Month, 1),
+                    DonemBitis = new DateTime(today.Year, today.Month, 1).AddMonths(1).AddDays(-1)
+                }
+                : await _belgeSaglikService.GetAsync(await _isletmeService!.GetActiveIdAsync(), today);
 
             return new DashboardEkranDto
             {
@@ -1445,7 +1455,8 @@ namespace Systemcel.Api.Api
                     .Select(ToOdemeDagilimDto)
                     .ToList(),
                 netTrend = BuildNetTrend(recentRows, today, 30),
-                sohbet = chatStatus
+                sohbet = chatStatus,
+                belgeSagligi = documentHealth
             };
         }
 
@@ -3833,6 +3844,7 @@ namespace Systemcel.Api.Api
             public List<OdemeDagilimDto> odemeDagilimi { get; set; } = new();
             public List<NetTrendNoktaDto> netTrend { get; set; } = new();
             public MuhasebeciSohbetBildirimDurumuDto sohbet { get; set; } = new();
+            public BelgeSaglikOzeti belgeSagligi { get; set; } = new();
         }
 
         public sealed class UstBarDto

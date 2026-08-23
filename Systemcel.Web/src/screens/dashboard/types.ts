@@ -39,6 +39,35 @@ export interface SohbetBildirimDurumu {
   }>;
 }
 
+export type BelgeSaglikDurumu = "Hazir" | "Dikkat" | "Eksik" | "VeriYok";
+
+export interface BelgeSaglikSorunu {
+  kod: string;
+  baslik: string;
+  adet: number;
+  puanEtkisi: number;
+  aksiyonUrl: string;
+}
+
+export interface BelgeSaglikOzeti {
+  skor: number | null;
+  durum: BelgeSaglikDurumu;
+  donemBaslangic: string;
+  donemBitis: string;
+  faturaSayisi: number;
+  hazirBelgeSayisi: number;
+  eksikBelgeSayisi: number;
+  taslakFaturaSayisi: number;
+  dosyasiEksikFaturaSayisi: number;
+  satiriEksikFaturaSayisi: number;
+  cariBilgisiEksikFaturaSayisi: number;
+  vadeTarihiEksikFaturaSayisi: number;
+  bekleyenVeriIstegiSayisi: number;
+  sonBelgeAt: string | null;
+  muhasebeciBagli: boolean;
+  sorunlar: BelgeSaglikSorunu[];
+}
+
 export interface DashboardEkran {
   aktifIsletme: string;
   bugun: OzetKart;
@@ -48,4 +77,5 @@ export interface DashboardEkran {
   odemeDagilimi: OdemeDagilim[];
   netTrend: NetTrendNokta[];
   sohbet?: SohbetBildirimDurumu;
+  belgeSagligi?: BelgeSaglikOzeti | null;
 }

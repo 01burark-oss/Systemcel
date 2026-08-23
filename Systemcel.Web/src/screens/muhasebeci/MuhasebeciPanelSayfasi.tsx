@@ -17,6 +17,7 @@ import { planAdiGoster } from "../../shared/planEtiketi";
 import { ProfilResmiYukleyici } from "../../shared/ProfilResmiYukleyici";
 import { TelefonNumarasiInput } from "../../shared/TelefonNumarasiInput";
 import { TURKIYE_KONUMLARI } from "../../shared/turkiyeKonumlari";
+import type { BelgeSaglikOzeti } from "../dashboard/types";
 
 type YetkiSeviyesi = "OkumaRapor" | "TamIslem";
 
@@ -58,6 +59,7 @@ interface MuhasebeciMusteri {
   yetkiSeviyesi: YetkiSeviyesi;
   durum: string;
   baslangicAt: string;
+  belgeSagligi?: BelgeSaglikOzeti | null;
 }
 
 interface MuhasebeciTalep {
@@ -523,6 +525,7 @@ export function MuhasebeciPanelSayfasi({ onUstBarYenile }: MuhasebeciPanelSayfas
               <thead>
                 <tr>
                   <th>Müşteri</th>
+                  <th>Belge durumu</th>
                   <th>Konum</th>
                   <th>Yetki</th>
                   <th>Başlangıç</th>
@@ -534,6 +537,9 @@ export function MuhasebeciPanelSayfasi({ onUstBarYenile }: MuhasebeciPanelSayfas
                   <tr key={musteri.isletmeId}>
                     <td>
                       <strong>{musteri.ad}</strong>
+                    </td>
+                    <td>
+                      <BelgeSagligiHucre musteri={musteri} />
                     </td>
                     <td>{musteri.konum || "-"}</td>
                     <td>{yetkiEtiketi(musteri.yetkiSeviyesi)}</td>
@@ -593,6 +599,47 @@ function YetkiSecimi({ value, onChange }: { value: YetkiSeviyesi; onChange: (val
       </button>
     </div>
   );
+}
+
+function BelgeSagligiHucre({ musteri }: { musteri: MuhasebeciMusteri }) {
+  const ozet = musteri.belgeSagligi;
+  if (!ozet) {
+    return (
+      <span className="accountant-document-health__locked" aria-label={`${musteri.ad} belge durumu: Pro ile açılır`}>
+        Pro ile açılır
+      </span>
+    );
+  }
+
+  const skor = ozet.skor === null ? "—" : String(Math.min(100, Math.max(0, Math.round(ozet.skor))));
+  const durum = belgeDurumuEtiketi(ozet.durum);
+  const eksik = `${ozet.eksikBelgeSayisi} eksik`;
+  const sorunOzeti = ozet.sorunlar.slice(0, 3).map((sorun) => `${sorun.baslik}: ${sorun.adet}`).join("\n");
+
+  return (
+    <div
+      className={`accountant-document-health accountant-document-health--${ozet.durum.toLocaleLowerCase("tr-TR")}`}
+      aria-label={`${musteri.ad} belge durumu: ${skor} puan, ${durum}, ${ozet.eksikBelgeSayisi} eksik belge`}
+      title={sorunOzeti || undefined}
+    >
+      <strong>{skor}<small>/100</small></strong>
+      <span>{durum}</span>
+      <small>{eksik}</small>
+    </div>
+  );
+}
+
+function belgeDurumuEtiketi(durum: BelgeSaglikOzeti["durum"]) {
+  switch (durum) {
+    case "Hazir":
+      return "Hazır";
+    case "Dikkat":
+      return "Dikkat";
+    case "Eksik":
+      return "Eksik";
+    default:
+      return "Veri yok";
+  }
 }
 
 function DavetKutusu({ talep, onCopied }: { talep: MuhasebeciTalep; onCopied: () => void }) {

@@ -1,5 +1,6 @@
 import React from "react";
 import {
+  ArrowRight,
   ChevronDown,
   FileText,
   Mail,
@@ -12,7 +13,7 @@ import type { UstBarDurumu } from "../../shared/chrome";
 import { jsonOku } from "../../shared/json";
 import { preventNativeDrag } from "../../shared/noDrag";
 import { odemeIkonu, paraBic, paraDegerBic } from "./helpers";
-import type { DashboardEkran, NetTrendNokta, OdemeDagilim, OzetKart } from "./types";
+import type { BelgeSaglikOzeti, DashboardEkran, NetTrendNokta, OdemeDagilim, OzetKart } from "./types";
 
 const ODEME_RENKLERI = ["#c8ff00", "#11110f", "#a6a493", "#dedbcc"];
 
@@ -226,6 +227,120 @@ function DonemKarti({ kart }: { kart: OzetKart }) {
   );
 }
 
+function BelgeSagligiKarti({ ozet }: { ozet: BelgeSaglikOzeti }) {
+  const skor = ozet.skor === null ? null : Math.min(100, Math.max(0, Math.round(ozet.skor)));
+  const oncelikliSorunlar = [...ozet.sorunlar]
+    .sort((a, b) => Math.abs(b.puanEtkisi) - Math.abs(a.puanEtkisi) || b.adet - a.adet)
+    .slice(0, 3);
+  const durum = belgeDurumEtiketi(ozet.durum);
+
+  return (
+    <section
+      className={`document-health document-health--${ozet.durum.toLocaleLowerCase("tr-TR")}`}
+      aria-labelledby="document-health-title"
+    >
+      <header className="document-health__header">
+        <div>
+          <span className="document-health__eyebrow">Belge durumu</span>
+          <h2 id="document-health-title">Belgeler hazır mı?</h2>
+        </div>
+        <span className="document-health__status">{durum}</span>
+      </header>
+
+      <div className="document-health__body">
+        <div className="document-health__score" aria-label={skor === null ? "Belge skoru hesaplanmadı" : `Belge skoru ${skor}`}>
+          <div>
+            <strong>{skor ?? "—"}</strong>
+            <span>/100</span>
+          </div>
+          {skor === null ? (
+            <small>Henüz hesaplanmadı</small>
+          ) : (
+            <div
+              className="document-health__meter"
+              role="progressbar"
+              aria-label="Belge hazırlık skoru"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={skor}
+            >
+              <span style={{ width: `${skor}%` }} />
+            </div>
+          )}
+        </div>
+
+        <dl className="document-health__counts">
+          <div>
+            <dt>Hazır</dt>
+            <dd>{ozet.hazirBelgeSayisi}</dd>
+          </div>
+          <div>
+            <dt>Eksik</dt>
+            <dd>{ozet.eksikBelgeSayisi}</dd>
+          </div>
+          <div>
+            <dt>Toplam</dt>
+            <dd>{ozet.faturaSayisi}</dd>
+          </div>
+        </dl>
+
+        <div className="document-health__issues">
+          <h3>Öncelikli işler</h3>
+          {oncelikliSorunlar.length > 0 ? (
+            <ul>
+              {oncelikliSorunlar.map((sorun) => (
+                <li key={sorun.kod}>
+                  <div>
+                    <strong>{sorun.baslik}</strong>
+                    <span>{sorun.adet} kayıt</span>
+                  </div>
+                  <a href={sorun.aksiyonUrl}>
+                    Düzelt
+                    <ArrowRight aria-hidden="true" size={15} />
+                  </a>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p>{ozet.durum === "VeriYok" ? "Belge hazırlığı için henüz veri yok." : "Belgelerde eksik görünmüyor."}</p>
+          )}
+        </div>
+      </div>
+
+      <footer className="document-health__actions">
+        {ozet.muhasebeciBagli ? (
+          <div className="document-health__accountant-note">
+            <span>Muhasebecin verileri doğrudan görebilir</span>
+            <a href="/app/sohbetler">Sohbete git</a>
+          </div>
+        ) : (
+          <a className="document-health__primary-action" href="/app/muhasebeciler">
+            Muhasebecini bağla
+            <ArrowRight aria-hidden="true" size={16} />
+          </a>
+        )}
+        <a className="document-health__automation-action" href="/app/telegram">
+          Belgeleri otomatik aktar
+          <ArrowRight aria-hidden="true" size={16} />
+        </a>
+      </footer>
+    </section>
+  );
+}
+
+function belgeDurumEtiketi(durum: BelgeSaglikOzeti["durum"]) {
+  switch (durum) {
+    case "Hazir":
+      return "Hazır";
+    case "Dikkat":
+      return "Dikkat";
+    case "Eksik":
+      return "Eksik";
+    default:
+      return "Veri yok";
+  }
+}
+
 interface DashboardSayfasiProps {
   onIsletmeDegistir: (id: number) => void;
   ustBar: UstBarDurumu | null;
@@ -359,6 +474,8 @@ export function DashboardSayfasi({
           />
           <OzetMetrik baslik="Toplam Gider" deger={ekran?.bugun.gider ?? 0} ton="gider" />
         </section>
+
+        {ekran?.belgeSagligi ? <BelgeSagligiKarti ozet={ekran.belgeSagligi} /> : null}
 
         <section className="legacy-panel payment-panel-legacy">
           <div className="legacy-panel__header">
