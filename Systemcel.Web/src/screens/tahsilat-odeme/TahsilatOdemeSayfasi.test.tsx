@@ -109,6 +109,15 @@ describe("TahsilatOdemeSayfasi ödeme hatırlatması", () => {
     expect(cancel).toHaveAttribute("type", "button");
   });
 
+  it("yeni işlem formunda İşlem bilgileri başlığını yalnızca bir kez gösterir", async () => {
+    render(<TahsilatOdemeSayfasi onIsletmeDegistir={vi.fn()} ustBar={null} ustBarIslemde={false} yenileAnahtari={0} />);
+
+    const formHeading = await screen.findByRole("heading", { name: "Yeni işlem" });
+    const form = formHeading.closest(".payment-form-card");
+    expect(form).not.toBeNull();
+    expect(within(form as HTMLElement).getAllByRole("heading", { name: /^İşlem bilgileri$/i })).toHaveLength(1);
+  });
+
   it("shows the email preview and sends only after confirmation", async () => {
     const user = userEvent.setup();
     render(<TahsilatOdemeSayfasi onIsletmeDegistir={vi.fn()} ustBar={null} ustBarIslemde={false} yenileAnahtari={0} />);

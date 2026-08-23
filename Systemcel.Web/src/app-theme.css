@@ -8005,6 +8005,30 @@
   display: none;
 }
 
+@media (min-width: 981px) {
+  :root[data-theme] .react-sidebar {
+    padding: 18px 15px 15px;
+    gap: 10px;
+  }
+
+  :root[data-theme] .react-sidebar__brand {
+    min-height: 50px;
+    padding-bottom: 9px;
+  }
+
+  :root[data-theme] .react-sidebar__nav {
+    gap: 4px;
+  }
+
+  :root[data-theme] .react-sidebar__link {
+    min-height: 41px;
+  }
+
+  :root[data-theme] .react-sidebar__footer {
+    padding-top: 10px;
+  }
+}
+
 :root[data-theme="light"] .react-topbar__badge {
   min-width: 0;
   padding: 6px 9px;

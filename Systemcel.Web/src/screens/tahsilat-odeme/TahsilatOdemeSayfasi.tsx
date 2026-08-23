@@ -602,7 +602,7 @@ export function TahsilatOdemeSayfasi({ yenileAnahtari }: TahsilatOdemeSayfasiPro
               </div>
             </FormSection>
 
-            <FormSection title="İşlem Bilgileri">
+            <section className="payment-form-section">
               <div className="payment-form-grid payment-form-grid--three">
                 <label className="payment-field">
                   <span>Tutar</span>
@@ -659,7 +659,7 @@ export function TahsilatOdemeSayfasi({ yenileAnahtari }: TahsilatOdemeSayfasiPro
                   </div>
                 )}
               </div>
-            </FormSection>
+            </section>
 
             <FormSection title="İşlemler">
               <div className="payment-actions">
