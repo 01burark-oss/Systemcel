@@ -9,6 +9,7 @@ public sealed class PaymentRuntimeOptions
     public bool FreeTrialEnabled { get; init; }
     public int BusinessTrialDays { get; init; } = 30;
     public int AccountantTrialDays { get; init; } = 14;
+    public decimal AccountantPlatformCommissionRate { get; init; } = 10m;
 
     public bool UsesFakeProvider => string.Equals(Provider, "Fake", StringComparison.OrdinalIgnoreCase);
 }

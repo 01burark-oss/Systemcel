@@ -304,6 +304,7 @@ internal static class MuhasebeciApi
                     checkoutUrl = result.CheckoutUrl.AbsoluteUri,
                     expiresAt = result.ExpiresAt,
                     reused = result.Reused,
+                    hizmetDonemi = result.HizmetDonemi,
                     onayMetniSurumu = "muhasebeci-hizmeti-2026-08-v1",
                     onayMetni = consentText,
                     tutar = new { aylikHizmetBedeli = result.AylikHizmetBedeli, paraBirimi = result.ParaBirimi }

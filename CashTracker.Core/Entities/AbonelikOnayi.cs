@@ -20,6 +20,9 @@ namespace CashTracker.Core.Entities
         public string IstemciIpHash { get; set; } = string.Empty;
         public string UserAgentHash { get; set; } = string.Empty;
         public decimal NetTutar { get; set; }
+        public decimal TamDonemNetTutar { get; set; }
+        public decimal KistKrediNetTutar { get; set; }
+        public string DegisiklikTipi { get; set; } = string.Empty;
         public decimal KdvOrani { get; set; }
         public decimal KdvTutar { get; set; }
         public decimal ToplamTutar { get; set; }

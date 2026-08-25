@@ -9,6 +9,7 @@ namespace CashTracker.Core.Models
         public decimal KdvOrani { get; set; } = 20m;
         public decimal AlisFiyati { get; set; }
         public decimal SatisFiyati { get; set; }
+        public string ParaBirimi { get; set; } = "TRY";
         public decimal KritikStok { get; set; }
     }
 }

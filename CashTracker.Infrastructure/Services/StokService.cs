@@ -15,23 +15,28 @@ namespace CashTracker.Infrastructure.Services
     {
         private readonly IDbContextFactory<CashTrackerDbContext> _dbFactory;
         private readonly IIsletmeService _isletmeService;
+        private readonly ISubeKurService? _subeKurService;
 
         public StokService(
             IDbContextFactory<CashTrackerDbContext> dbFactory,
-            IIsletmeService isletmeService)
+            IIsletmeService isletmeService,
+            ISubeKurService? subeKurService = null)
         {
             _dbFactory = dbFactory;
             _isletmeService = isletmeService;
+            _subeKurService = subeKurService;
         }
 
         public async Task<decimal> GetCurrentStockAsync(int urunHizmetId, CancellationToken ct = default)
         {
             var activeIsletmeId = await _isletmeService.GetActiveIdAsync();
+            var branch = _subeKurService is null ? null : (await _subeKurService.GetContextAsync(ct)).AktifSube;
             await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
             var amounts = await db.StokHareketleri
                 .AsNoTracking()
-                .Where(x => x.IsletmeId == activeIsletmeId && x.UrunHizmetId == urunHizmetId)
+                .Where(x => x.IsletmeId == activeIsletmeId && x.UrunHizmetId == urunHizmetId &&
+                    (branch == null || x.SubeId == branch.Id || (branch.Varsayilan && x.SubeId == null)))
                 .Select(x => x.Miktar)
                 .ToListAsync(ct);
 
@@ -41,11 +46,13 @@ namespace CashTracker.Infrastructure.Services
         public async Task<List<StokHareket>> GetRecentMovementsAsync(int limit = 20, CancellationToken ct = default)
         {
             var activeIsletmeId = await _isletmeService.GetActiveIdAsync();
+            var branch = _subeKurService is null ? null : (await _subeKurService.GetContextAsync(ct)).AktifSube;
             await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
             return await db.StokHareketleri
                 .AsNoTracking()
-                .Where(x => x.IsletmeId == activeIsletmeId)
+                .Where(x => x.IsletmeId == activeIsletmeId &&
+                    (branch == null || x.SubeId == branch.Id || (branch.Varsayilan && x.SubeId == null)))
                 .OrderByDescending(x => x.Tarih)
                 .ThenByDescending(x => x.Id)
                 .Take(Math.Clamp(limit, 1, 100))
@@ -75,10 +82,14 @@ namespace CashTracker.Infrastructure.Services
             if (!productExists)
                 throw new InvalidOperationException("Urun aktif isletmede bulunamadi.");
 
+            var activeBranch = _subeKurService is null ? null : (await _subeKurService.GetContextAsync(ct)).AktifSube;
+            var warehouseId = await ResolveWarehouseIdAsync(db, activeIsletmeId, activeBranch, ct);
             var movement = new StokHareket
             {
                 IsletmeId = activeIsletmeId,
+                SubeId = activeBranch?.Id,
                 UrunHizmetId = request.UrunHizmetId,
+                DepoId = warehouseId,
                 Tarih = request.Tarih ?? DateTime.Now,
                 Miktar = request.Miktar,
                 HareketTipi = request.Miktar > 0 ? "Giris" : "Cikis",
@@ -92,7 +103,8 @@ namespace CashTracker.Infrastructure.Services
 
             var amounts = await db.StokHareketleri
                 .AsNoTracking()
-                .Where(x => x.IsletmeId == activeIsletmeId && x.UrunHizmetId == request.UrunHizmetId)
+                .Where(x => x.IsletmeId == activeIsletmeId && x.UrunHizmetId == request.UrunHizmetId &&
+                    (activeBranch == null || x.SubeId == activeBranch.Id || (activeBranch.Varsayilan && x.SubeId == null)))
                 .Select(x => x.Miktar)
                 .ToListAsync(ct);
 
@@ -101,6 +113,42 @@ namespace CashTracker.Infrastructure.Services
                 Hareket = movement,
                 MevcutStok = amounts.Sum()
             };
+        }
+
+        private static async Task<int?> ResolveWarehouseIdAsync(
+            CashTrackerDbContext db,
+            int isletmeId,
+            SubeDto? activeBranch,
+            CancellationToken ct)
+        {
+            var warehouses = db.StokDepolari
+                .AsNoTracking()
+                .Where(x => x.IsletmeId == isletmeId && x.Aktif);
+
+            if (activeBranch is null)
+            {
+                return await warehouses
+                    .Where(x => x.Varsayilan)
+                    .OrderBy(x => x.Id)
+                    .Select(x => (int?)x.Id)
+                    .FirstOrDefaultAsync(ct);
+            }
+
+            warehouses = activeBranch.Varsayilan
+                ? warehouses.Where(x => x.SubeId == activeBranch.Id || x.SubeId == null)
+                : warehouses.Where(x => x.SubeId == activeBranch.Id);
+
+            var warehouseId = await warehouses
+                .OrderByDescending(x => x.SubeId == activeBranch.Id)
+                .ThenByDescending(x => x.Varsayilan)
+                .ThenBy(x => x.Id)
+                .Select(x => (int?)x.Id)
+                .FirstOrDefaultAsync(ct);
+
+            if (!activeBranch.Varsayilan && warehouseId is null)
+                throw new InvalidOperationException("Aktif şube için önce bir stok deposu oluşturulmalıdır.");
+
+            return warehouseId;
         }
     }
 }

@@ -10,5 +10,6 @@ namespace CashTracker.Core.Services
         Task<MuhasebeciOdemeCheckoutResult> BeginCheckoutAsync(
             MuhasebeciOdemeCheckoutCommand command,
             CancellationToken ct = default);
+        Task<int> EnsureDuePeriodsAsync(DateTime now, CancellationToken ct = default);
     }
 }

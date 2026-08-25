@@ -1,3 +1,4 @@
+import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page, type Route } from "@playwright/test";
 
 const plan = {
@@ -62,7 +63,7 @@ const baseSummary = {
   odemeler: []
 };
 
-async function mockWorkspace(page: Page, summary = baseSummary, expectedBilling: "Aylik" | "Yillik" = "Aylik") {
+async function mockWorkspace(page: Page, summary = baseSummary, expectedBilling: "Aylik" | "Yillik" = "Aylik", expectedCredits = 2) {
   await page.route("**/api/**", async (route) => {
     const request = route.request();
     const path = new URL(request.url()).pathname;
@@ -99,7 +100,7 @@ async function mockWorkspace(page: Page, summary = baseSummary, expectedBilling:
     if (path === "/api/public/planlar") return json(route, [plan]);
     if (path === "/api/abonelik/teklif") {
       expect(new URL(request.url()).searchParams.get("faturalamaDonemi")).toBe(expectedBilling);
-      expect(new URL(request.url()).searchParams.get("ekMusteriKredisi")).toBe("2");
+      expect(new URL(request.url()).searchParams.get("ekMusteriKredisi")).toBe(String(expectedCredits));
       const annual = expectedBilling === "Yillik";
       const netAmount = annual ? 9565.92 : 799;
       const vatAmount = annual ? 1913.18 : 159.8;
@@ -114,7 +115,7 @@ async function mockWorkspace(page: Page, summary = baseSummary, expectedBilling:
           vatAmount,
           totalAmount: netAmount + vatAmount,
           trialDays: 0,
-          extraCustomerCredits: 2,
+          extraCustomerCredits: expectedCredits,
           includedCustomerCount: 10,
           customerCreditUnitAmount: annual ? 504 : 50,
           campaignCode: "kurucu-100-2026",
@@ -133,7 +134,7 @@ async function mockWorkspace(page: Page, summary = baseSummary, expectedBilling:
       expect(payload).toMatchObject({
         planKodu: "muhasebeci_standart",
         faturalamaDonemi: expectedBilling,
-        ekMusteriKredisi: 2,
+        ekMusteriKredisi: expectedCredits,
         kampanyaKodu: "kurucu-100-2026",
         onaylandi: true
       });
@@ -172,6 +173,36 @@ test("monthly checkout shows recurring credits, VAT and explicit consent", async
   await expect(continueButton).toBeEnabled();
   await continueButton.click();
   await expect(page).toHaveURL(/\/checkout-sent$/);
+});
+
+test("plan modal traps focus, closes with Escape and returns focus to its trigger", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium", "Desktop keyboard accessibility check");
+  await mockWorkspace(page, baseSummary, "Aylik", 0);
+  await page.goto("/app/abonelik");
+
+  const trigger = page.getByRole("button", { name: "Deneme planını yönet" });
+  await trigger.focus();
+  await trigger.click();
+  const dialog = page.getByRole("dialog", { name: "Planınızı seçin ve koşulları onaylayın" });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole("heading")).toBeFocused();
+
+  const results = await new AxeBuilder({ page })
+    .include(".billing-modal")
+    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+    .analyze();
+  expect(results.violations.filter(({ impact }) => impact === "serious" || impact === "critical")).toEqual([]);
+
+  const close = dialog.getByRole("button", { name: "Pencereyi kapat" });
+  await close.focus();
+  await page.keyboard.press("Shift+Tab");
+  await expect(dialog.getByRole("button", { name: "Daha sonra" })).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(close).toBeFocused();
+
+  await page.keyboard.press("Escape");
+  await expect(dialog).not.toBeVisible();
+  await expect(trigger).toBeFocused();
 });
 
 test("annual checkout carries the selected period through consent and checkout", async ({ page }) => {

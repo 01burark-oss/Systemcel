@@ -48,6 +48,10 @@ export interface AbonelikKaydi {
   toleransBitisAt: string | null;
   donemSonundaIptal: boolean;
   iptalAt: string | null;
+  planlananPlanKodu: string;
+  planlananFaturalamaDonemi: string;
+  planlananEkMusteriKredisi: number | null;
+  planlananDegisiklikAt: string | null;
 }
 
 export interface OdemeKaydi {
@@ -123,6 +127,11 @@ export interface PaymentQuote {
   listNetAmount: number;
   renewalNetAmount: number;
   discountedPeriodCount: number;
+  fullPeriodNetAmount: number;
+  prorationCreditNetAmount: number;
+  changeType: "YeniAbonelik" | "AnindaYukseltme" | "DonemSonuDegisiklik";
+  effectiveAt: string | null;
+  targetPeriodEndAt: string | null;
 }
 
 export interface TeklifYaniti {
@@ -133,9 +142,12 @@ export interface TeklifYaniti {
 }
 
 export interface CheckoutYaniti {
-  odemeIslemiId: number;
-  checkoutUrl: string;
-  expiresAt: string;
+  odemeIslemiId: number | null;
+  checkoutUrl: string | null;
+  expiresAt: string | null;
   firstChargeAt: string | null;
   reused: boolean;
+  scheduled: boolean;
+  effectiveAt: string | null;
+  fiyat: PaymentQuote;
 }

@@ -3,12 +3,73 @@ using System.Data.Common;
 using System.IO;
 using CashTracker.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Migrations.Operations;
 using Xunit;
 
 namespace CashTracker.Tests
 {
     public sealed class SchemaMigratorAuthSchemaTests
     {
+        [Fact]
+        public void PostgreSqlMigrations_AccountantPaymentGateIsFollowedByMonthlyPeriods()
+        {
+            var options = new DbContextOptionsBuilder<CashTrackerDbContext>()
+                .UseNpgsql("Host=localhost;Database=systemcel_migration_metadata;Username=test;Password=test")
+                .Options;
+            using var db = new CashTrackerDbContext(options);
+
+            var migrations = db.Database.GetMigrations().ToList();
+            var gateIndex = migrations.IndexOf("20260824120000_AccountantServicePaymentGate");
+            var monthlyIndex = migrations.IndexOf("20260824143000_AccountantMonthlyServicePeriods");
+            var supportIndex = migrations.IndexOf("20260824160000_ProductSupportTickets");
+            var planChangesIndex = migrations.IndexOf("20260824173000_SubscriptionPlanChanges");
+            var notificationsIndex = migrations.IndexOf("20260824180000_PersistentNotificationDelivery");
+            var bankIndex = migrations.IndexOf("20260824190000_BankReconciliationMvp");
+            var stockLedgerIndex = migrations.IndexOf("20260824200000_AdvancedStockLedger");
+            var developerApiIndex = migrations.IndexOf("20260824210000_DeveloperApiAccess");
+
+            Assert.True(gateIndex >= 0);
+            Assert.True(monthlyIndex > gateIndex);
+            Assert.True(supportIndex > monthlyIndex);
+            Assert.True(planChangesIndex > supportIndex);
+            Assert.True(notificationsIndex > planChangesIndex);
+            Assert.True(bankIndex > notificationsIndex);
+            Assert.True(stockLedgerIndex > bankIndex);
+            Assert.True(developerApiIndex > stockLedgerIndex);
+        }
+
+        [Fact]
+        public void PostgreSqlSnapshot_AdvancedStockMatchesCurrentModel()
+        {
+            var options = new DbContextOptionsBuilder<CashTrackerDbContext>()
+                .UseNpgsql("Host=localhost;Database=systemcel_migration_metadata;Username=test;Password=test")
+                .Options;
+            using var db = new CashTrackerDbContext(options);
+
+            var migrationsAssembly = db.GetService<IMigrationsAssembly>();
+            var modelInitializer = db.GetService<IModelRuntimeInitializer>();
+            var modelDiffer = db.GetService<IMigrationsModelDiffer>();
+            var snapshotModel = modelInitializer.Initialize(migrationsAssembly.ModelSnapshot!.Model, designTime: true);
+            var currentModel = db.GetService<IDesignTimeModel>().Model;
+            var differences = modelDiffer.GetDifferences(snapshotModel.GetRelationalModel(), currentModel.GetRelationalModel())
+                .Where(x => x switch
+                {
+                    AlterColumnOperation column => column.Table.StartsWith("Stok", StringComparison.Ordinal),
+                    CreateIndexOperation index => index.Table.StartsWith("Stok", StringComparison.Ordinal),
+                    _ => false
+                })
+                .ToList();
+            Assert.True(differences.Count == 0, string.Join(Environment.NewLine, differences.Select(x => x switch
+            {
+                AlterColumnOperation column => $"AlterColumn {column.Table}.{column.Name} type={column.ColumnType} max={column.MaxLength}",
+                CreateIndexOperation index => $"CreateIndex {index.Table}.{index.Name} ({string.Join(',', index.Columns)}) unique={index.IsUnique}",
+                _ => x.GetType().Name
+            })));
+        }
+
         [Fact]
         public void EnsureKasaSchema_WebAuthVeAbonelikTablolariniOlusturur()
         {
@@ -29,6 +90,14 @@ namespace CashTracker.Tests
                 Assert.True(TableExists(conn, "MuhasebeciMusteri"));
                 Assert.True(TableExists(conn, "MuhasebeciHizmetOdemesi"));
                 Assert.True(TableExists(conn, "MuhasebeciAktarimAlacagi"));
+                Assert.True(TableExists(conn, "DestekTalebi"));
+                Assert.True(TableExists(conn, "BildirimKaydi"));
+                Assert.True(TableExists(conn, "BildirimTercihi"));
+                Assert.True(TableExists(conn, "BildirimTeslimOutbox"));
+                Assert.True(TableExists(conn, "BankaHareketi"));
+                Assert.True(TableExists(conn, "StokDepo"));
+                Assert.True(TableExists(conn, "StokDefterIslemi"));
+                Assert.True(TableExists(conn, "GelistiriciApiAnahtari"));
                 Assert.True(TableExists(conn, "Abonelik"));
                 Assert.True(TableExists(conn, "IsletmeDeneme"));
                 Assert.True(TableExists(conn, "AbonelikOnayi"));
@@ -52,13 +121,26 @@ namespace CashTracker.Tests
                 Assert.True(ColumnExists(conn, "OdemeIslemi", "SonOlayAt"));
                 Assert.True(ColumnExists(conn, "OdemeIslemi", "EkMusteriKredisi"));
                 Assert.True(ColumnExists(conn, "MuhasebeciMusteriTalebi", "AylikHizmetBedeli"));
+                Assert.True(ColumnExists(conn, "MuhasebeciHizmetOdemesi", "HizmetDonemi"));
+                Assert.True(ColumnExists(conn, "MuhasebeciHizmetOdemesi", "PlatformKomisyonOrani"));
                 Assert.True(ColumnExists(conn, "AbonelikOnayi", "EkMusteriKredisi"));
+                Assert.True(ColumnExists(conn, "StokHareket", "DepoId"));
+                Assert.True(ColumnExists(conn, "StokHareket", "StokDefterIslemiId"));
+                Assert.True(ColumnExists(conn, "StokHareket", "RezerveMiktar"));
                 Assert.True(IndexExists(conn, "IX_IsletmeDeneme_IsletmeId_HesapTipi"));
                 Assert.True(IndexExists(conn, "IX_AbonelikOnayi_IsletmeId_CheckoutAnahtari"));
                 Assert.True(IndexExists(conn, "IX_OdemeIslemi_IsletmeId_CheckoutAnahtari"));
                 Assert.True(IndexExists(conn, "IX_OdemeOlayi_OdemeSaglayici_OlayId"));
-                Assert.True(IndexExists(conn, "IX_MuhasebeciHizmetOdemesi_TalepId"));
+                Assert.True(IndexExists(conn, "IX_MuhasebeciHizmetOdemesi_TalepId_HizmetDonemi"));
                 Assert.True(IndexExists(conn, "IX_MuhasebeciAktarimAlacagi_MuhasebeciHizmetOdemesiId"));
+                Assert.True(IndexExists(conn, "IX_DestekTalebi_IsletmeId_OlusturmaAnahtari"));
+                Assert.True(IndexExists(conn, "IX_BildirimKaydi_IsletmeId_KullaniciRef_KaynakAnahtari"));
+                Assert.True(IndexExists(conn, "IX_BildirimTercihi_IsletmeId_KullaniciRef"));
+                Assert.True(IndexExists(conn, "IX_BildirimTeslimOutbox_IsletmeId_KullaniciRef_Kanal_IdempotencyAnahtari"));
+                Assert.True(IndexExists(conn, "IX_BankaHareketi_IsletmeId_KaynakHash"));
+                Assert.True(IndexExists(conn, "IX_StokDepo_IsletmeId_Kod"));
+                Assert.True(IndexExists(conn, "IX_StokDefterIslemi_IsletmeId_IslemAnahtari"));
+                Assert.True(IndexExists(conn, "IX_GelistiriciApiAnahtari_Prefix"));
                 Assert.True(IndexExists(conn, "IX_YonetimDenetimKaydi_IsletmeId"));
                 Assert.True(IndexExists(conn, "IX_YonetimDenetimKaydi_CreatedAt"));
             }

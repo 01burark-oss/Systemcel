@@ -17,6 +17,7 @@ namespace CashTracker.Infrastructure.Services
         private readonly IDbContextFactory<CashTrackerDbContext> _dbFactory;
         private readonly IIsletmeService _isletmeService;
         private readonly IEntitlementGuard? _entitlementGuard;
+        private readonly ISubeKurService? _subeKurService;
 
         public UrunHizmetService(
             IDbContextFactory<CashTrackerDbContext> dbFactory,
@@ -28,11 +29,13 @@ namespace CashTracker.Infrastructure.Services
         public UrunHizmetService(
             IDbContextFactory<CashTrackerDbContext> dbFactory,
             IIsletmeService isletmeService,
-            IEntitlementGuard? entitlementGuard)
+            IEntitlementGuard? entitlementGuard,
+            ISubeKurService? subeKurService = null)
         {
             _dbFactory = dbFactory;
             _isletmeService = isletmeService;
             _entitlementGuard = entitlementGuard;
+            _subeKurService = subeKurService;
         }
 
         public async Task<List<UrunHizmet>> GetAllAsync(CancellationToken ct = default)
@@ -106,9 +109,13 @@ namespace CashTracker.Infrastructure.Services
                     throw new InvalidOperationException("Bu barkod aktif isletmede zaten kayitli.");
             }
 
+            var snapshot = _subeKurService is null
+                ? new IslemKurSnapshot { ParaBirimi = string.IsNullOrWhiteSpace(request.ParaBirimi) ? "TRY" : request.ParaBirimi.Trim().ToUpperInvariant(), Kur = 1m }
+                : await _subeKurService.ResolveSnapshotAsync(request.ParaBirimi, request.SatisFiyati, ct);
             var row = new UrunHizmet
             {
                 IsletmeId = activeIsletmeId,
+                SubeId = snapshot.SubeId > 0 ? snapshot.SubeId : null,
                 Tip = NormalizeTip(request.Tip),
                 Ad = NormalizeRequired(request.Ad, "Urun adi bos olamaz."),
                 Barkod = barcode,
@@ -116,6 +123,8 @@ namespace CashTracker.Infrastructure.Services
                 KdvOrani = NormalizeNonNegative(request.KdvOrani),
                 AlisFiyati = NormalizeNonNegative(request.AlisFiyati),
                 SatisFiyati = NormalizeNonNegative(request.SatisFiyati),
+                ParaBirimi = snapshot.ParaBirimi,
+                KurSnapshot = snapshot.Kur,
                 KritikStok = NormalizeNonNegative(request.KritikStok),
                 Aktif = true,
                 CreatedAt = DateTime.Now,

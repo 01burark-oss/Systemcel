@@ -308,9 +308,9 @@ namespace CashTracker.Tests
 
             var receiptOcrSettings = new ReceiptOcrSettings
             {
-                Provider = "Gemini",
+                Provider = "OpenAI",
                 ApiKey = "test-key",
-                Model = "gemini-2.5-flash",
+                Model = "gpt-5-mini",
                 SessionTimeoutMinutes = 30
             };
 

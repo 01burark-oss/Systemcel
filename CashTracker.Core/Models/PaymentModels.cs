@@ -32,6 +32,16 @@ namespace CashTracker.Core.Models
     public static class PaymentTransactionTypes
     {
         public const string AccountantService = "MuhasebeciHizmeti";
+        public const string SubscriptionStart = "AbonelikBaslatma";
+        public const string PlanUpgrade = "PlanYukseltme";
+        public const string ScheduledPlanChange = "PlanDegisikligiPlanlama";
+    }
+
+    public static class SubscriptionChangeTypes
+    {
+        public const string NewSubscription = "YeniAbonelik";
+        public const string ImmediateUpgrade = "AnindaYukseltme";
+        public const string ScheduledDowngrade = "DonemSonuDegisiklik";
     }
 
     public sealed record PaymentQuote(
@@ -51,7 +61,25 @@ namespace CashTracker.Core.Models
         bool IsFounderPrice,
         decimal ListNetAmount,
         decimal RenewalNetAmount,
-        int DiscountedPeriodCount);
+        int DiscountedPeriodCount,
+        decimal FullPeriodNetAmount = 0m,
+        decimal ProrationCreditNetAmount = 0m,
+        string ChangeType = SubscriptionChangeTypes.NewSubscription,
+        DateTime? EffectiveAt = null,
+        DateTime? TargetPeriodEndAt = null);
+
+    public sealed record CurrentSubscriptionPricingContext(
+        string PlanCode,
+        string BillingPeriod,
+        int ExtraCustomerCredits,
+        decimal PaidPeriodNetAmount,
+        DateTime PeriodStartAt,
+        DateTime PeriodEndAt);
+
+    public sealed record SubscriptionPlanChangeResult(
+        PaymentQuote Quote,
+        bool Scheduled,
+        DateTime EffectiveAt);
 
     public sealed record PaymentCheckoutRequest(
         string MerchantReference,
@@ -108,7 +136,10 @@ namespace CashTracker.Core.Models
         string UserAgent,
         Uri SuccessUrl,
         Uri FailureUrl,
-        Uri CallbackUrl);
+        Uri CallbackUrl,
+        decimal? ExpectedTotalAmount = null,
+        decimal? ExpectedProrationCreditNetAmount = null,
+        string? ExpectedChangeType = null);
 
     public sealed record SubscriptionCheckoutResult(
         int PaymentTransactionId,

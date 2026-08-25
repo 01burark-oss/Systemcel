@@ -10,7 +10,7 @@ import {
   RefreshCw
 } from "lucide-react";
 import type { UstBarDurumu } from "../../shared/chrome";
-import { openAuthenticatedFile } from "../../shared/authenticatedFile";
+import { openAuthenticatedFile, printAuthenticatedHtml } from "../../shared/authenticatedFile";
 import { jsonOku } from "../../shared/json";
 import type { RaporlarEkranVerisi, RaporPaket, RaporYazdirFormu } from "./types";
 
@@ -19,10 +19,6 @@ interface RaporlarSayfasiProps {
   ustBar: UstBarDurumu | null;
   ustBarIslemde: boolean;
   yenileAnahtari: number;
-}
-
-interface ApiMesaj {
-  mesaj: string;
 }
 
 function bugun() {
@@ -160,11 +156,24 @@ export function RaporlarSayfasi({ yenileAnahtari }: RaporlarSayfasiProps) {
         aksiyon === "yazdir"
           ? "/api/ekran/raporlar/yazdir"
           : `/api/ekran/raporlar/yazdir/${aksiyon}`;
-      const result = await jsonOku<ApiMesaj>(endpoint, {
+      const request = {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(yazdirFormu)
-      });
-      setDurum(result.mesaj);
+      };
+      if (aksiyon === "yazdir") {
+        await printAuthenticatedHtml(endpoint, request);
+        setDurum("Tarayıcının yazdırma penceresi açıldı.");
+      } else {
+        const templateName = yazdirFormu.sablon === "muhasebeRaporu" ? "muhasebe-raporu" : "yonetici-ozeti";
+        await openAuthenticatedFile(endpoint, {
+          fileName: `systemcel-${templateName}.${aksiyon}`,
+          contentType: aksiyon === "pdf" ? "application/pdf" : "text/html;charset=utf-8",
+          download: true,
+          request
+        });
+        setDurum(`${aksiyon.toUpperCase()} raporu indirildi.`);
+      }
     } catch (error) {
       setHata(error instanceof Error ? error.message : "Rapor aksiyonu tamamlanamadı.");
     } finally {

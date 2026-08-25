@@ -296,7 +296,7 @@ namespace CashTracker.Tests
         }
 
         [Fact]
-        public async Task ProcessUpdateAsync_PhotoReceipt_WhenGeminiRateLimited_ShowsSpecificError()
+        public async Task ProcessUpdateAsync_PhotoReceipt_WhenOpenAiRateLimited_ShowsSpecificError()
         {
             var kasa = new FakeKasaService();
             var kalem = new FakeKalemTanimiService(new[]
@@ -310,7 +310,7 @@ namespace CashTracker.Tests
             };
 
             var (_, handler, service, _, ocr, _) = BuildService(kasa, kalem, summary, isletme, BuildPhotoResponder());
-            ocr.NextException = new InvalidOperationException("Gemini OCR failed: 429 - rate limit");
+            ocr.NextException = new InvalidOperationException("OpenAI OCR failed: 429 Too Many Requests.");
 
             await service.ProcessUpdateAsync(new TelegramUpdate
             {
@@ -323,7 +323,7 @@ namespace CashTracker.Tests
 
             var text = handler.GetLastFormFieldValue("/sendMessage", "text");
             Assert.Contains("Fiş OCR işlenemedi.", text!);
-            Assert.Contains("Gemini kota veya hız limiti aşıldı.", text!);
+            Assert.Contains("OpenAI kota veya hız limiti aşıldı.", text!);
         }
 
         [Fact]
@@ -777,7 +777,7 @@ namespace CashTracker.Tests
             var stockSessionStore = new FakeTelegramStockSessionStore();
             var receiptOcrSettings = new ReceiptOcrSettings
             {
-                Provider = "Gemini",
+                Provider = "OpenAI",
                 ApiKey = "test-key",
                 Model = "gemini-2.5-flash",
                 SessionTimeoutMinutes = 30
@@ -842,7 +842,7 @@ namespace CashTracker.Tests
             var receiptSessionStore = new FakeTelegramReceiptSessionStore();
             var receiptOcrSettings = new ReceiptOcrSettings
             {
-                Provider = "Gemini",
+                Provider = "OpenAI",
                 ApiKey = "test-key",
                 Model = "gemini-2.5-flash",
                 SessionTimeoutMinutes = 30

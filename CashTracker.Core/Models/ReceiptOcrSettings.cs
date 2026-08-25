@@ -4,14 +4,18 @@ namespace CashTracker.Core.Models
 {
     public sealed class ReceiptOcrSettings
     {
-        public string Provider { get; set; } = "Gemini";
+        public string Provider { get; set; } = "OpenAI";
         public string ApiKey { get; set; } = string.Empty;
-        public string Model { get; set; } = "gemini-2.5-flash";
-        public string FallbackModel { get; set; } = "gemini-2.5-pro";
+        public string BaseUrl { get; set; } = "https://api.openai.com/v1";
+        public string Model { get; set; } = "gpt-5-mini";
+        public string FallbackModel { get; set; } = string.Empty;
         public string Language { get; set; } = "tur";
         public int SessionTimeoutMinutes { get; set; } = 30;
         public string EffectiveProvider => string.IsNullOrWhiteSpace(_licenseProvider) ? Provider : _licenseProvider;
         public string EffectiveApiKey => string.IsNullOrWhiteSpace(_licenseApiKey) ? ApiKey : _licenseApiKey;
+        public string EffectiveBaseUrl => string.IsNullOrWhiteSpace(BaseUrl)
+            ? "https://api.openai.com/v1"
+            : BaseUrl.Trim().TrimEnd('/');
         public string EffectiveModel => string.IsNullOrWhiteSpace(_licenseModel) ? Model : _licenseModel;
         public string EffectiveFallbackModel => string.IsNullOrWhiteSpace(FallbackModel) ? string.Empty : FallbackModel.Trim();
         public string EffectiveLanguage => string.IsNullOrWhiteSpace(Language) ? "tur" : Language.Trim();
@@ -21,7 +25,7 @@ namespace CashTracker.Core.Models
         private string _licenseModel = string.Empty;
 
         public bool IsConfigured =>
-            (string.Equals(EffectiveProvider, "Gemini", StringComparison.OrdinalIgnoreCase) ||
+            (string.Equals(EffectiveProvider, "OpenAI", StringComparison.OrdinalIgnoreCase) ||
              string.Equals(EffectiveProvider, "OcrSpace", StringComparison.OrdinalIgnoreCase)) &&
             !string.IsNullOrWhiteSpace(EffectiveApiKey);
 

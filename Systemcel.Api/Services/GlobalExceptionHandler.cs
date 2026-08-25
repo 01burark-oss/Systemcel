@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Routing;
 
 namespace Systemcel.Api.Services;
 
@@ -40,21 +41,22 @@ internal sealed class GlobalExceptionHandler : IExceptionHandler
                 "Beklenmeyen bir hata oluştu. Lütfen daha sonra yeniden deneyin.")
         };
 
+        var route = (httpContext.GetEndpoint() as RouteEndpoint)?.RoutePattern.RawText ?? "unmatched";
         if (status >= 500)
         {
             _logger.LogError(
                 exception,
-                "Unhandled API error. TraceId={TraceId} Path={Path}",
+                "Unhandled API error. TraceId={TraceId} Route={Route}",
                 httpContext.TraceIdentifier,
-                httpContext.Request.Path);
+                route);
         }
         else
         {
             _logger.LogWarning(
-                exception,
-                "Rejected API request. TraceId={TraceId} Path={Path}",
+                "Rejected API request. TraceId={TraceId} Route={Route} ErrorType={ErrorType}",
                 httpContext.TraceIdentifier,
-                httpContext.Request.Path);
+                route,
+                exception.GetType().Name);
         }
 
         var problem = new ProblemDetails

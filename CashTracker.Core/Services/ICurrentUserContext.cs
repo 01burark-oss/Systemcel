@@ -8,5 +8,6 @@ namespace CashTracker.Core.Services
     public sealed record CurrentUserIdentity(
         string ProviderUserId,
         string? Email,
-        string? FullName);
+        string? FullName,
+        bool EmailVerified = false);
 }

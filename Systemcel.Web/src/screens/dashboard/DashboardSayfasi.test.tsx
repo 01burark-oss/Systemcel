@@ -1,10 +1,13 @@
 import { cleanup, render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { openAuthenticatedFile } from "../../shared/authenticatedFile";
 import { jsonOku } from "../../shared/json";
 import { DashboardSayfasi } from "./DashboardSayfasi";
 import type { DashboardEkran } from "./types";
 
 vi.mock("../../shared/json", () => ({ jsonOku: vi.fn() }));
+vi.mock("../../shared/authenticatedFile", () => ({ openAuthenticatedFile: vi.fn() }));
 
 const dashboard: DashboardEkran = {
   aktifIsletme: "Örnek İşletme",
@@ -50,11 +53,13 @@ const dashboard: DashboardEkran = {
 describe("DashboardSayfasi belge sağlığı", () => {
   beforeEach(() => {
     vi.mocked(jsonOku).mockResolvedValue(dashboard);
+    vi.mocked(openAuthenticatedFile).mockResolvedValue(undefined);
   });
 
   afterEach(() => {
     cleanup();
     vi.clearAllMocks();
+    Reflect.deleteProperty(navigator, "share");
   });
 
   it("skoru, sayıları ve en önemli üç sorunu gösterir", async () => {
@@ -99,5 +104,44 @@ describe("DashboardSayfasi belge sağlığı", () => {
     expect(within(kart).getByText("Muhasebecin verileri doğrudan görebilir")).toBeVisible();
     expect(within(kart).getByRole("link", { name: "Sohbete git" })).toHaveAttribute("href", "/app/sohbetler");
     expect(within(kart).queryByRole("link", { name: "Muhasebecini bağla" })).not.toBeInTheDocument();
+  });
+
+  it("PDF raporunu mesaj yerine indirilebilir dosya olarak ister", async () => {
+    const user = userEvent.setup();
+    render(
+      <DashboardSayfasi
+        onIsletmeDegistir={vi.fn()}
+        ustBar={null}
+        ustBarIslemde={false}
+        yenileAnahtari={0}
+      />
+    );
+
+    await user.click(await screen.findByRole("button", { name: "Raporu Paylaş" }));
+    await user.click(screen.getByRole("button", { name: "PDF İndir" }));
+
+    expect(openAuthenticatedFile).toHaveBeenCalledWith(
+      "/api/ekran/anasayfa/paylas/pdf",
+      expect.objectContaining({ contentType: "application/pdf", download: true })
+    );
+  });
+
+  it("Email paylaşımında Web Share API kullanır", async () => {
+    const user = userEvent.setup();
+    const share = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "share", { configurable: true, value: share });
+    render(
+      <DashboardSayfasi
+        onIsletmeDegistir={vi.fn()}
+        ustBar={null}
+        ustBarIslemde={false}
+        yenileAnahtari={0}
+      />
+    );
+
+    await user.click(await screen.findByRole("button", { name: "Raporu Paylaş" }));
+    await user.click(screen.getByRole("button", { name: "Email" }));
+
+    expect(share).toHaveBeenCalledWith(expect.objectContaining({ title: expect.stringContaining("Systemcel") }));
   });
 });

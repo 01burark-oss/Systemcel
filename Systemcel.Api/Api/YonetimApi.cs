@@ -37,6 +37,26 @@ internal static class YonetimApi
             }
         });
 
+        app.MapGet("/api/ekran/yonetim/destek", async (
+            ISystemcelYonetimService service,
+            CancellationToken ct) =>
+        {
+            try { return Results.Ok(await service.GetDestekTalepleriAsync(ct)); }
+            catch (UnauthorizedAccessException ex) { return Results.Json(new ApiHata(ex.Message), statusCode: StatusCodes.Status403Forbidden); }
+        });
+
+        app.MapPost("/api/ekran/yonetim/destek/{destekTalebiId:int}/guncelle", async (
+            int destekTalebiId,
+            DestekTalebiGuncelleRequest request,
+            ISystemcelYonetimService service,
+            CancellationToken ct) =>
+        {
+            try { return Results.Ok(await service.UpdateDestekTalebiAsync(destekTalebiId, request, ct)); }
+            catch (UnauthorizedAccessException ex) { return Results.Json(new ApiHata(ex.Message), statusCode: StatusCodes.Status403Forbidden); }
+            catch (KeyNotFoundException ex) { return Results.NotFound(new ApiHata(ex.Message)); }
+            catch (ArgumentException ex) { return Results.BadRequest(new ApiHata(ex.Message)); }
+        }).RequireRateLimiting("sensitive");
+
         app.MapGet("/api/ekran/yonetim/muhasebeci-aktarimlari", async (
             string aktarimDonemi,
             int? muhasebeciIsletmeId,

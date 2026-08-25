@@ -1,6 +1,8 @@
 import React from "react";
-import { Mail } from "lucide-react";
+import { Loader2, Mail, MessageCircle, Send } from "lucide-react";
 import { helpTopics } from "../../shared/HelpDropdown";
+import { jsonOku } from "../../shared/json";
+import { useI18n } from "../../shared/i18n";
 
 type HelpSubsection = {
   title: string;
@@ -257,9 +259,70 @@ function getActiveTopicId() {
   return topicIds.find((id) => hash === id || hash.startsWith(`${id}-`)) ?? "sss";
 }
 
+interface DestekTalebi {
+  id: number;
+  isletmeId: number;
+  isletmeAdi: string;
+  konu: string;
+  kategori: string;
+  aciklama: string;
+  oncelik: string;
+  durum: string;
+  yoneticiYaniti: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface DestekTalebiListesi {
+  talepler: DestekTalebi[];
+}
+
+function yeniIdempotencyKey() {
+  return globalThis.crypto?.randomUUID?.() ?? `destek-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function talepDurumu(durum: string) {
+  const anahtar = durum.trim().toLowerCase();
+  if (anahtar.includes("coz") || anahtar.includes("tamam")) return "Çözüldü";
+  if (anahtar.includes("yanıt") || anahtar.includes("incele") || anahtar.includes("islem")) return "İşlemde";
+  return "Açık";
+}
+
+function tarih(value: string) {
+  if (!value) return "-";
+  return new Date(value).toLocaleString("tr-TR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+
+function kategoriEtiketi(kategori: string) {
+  return kategori === "Diger" ? "Diğer" : kategori;
+}
+
 export function YardimSayfasi() {
+  const { t } = useI18n();
   const [activeId, setActiveId] = React.useState(getActiveTopicId);
   const [activeSubsectionId, setActiveSubsectionId] = React.useState(() => window.location.hash.replace("#", ""));
+  const [talepler, setTalepler] = React.useState<DestekTalebi[]>([]);
+  const [talepYukleniyor, setTalepYukleniyor] = React.useState(true);
+  const [talepGonderiliyor, setTalepGonderiliyor] = React.useState(false);
+  const [talepHatasi, setTalepHatasi] = React.useState("");
+  const [talepMesaji, setTalepMesaji] = React.useState("");
+  const [konu, setKonu] = React.useState("");
+  const [kategori, setKategori] = React.useState("Diger");
+  const [aciklama, setAciklama] = React.useState("");
+  const idempotencyRef = React.useRef(yeniIdempotencyKey());
+
+  const talepleriYukle = React.useCallback(async () => {
+    setTalepYukleniyor(true);
+    setTalepHatasi("");
+    try {
+      const sonuc = await jsonOku<DestekTalebiListesi>("/api/ekran/destek-talepleri");
+      setTalepler(sonuc.talepler ?? []);
+    } catch (error) {
+      setTalepHatasi(error instanceof Error ? error.message : "Destek talepleri yüklenemedi.");
+    } finally {
+      setTalepYukleniyor(false);
+    }
+  }, []);
 
   const helpLinkeGit = React.useCallback((event: React.MouseEvent<HTMLAnchorElement>, targetId: string) => {
     event.preventDefault();
@@ -337,6 +400,40 @@ export function YardimSayfasi() {
     };
   }, []);
 
+  React.useEffect(() => {
+    talepleriYukle().catch(() => undefined);
+  }, [talepleriYukle]);
+
+  async function talepGonder(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const temizKonu = konu.trim();
+    const temizAciklama = aciklama.trim();
+    if (!temizKonu || !temizAciklama) {
+      setTalepHatasi("Konu ve açıklama alanlarını doldur.");
+      return;
+    }
+
+    setTalepGonderiliyor(true);
+    setTalepHatasi("");
+    setTalepMesaji("");
+    try {
+      const yeniTalep = await jsonOku<DestekTalebi>("/api/ekran/destek-talepleri", {
+        method: "POST",
+        headers: { "Idempotency-Key": idempotencyRef.current },
+        body: JSON.stringify({ konu: temizKonu, kategori, aciklama: temizAciklama })
+      });
+      setTalepler((onceki) => [yeniTalep, ...onceki.filter((item) => item.id !== yeniTalep.id)]);
+      setKonu("");
+      setAciklama("");
+      setTalepMesaji("Talebin kaydedildi. Durumu ve yanıtı burada takip edebilirsin.");
+      idempotencyRef.current = yeniIdempotencyKey();
+    } catch (error) {
+      setTalepHatasi(error instanceof Error ? error.message : "Talep kaydedilemedi. Aynı talebi yeniden deneyebilirsin.");
+    } finally {
+      setTalepGonderiliyor(false);
+    }
+  }
+
   return (
     <main className="help-page">
       <section className="help-hero">
@@ -409,6 +506,52 @@ export function YardimSayfasi() {
               </article>
             );
           })}
+        </div>
+      </section>
+
+      <section className="help-support" aria-labelledby="destek-talebi-baslik">
+        <div className="help-support__intro">
+          <MessageCircle size={24} aria-hidden="true" />
+          <div>
+            <span>Uygulama içi destek</span>
+            <h2 id="destek-talebi-baslik">{t("support.title")}</h2>
+            <p>Talebini buradan kaydet; güncel durumunu ve verilen yanıtı aynı yerde gör.</p>
+          </div>
+        </div>
+
+        <form className="help-support__form" onSubmit={talepGonder}>
+          <label>
+            <span>{t("support.subject")}</span>
+            <input value={konu} onChange={(event) => setKonu(event.target.value)} maxLength={120} placeholder="Örn. Fatura taslağında hata" required />
+          </label>
+          <label>
+            <span>{t("support.category")}</span>
+            <select value={kategori} onChange={(event) => setKategori(event.target.value)}>
+              <option value="Teknik">Teknik</option>
+              <option value="Faturalama">Faturalama</option>
+              <option value="Hesap">Hesap</option>
+              <option value="Diger">Diğer</option>
+            </select>
+          </label>
+          <label className="help-support__field--full">
+            <span>{t("support.description")}</span>
+            <textarea value={aciklama} onChange={(event) => setAciklama(event.target.value)} maxLength={4000} rows={4} placeholder="Ne olduğunu ve hangi adımda takıldığını yaz." required />
+          </label>
+          <div className="help-support__submit">
+            <span>Öncelik planına göre sistem tarafından belirlenir.</span>
+            <button type="submit" disabled={talepGonderiliyor}>
+              {talepGonderiliyor ? <Loader2 className="spin" size={16} /> : <Send size={16} />}
+              {talepGonderiliyor ? t("support.saving") : t("support.submit")}
+            </button>
+          </div>
+        </form>
+
+        {talepHatasi ? <p className="help-support__feedback help-support__feedback--error" role="alert">{talepHatasi}</p> : null}
+        {talepMesaji ? <p className="help-support__feedback" role="status">{talepMesaji}</p> : null}
+
+        <div className="help-support__requests" aria-live="polite">
+          <div className="help-support__requests-title"><h3>{t("support.requests")}</h3><button type="button" onClick={() => talepleriYukle()} disabled={talepYukleniyor}>{t("admin.refresh")}</button></div>
+          {talepYukleniyor ? <p className="help-support__state"><Loader2 className="spin" size={17} /> {t("admin.loading")}</p> : talepler.length === 0 ? <p className="help-support__state">{t("support.empty")}</p> : <div className="help-support__request-list">{talepler.map((talep) => <article key={talep.id} className="help-support__request"><div className="help-support__request-heading"><div><strong>{talep.konu}</strong><span>{kategoriEtiketi(talep.kategori)} · {tarih(talep.createdAt)}</span></div><span className={`help-support__status help-support__status--${talepDurumu(talep.durum).toLocaleLowerCase("tr-TR")}`}>{talepDurumu(talep.durum)}</span></div><p>{talep.aciklama}</p>{talep.yoneticiYaniti ? <div className="help-support__answer"><strong>{t("support.reply")}</strong><p>{talep.yoneticiYaniti}</p></div> : null}</article>)}</div>}
         </div>
       </section>
 

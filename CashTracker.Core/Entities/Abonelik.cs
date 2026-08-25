@@ -26,6 +26,10 @@ namespace CashTracker.Core.Entities
         public string OdemeSaglayici { get; set; } = string.Empty;
         public string SaglayiciMusteriId { get; set; } = string.Empty;
         public string SaglayiciAbonelikId { get; set; } = string.Empty;
+        public string PlanlananPlanKodu { get; set; } = string.Empty;
+        public string PlanlananFaturalamaDonemi { get; set; } = string.Empty;
+        public int? PlanlananEkMusteriKredisi { get; set; }
+        public DateTime? PlanlananDegisiklikAt { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.Now;
         public DateTime UpdatedAt { get; set; } = DateTime.Now;
     }

@@ -29,6 +29,7 @@ namespace CashTracker.Core.Models
         public const string AdvancedExport = "advanced_export";
         public const string BankReconciliation = "bank_reconciliation";
         public const string StockReport = "stock_report";
+        public const string AdvancedStock = "advanced_stock";
         public const string MultipleBranches = "multiple_branches";
         public const string MultipleCurrencies = "multiple_currencies";
         public const string ApiAccess = "api_access";

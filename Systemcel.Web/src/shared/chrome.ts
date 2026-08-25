@@ -34,5 +34,6 @@ export interface UstBarDurumu {
   sohbet?: SohbetBildirimDurumu;
   yoneticiMi?: boolean;
   telegramAktif: boolean;
+  bankaMutabakatiAktif?: boolean;
   isletmeler: IsletmeSecenek[];
 }

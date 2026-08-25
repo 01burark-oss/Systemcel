@@ -24,6 +24,7 @@ namespace CashTracker.Infrastructure.Services
         private readonly ISubscriptionEntitlementService _entitlementService;
         private readonly IEntitlementGuard? _entitlementGuard;
         private readonly IBelgeSaglikService? _belgeSaglikService;
+        private readonly MuhasebeciOdemeOptions _paymentOptions;
 
         public MuhasebeciPortalService(
             IDbContextFactory<CashTrackerDbContext> dbFactory,
@@ -31,7 +32,8 @@ namespace CashTracker.Infrastructure.Services
             IIsletmeService isletmeService,
             ISubscriptionEntitlementService entitlementService,
             IEntitlementGuard? entitlementGuard = null,
-            IBelgeSaglikService? belgeSaglikService = null)
+            IBelgeSaglikService? belgeSaglikService = null,
+            MuhasebeciOdemeOptions? paymentOptions = null)
         {
             _dbFactory = dbFactory;
             _currentUserContext = currentUserContext;
@@ -39,6 +41,7 @@ namespace CashTracker.Infrastructure.Services
             _entitlementService = entitlementService;
             _entitlementGuard = entitlementGuard;
             _belgeSaglikService = belgeSaglikService;
+            _paymentOptions = paymentOptions ?? new MuhasebeciOdemeOptions();
         }
 
         public async Task<MuhasebeciPazaryeriDto> GetPublicMarketplaceAsync(string? arama = null, CancellationToken ct = default)
@@ -1146,7 +1149,7 @@ namespace CashTracker.Infrastructure.Services
                 entitlement.AktifMusteriSayisi ?? 0);
         }
 
-        private static async Task PreparePaymentAsync(
+        private async Task PreparePaymentAsync(
             CashTrackerDbContext db,
             MuhasebeciMusteriTalebi talep,
             int musteriIsletmeId,
@@ -1171,7 +1174,10 @@ namespace CashTracker.Infrastructure.Services
                     TalepId = talep.Id,
                     MuhasebeciIsletmeId = talep.MuhasebeciIsletmeId,
                     MusteriIsletmeId = musteriIsletmeId,
+                    HizmetDonemi = DateTime.UtcNow.ToString("yyyy-MM", System.Globalization.CultureInfo.InvariantCulture),
+                    VadeAt = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1, 0, 0, 0, DateTimeKind.Utc),
                     AylikHizmetBedeli = monthlyFee,
+                    PlatformKomisyonOrani = _paymentOptions.PlatformCommissionRate,
                     ParaBirimi = "TRY",
                     Durum = MuhasebeciHizmetOdemeDurumlari.OdemeBekliyor,
                     CreatedAt = now,

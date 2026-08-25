@@ -362,11 +362,11 @@ namespace CashTracker.Infrastructure.Services
             await using var db = await _dbFactory.CreateDbContextAsync();
             var user = await TryEnsureCurrentUserAsync(db);
             if (user == null)
-                throw new InvalidOperationException("MÃ¼ÅŸteri baÄŸlamÄ± iÃ§in oturum gerekir.");
+                throw new InvalidOperationException("Müşteri bağlamı için oturum gerekir.");
 
             var relation = await FindUsableAccountantRelationAsync(db, user.Id, musteriIsletmeId);
             if (relation == null)
-                throw new InvalidOperationException("Bu mÃ¼ÅŸteri iÃ§in aktif muhasebeci baÄŸlantÄ±sÄ± bulunamadÄ±.");
+                throw new InvalidOperationException("Bu müşteri için aktif muhasebeci bağlantısı bulunamadı.");
 
             await SetUserAccountantCustomerContextAsync(db, user.Id, relation.MuhasebeciIsletmeId, musteriIsletmeId);
         }

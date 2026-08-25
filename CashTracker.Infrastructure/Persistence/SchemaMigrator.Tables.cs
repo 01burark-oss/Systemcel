@@ -17,6 +17,11 @@ CREATE TABLE IF NOT EXISTS Kasa (
     Tarih TEXT NOT NULL,
     Tip TEXT NOT NULL,
     Tutar NUMERIC NOT NULL DEFAULT 0,
+    SubeId INTEGER,
+    OrijinalTutar NUMERIC NOT NULL DEFAULT 0,
+    ParaBirimi TEXT NOT NULL DEFAULT 'TRY',
+    KurSnapshot NUMERIC NOT NULL DEFAULT 1,
+    TryKarsiligi NUMERIC NOT NULL DEFAULT 0,
     OdemeYontemi TEXT NOT NULL DEFAULT 'Nakit',
     Kalem TEXT,
     GiderTuru TEXT,
@@ -97,6 +102,10 @@ CREATE TABLE IF NOT EXISTS CariHareket (
     Tarih TEXT NOT NULL,
     HareketTipi TEXT NOT NULL,
     Tutar NUMERIC NOT NULL DEFAULT 0,
+    SubeId INTEGER,
+    ParaBirimi TEXT NOT NULL DEFAULT 'TRY',
+    KurSnapshot NUMERIC NOT NULL DEFAULT 1,
+    TryKarsiligi NUMERIC NOT NULL DEFAULT 0,
     Kaynak TEXT NOT NULL DEFAULT 'Manuel',
     Aciklama TEXT,
     CreatedAt TEXT NOT NULL
@@ -117,6 +126,9 @@ CREATE TABLE IF NOT EXISTS UrunHizmet (
     AlisFiyati NUMERIC NOT NULL DEFAULT 0,
     SatisFiyati NUMERIC NOT NULL DEFAULT 0,
     KritikStok NUMERIC NOT NULL DEFAULT 0,
+    SubeId INTEGER,
+    ParaBirimi TEXT NOT NULL DEFAULT 'TRY',
+    KurSnapshot NUMERIC NOT NULL DEFAULT 1,
     Aktif INTEGER NOT NULL DEFAULT 1,
     CreatedAt TEXT NOT NULL,
     UpdatedAt TEXT NOT NULL
@@ -130,8 +142,12 @@ CREATE TABLE IF NOT EXISTS StokHareket (
     Id INTEGER PRIMARY KEY AUTOINCREMENT,
     IsletmeId INTEGER NOT NULL,
     UrunHizmetId INTEGER NOT NULL,
+    DepoId INTEGER,
+    StokDefterIslemiId INTEGER,
+    SubeId INTEGER,
     Tarih TEXT NOT NULL,
     Miktar NUMERIC NOT NULL DEFAULT 0,
+    RezerveMiktar NUMERIC NOT NULL DEFAULT 0,
     HareketTipi TEXT NOT NULL,
     Kaynak TEXT NOT NULL DEFAULT 'Manuel',
     Aciklama TEXT,
@@ -157,6 +173,10 @@ CREATE TABLE IF NOT EXISTS Fatura (
     IskontoToplam NUMERIC NOT NULL DEFAULT 0,
     KdvToplam NUMERIC NOT NULL DEFAULT 0,
     GenelToplam NUMERIC NOT NULL DEFAULT 0,
+    SubeId INTEGER,
+    ParaBirimi TEXT NOT NULL DEFAULT 'TRY',
+    KurSnapshot NUMERIC NOT NULL DEFAULT 1,
+    GenelToplamTry NUMERIC NOT NULL DEFAULT 0,
     OdenenTutar NUMERIC NOT NULL DEFAULT 0,
     OdemeYontemi TEXT NOT NULL DEFAULT 'Nakit',
     Aciklama TEXT,
@@ -199,6 +219,10 @@ CREATE TABLE IF NOT EXISTS TahsilatOdeme (
     Tarih TEXT NOT NULL,
     Tip TEXT NOT NULL,
     Tutar NUMERIC NOT NULL DEFAULT 0,
+    SubeId INTEGER,
+    ParaBirimi TEXT NOT NULL DEFAULT 'TRY',
+    KurSnapshot NUMERIC NOT NULL DEFAULT 1,
+    TryKarsiligi NUMERIC NOT NULL DEFAULT 0,
     OdemeYontemi TEXT NOT NULL DEFAULT 'Nakit',
     KasaId INTEGER,
     CariHareketId INTEGER,
@@ -222,6 +246,55 @@ CREATE TABLE IF NOT EXISTS OdemeHatirlatma (
     GonderildiAt TEXT,
     CreatedAt TEXT NOT NULL
 );");
+
+            db.Database.ExecuteSqlRaw(@"
+CREATE TABLE IF NOT EXISTS StokDepo (
+    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+    IsletmeId INTEGER NOT NULL,
+    SubeId INTEGER,
+    Ad TEXT NOT NULL,
+    Kod TEXT NOT NULL,
+    Konum TEXT,
+    Varsayilan INTEGER NOT NULL DEFAULT 0,
+    Aktif INTEGER NOT NULL DEFAULT 1,
+    CreatedAt TEXT NOT NULL,
+    UpdatedAt TEXT NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS IX_StokDepo_IsletmeId_Kod ON StokDepo(IsletmeId, Kod);
+CREATE INDEX IF NOT EXISTS IX_StokDepo_IsletmeId_Varsayilan ON StokDepo(IsletmeId, Varsayilan);
+
+CREATE TABLE IF NOT EXISTS StokDefterIslemi (
+    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+    IsletmeId INTEGER NOT NULL,
+    IslemAnahtari TEXT NOT NULL,
+    IcerikOzeti TEXT NOT NULL,
+    IslemTipi TEXT NOT NULL,
+    TersKayitKaynakIslemId INTEGER,
+    Aciklama TEXT,
+    CreatedAt TEXT NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS IX_StokDefterIslemi_IsletmeId_IslemAnahtari ON StokDefterIslemi(IsletmeId, IslemAnahtari);
+CREATE UNIQUE INDEX IF NOT EXISTS IX_StokDefterIslemi_IsletmeId_TersKayitKaynakIslemId ON StokDefterIslemi(IsletmeId, TersKayitKaynakIslemId);
+CREATE INDEX IF NOT EXISTS IX_StokDefterIslemi_TersKayitKaynakIslemId ON StokDefterIslemi(TersKayitKaynakIslemId);
+");
+
+            var conn = db.Database.GetDbConnection();
+            if (!ColumnExists(conn, "StokHareket", "DepoId"))
+                db.Database.ExecuteSqlRaw("ALTER TABLE StokHareket ADD COLUMN DepoId INTEGER;");
+            if (!ColumnExists(conn, "StokHareket", "StokDefterIslemiId"))
+                db.Database.ExecuteSqlRaw("ALTER TABLE StokHareket ADD COLUMN StokDefterIslemiId INTEGER;");
+            if (!ColumnExists(conn, "StokHareket", "RezerveMiktar"))
+                db.Database.ExecuteSqlRaw("ALTER TABLE StokHareket ADD COLUMN RezerveMiktar NUMERIC NOT NULL DEFAULT 0;");
+
+            db.Database.ExecuteSqlRaw(@"
+CREATE INDEX IF NOT EXISTS IX_StokHareket_IsletmeId_DepoId_UrunHizmetId ON StokHareket(IsletmeId, DepoId, UrunHizmetId);
+CREATE INDEX IF NOT EXISTS IX_StokHareket_DepoId ON StokHareket(DepoId);
+CREATE INDEX IF NOT EXISTS IX_StokHareket_StokDefterIslemiId ON StokHareket(StokDefterIslemiId);
+INSERT INTO StokDepo (IsletmeId, Ad, Kod, Konum, Varsayilan, Aktif, CreatedAt, UpdatedAt)
+SELECT Id, 'Merkez Depo', 'MERKEZ', NULL, 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+FROM Isletme i
+WHERE NOT EXISTS (SELECT 1 FROM StokDepo d WHERE d.IsletmeId = i.Id AND d.Varsayilan = 1);
+");
         }
 
         private static partial void EnsureFaturaMusteriOnayiTable(CashTrackerDbContext db)
@@ -255,6 +328,88 @@ CREATE TABLE IF NOT EXISTS FaturaMusteriOnayi (
     CreatedAt TEXT NOT NULL,
     UpdatedAt TEXT NOT NULL
 );");
+        }
+
+        private static partial void EnsureSubeKurTablesAndColumns(CashTrackerDbContext db, DbConnection conn)
+        {
+            db.Database.ExecuteSqlRaw(@"
+CREATE TABLE IF NOT EXISTS Sube (
+    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+    IsletmeId INTEGER NOT NULL,
+    Ad TEXT NOT NULL,
+    Kod TEXT NOT NULL,
+    Varsayilan INTEGER NOT NULL DEFAULT 0,
+    Aktif INTEGER NOT NULL DEFAULT 1,
+    OlusturmaAnahtari TEXT NOT NULL,
+    IcerikOzeti TEXT NOT NULL,
+    CreatedAt TEXT NOT NULL,
+    UpdatedAt TEXT NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS IX_Sube_IsletmeId_Kod ON Sube(IsletmeId, Kod);
+CREATE UNIQUE INDEX IF NOT EXISTS IX_Sube_IsletmeId_OlusturmaAnahtari ON Sube(IsletmeId, OlusturmaAnahtari);
+CREATE INDEX IF NOT EXISTS IX_Sube_IsletmeId_Varsayilan ON Sube(IsletmeId, Varsayilan);
+
+CREATE TABLE IF NOT EXISTS DovizKuru (
+    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+    IsletmeId INTEGER NOT NULL,
+    ParaBirimi TEXT NOT NULL,
+    Kur NUMERIC NOT NULL,
+    GecerliAt TEXT NOT NULL,
+    OlusturmaAnahtari TEXT NOT NULL,
+    IcerikOzeti TEXT NOT NULL,
+    CreatedAt TEXT NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS IX_DovizKuru_IsletmeId_OlusturmaAnahtari ON DovizKuru(IsletmeId, OlusturmaAnahtari);
+CREATE INDEX IF NOT EXISTS IX_DovizKuru_IsletmeId_ParaBirimi_GecerliAt ON DovizKuru(IsletmeId, ParaBirimi, GecerliAt);
+");
+
+            AddColumnIfMissing(db, conn, "Kasa", "SubeId", "INTEGER");
+            AddColumnIfMissing(db, conn, "Kasa", "OrijinalTutar", "NUMERIC NOT NULL DEFAULT 0");
+            AddColumnIfMissing(db, conn, "Kasa", "ParaBirimi", "TEXT NOT NULL DEFAULT 'TRY'");
+            AddColumnIfMissing(db, conn, "Kasa", "KurSnapshot", "NUMERIC NOT NULL DEFAULT 1");
+            AddColumnIfMissing(db, conn, "Kasa", "TryKarsiligi", "NUMERIC NOT NULL DEFAULT 0");
+            AddColumnIfMissing(db, conn, "CariHareket", "SubeId", "INTEGER");
+            AddColumnIfMissing(db, conn, "CariHareket", "ParaBirimi", "TEXT NOT NULL DEFAULT 'TRY'");
+            AddColumnIfMissing(db, conn, "CariHareket", "KurSnapshot", "NUMERIC NOT NULL DEFAULT 1");
+            AddColumnIfMissing(db, conn, "CariHareket", "TryKarsiligi", "NUMERIC NOT NULL DEFAULT 0");
+            AddColumnIfMissing(db, conn, "UrunHizmet", "SubeId", "INTEGER");
+            AddColumnIfMissing(db, conn, "UrunHizmet", "ParaBirimi", "TEXT NOT NULL DEFAULT 'TRY'");
+            AddColumnIfMissing(db, conn, "UrunHizmet", "KurSnapshot", "NUMERIC NOT NULL DEFAULT 1");
+            AddColumnIfMissing(db, conn, "StokHareket", "SubeId", "INTEGER");
+            AddColumnIfMissing(db, conn, "StokDepo", "SubeId", "INTEGER");
+            AddColumnIfMissing(db, conn, "Fatura", "SubeId", "INTEGER");
+            AddColumnIfMissing(db, conn, "Fatura", "ParaBirimi", "TEXT NOT NULL DEFAULT 'TRY'");
+            AddColumnIfMissing(db, conn, "Fatura", "KurSnapshot", "NUMERIC NOT NULL DEFAULT 1");
+            AddColumnIfMissing(db, conn, "Fatura", "GenelToplamTry", "NUMERIC NOT NULL DEFAULT 0");
+            AddColumnIfMissing(db, conn, "TahsilatOdeme", "SubeId", "INTEGER");
+            AddColumnIfMissing(db, conn, "TahsilatOdeme", "ParaBirimi", "TEXT NOT NULL DEFAULT 'TRY'");
+            AddColumnIfMissing(db, conn, "TahsilatOdeme", "KurSnapshot", "NUMERIC NOT NULL DEFAULT 1");
+            AddColumnIfMissing(db, conn, "TahsilatOdeme", "TryKarsiligi", "NUMERIC NOT NULL DEFAULT 0");
+
+            db.Database.ExecuteSqlRaw(@"
+UPDATE Kasa SET OrijinalTutar = Tutar WHERE OrijinalTutar = 0;
+UPDATE Kasa SET TryKarsiligi = Tutar WHERE TryKarsiligi = 0;
+UPDATE CariHareket SET TryKarsiligi = Tutar WHERE TryKarsiligi = 0;
+UPDATE Fatura SET GenelToplamTry = GenelToplam WHERE GenelToplamTry = 0;
+UPDATE TahsilatOdeme SET TryKarsiligi = Tutar WHERE TryKarsiligi = 0;
+CREATE INDEX IF NOT EXISTS IX_Kasa_IsletmeId_SubeId_Tarih ON Kasa(IsletmeId, SubeId, Tarih);
+CREATE INDEX IF NOT EXISTS IX_CariHareket_IsletmeId_SubeId_Tarih ON CariHareket(IsletmeId, SubeId, Tarih);
+CREATE INDEX IF NOT EXISTS IX_UrunHizmet_IsletmeId_SubeId_Ad ON UrunHizmet(IsletmeId, SubeId, Ad);
+CREATE INDEX IF NOT EXISTS IX_StokHareket_IsletmeId_SubeId_Tarih ON StokHareket(IsletmeId, SubeId, Tarih);
+CREATE INDEX IF NOT EXISTS IX_StokDepo_IsletmeId_SubeId ON StokDepo(IsletmeId, SubeId);
+CREATE INDEX IF NOT EXISTS IX_Fatura_IsletmeId_SubeId_Tarih ON Fatura(IsletmeId, SubeId, Tarih);
+CREATE INDEX IF NOT EXISTS IX_TahsilatOdeme_IsletmeId_SubeId_Tarih ON TahsilatOdeme(IsletmeId, SubeId, Tarih);
+");
+        }
+
+        private static void AddColumnIfMissing(CashTrackerDbContext db, DbConnection conn, string table, string column, string definition)
+        {
+            if (!ColumnExists(conn, table, column))
+            {
+                using var command = conn.CreateCommand();
+                command.CommandText = $"ALTER TABLE {table} ADD COLUMN {column} {definition};";
+                command.ExecuteNonQuery();
+            }
         }
 
         private static partial void EnsureBelgeDosyaTable(CashTrackerDbContext db)
@@ -481,6 +636,10 @@ CREATE TABLE IF NOT EXISTS Abonelik (
     OdemeSaglayici TEXT NOT NULL DEFAULT '',
     SaglayiciMusteriId TEXT NOT NULL DEFAULT '',
     SaglayiciAbonelikId TEXT NOT NULL DEFAULT '',
+    PlanlananPlanKodu TEXT NOT NULL DEFAULT '',
+    PlanlananFaturalamaDonemi TEXT NOT NULL DEFAULT '',
+    PlanlananEkMusteriKredisi INTEGER,
+    PlanlananDegisiklikAt TEXT,
     CreatedAt TEXT NOT NULL,
     UpdatedAt TEXT NOT NULL
 );");
@@ -531,6 +690,11 @@ CREATE TABLE IF NOT EXISTS MuhasebeciHizmetOdemesi (
     MusteriIsletmeId INTEGER NOT NULL,
     OdemeIslemiId INTEGER,
     AylikHizmetBedeli NUMERIC NOT NULL DEFAULT 0,
+    HizmetDonemi TEXT NOT NULL DEFAULT '',
+    VadeAt TEXT NOT NULL,
+    PlatformKomisyonOrani NUMERIC NOT NULL DEFAULT 0,
+    PlatformKomisyonTutari NUMERIC NOT NULL DEFAULT 0,
+    AktarilacakTutar NUMERIC NOT NULL DEFAULT 0,
     ParaBirimi TEXT NOT NULL DEFAULT 'TRY',
     Durum TEXT NOT NULL DEFAULT 'OdemeBekliyor',
     TahsilEdilenTutar NUMERIC NOT NULL DEFAULT 0,
@@ -538,6 +702,130 @@ CREATE TABLE IF NOT EXISTS MuhasebeciHizmetOdemesi (
     CreatedAt TEXT NOT NULL,
     UpdatedAt TEXT NOT NULL
 );");
+
+            db.Database.ExecuteSqlRaw(@"
+CREATE TABLE IF NOT EXISTS DestekTalebi (
+    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+    IsletmeId INTEGER NOT NULL,
+    OlusturanKullaniciReferansi TEXT NOT NULL DEFAULT '',
+    OlusturmaAnahtari TEXT NOT NULL,
+    Konu TEXT NOT NULL,
+    Kategori TEXT NOT NULL,
+    Aciklama TEXT NOT NULL,
+    Oncelik TEXT NOT NULL DEFAULT 'Standart',
+    Durum TEXT NOT NULL DEFAULT 'Acik',
+    YoneticiYaniti TEXT NOT NULL DEFAULT '',
+    CozulduAt TEXT,
+    CreatedAt TEXT NOT NULL,
+    UpdatedAt TEXT NOT NULL
+);");
+
+            db.Database.ExecuteSqlRaw(@"
+CREATE TABLE IF NOT EXISTS BildirimKaydi (
+    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+    IsletmeId INTEGER NOT NULL,
+    KullaniciRef TEXT NOT NULL,
+    KaynakAnahtari TEXT NOT NULL,
+    Tur TEXT NOT NULL,
+    Onem TEXT NOT NULL DEFAULT 'orta',
+    Baslik TEXT NOT NULL,
+    Mesaj TEXT NOT NULL,
+    Aksiyon TEXT NOT NULL DEFAULT '',
+    Url TEXT NOT NULL DEFAULT '',
+    OkunduAt TEXT,
+    CreatedAt TEXT NOT NULL,
+    UpdatedAt TEXT NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS IX_BildirimKaydi_IsletmeId_KullaniciRef_KaynakAnahtari ON BildirimKaydi(IsletmeId, KullaniciRef, KaynakAnahtari);
+CREATE INDEX IF NOT EXISTS IX_BildirimKaydi_IsletmeId_KullaniciRef_OkunduAt ON BildirimKaydi(IsletmeId, KullaniciRef, OkunduAt);
+");
+
+            db.Database.ExecuteSqlRaw(@"
+CREATE TABLE IF NOT EXISTS BildirimTercihi (
+    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+    IsletmeId INTEGER NOT NULL,
+    KullaniciRef TEXT NOT NULL,
+    UygulamaAktif INTEGER NOT NULL DEFAULT 1,
+    EpostaAktif INTEGER NOT NULL DEFAULT 0,
+    TelegramAktif INTEGER NOT NULL DEFAULT 0,
+    SessizSaatAktif INTEGER NOT NULL DEFAULT 0,
+    SessizBaslangicDakika INTEGER NOT NULL DEFAULT 1320,
+    SessizBitisDakika INTEGER NOT NULL DEFAULT 480,
+    SaatDilimi TEXT NOT NULL DEFAULT 'Europe/Istanbul',
+    CreatedAt TEXT NOT NULL,
+    UpdatedAt TEXT NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS IX_BildirimTercihi_IsletmeId_KullaniciRef ON BildirimTercihi(IsletmeId, KullaniciRef);
+");
+
+            db.Database.ExecuteSqlRaw(@"
+CREATE TABLE IF NOT EXISTS BildirimTeslimOutbox (
+    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+    IsletmeId INTEGER NOT NULL,
+    KullaniciRef TEXT NOT NULL,
+    BildirimId INTEGER,
+    IdempotencyAnahtari TEXT NOT NULL,
+    Kanal TEXT NOT NULL,
+    Durum TEXT NOT NULL DEFAULT 'Bekliyor',
+    PayloadJson TEXT NOT NULL DEFAULT '{{}}',
+    DenemeSayisi INTEGER NOT NULL DEFAULT 0,
+    SonrakiDenemeAt TEXT NOT NULL,
+    ClaimToken TEXT NOT NULL DEFAULT '',
+    ClaimBitisAt TEXT,
+    SonHataKodu TEXT NOT NULL DEFAULT '',
+    TeslimEdildiAt TEXT,
+    DeadLetterAt TEXT,
+    CreatedAt TEXT NOT NULL,
+    UpdatedAt TEXT NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS IX_BildirimTeslimOutbox_IsletmeId_KullaniciRef_Kanal_IdempotencyAnahtari ON BildirimTeslimOutbox(IsletmeId, KullaniciRef, Kanal, IdempotencyAnahtari);
+CREATE INDEX IF NOT EXISTS IX_BildirimTeslimOutbox_Durum_SonrakiDenemeAt_ClaimBitisAt ON BildirimTeslimOutbox(Durum, SonrakiDenemeAt, ClaimBitisAt);
+CREATE INDEX IF NOT EXISTS IX_BildirimTeslimOutbox_IsletmeId_KullaniciRef ON BildirimTeslimOutbox(IsletmeId, KullaniciRef);
+");
+
+            db.Database.ExecuteSqlRaw(@"
+CREATE TABLE IF NOT EXISTS BankaHareketi (
+    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+    IsletmeId INTEGER NOT NULL,
+    Tarih TEXT NOT NULL,
+    Aciklama TEXT NOT NULL,
+    Tutar NUMERIC NOT NULL,
+    ParaBirimi TEXT NOT NULL DEFAULT 'TRY',
+    Durum TEXT NOT NULL DEFAULT 'Acik',
+    KaynakHash TEXT NOT NULL,
+    EslesenKaynakTuru TEXT NOT NULL DEFAULT '',
+    EslesenKaynakId INTEGER,
+    EslestiAt TEXT,
+    YokSayildiAt TEXT,
+    CreatedAt TEXT NOT NULL,
+    UpdatedAt TEXT NOT NULL,
+    FOREIGN KEY (IsletmeId) REFERENCES Isletme(Id) ON DELETE CASCADE
+);
+CREATE UNIQUE INDEX IF NOT EXISTS IX_BankaHareketi_IsletmeId_KaynakHash ON BankaHareketi(IsletmeId, KaynakHash);
+CREATE INDEX IF NOT EXISTS IX_BankaHareketi_IsletmeId_Durum_Tarih ON BankaHareketi(IsletmeId, Durum, Tarih);
+CREATE INDEX IF NOT EXISTS IX_BankaHareketi_IsletmeId_EslesenKaynakTuru_EslesenKaynakId ON BankaHareketi(IsletmeId, EslesenKaynakTuru, EslesenKaynakId);
+");
+
+            db.Database.ExecuteSqlRaw(@"
+CREATE TABLE IF NOT EXISTS GelistiriciApiAnahtari (
+    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+    IsletmeId INTEGER NOT NULL,
+    OlusturanKullaniciRef TEXT NOT NULL,
+    Ad TEXT NOT NULL,
+    Prefix TEXT NOT NULL,
+    AnahtarHash BLOB NOT NULL,
+    ScopeListesi TEXT NOT NULL,
+    CreatedAt TEXT NOT NULL,
+    LastUsedAt TEXT,
+    ExpiresAt TEXT NOT NULL,
+    RevokedAt TEXT,
+    RevokedByUserRef TEXT NOT NULL DEFAULT '',
+    FOREIGN KEY (IsletmeId) REFERENCES Isletme(Id) ON DELETE CASCADE
+);
+CREATE UNIQUE INDEX IF NOT EXISTS IX_GelistiriciApiAnahtari_Prefix ON GelistiriciApiAnahtari(Prefix);
+CREATE INDEX IF NOT EXISTS IX_GelistiriciApiAnahtari_IsletmeId_CreatedAt ON GelistiriciApiAnahtari(IsletmeId, CreatedAt);
+CREATE INDEX IF NOT EXISTS IX_GelistiriciApiAnahtari_IsletmeId_RevokedAt_ExpiresAt ON GelistiriciApiAnahtari(IsletmeId, RevokedAt, ExpiresAt);
+");
 
             db.Database.ExecuteSqlRaw(@"
 CREATE TABLE IF NOT EXISTS MuhasebeciAktarimAlacagi (
@@ -575,6 +863,9 @@ CREATE TABLE IF NOT EXISTS AbonelikOnayi (
     IstemciIpHash TEXT NOT NULL DEFAULT '',
     UserAgentHash TEXT NOT NULL DEFAULT '',
     NetTutar NUMERIC NOT NULL DEFAULT 0,
+    TamDonemNetTutar NUMERIC NOT NULL DEFAULT 0,
+    KistKrediNetTutar NUMERIC NOT NULL DEFAULT 0,
+    DegisiklikTipi TEXT NOT NULL DEFAULT '',
     KdvOrani NUMERIC NOT NULL DEFAULT 0,
     KdvTutar NUMERIC NOT NULL DEFAULT 0,
     ToplamTutar NUMERIC NOT NULL DEFAULT 0,
@@ -599,6 +890,10 @@ CREATE TABLE IF NOT EXISTS OdemeIslemi (
     CheckoutUrl TEXT NOT NULL DEFAULT '',
     CheckoutExpiresAt TEXT,
     NetTutar NUMERIC NOT NULL DEFAULT 0,
+    TamDonemNetTutar NUMERIC NOT NULL DEFAULT 0,
+    KistKrediNetTutar NUMERIC NOT NULL DEFAULT 0,
+    DegisiklikTipi TEXT NOT NULL DEFAULT '',
+    HedefDonemBitisAt TEXT,
     KdvOrani NUMERIC NOT NULL DEFAULT 0,
     KdvTutar NUMERIC NOT NULL DEFAULT 0,
     ToplamTutar NUMERIC NOT NULL DEFAULT 0,
@@ -755,6 +1050,15 @@ WHERE UpdatedAt = '1970-01-01 00:00:00' OR TRIM(UpdatedAt) = '';");
             if (!ColumnExists(conn, "Abonelik", "IndirimliDonemKalan"))
                 db.Database.ExecuteSqlRaw("ALTER TABLE Abonelik ADD COLUMN IndirimliDonemKalan INTEGER NOT NULL DEFAULT 0");
 
+            if (!ColumnExists(conn, "Abonelik", "PlanlananPlanKodu"))
+                db.Database.ExecuteSqlRaw("ALTER TABLE Abonelik ADD COLUMN PlanlananPlanKodu TEXT NOT NULL DEFAULT ''");
+            if (!ColumnExists(conn, "Abonelik", "PlanlananFaturalamaDonemi"))
+                db.Database.ExecuteSqlRaw("ALTER TABLE Abonelik ADD COLUMN PlanlananFaturalamaDonemi TEXT NOT NULL DEFAULT ''");
+            if (!ColumnExists(conn, "Abonelik", "PlanlananEkMusteriKredisi"))
+                db.Database.ExecuteSqlRaw("ALTER TABLE Abonelik ADD COLUMN PlanlananEkMusteriKredisi INTEGER");
+            if (!ColumnExists(conn, "Abonelik", "PlanlananDegisiklikAt"))
+                db.Database.ExecuteSqlRaw("ALTER TABLE Abonelik ADD COLUMN PlanlananDegisiklikAt TEXT");
+
             if (!ColumnExists(conn, "IsletmeDeneme", "HesapTipi"))
                 db.Database.ExecuteSqlRaw("ALTER TABLE IsletmeDeneme ADD COLUMN HesapTipi TEXT NOT NULL DEFAULT 'Isletme'");
 
@@ -782,6 +1086,13 @@ WHERE UpdatedAt = '1970-01-01 00:00:00' OR TRIM(UpdatedAt) = '';");
                 db.Database.ExecuteSqlRaw("UPDATE AbonelikOnayi SET YenilemeNetTutar = NetTutar WHERE YenilemeNetTutar = 0");
             }
 
+            if (!ColumnExists(conn, "AbonelikOnayi", "TamDonemNetTutar"))
+                db.Database.ExecuteSqlRaw("ALTER TABLE AbonelikOnayi ADD COLUMN TamDonemNetTutar NUMERIC NOT NULL DEFAULT 0");
+            if (!ColumnExists(conn, "AbonelikOnayi", "KistKrediNetTutar"))
+                db.Database.ExecuteSqlRaw("ALTER TABLE AbonelikOnayi ADD COLUMN KistKrediNetTutar NUMERIC NOT NULL DEFAULT 0");
+            if (!ColumnExists(conn, "AbonelikOnayi", "DegisiklikTipi"))
+                db.Database.ExecuteSqlRaw("ALTER TABLE AbonelikOnayi ADD COLUMN DegisiklikTipi TEXT NOT NULL DEFAULT ''");
+
             if (!ColumnExists(conn, "OdemeIslemi", "EkMusteriKredisi"))
                 db.Database.ExecuteSqlRaw("ALTER TABLE OdemeIslemi ADD COLUMN EkMusteriKredisi INTEGER NOT NULL DEFAULT 0");
 
@@ -802,6 +1113,15 @@ WHERE UpdatedAt = '1970-01-01 00:00:00' OR TRIM(UpdatedAt) = '';");
 
             if (!ColumnExists(conn, "OdemeIslemi", "IndirimliDonemSayisi"))
                 db.Database.ExecuteSqlRaw("ALTER TABLE OdemeIslemi ADD COLUMN IndirimliDonemSayisi INTEGER NOT NULL DEFAULT 0");
+
+            if (!ColumnExists(conn, "OdemeIslemi", "TamDonemNetTutar"))
+                db.Database.ExecuteSqlRaw("ALTER TABLE OdemeIslemi ADD COLUMN TamDonemNetTutar NUMERIC NOT NULL DEFAULT 0");
+            if (!ColumnExists(conn, "OdemeIslemi", "KistKrediNetTutar"))
+                db.Database.ExecuteSqlRaw("ALTER TABLE OdemeIslemi ADD COLUMN KistKrediNetTutar NUMERIC NOT NULL DEFAULT 0");
+            if (!ColumnExists(conn, "OdemeIslemi", "DegisiklikTipi"))
+                db.Database.ExecuteSqlRaw("ALTER TABLE OdemeIslemi ADD COLUMN DegisiklikTipi TEXT NOT NULL DEFAULT ''");
+            if (!ColumnExists(conn, "OdemeIslemi", "HedefDonemBitisAt"))
+                db.Database.ExecuteSqlRaw("ALTER TABLE OdemeIslemi ADD COLUMN HedefDonemBitisAt TEXT");
 
             if (!ColumnExists(conn, "IsletmeDeneme", "DonemSonundaIptal"))
                 db.Database.ExecuteSqlRaw("ALTER TABLE IsletmeDeneme ADD COLUMN DonemSonundaIptal INTEGER NOT NULL DEFAULT 0");
@@ -829,6 +1149,19 @@ WHERE UpdatedAt = '1970-01-01 00:00:00' OR TRIM(UpdatedAt) = '';");
 
             if (!ColumnExists(conn, "MuhasebeciMusteriTalebi", "AylikHizmetBedeli"))
                 db.Database.ExecuteSqlRaw("ALTER TABLE MuhasebeciMusteriTalebi ADD COLUMN AylikHizmetBedeli NUMERIC NOT NULL DEFAULT 0");
+            if (!ColumnExists(conn, "MuhasebeciHizmetOdemesi", "HizmetDonemi"))
+                db.Database.ExecuteSqlRaw("ALTER TABLE MuhasebeciHizmetOdemesi ADD COLUMN HizmetDonemi TEXT NOT NULL DEFAULT ''");
+            if (!ColumnExists(conn, "MuhasebeciHizmetOdemesi", "VadeAt"))
+                db.Database.ExecuteSqlRaw("ALTER TABLE MuhasebeciHizmetOdemesi ADD COLUMN VadeAt TEXT NOT NULL DEFAULT '1970-01-01 00:00:00'");
+            if (!ColumnExists(conn, "MuhasebeciHizmetOdemesi", "PlatformKomisyonOrani"))
+                db.Database.ExecuteSqlRaw("ALTER TABLE MuhasebeciHizmetOdemesi ADD COLUMN PlatformKomisyonOrani NUMERIC NOT NULL DEFAULT 0");
+            if (!ColumnExists(conn, "MuhasebeciHizmetOdemesi", "PlatformKomisyonTutari"))
+                db.Database.ExecuteSqlRaw("ALTER TABLE MuhasebeciHizmetOdemesi ADD COLUMN PlatformKomisyonTutari NUMERIC NOT NULL DEFAULT 0");
+            if (!ColumnExists(conn, "MuhasebeciHizmetOdemesi", "AktarilacakTutar"))
+                db.Database.ExecuteSqlRaw("ALTER TABLE MuhasebeciHizmetOdemesi ADD COLUMN AktarilacakTutar NUMERIC NOT NULL DEFAULT 0");
+            db.Database.ExecuteSqlRaw("UPDATE MuhasebeciHizmetOdemesi SET HizmetDonemi = strftime('%Y-%m', COALESCE(TahsilEdildiAt, CreatedAt, CURRENT_TIMESTAMP)) WHERE HizmetDonemi = '';");
+            db.Database.ExecuteSqlRaw("UPDATE MuhasebeciHizmetOdemesi SET VadeAt = HizmetDonemi || '-01 00:00:00' WHERE VadeAt = '1970-01-01 00:00:00';");
+            db.Database.ExecuteSqlRaw("DROP INDEX IF EXISTS IX_MuhasebeciHizmetOdemesi_TalepId;");
 
             if (!ColumnExists(conn, "MuhasebeciProfil", "Telefon"))
                 db.Database.ExecuteSqlRaw("ALTER TABLE MuhasebeciProfil ADD COLUMN Telefon TEXT NOT NULL DEFAULT ''");
@@ -891,12 +1224,19 @@ WHERE UpdatedAt = '1970-01-01 00:00:00' OR TRIM(UpdatedAt) = '';");
             db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS IX_MuhasebeciMusteriTalebi_Durum ON MuhasebeciMusteriTalebi(Durum);");
             db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS IX_MuhasebeciMusteriTalebi_DavetKodu ON MuhasebeciMusteriTalebi(DavetKodu);");
             db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS IX_MuhasebeciMusteriTalebi_MuhasebeciIsletmeId_MusteriIsletmeId_Durum ON MuhasebeciMusteriTalebi(MuhasebeciIsletmeId, MusteriIsletmeId, Durum);");
-            db.Database.ExecuteSqlRaw("CREATE UNIQUE INDEX IF NOT EXISTS IX_MuhasebeciHizmetOdemesi_TalepId ON MuhasebeciHizmetOdemesi(TalepId);");
+            db.Database.ExecuteSqlRaw("CREATE UNIQUE INDEX IF NOT EXISTS IX_MuhasebeciHizmetOdemesi_TalepId_HizmetDonemi ON MuhasebeciHizmetOdemesi(TalepId, HizmetDonemi);");
             db.Database.ExecuteSqlRaw("CREATE UNIQUE INDEX IF NOT EXISTS IX_MuhasebeciHizmetOdemesi_OdemeIslemiId ON MuhasebeciHizmetOdemesi(OdemeIslemiId);");
             db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS IX_MuhasebeciHizmetOdemesi_MusteriIsletmeId_Durum ON MuhasebeciHizmetOdemesi(MusteriIsletmeId, Durum);");
-            db.Database.ExecuteSqlRaw("CREATE UNIQUE INDEX IF NOT EXISTS IX_MuhasebeciAktarimAlacagi_MuhasebeciHizmetOdemesiId ON MuhasebeciAktarimAlacagi(MuhasebeciHizmetOdemesiId);");
+            db.Database.ExecuteSqlRaw("DROP INDEX IF EXISTS IX_MuhasebeciAktarimAlacagi_MuhasebeciHizmetOdemesiId;");
+            db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS IX_MuhasebeciAktarimAlacagi_MuhasebeciHizmetOdemesiId ON MuhasebeciAktarimAlacagi(MuhasebeciHizmetOdemesiId);");
+            db.Database.ExecuteSqlRaw("CREATE UNIQUE INDEX IF NOT EXISTS IX_MuhasebeciAktarimAlacagi_Accrual ON MuhasebeciAktarimAlacagi(MuhasebeciHizmetOdemesiId) WHERE AktarilacakTutar >= 0;");
+            db.Database.ExecuteSqlRaw("CREATE UNIQUE INDEX IF NOT EXISTS IX_MuhasebeciAktarimAlacagi_RefundAdjustment ON MuhasebeciAktarimAlacagi(MuhasebeciHizmetOdemesiId) WHERE AktarilacakTutar < 0;");
             db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS IX_MuhasebeciAktarimAlacagi_MuhasebeciIsletmeId_AktarimDonemi_Durum ON MuhasebeciAktarimAlacagi(MuhasebeciIsletmeId, AktarimDonemi, Durum);");
             db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS IX_MuhasebeciAktarimAlacagi_AktarimReferansi ON MuhasebeciAktarimAlacagi(AktarimReferansi);");
+            db.Database.ExecuteSqlRaw("CREATE UNIQUE INDEX IF NOT EXISTS IX_DestekTalebi_IsletmeId_OlusturmaAnahtari ON DestekTalebi(IsletmeId, OlusturmaAnahtari);");
+            db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS IX_DestekTalebi_IsletmeId_CreatedAt ON DestekTalebi(IsletmeId, CreatedAt);");
+            db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS IX_DestekTalebi_Oncelik_CreatedAt ON DestekTalebi(Oncelik, CreatedAt);");
+            db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS IX_DestekTalebi_Durum ON DestekTalebi(Durum);");
             db.Database.ExecuteSqlRaw("CREATE UNIQUE INDEX IF NOT EXISTS IX_MuhasebeciBaglantiDaveti_TokenHash ON MuhasebeciBaglantiDaveti(TokenHash);");
             db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS IX_MuhasebeciBaglantiDaveti_MusteriIsletmeId ON MuhasebeciBaglantiDaveti(MusteriIsletmeId);");
             db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS IX_MuhasebeciBaglantiDaveti_MuhasebeciIsletmeId ON MuhasebeciBaglantiDaveti(MuhasebeciIsletmeId);");

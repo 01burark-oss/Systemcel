@@ -76,11 +76,17 @@ const AbonelikSayfasi = React.lazy(() =>
 const TahsilatOdemeSayfasi = React.lazy(() =>
   import("./screens/tahsilat-odeme/TahsilatOdemeSayfasi").then((module) => ({ default: module.TahsilatOdemeSayfasi }))
 );
+const BankaEslesmeSayfasi = React.lazy(() =>
+  import("./screens/banka-eslestirme/BankaEslesmeSayfasi").then((module) => ({ default: module.BankaEslesmeSayfasi }))
+);
 const HizliSatisSayfasi = React.lazy(() =>
   import("./screens/urun-stok/HizliSatisSayfasi").then((module) => ({ default: module.HizliSatisSayfasi }))
 );
 const UrunStokSayfasi = React.lazy(() =>
   import("./screens/urun-stok/UrunStokSayfasi").then((module) => ({ default: module.UrunStokSayfasi }))
+);
+const StokDefteriSayfasi = React.lazy(() =>
+  import("./screens/urun-stok/StokDefteriSayfasi").then((module) => ({ default: module.StokDefteriSayfasi }))
 );
 const WelcomeSayfasi = React.lazy(() =>
   import("./screens/welcome/WelcomeSayfasi").then((module) => ({ default: module.WelcomeSayfasi }))
@@ -90,6 +96,12 @@ const MuhasebeciBasvurulariSayfasi = React.lazy(() =>
 );
 const OdemeIncelemeSayfasi = React.lazy(() =>
   import("./screens/yonetim/OdemeIncelemeSayfasi").then((module) => ({ default: module.OdemeIncelemeSayfasi }))
+);
+const MuhasebeciAktarimlariSayfasi = React.lazy(() =>
+  import("./screens/yonetim/MuhasebeciAktarimlariSayfasi").then((module) => ({ default: module.MuhasebeciAktarimlariSayfasi }))
+);
+const DestekTalepleriYonetimSayfasi = React.lazy(() =>
+  import("./screens/yonetim/DestekTalepleriYonetimSayfasi").then((module) => ({ default: module.DestekTalepleriYonetimSayfasi }))
 );
 
 const routeLoadingState = (
@@ -432,6 +444,9 @@ function WorkspaceRoutes({ path }: { path: string }) {
   const [yenileAnahtari, setYenileAnahtari] = React.useState(0);
   const [kolayKurulum, setKolayKurulum] = React.useState<KolayKurulumEkran | null>(null);
   const [kurulumGizlendi, setKurulumGizlendi] = React.useState(false);
+  const finansalVerileriYenile = React.useCallback(() => {
+    React.startTransition(() => setYenileAnahtari((current) => current + 1));
+  }, []);
 
   const ustBarYukle = React.useCallback(async () => {
     setUstBarHata("");
@@ -588,6 +603,14 @@ function WorkspaceRoutes({ path }: { path: string }) {
     );
   }
 
+  if (mobileWorkspace && routePath === "/hizli-satis") {
+    return (
+      <MobileWorkspaceView active="merkez">
+        <HizliSatisSayfasi yenileAnahtari={yenileAnahtari} onKayitOlusturuldu={finansalVerileriYenile} />
+      </MobileWorkspaceView>
+    );
+  }
+
   if (mobileWorkspace && routePath === "/muhasebeci/musteriler") {
     return (
       <MobileWorkspaceView active="merkez">
@@ -635,7 +658,7 @@ function WorkspaceRoutes({ path }: { path: string }) {
             onIsletmeDegistir={isletmeDegistir}
           />
         ) : routePath === "/hizli-satis" ? (
-          <HizliSatisSayfasi yenileAnahtari={yenileAnahtari} />
+          <HizliSatisSayfasi yenileAnahtari={yenileAnahtari} onKayitOlusturuldu={finansalVerileriYenile} />
         ) : routePath === "/cari-hesaplar" ? (
           <CariHesaplarSayfasi
             ustBar={ustBar}
@@ -650,6 +673,8 @@ function WorkspaceRoutes({ path }: { path: string }) {
             yenileAnahtari={yenileAnahtari}
             onIsletmeDegistir={isletmeDegistir}
           />
+        ) : routePath === "/stok-defteri" ? (
+          <StokDefteriSayfasi />
         ) : routePath === "/faturalar" ? (
           <FaturalarSayfasi
             ustBar={ustBar}
@@ -663,6 +688,11 @@ function WorkspaceRoutes({ path }: { path: string }) {
             ustBarIslemde={ustBarIslemde}
             yenileAnahtari={yenileAnahtari}
             onIsletmeDegistir={isletmeDegistir}
+          />
+        ) : routePath === "/banka-eslestirme" ? (
+          <BankaEslesmeSayfasi
+            yenileAnahtari={yenileAnahtari}
+            saltOkunur={Boolean(ustBar?.muhasebeciMusteriBaglami && ustBar.muhasebeciYetkiSeviyesi !== "TamIslem")}
           />
         ) : routePath === "/raporlar" ? (
           <RaporlarSayfasi
@@ -681,6 +711,10 @@ function WorkspaceRoutes({ path }: { path: string }) {
           <MuhasebeciBasvurulariSayfasi onUstBarYenile={ustBarYukle} />
         ) : routePath === "/yonetim/odemeler" ? (
           <OdemeIncelemeSayfasi />
+        ) : routePath === "/yonetim/muhasebeci-aktarimlari" ? (
+          <MuhasebeciAktarimlariSayfasi />
+        ) : routePath === "/yonetim/destek" ? (
+          <DestekTalepleriYonetimSayfasi />
         ) : routePath === "/muhasebeciler" ? (
           <MuhasebecilerSayfasi ustBar={ustBar} onUstBarYenile={ustBarYukle} />
         ) : routePath === "/sohbetler" ? (

@@ -111,7 +111,7 @@
 
 .pos-catalog {
   display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr);
+  grid-template-rows: auto auto auto minmax(0, 1fr);
 }
 
 .pos-cart {
@@ -141,7 +141,7 @@
 
 .pos-section-header p {
   margin: 4px 0 0;
-  color: #77746b;
+  color: #625f57;
   font-size: 13px;
 }
 
@@ -193,6 +193,201 @@
   font-size: 13px;
   font-weight: 850;
   cursor: pointer;
+}
+
+.pos-capture-stack {
+  min-width: 0;
+  display: grid;
+  gap: 8px;
+  padding: 0 20px 14px;
+}
+
+.pos-capture-actions {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.pos-capture-actions button {
+  min-width: 0;
+  min-height: 52px;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  border: 1px solid #d0cec4;
+  border-radius: 13px;
+  background: #f4f2e9;
+  color: #0b0b09;
+  text-align: left;
+  cursor: pointer;
+}
+
+.pos-capture-actions button:disabled {
+  border-color: #c7c4b9;
+  background: #e5e2d8;
+  color: #555249;
+  cursor: not-allowed;
+}
+
+.pos-capture-actions button > span {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.pos-capture-actions :is(strong, small) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pos-capture-actions strong {
+  font-size: 12px;
+}
+
+.pos-capture-actions small {
+  color: #625f57;
+  font-size: 10px;
+}
+
+.pos-scan-feedback {
+  margin: 0;
+  padding: 9px 11px;
+  border-radius: 10px;
+  background: #f0f9cf;
+  color: #425000;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.pos-scan-feedback.error {
+  background: #fff0ed;
+  color: #9c302b;
+}
+
+.pos-scan-feedback.unsupported {
+  background: #fff6dc;
+  color: #765000;
+}
+
+.pos-capture-help {
+  margin: 0;
+  color: #77746b;
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.pos-receipt-preview {
+  min-width: 0;
+  padding: 11px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px 10px;
+  border: 1px solid #bed854;
+  border-radius: 13px;
+  background: #f7fbdc;
+}
+
+.pos-receipt-preview > span {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: #c8ff00;
+}
+
+.pos-receipt-preview > div {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.pos-receipt-preview :is(strong, small) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pos-receipt-preview small,
+.pos-receipt-preview p {
+  color: #66645b;
+  font-size: 10px;
+}
+
+.pos-receipt-preview p {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+.pos-receipt-form__fields {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.pos-receipt-form__fields label {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+  color: #66645b;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.pos-receipt-form__fields :is(input, select, textarea) {
+  min-width: 0;
+  width: 100%;
+  min-height: 38px;
+  padding: 7px 9px;
+  border: 1px solid #cfccb9;
+  border-radius: 9px;
+  outline: 0;
+  background: #fffef9;
+  color: #0b0b09;
+  font: inherit;
+  font-size: 12px;
+}
+
+.pos-receipt-form__fields :is(input, select, textarea):focus {
+  border-color: #7e9e00;
+  box-shadow: 0 0 0 3px rgba(200, 255, 0, .24);
+}
+
+.pos-receipt-form__description {
+  grid-column: 1 / -1;
+}
+
+.pos-receipt-form__description textarea {
+  min-height: 56px;
+  resize: vertical;
+}
+
+.pos-receipt-form__save {
+  min-height: 42px;
+  grid-column: 1 / -1;
+  padding: 0 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 0;
+  border-radius: 10px;
+  background: #0b0b09;
+  color: #fffef9;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.pos-receipt-form__save:disabled {
+  opacity: .55;
+  cursor: not-allowed;
 }
 
 .pos-products {
@@ -590,6 +785,26 @@
 
   .pos-search button {
     grid-column: 1 / -1;
+  }
+
+  .pos-capture-stack {
+    padding: 0 14px 12px;
+  }
+
+  .pos-capture-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .pos-capture-actions :is(strong, small) {
+    white-space: normal;
+  }
+
+  .pos-receipt-form__fields {
+    grid-template-columns: 1fr;
+  }
+
+  .pos-receipt-form__description {
+    grid-column: 1;
   }
 
   .pos-products {

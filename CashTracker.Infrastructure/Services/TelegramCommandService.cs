@@ -2023,27 +2023,27 @@ namespace CashTracker.Infrastructure.Services
             if (message.Contains("Receipt OCR ayarlari eksik", StringComparison.OrdinalIgnoreCase))
                 return "OCR ayarları eksik.";
 
-            if (message.Contains("Gemini OCR failed", StringComparison.OrdinalIgnoreCase))
+            if (message.Contains("OpenAI OCR failed", StringComparison.OrdinalIgnoreCase))
             {
                 if (message.Contains("429", StringComparison.OrdinalIgnoreCase))
-                    return "Gemini kota veya hız limiti aşıldı.";
+                    return "OpenAI kota veya hız limiti aşıldı.";
 
                 if (message.Contains("401", StringComparison.OrdinalIgnoreCase) ||
                     message.Contains("403", StringComparison.OrdinalIgnoreCase))
                 {
-                    return "Gemini API erişimi reddedildi.";
+                    return "OpenAI API erişimi reddedildi.";
                 }
 
                 if (message.Contains("400", StringComparison.OrdinalIgnoreCase))
-                    return "Gemini fotoğraf isteğini reddetti.";
+                    return "OpenAI fotoğraf isteğini reddetti.";
 
                 if (message.Contains("500", StringComparison.OrdinalIgnoreCase) ||
                     message.Contains("503", StringComparison.OrdinalIgnoreCase))
                 {
-                    return "Gemini şu anda geçici olarak yanıt vermiyor.";
+                    return "OpenAI şu anda geçici olarak yanıt vermiyor.";
                 }
 
-                return "Gemini OCR isteği başarısız oldu.";
+                return "OpenAI OCR isteği başarısız oldu.";
             }
 
             if (message.Contains("OCR.space", StringComparison.OrdinalIgnoreCase))
@@ -2056,11 +2056,11 @@ namespace CashTracker.Infrastructure.Services
                 message.Contains("DeepSeek OCR JSON", StringComparison.OrdinalIgnoreCase))
                 return "DeepSeek fis siniflandirmasi yapamadi.";
 
-            if (message.Contains("Gemini OCR yaniti bos", StringComparison.OrdinalIgnoreCase) ||
-                message.Contains("Gemini OCR JSON", StringComparison.OrdinalIgnoreCase) ||
+            if (message.Contains("OpenAI OCR yaniti bos", StringComparison.OrdinalIgnoreCase) ||
+                message.Contains("OpenAI OCR JSON", StringComparison.OrdinalIgnoreCase) ||
                 message.Contains("JSON object icermiyor", StringComparison.OrdinalIgnoreCase))
             {
-                return "Gemini geçerli bir OCR yanıtı döndürmedi.";
+                return "OpenAI geçerli bir OCR yanıtı döndürmedi.";
             }
 
             if (message.Contains("sqlite", StringComparison.OrdinalIgnoreCase) ||

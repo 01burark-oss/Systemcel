@@ -24,17 +24,20 @@ public sealed class SubscriptionLifecycleService : ISubscriptionLifecycleService
     private readonly IPaymentProvider _provider;
     private readonly IPaymentPricingService _pricing;
     private readonly ISubscriptionReminderSender? _reminderSender;
+    private readonly MuhasebeciOdemeOptions _accountantPaymentOptions;
 
     public SubscriptionLifecycleService(
         IDbContextFactory<CashTrackerDbContext> dbFactory,
         IPaymentProvider provider,
         IPaymentPricingService pricing,
-        ISubscriptionReminderSender? reminderSender = null)
+        ISubscriptionReminderSender? reminderSender = null,
+        MuhasebeciOdemeOptions? accountantPaymentOptions = null)
     {
         _dbFactory = dbFactory;
         _provider = provider;
         _pricing = pricing;
         _reminderSender = reminderSender;
+        _accountantPaymentOptions = accountantPaymentOptions ?? new MuhasebeciOdemeOptions();
     }
 
     public async Task<SubscriptionCheckoutResult> BeginCheckoutAsync(
@@ -50,21 +53,31 @@ public sealed class SubscriptionLifecycleService : ISubscriptionLifecycleService
             ?? throw new InvalidOperationException("Isletme bulunamadi.");
         var existing = await db.OdemeIslemleri
             .SingleOrDefaultAsync(x => x.IsletmeId == command.BusinessId && x.CheckoutAnahtari == checkoutKey, ct);
-        var useFounderPrice = existing is not null
-            ? string.Equals(existing.KampanyaKodu, SubscriptionPlanCatalog.KurucuKampanyaKodu, StringComparison.Ordinal)
-            : await ReserveFounderSlotAsync(command, checkoutKey, ct);
-        var quote = _pricing.CreateQuote(
-            command.PlanCode,
-            command.AccountType,
-            command.BillingPeriod,
-            command.ExtraCustomerCredits,
-            useFounderPrice);
+        var activeSubscription = await db.Abonelikler.AsNoTracking()
+            .Where(x => x.IsletmeId == command.BusinessId && x.HesapTipi == command.AccountType && x.Durum == "Aktif")
+            .OrderByDescending(x => x.DonemBaslangicAt)
+            .FirstOrDefaultAsync(ct);
+        var useFounderPrice = existing is null && activeSubscription is null &&
+            await ReserveFounderSlotAsync(command, checkoutKey, ct);
+        var quote = existing is not null
+            ? BuildStoredQuote(existing)
+            : _pricing.CreateChangeQuote(
+                command.PlanCode,
+                command.AccountType,
+                command.BillingPeriod,
+                command.ExtraCustomerCredits,
+                ToPricingContext(activeSubscription),
+                DateTime.UtcNow,
+                useFounderPrice);
         if (!string.Equals(business.TenantTipi, quote.AccountType, StringComparison.OrdinalIgnoreCase))
             throw new InvalidOperationException("Plan, aktif calisma alaninin hesap tipiyle uyumlu degil.");
+        EnsureExpectedQuoteMatches(command, quote);
+        if (quote.ChangeType == SubscriptionChangeTypes.ScheduledDowngrade)
+            throw new InvalidOperationException("Bu degisiklik odeme gerektirmez; donem sonuna planlanmalidir.");
 
         if (existing is not null)
         {
-            if (string.Equals(existing.IslemTipi, "AbonelikBaslatma", StringComparison.Ordinal))
+            if (string.Equals(existing.IslemTipi, PaymentTransactionTypes.SubscriptionStart, StringComparison.Ordinal))
                 quote = quote with { TrialDays = 0 };
             EnsureCheckoutSelectionMatches(existing, quote);
             if (TryBuildExistingResult(existing, quote, out var existingResult))
@@ -90,13 +103,19 @@ public sealed class SubscriptionLifecycleService : ISubscriptionLifecycleService
             ListeNetTutar = quote.ListNetAmount,
             YenilemeNetTutar = quote.RenewalNetAmount,
             IndirimliDonemSayisi = quote.DiscountedPeriodCount,
-            IslemTipi = quote.TrialDays > 0 ? "DenemeKartYetkilendirme" : "AbonelikBaslatma",
+            IslemTipi = quote.ChangeType == SubscriptionChangeTypes.ImmediateUpgrade
+                ? PaymentTransactionTypes.PlanUpgrade
+                : quote.TrialDays > 0 ? "DenemeKartYetkilendirme" : PaymentTransactionTypes.SubscriptionStart,
             Durum = PaymentTransactionStates.Preparing,
             OdemeSaglayici = _provider.Name,
             NetTutar = quote.NetAmount,
             KdvOrani = quote.VatRate,
             KdvTutar = quote.VatAmount,
             ToplamTutar = quote.TotalAmount,
+            TamDonemNetTutar = quote.FullPeriodNetAmount,
+            KistKrediNetTutar = quote.ProrationCreditNetAmount,
+            DegisiklikTipi = quote.ChangeType,
+            HedefDonemBitisAt = quote.TargetPeriodEndAt,
             ParaBirimi = quote.Currency,
             CreatedAt = now,
             UpdatedAt = now
@@ -122,6 +141,9 @@ public sealed class SubscriptionLifecycleService : ISubscriptionLifecycleService
                 IstemciIpHash = Sha256(command.ClientIp),
                 UserAgentHash = Sha256(command.UserAgent),
                 NetTutar = quote.NetAmount,
+                TamDonemNetTutar = quote.FullPeriodNetAmount,
+                KistKrediNetTutar = quote.ProrationCreditNetAmount,
+                DegisiklikTipi = quote.ChangeType,
                 KdvOrani = quote.VatRate,
                 KdvTutar = quote.VatAmount,
                 ToplamTutar = quote.TotalAmount,
@@ -166,7 +188,9 @@ public sealed class SubscriptionLifecycleService : ISubscriptionLifecycleService
                     ["billingPeriod"] = quote.BillingPeriod,
                     ["extraCustomerCredits"] = quote.ExtraCustomerCredits.ToString(),
                     ["campaignCode"] = quote.CampaignCode,
-                    ["renewalNetAmount"] = quote.RenewalNetAmount.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                    ["renewalNetAmount"] = quote.RenewalNetAmount.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    ["changeType"] = quote.ChangeType,
+                    ["prorationCreditNetAmount"] = quote.ProrationCreditNetAmount.ToString(System.Globalization.CultureInfo.InvariantCulture)
                 }), ct);
 
             payment.OdemeSaglayici = session.Provider;
@@ -286,6 +310,10 @@ public sealed class SubscriptionLifecycleService : ISubscriptionLifecycleService
         if (subscription is not null)
         {
             subscription.DonemSonundaIptal = true;
+            subscription.PlanlananPlanKodu = string.Empty;
+            subscription.PlanlananFaturalamaDonemi = string.Empty;
+            subscription.PlanlananEkMusteriKredisi = null;
+            subscription.PlanlananDegisiklikAt = null;
             subscription.IptalAt = now;
             subscription.UpdatedAt = now;
         }
@@ -297,6 +325,143 @@ public sealed class SubscriptionLifecycleService : ISubscriptionLifecycleService
             trial.UpdatedAt = now;
         }
 
+        await db.SaveChangesAsync(ct);
+    }
+
+    public async Task<SubscriptionPlanChangeResult> SchedulePlanChangeAsync(
+        SubscriptionCheckoutCommand command,
+        CancellationToken ct = default)
+    {
+        ValidateCheckoutCommand(command);
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+        await using var transaction = db.Database.IsRelational()
+            ? await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct)
+            : null;
+        var business = await db.Isletmeler.AsNoTracking().SingleOrDefaultAsync(x => x.Id == command.BusinessId, ct)
+            ?? throw new InvalidOperationException("Isletme bulunamadi.");
+        if (!string.Equals(business.TenantTipi, command.AccountType, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("Plan, aktif calisma alaninin hesap tipiyle uyumlu degil.");
+
+        var subscription = await db.Abonelikler
+            .Where(x => x.IsletmeId == command.BusinessId && x.HesapTipi == command.AccountType && x.Durum == "Aktif")
+            .OrderByDescending(x => x.DonemBaslangicAt)
+            .FirstOrDefaultAsync(ct)
+            ?? throw new InvalidOperationException("Degisiklik planlanabilecek aktif abonelik bulunamadi.");
+        var quote = _pricing.CreateChangeQuote(
+            command.PlanCode,
+            command.AccountType,
+            command.BillingPeriod,
+            command.ExtraCustomerCredits,
+            ToPricingContext(subscription),
+            DateTime.UtcNow);
+        if (subscription.DonemSonundaIptal)
+            throw new InvalidOperationException("Once donem sonu iptal talebini kaldirin.");
+        EnsureExpectedQuoteMatches(command, quote);
+        if (quote.ChangeType != SubscriptionChangeTypes.ScheduledDowngrade || quote.EffectiveAt is null)
+            throw new InvalidOperationException("Bu plan degisikligi aninda tahsilat gerektirir.");
+
+        var checkoutKey = command.IdempotencyKey.Trim();
+        var existing = await db.OdemeIslemleri.SingleOrDefaultAsync(x =>
+            x.IsletmeId == command.BusinessId && x.CheckoutAnahtari == checkoutKey, ct);
+        if (existing is not null)
+        {
+            if (existing.IslemTipi != PaymentTransactionTypes.ScheduledPlanChange ||
+                !string.Equals(existing.PlanKodu, quote.PlanCode, StringComparison.OrdinalIgnoreCase) ||
+                !string.Equals(existing.FaturalamaDonemi, quote.BillingPeriod, StringComparison.OrdinalIgnoreCase) ||
+                existing.EkMusteriKredisi != quote.ExtraCustomerCredits)
+                throw new InvalidOperationException("Ayni checkout anahtari farkli bir plan degisikligiyle kullanilamaz.");
+            if (!string.Equals(subscription.PlanlananPlanKodu, quote.PlanCode, StringComparison.OrdinalIgnoreCase) ||
+                !string.Equals(subscription.PlanlananFaturalamaDonemi, quote.BillingPeriod, StringComparison.OrdinalIgnoreCase) ||
+                subscription.PlanlananEkMusteriKredisi != quote.ExtraCustomerCredits ||
+                subscription.PlanlananDegisiklikAt != quote.EffectiveAt)
+                throw new InvalidOperationException("Bu checkout anahtarina ait planlama artik etkin degil. Yeni bir anahtar kullanin.");
+            return new SubscriptionPlanChangeResult(quote, true, quote.EffectiveAt.Value);
+        }
+
+        subscription.PlanlananPlanKodu = quote.PlanCode;
+        subscription.PlanlananFaturalamaDonemi = quote.BillingPeriod;
+        subscription.PlanlananEkMusteriKredisi = quote.ExtraCustomerCredits;
+        subscription.PlanlananDegisiklikAt = quote.EffectiveAt;
+        subscription.UpdatedAt = DateTime.UtcNow;
+        db.OdemeIslemleri.Add(new OdemeIslemi
+        {
+            IsletmeId = command.BusinessId,
+            CheckoutAnahtari = checkoutKey,
+            HesapTipi = command.AccountType,
+            PlanKodu = quote.PlanCode,
+            FaturalamaDonemi = quote.BillingPeriod,
+            EkMusteriKredisi = quote.ExtraCustomerCredits,
+            IslemTipi = PaymentTransactionTypes.ScheduledPlanChange,
+            Durum = PaymentTransactionStates.Succeeded,
+            OdemeSaglayici = "Systemcel",
+            NetTutar = 0m,
+            KdvOrani = quote.VatRate,
+            KdvTutar = 0m,
+            ToplamTutar = 0m,
+            TamDonemNetTutar = quote.FullPeriodNetAmount,
+            DegisiklikTipi = quote.ChangeType,
+            HedefDonemBitisAt = quote.EffectiveAt,
+            ParaBirimi = quote.Currency,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow,
+            TamamlandiAt = DateTime.UtcNow
+        });
+        db.AbonelikOnaylari.Add(new AbonelikOnayi
+        {
+            IsletmeId = command.BusinessId,
+            KullaniciRef = command.UserReference.Trim(),
+            CheckoutAnahtari = checkoutKey,
+            HesapTipi = quote.AccountType,
+            PlanKodu = quote.PlanCode,
+            FaturalamaDonemi = quote.BillingPeriod,
+            EkMusteriKredisi = quote.ExtraCustomerCredits,
+            KampanyaKodu = string.Empty,
+            ListeNetTutar = quote.ListNetAmount,
+            YenilemeNetTutar = quote.RenewalNetAmount,
+            MetinSurumu = command.ConsentTextVersion.Trim(),
+            MetinHash = Sha256(command.ConsentText),
+            IstemciIpHash = Sha256(command.ClientIp),
+            UserAgentHash = Sha256(command.UserAgent),
+            NetTutar = 0m,
+            TamDonemNetTutar = quote.FullPeriodNetAmount,
+            KistKrediNetTutar = 0m,
+            DegisiklikTipi = quote.ChangeType,
+            KdvOrani = quote.VatRate,
+            KdvTutar = 0m,
+            ToplamTutar = 0m,
+            ParaBirimi = quote.Currency,
+            OnayAt = DateTime.UtcNow
+        });
+        await db.SaveChangesAsync(ct);
+        if (transaction is not null) await transaction.CommitAsync(ct);
+        return new SubscriptionPlanChangeResult(quote, true, quote.EffectiveAt.Value);
+    }
+
+    public async Task CancelScheduledPlanChangeAsync(int businessId, CancellationToken ct = default)
+    {
+        if (businessId <= 0) throw new ArgumentOutOfRangeException(nameof(businessId));
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+        var subscription = await db.Abonelikler
+            .Where(x => x.IsletmeId == businessId && x.Durum == "Aktif" && x.PlanlananDegisiklikAt != null)
+            .OrderByDescending(x => x.DonemBaslangicAt)
+            .FirstOrDefaultAsync(ct)
+            ?? throw new InvalidOperationException("Iptal edilecek planlanmis degisiklik bulunamadi.");
+        subscription.PlanlananPlanKodu = string.Empty;
+        subscription.PlanlananFaturalamaDonemi = string.Empty;
+        subscription.PlanlananEkMusteriKredisi = null;
+        subscription.PlanlananDegisiklikAt = null;
+        subscription.UpdatedAt = DateTime.UtcNow;
+        var schedulePayment = await db.OdemeIslemleri
+            .Where(x => x.IsletmeId == businessId &&
+                        x.IslemTipi == PaymentTransactionTypes.ScheduledPlanChange &&
+                        x.Durum == PaymentTransactionStates.Succeeded)
+            .OrderByDescending(x => x.CreatedAt)
+            .FirstOrDefaultAsync(ct);
+        if (schedulePayment is not null)
+        {
+            schedulePayment.Durum = PaymentTransactionStates.Cancelled;
+            schedulePayment.UpdatedAt = DateTime.UtcNow;
+        }
         await db.SaveChangesAsync(ct);
     }
 
@@ -414,6 +579,21 @@ public sealed class SubscriptionLifecycleService : ISubscriptionLifecycleService
             if (subscription.DonemBitisAt is not { } periodEnd || EnsureUtc(periodEnd) > current)
                 continue;
 
+            if (!subscription.DonemSonundaIptal &&
+                subscription.PlanlananDegisiklikAt is { } changeAt &&
+                EnsureUtc(changeAt) <= current &&
+                !string.IsNullOrWhiteSpace(subscription.PlanlananPlanKodu) &&
+                !string.IsNullOrWhiteSpace(subscription.PlanlananFaturalamaDonemi))
+            {
+                // A scheduled downgrade records intent only. It must never grant a new paid
+                // period until the provider confirms the next charge through a payment webhook.
+                // Keep the target fields so the billing screen can offer the intended checkout.
+                subscription.Durum = "SonaErdi";
+                subscription.UpdatedAt = current;
+                expiredSubscriptions++;
+                continue;
+            }
+
             subscription.Durum = subscription.DonemSonundaIptal ? "IptalEdildi" : "SonaErdi";
             subscription.UpdatedAt = current;
             if (subscription.DonemSonundaIptal)
@@ -422,8 +602,7 @@ public sealed class SubscriptionLifecycleService : ISubscriptionLifecycleService
                 expiredSubscriptions++;
         }
 
-        if (expiredTrials + expiredSubscriptions + cancelledSubscriptions + gracePeriodsEnded > 0)
-            await db.SaveChangesAsync(ct);
+        await db.SaveChangesAsync(ct);
 
         return new SubscriptionReconciliationResult(
             expiredTrials,
@@ -521,7 +700,7 @@ public sealed class SubscriptionLifecycleService : ISubscriptionLifecycleService
         return (sevenDay, threeDay);
     }
 
-    private static bool ApplyEvent(
+    private bool ApplyEvent(
         CashTrackerDbContext db,
         OdemeIslemi payment,
         PaymentWebhookEvent paymentEvent)
@@ -549,7 +728,7 @@ public sealed class SubscriptionLifecycleService : ISubscriptionLifecycleService
         payment.UpdatedAt = DateTime.UtcNow;
 
         if (string.Equals(payment.IslemTipi, PaymentTransactionTypes.AccountantService, StringComparison.Ordinal))
-            return ApplyAccountantServiceEvent(db, payment, paymentEvent, occurredAt);
+            return ApplyAccountantServiceEvent(db, payment, paymentEvent, occurredAt, _accountantPaymentOptions);
 
         switch (paymentEvent.EventType)
         {
@@ -596,7 +775,8 @@ public sealed class SubscriptionLifecycleService : ISubscriptionLifecycleService
         CashTrackerDbContext db,
         OdemeIslemi payment,
         PaymentWebhookEvent paymentEvent,
-        DateTime occurredAt)
+        DateTime occurredAt,
+        MuhasebeciOdemeOptions options)
     {
         var servicePayment = db.MuhasebeciHizmetOdemeleri.SingleOrDefault(x => x.OdemeIslemiId == payment.Id)
             ?? throw new InvalidOperationException("Muhasebeci hizmet ödemesi kaydı bulunamadı.");
@@ -606,8 +786,7 @@ public sealed class SubscriptionLifecycleService : ISubscriptionLifecycleService
         switch (paymentEvent.EventType)
         {
             case PaymentEventTypes.PaymentSucceeded:
-                if (servicePayment.Durum == MuhasebeciHizmetOdemeDurumlari.IptalEdildi ||
-                    request.Durum != MuhasebeciTalepDurumlari.OdemeBekliyor)
+                if (servicePayment.Durum == MuhasebeciHizmetOdemeDurumlari.IptalEdildi)
                     return false;
                 if (servicePayment.Durum == MuhasebeciHizmetOdemeDurumlari.TahsilEdildi)
                     return false;
@@ -615,6 +794,10 @@ public sealed class SubscriptionLifecycleService : ISubscriptionLifecycleService
                 var relation = db.MuhasebeciMusterileri.SingleOrDefault(x =>
                     x.MuhasebeciIsletmeId == servicePayment.MuhasebeciIsletmeId &&
                     x.MusteriIsletmeId == servicePayment.MusteriIsletmeId);
+                var isFirstPayment = relation is null;
+                if ((isFirstPayment && request.Durum != MuhasebeciTalepDurumlari.OdemeBekliyor) ||
+                    (!isFirstPayment && (request.Durum != MuhasebeciTalepDurumlari.Kabul || relation!.Durum != "Aktif")))
+                    return false;
                 if (relation is null)
                 {
                     relation = new MuhasebeciMusteri
@@ -631,9 +814,10 @@ public sealed class SubscriptionLifecycleService : ISubscriptionLifecycleService
                 relation.Kaynak = request.Tur;
                 relation.TalepId = request.Id;
                 relation.DavetKodu = string.IsNullOrWhiteSpace(request.DavetKodu) ? relation.DavetKodu : request.DavetKodu;
-                relation.BaslangicAt = occurredAt;
+                if (isFirstPayment)
+                    relation.BaslangicAt = occurredAt;
                 relation.BitisAt = null;
-                relation.KabulAt = occurredAt;
+                relation.KabulAt ??= occurredAt;
                 relation.UpdatedAt = occurredAt;
 
                 request.Durum = MuhasebeciTalepDurumlari.Kabul;
@@ -641,10 +825,20 @@ public sealed class SubscriptionLifecycleService : ISubscriptionLifecycleService
                 request.UpdatedAt = occurredAt;
                 servicePayment.Durum = MuhasebeciHizmetOdemeDurumlari.TahsilEdildi;
                 servicePayment.TahsilEdilenTutar = paymentEvent.Amount;
+                servicePayment.PlatformKomisyonOrani = servicePayment.PlatformKomisyonOrani == 0m
+                    ? options.PlatformCommissionRate
+                    : servicePayment.PlatformKomisyonOrani;
+                servicePayment.PlatformKomisyonTutari = decimal.Round(
+                    paymentEvent.Amount * servicePayment.PlatformKomisyonOrani / 100m,
+                    2,
+                    MidpointRounding.AwayFromZero);
+                servicePayment.AktarilacakTutar = paymentEvent.Amount - servicePayment.PlatformKomisyonTutari;
                 servicePayment.TahsilEdildiAt = occurredAt;
                 servicePayment.UpdatedAt = occurredAt;
 
-                if (!db.MuhasebeciAktarimAlacaklari.Any(x => x.MuhasebeciHizmetOdemesiId == servicePayment.Id))
+                if (!db.MuhasebeciAktarimAlacaklari.Any(x =>
+                        x.MuhasebeciHizmetOdemesiId == servicePayment.Id &&
+                        x.AktarilacakTutar >= 0m))
                 {
                     db.MuhasebeciAktarimAlacaklari.Add(new MuhasebeciAktarimAlacagi
                     {
@@ -653,10 +847,10 @@ public sealed class SubscriptionLifecycleService : ISubscriptionLifecycleService
                         MusteriIsletmeId = servicePayment.MusteriIsletmeId,
                         TalepId = servicePayment.TalepId,
                         TahsilEdilenTutar = paymentEvent.Amount,
-                        PlatformKomisyonTutari = 0m,
-                        AktarilacakTutar = paymentEvent.Amount,
+                        PlatformKomisyonTutari = servicePayment.PlatformKomisyonTutari,
+                        AktarilacakTutar = servicePayment.AktarilacakTutar,
                         ParaBirimi = paymentEvent.Currency,
-                        AktarimDonemi = occurredAt.ToString("yyyy-MM", System.Globalization.CultureInfo.InvariantCulture),
+                        AktarimDonemi = servicePayment.HizmetDonemi,
                         Durum = MuhasebeciAktarimDurumlari.Bekliyor,
                         AktarimReferansi = $"pending-{servicePayment.Id}",
                         TahakkukAt = occurredAt,
@@ -695,12 +889,43 @@ public sealed class SubscriptionLifecycleService : ISubscriptionLifecycleService
                     activeRelation.UpdatedAt = occurredAt;
                 }
                 var payable = db.MuhasebeciAktarimAlacaklari.SingleOrDefault(x =>
-                    x.MuhasebeciHizmetOdemesiId == servicePayment.Id);
+                    x.MuhasebeciHizmetOdemesiId == servicePayment.Id &&
+                    x.AktarilacakTutar >= 0m);
                 if (payable is not null)
                 {
-                    payable.Durum = MuhasebeciAktarimDurumlari.TersKayit;
-                    payable.TersKayitAt = occurredAt;
-                    payable.UpdatedAt = occurredAt;
+                    if (payable.Durum == MuhasebeciAktarimDurumlari.Aktarildi)
+                    {
+                        var hasClawback = db.MuhasebeciAktarimAlacaklari.Any(x =>
+                            x.MuhasebeciHizmetOdemesiId == servicePayment.Id &&
+                            x.AktarilacakTutar < 0m);
+                        if (!hasClawback)
+                        {
+                            db.MuhasebeciAktarimAlacaklari.Add(new MuhasebeciAktarimAlacagi
+                            {
+                                MuhasebeciHizmetOdemesiId = servicePayment.Id,
+                                MuhasebeciIsletmeId = servicePayment.MuhasebeciIsletmeId,
+                                MusteriIsletmeId = servicePayment.MusteriIsletmeId,
+                                TalepId = servicePayment.TalepId,
+                                TahsilEdilenTutar = -payable.TahsilEdilenTutar,
+                                PlatformKomisyonTutari = -payable.PlatformKomisyonTutari,
+                                AktarilacakTutar = -payable.AktarilacakTutar,
+                                ParaBirimi = payable.ParaBirimi,
+                                AktarimDonemi = occurredAt.ToString("yyyy-MM", System.Globalization.CultureInfo.InvariantCulture),
+                                Durum = MuhasebeciAktarimDurumlari.Bekliyor,
+                                AktarimReferansi = $"clawback-{servicePayment.Id}",
+                                TahakkukAt = occurredAt,
+                                TersKayitAt = occurredAt,
+                                CreatedAt = occurredAt,
+                                UpdatedAt = occurredAt
+                            });
+                        }
+                    }
+                    else if (payable.Durum == MuhasebeciAktarimDurumlari.Bekliyor)
+                    {
+                        payable.Durum = MuhasebeciAktarimDurumlari.TersKayit;
+                        payable.TersKayitAt = occurredAt;
+                        payable.UpdatedAt = occurredAt;
+                    }
                 }
                 payment.Durum = PaymentTransactionStates.Refunded;
                 payment.TamamlandiAt = occurredAt;
@@ -784,10 +1009,22 @@ public sealed class SubscriptionLifecycleService : ISubscriptionLifecycleService
         var activeSubscriptions = db.Abonelikler
             .Where(x => x.IsletmeId == payment.IsletmeId && x.HesapTipi == payment.HesapTipi && x.Durum == "Aktif")
             .ToList();
+        var replacedSubscription = activeSubscriptions
+            .OrderByDescending(x => x.DonemBaslangicAt)
+            .FirstOrDefault();
+        var preservesCurrentPeriod =
+            string.Equals(payment.DegisiklikTipi, SubscriptionChangeTypes.ImmediateUpgrade, StringComparison.Ordinal) &&
+            payment.HedefDonemBitisAt is { } targetEnd &&
+            replacedSubscription?.DonemBitisAt is { } currentEnd &&
+            EnsureUtc(targetEnd) == EnsureUtc(currentEnd);
+        var newPeriodStart = preservesCurrentPeriod
+            ? EnsureUtc(replacedSubscription!.DonemBaslangicAt)
+            : occurredAt;
         foreach (var active in activeSubscriptions)
         {
             active.Durum = "Degistirildi";
-            active.DonemBitisAt = occurredAt;
+            if (!preservesCurrentPeriod)
+                active.DonemBitisAt = occurredAt;
             active.UpdatedAt = occurredAt;
         }
 
@@ -799,9 +1036,12 @@ public sealed class SubscriptionLifecycleService : ISubscriptionLifecycleService
             trial.UpdatedAt = occurredAt;
         }
 
-        var periodEnd = string.Equals(payment.FaturalamaDonemi, PaymentBillingPeriods.Annual, StringComparison.Ordinal)
-            ? occurredAt.AddYears(1)
-            : occurredAt.AddMonths(1);
+        var periodEnd = payment.HedefDonemBitisAt is { } targetPeriodEnd
+            ? EnsureUtc(targetPeriodEnd)
+            : string.Equals(payment.FaturalamaDonemi, PaymentBillingPeriods.Annual, StringComparison.Ordinal)
+                ? occurredAt.AddYears(1)
+                : occurredAt.AddMonths(1);
+        var fullPeriodNetAmount = payment.TamDonemNetTutar > 0m ? payment.TamDonemNetTutar : payment.NetTutar;
         db.Abonelikler.Add(new Abonelik
         {
             IsletmeId = payment.IsletmeId,
@@ -809,8 +1049,8 @@ public sealed class SubscriptionLifecycleService : ISubscriptionLifecycleService
             PlanKodu = payment.PlanKodu,
             Durum = "Aktif",
             AylikTutar = string.Equals(payment.FaturalamaDonemi, PaymentBillingPeriods.Annual, StringComparison.Ordinal)
-                ? decimal.Round(payment.NetTutar / 12m, 2, MidpointRounding.AwayFromZero)
-                : payment.NetTutar,
+                ? decimal.Round(fullPeriodNetAmount / 12m, 2, MidpointRounding.AwayFromZero)
+                : fullPeriodNetAmount,
             FaturalamaDonemi = payment.FaturalamaDonemi,
             EkMusteriKredisi = payment.EkMusteriKredisi,
             KampanyaKodu = payment.KampanyaKodu,
@@ -818,9 +1058,9 @@ public sealed class SubscriptionLifecycleService : ISubscriptionLifecycleService
             IndirimliDonemKalan = string.Equals(payment.FaturalamaDonemi, PaymentBillingPeriods.Monthly, StringComparison.Ordinal)
                 ? Math.Max(0, payment.IndirimliDonemSayisi - 1)
                 : 0,
-            DonemTutari = payment.NetTutar,
+            DonemTutari = fullPeriodNetAmount,
             ParaBirimi = payment.ParaBirimi,
-            DonemBaslangicAt = occurredAt,
+            DonemBaslangicAt = newPeriodStart,
             DonemBitisAt = periodEnd,
             OdemeSaglayici = payment.OdemeSaglayici,
             SaglayiciMusteriId = $"business-{payment.IsletmeId}",
@@ -832,6 +1072,9 @@ public sealed class SubscriptionLifecycleService : ISubscriptionLifecycleService
 
     private static void ApplyPaymentFailed(CashTrackerDbContext db, OdemeIslemi payment, DateTime occurredAt)
     {
+        if (string.Equals(payment.IslemTipi, PaymentTransactionTypes.PlanUpgrade, StringComparison.Ordinal))
+            return;
+
         var subscription = db.Abonelikler
             .Where(x => x.IsletmeId == payment.IsletmeId && x.HesapTipi == payment.HesapTipi &&
                         (x.Durum == "Aktif" || x.Durum == "SonaErdi"))
@@ -854,6 +1097,23 @@ public sealed class SubscriptionLifecycleService : ISubscriptionLifecycleService
             subscription.Durum = "IadeEdildi";
             subscription.DonemBitisAt = occurredAt;
             subscription.UpdatedAt = occurredAt;
+        }
+
+        if (string.Equals(payment.IslemTipi, PaymentTransactionTypes.PlanUpgrade, StringComparison.Ordinal))
+        {
+            var previous = db.Abonelikler
+                .Where(x => x.IsletmeId == payment.IsletmeId &&
+                            x.HesapTipi == payment.HesapTipi &&
+                            x.Durum == "Degistirildi" &&
+                            x.DonemBitisAt != null &&
+                            x.DonemBitisAt > occurredAt)
+                .OrderByDescending(x => x.UpdatedAt)
+                .FirstOrDefault();
+            if (previous is not null)
+            {
+                previous.Durum = "Aktif";
+                previous.UpdatedAt = occurredAt;
+            }
         }
     }
 
@@ -922,6 +1182,43 @@ public sealed class SubscriptionLifecycleService : ISubscriptionLifecycleService
         return false;
     }
 
+    private static CurrentSubscriptionPricingContext? ToPricingContext(Abonelik? subscription)
+    {
+        if (subscription?.DonemBitisAt is not { } periodEnd)
+            return null;
+        return new CurrentSubscriptionPricingContext(
+            subscription.PlanKodu,
+            subscription.FaturalamaDonemi,
+            subscription.EkMusteriKredisi,
+            subscription.DonemTutari,
+            EnsureUtc(subscription.DonemBaslangicAt),
+            EnsureUtc(periodEnd));
+    }
+
+    private static PaymentQuote BuildStoredQuote(OdemeIslemi payment) => new(
+        payment.PlanKodu,
+        payment.HesapTipi,
+        payment.FaturalamaDonemi,
+        payment.ParaBirimi,
+        payment.NetTutar,
+        payment.KdvOrani,
+        payment.KdvTutar,
+        payment.ToplamTutar,
+        0,
+        payment.EkMusteriKredisi,
+        payment.PlanKodu == PlanKodlari.MuhasebeciStandart ? SubscriptionPlanCatalog.MuhasebeciStandartDahilMusteriSayisi : 0,
+        payment.FaturalamaDonemi == PaymentBillingPeriods.Annual ? SubscriptionPlanCatalog.EkMusteriKredisiYillikTutar : SubscriptionPlanCatalog.EkMusteriKredisiAylikTutar,
+        payment.KampanyaKodu,
+        payment.KampanyaKodu == SubscriptionPlanCatalog.KurucuKampanyaKodu,
+        payment.ListeNetTutar,
+        payment.YenilemeNetTutar,
+        payment.IndirimliDonemSayisi,
+        payment.TamDonemNetTutar > 0m ? payment.TamDonemNetTutar : payment.NetTutar,
+        payment.KistKrediNetTutar,
+        string.IsNullOrWhiteSpace(payment.DegisiklikTipi) ? SubscriptionChangeTypes.NewSubscription : payment.DegisiklikTipi,
+        payment.CreatedAt,
+        payment.HedefDonemBitisAt);
+
     private static void EnsureCheckoutSelectionMatches(OdemeIslemi payment, PaymentQuote quote)
     {
         if (!string.Equals(payment.PlanKodu, quote.PlanCode, StringComparison.OrdinalIgnoreCase) ||
@@ -931,6 +1228,17 @@ public sealed class SubscriptionLifecycleService : ISubscriptionLifecycleService
             payment.ToplamTutar != quote.TotalAmount)
         {
             throw new InvalidOperationException("Ayni checkout anahtari farkli bir plan veya kredi secimiyle kullanilamaz.");
+        }
+    }
+
+    private static void EnsureExpectedQuoteMatches(SubscriptionCheckoutCommand command, PaymentQuote quote)
+    {
+        if ((command.ExpectedTotalAmount is { } total && total != quote.TotalAmount) ||
+            (command.ExpectedProrationCreditNetAmount is { } credit && credit != quote.ProrationCreditNetAmount) ||
+            (!string.IsNullOrWhiteSpace(command.ExpectedChangeType) &&
+             !string.Equals(command.ExpectedChangeType, quote.ChangeType, StringComparison.Ordinal)))
+        {
+            throw new InvalidOperationException("Abonelik teklifi degisti. Guncel tutari gorup yeniden onaylayin.");
         }
     }
 

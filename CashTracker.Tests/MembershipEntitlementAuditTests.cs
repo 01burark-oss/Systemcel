@@ -36,6 +36,132 @@ public sealed class MembershipEntitlementAuditTests
     }
 
     [Fact]
+    public async Task Davet_YalnizDavetEdilenEpostaTarafindanKabulEdilir()
+    {
+        await using var fixture = await Fixture.CreateAsync();
+        var service = fixture.CreateMembershipService();
+        var invite = await service.CreateInviteAsync(new IsletmeUyelikDavetRequest { Eposta = "invitee@example.com", Rol = "personel" });
+        await fixture.AddUserAsync(2, "other", "other@example.com");
+        fixture.User.Set("other", "other@example.com");
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => service.AcceptInviteAsync(invite.DavetKodu));
+
+        await fixture.AddUserAsync(3, "invitee", "invitee@example.com");
+        fixture.User.Set("invitee", "invitee@example.com");
+        var result = await service.AcceptInviteAsync(invite.DavetKodu);
+
+        var membership = Assert.Single(result.Uyelikler, x => x.KullaniciId == 3);
+        Assert.Equal("Aktif", membership.Durum);
+        Assert.Equal("personel", membership.Rol);
+        Assert.Empty(membership.DavetKodu);
+    }
+
+    [Fact]
+    public async Task Davet_DogrulanmamisEpostaClaimiyleKabulEdilmez()
+    {
+        await using var fixture = await Fixture.CreateAsync();
+        var service = fixture.CreateMembershipService();
+        var invite = await service.CreateInviteAsync(new IsletmeUyelikDavetRequest { Eposta = "invitee@example.com" });
+        await fixture.AddUserAsync(2, "invitee", "invitee@example.com");
+        fixture.User.Set("invitee", "invitee@example.com", emailVerified: false);
+
+        var error = await Assert.ThrowsAsync<UnauthorizedAccessException>(() => service.AcceptInviteAsync(invite.DavetKodu));
+
+        Assert.Contains("doğrulayın", error.Message);
+    }
+
+    [Fact]
+    public async Task IsletmeSahibi_RolSilmeVeSahiplikDevriniYonetir()
+    {
+        await using var fixture = await Fixture.CreateAsync();
+        await fixture.AddUserAsync(2, "member", "member@example.com");
+        await using (var db = fixture.CreateDbContext())
+        {
+            db.IsletmeUyelikleri.Add(new IsletmeUyelik { IsletmeId = 1, KullaniciId = 2, Rol = "personel", Durum = "Aktif", DavetEposta = "member@example.com" });
+            await db.SaveChangesAsync();
+        }
+
+        var service = fixture.CreateMembershipService();
+        var member = Assert.Single((await service.GetMembershipsAsync()).Uyelikler, x => x.KullaniciId == 2);
+        var updated = await service.UpdateRoleAsync(member.Id, "yonetici");
+        Assert.Equal("yonetici", Assert.Single(updated.Uyelikler, x => x.Id == member.Id).Rol);
+
+        var transferred = await service.TransferOwnershipAsync(member.Id);
+        Assert.Equal("isletme_sahibi", Assert.Single(transferred.Uyelikler, x => x.Id == member.Id).Rol);
+        Assert.False(transferred.SahibiMi);
+
+        fixture.User.Set("member", "member@example.com");
+        var oldOwner = Assert.Single((await service.GetMembershipsAsync()).Uyelikler, x => x.KullaniciId == 1);
+        var removed = await service.RemoveAsync(oldOwner.Id);
+        Assert.DoesNotContain(removed.Uyelikler, x => x.Id == oldOwner.Id);
+    }
+
+    [Fact]
+    public async Task NormalUye_BekleyenDavetinTekKullanimlikKodunuGoremez()
+    {
+        await using var fixture = await Fixture.CreateAsync();
+        var ownerService = fixture.CreateMembershipService();
+        var pending = await ownerService.CreateInviteAsync(new IsletmeUyelikDavetRequest { Eposta = "pending@example.com" });
+        Assert.NotEmpty(pending.DavetKodu);
+
+        await fixture.AddUserAsync(2, "member", "member@example.com");
+        await using (var db = fixture.CreateDbContext())
+        {
+            db.IsletmeUyelikleri.Add(new IsletmeUyelik
+            {
+                IsletmeId = 1,
+                KullaniciId = 2,
+                Rol = "personel",
+                Durum = "Aktif",
+                DavetEposta = "member@example.com"
+            });
+            await db.SaveChangesAsync();
+        }
+
+        fixture.User.Set("member", "member@example.com");
+        var list = await fixture.CreateMembershipService().GetMembershipsAsync();
+
+        Assert.False(list.SahibiMi);
+        Assert.Empty(Assert.Single(list.Uyelikler, x => x.Id == pending.Id).DavetKodu);
+    }
+
+    [Fact]
+    public async Task KaldirilanUye_YenidenDavetEdilipKabulEdilebilir()
+    {
+        await using var fixture = await Fixture.CreateAsync();
+        await fixture.AddUserAsync(2, "member", "member@example.com");
+        await using (var db = fixture.CreateDbContext())
+        {
+            db.IsletmeUyelikleri.Add(new IsletmeUyelik
+            {
+                IsletmeId = 1,
+                KullaniciId = 2,
+                Rol = "personel",
+                Durum = "Aktif",
+                DavetEposta = "member@example.com"
+            });
+            await db.SaveChangesAsync();
+        }
+
+        var ownerService = fixture.CreateMembershipService();
+        var member = Assert.Single((await ownerService.GetMembershipsAsync()).Uyelikler, x => x.KullaniciId == 2);
+        await ownerService.RemoveAsync(member.Id);
+        var invite = await ownerService.CreateInviteAsync(new IsletmeUyelikDavetRequest
+        {
+            Eposta = "member@example.com",
+            Rol = "yonetici"
+        });
+
+        fixture.User.Set("member", "member@example.com");
+        var accepted = await fixture.CreateMembershipService().AcceptInviteAsync(invite.DavetKodu);
+
+        var rejoined = Assert.Single(accepted.Uyelikler, x => x.KullaniciId == 2);
+        Assert.Equal(member.Id, rejoined.Id);
+        Assert.Equal("yonetici", rejoined.Rol);
+        await using var verificationDb = fixture.CreateDbContext();
+        Assert.Single(await verificationDb.IsletmeUyelikleri.Where(x => x.IsletmeId == 1 && x.KullaniciId == 2).ToListAsync());
+    }
+
+    [Fact]
     public async Task YoneticiHakDegisikligi_OncekiVeYeniDegerleDenetlenir()
     {
         await using var fixture = await Fixture.CreateAsync();
@@ -93,6 +219,12 @@ public sealed class MembershipEntitlementAuditTests
             return fixture;
         }
         public CashTrackerDbContext CreateDbContext() => new(Options);
+        public async Task AddUserAsync(int id, string providerUserId, string email)
+        {
+            await using var db = CreateDbContext();
+            db.Kullanicilar.Add(new Kullanici { Id = id, AuthProvider = "clerk", AuthProviderUserId = providerUserId, Eposta = email, AdSoyad = providerUserId, HesapTipi = HesapTipleri.Isletme, Durum = "Aktif" });
+            await db.SaveChangesAsync();
+        }
         public IsletmeUyelikService CreateMembershipService()
         {
             var factory = new SingleDbContextFactory(Options);
@@ -105,8 +237,10 @@ public sealed class MembershipEntitlementAuditTests
     private sealed class MutableUser : ICurrentUserContext
     {
         private string _id = string.Empty;
-        public void Set(string id) => _id = id;
-        public CurrentUserIdentity GetCurrentUser() => new(_id, $"{_id}@example.com", _id);
+        private string _email = string.Empty;
+        private bool _emailVerified = true;
+        public void Set(string id, string? email = null, bool emailVerified = true) { _id = id; _email = email ?? $"{id}@example.com"; _emailVerified = emailVerified; }
+        public CurrentUserIdentity GetCurrentUser() => new(_id, _email, _id, _emailVerified);
     }
 
     private sealed class StaticBusinessService : IIsletmeService

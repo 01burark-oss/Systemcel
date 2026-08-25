@@ -1,6 +1,8 @@
 import React from "react";
 import {
   CheckCircle2,
+  CircleAlert,
+  History,
   KeyRound,
   LockKeyhole,
   RefreshCw,
@@ -111,6 +113,23 @@ export function GibPortalSayfasi({ yenileAnahtari }: GibPortalSayfasiProps) {
         </button>
       </section>
 
+      <section className="gib-card gib-log-card" aria-labelledby="gib-log-title">
+        <div className="gib-card__header">
+          <div><h2 id="gib-log-title">Son GİB işlemleri</h2><p>Bağlantı testi, taslak ve SMS onay sonuçları bu işletmeye özel tutulur.</p></div>
+          <History size={23} />
+        </div>
+        {ekran?.sonIslemler?.length ? (
+          <div className="gib-log-list">
+            {ekran.sonIslemler.map((item) => (
+              <article className="gib-log-row" key={item.id}>
+                <span className={item.basarili ? "success" : "error"}>{item.basarili ? <CheckCircle2 size={18} /> : <CircleAlert size={18} />}</span>
+                <div><strong>{islemEtiketi(item.islem)}</strong><small>{new Date(item.tarih).toLocaleString("tr-TR")}{item.faturaId ? ` · Fatura #${item.faturaId}` : ""}</small><p>{item.mesaj || "Ayrıntı bulunmuyor."}</p></div>
+              </article>
+            ))}
+          </div>
+        ) : <p className="gib-log-empty">Henüz GİB işlemi yapılmadı.</p>}
+      </section>
+
       <section className="gib-status-grid gib-status-grid--compact" aria-label="GİB bağlantı özeti">
         <article className="gib-status-card">
           <span className={ekran?.hasPassword ? "blue" : "amber"}><LockKeyhole size={24} /></span>
@@ -207,4 +226,12 @@ export function GibPortalSayfasi({ yenileAnahtari }: GibPortalSayfasiProps) {
       </p>
     </main>
   );
+}
+
+function islemEtiketi(value: string) {
+  if (value === "TestConnection") return "Bağlantı testi";
+  if (value === "CreatePortalDraft") return "Portal taslağı";
+  if (value === "StartSmsApproval") return "SMS onayı başlatıldı";
+  if (value === "CompleteSmsApproval") return "SMS onayı tamamlandı";
+  return value || "GİB işlemi";
 }

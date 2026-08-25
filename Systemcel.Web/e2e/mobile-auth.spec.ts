@@ -2,6 +2,48 @@ import { expect, test, type Page, type Route } from "@playwright/test";
 
 const publishableKey = "pk_test_ZXhhbXBsZS5jb20k";
 
+test("mobile quick sale exposes camera scanners without horizontal overflow", async ({ page, viewport }) => {
+  test.skip(!viewport || ![320, 390].includes(viewport.width), "320/390 camera regression matrix");
+  await mockClerk(page, true);
+  await mockWorkspace(page);
+  await page.route("**/api/ekran/mobil-tarama/durum", (route) => json(route, { fisOcrHazir: true }));
+  await page.route("**/api/ekran/mobil-tarama/fis-ocr", (route) => json(route, {
+    merchant: "Mobil Market",
+    receiptDate: "2026-08-24T00:00:00",
+    paymentMethod: "KrediKarti",
+    receiptTotal: 245.9,
+    items: [{ rawName: "Malzeme", amount: 245.9, candidateKalem: "Ofis Giderleri" }]
+  }));
+  await page.route("**/api/ekran/gelir-gider", (route) => json(route, {
+    giderKalemleri: ["Ofis Giderleri"],
+    odemeYontemleri: [{ deger: "krediKarti", etiket: "Kredi kartı" }]
+  }));
+  await page.route("**/api/ekran/urun-stok", (route) => json(route, {
+    aktifIsletme: "Örnek İşletme",
+    urunler: [],
+    sonHareketler: [],
+    tipSecenekleri: [],
+    birimSecenekleri: []
+  }));
+
+  await page.goto("/app/hizli-satis");
+
+  await expect(page.getByRole("button", { name: /Barkod tara/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Fiş oku/ })).toBeVisible();
+  await expect(page.getByLabel("Barkod fotoğrafı")).toHaveAttribute("capture", "environment");
+  await expect(page.getByLabel("Fiş fotoğrafı")).toHaveAttribute("capture", "environment");
+  await page.getByLabel("Fiş fotoğrafı").setInputFiles({ name: "receipt.jpg", mimeType: "image/jpeg", buffer: Buffer.from("mock-receipt") });
+  await expect(page.getByRole("button", { name: "Gider olarak kaydet" })).toBeVisible();
+  await expect(page.getByLabel("Fiş gider kalemi")).toHaveValue("Ofis Giderleri");
+  const overflow = await page.evaluate(() => ({
+    viewport: window.innerWidth,
+    document: document.documentElement.scrollWidth,
+    body: document.body.scrollWidth
+  }));
+  expect(overflow.document).toBeLessThanOrEqual(overflow.viewport);
+  expect(overflow.body).toBeLessThanOrEqual(overflow.viewport);
+});
+
 test("mobile sign-up uses the full viewport without horizontal overflow", async ({ page, viewport }) => {
   test.skip(!viewport || viewport.width > 430, "Mobile regression matrix only");
   await mockClerk(page, false);
@@ -83,7 +125,7 @@ test("every mobile workspace route keeps an accessible sign-out path", async ({ 
   await mockClerk(page, true);
   await mockWorkspace(page);
 
-  const dedicatedMobileRoutes = new Set(["/app/sohbetler", "/app/muhasebeciler", "/app/abonelik"]);
+  const dedicatedMobileRoutes = new Set(["/app/hizli-satis", "/app/sohbetler", "/app/muhasebeciler", "/app/abonelik"]);
   const routes = [
     "/app",
     "/app/gelir-gider",

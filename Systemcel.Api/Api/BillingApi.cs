@@ -32,12 +32,18 @@ internal static class BillingApi
                     var period = NormalizeBillingPeriod(faturalamaDonemi);
                     await using var db = await dbFactory.CreateDbContextAsync(ct);
                     var founderPrice = await CanOfferFounderPriceAsync(db, business.Id, ct);
-                    var quote = pricing.CreateQuote(
+                    var activeSubscription = await db.Abonelikler.AsNoTracking()
+                        .Where(x => x.IsletmeId == business.Id && x.HesapTipi == business.TenantTipi && x.Durum == "Aktif")
+                        .OrderByDescending(x => x.DonemBaslangicAt)
+                        .FirstOrDefaultAsync(ct);
+                    var quote = pricing.CreateChangeQuote(
                         planKodu,
                         business.TenantTipi,
                         period,
                         ekMusteriKredisi ?? 0,
-                        founderPrice);
+                        ToPricingContext(activeSubscription),
+                        DateTime.UtcNow,
+                        founderPrice && activeSubscription is null);
                     if (await db.IsletmeDenemeleri.AsNoTracking().AnyAsync(
                             x => x.IsletmeId == business.Id && x.HesapTipi == business.TenantTipi, ct))
                         quote = quote with { TrialDays = 0 };
@@ -170,7 +176,11 @@ internal static class BillingApi
                         subscription.DonemBitisAt,
                         subscription.ToleransBitisAt,
                         subscription.DonemSonundaIptal,
-                        subscription.IptalAt
+                        subscription.IptalAt,
+                        subscription.PlanlananPlanKodu,
+                        subscription.PlanlananFaturalamaDonemi,
+                        subscription.PlanlananEkMusteriKredisi,
+                        subscription.PlanlananDegisiklikAt
                     },
                     odemeler = payments
                 });
@@ -225,20 +235,27 @@ internal static class BillingApi
                         request.KampanyaKodu,
                         SubscriptionPlanCatalog.KurucuKampanyaKodu,
                         StringComparison.Ordinal);
-                    var quote = pricing.CreateQuote(
-                        request.PlanKodu,
-                        business.TenantTipi,
-                        period,
-                        request.EkMusteriKredisi,
-                        useFounderPrice);
+                    PaymentQuote quote;
                     await using (var trialDb = await dbFactory.CreateDbContextAsync(ct))
                     {
+                        var activeSubscription = await trialDb.Abonelikler.AsNoTracking()
+                            .Where(x => x.IsletmeId == business.Id && x.HesapTipi == business.TenantTipi && x.Durum == "Aktif")
+                            .OrderByDescending(x => x.DonemBaslangicAt)
+                            .FirstOrDefaultAsync(ct);
+                        quote = pricing.CreateChangeQuote(
+                            request.PlanKodu,
+                            business.TenantTipi,
+                            period,
+                            request.EkMusteriKredisi,
+                            ToPricingContext(activeSubscription),
+                            DateTime.UtcNow,
+                            useFounderPrice && activeSubscription is null);
                         if (await trialDb.IsletmeDenemeleri.AsNoTracking().AnyAsync(
                                 x => x.IsletmeId == business.Id && x.HesapTipi == business.TenantTipi, ct))
                             quote = quote with { TrialDays = 0 };
                     }
                     var consentText = BuildConsentText(quote);
-                    var result = await lifecycle.BeginCheckoutAsync(new SubscriptionCheckoutCommand(
+                    var command = new SubscriptionCheckoutCommand(
                         business.Id,
                         business.TenantTipi,
                         request.PlanKodu,
@@ -254,7 +271,30 @@ internal static class BillingApi
                         http.Request.Headers.UserAgent.ToString(),
                         new Uri(baseUri, "/app/abonelik?odeme=basarili"),
                         new Uri(baseUri, "/app/abonelik?odeme=basarisiz"),
-                        new Uri(baseUri, "/api/odeme/webhook")), ct);
+                        new Uri(baseUri, "/api/odeme/webhook"),
+                        quote.TotalAmount,
+                        quote.ProrationCreditNetAmount,
+                        quote.ChangeType);
+
+                    if (quote.ChangeType == SubscriptionChangeTypes.ScheduledDowngrade)
+                    {
+                        var scheduled = await lifecycle.SchedulePlanChangeAsync(command, ct);
+                        return Results.Ok(new
+                        {
+                            odemeIslemiId = (int?)null,
+                            checkoutUrl = (string?)null,
+                            expiresAt = (DateTime?)null,
+                            firstChargeAt = (DateTime?)null,
+                            reused = false,
+                            scheduled = true,
+                            effectiveAt = scheduled.EffectiveAt,
+                            onayMetniSurumu = ConsentVersion,
+                            onayMetni = consentText,
+                            fiyat = scheduled.Quote
+                        });
+                    }
+
+                    var result = await lifecycle.BeginCheckoutAsync(command, ct);
 
                     return Results.Ok(new
                     {
@@ -263,6 +303,8 @@ internal static class BillingApi
                         expiresAt = result.Session.ExpiresAt,
                         firstChargeAt = result.Session.FirstChargeAt,
                         reused = result.Reused,
+                        scheduled = false,
+                        effectiveAt = result.Quote.EffectiveAt,
                         onayMetniSurumu = ConsentVersion,
                         onayMetni = consentText,
                         fiyat = result.Quote
@@ -275,6 +317,22 @@ internal static class BillingApi
                 catch (ArgumentException ex)
                 {
                     return Results.BadRequest(new { mesaj = ex.Message });
+                }
+            }).RequireRateLimiting("sensitive");
+
+        var cancelChangeEndpoint = app.MapDelete(
+            "/api/abonelik/plan-degisikligi",
+            async (IIsletmeService isletmeService, ISubscriptionLifecycleService lifecycle, CancellationToken ct) =>
+            {
+                try
+                {
+                    var business = await isletmeService.GetActiveAsync();
+                    await lifecycle.CancelScheduledPlanChangeAsync(business.Id, ct);
+                    return Results.Ok(new { mesaj = "Planlanan değişiklik iptal edildi." });
+                }
+                catch (InvalidOperationException ex)
+                {
+                    return Results.Conflict(new { mesaj = ex.Message });
                 }
             }).RequireRateLimiting("sensitive");
 
@@ -322,6 +380,7 @@ internal static class BillingApi
             quoteEndpoint.RequireAuthorization();
             summaryEndpoint.RequireAuthorization();
             checkoutEndpoint.RequireAuthorization();
+            cancelChangeEndpoint.RequireAuthorization();
             cancelEndpoint.RequireAuthorization();
         }
     }
@@ -381,7 +440,9 @@ internal static class BillingApi
                         return Results.NotFound();
 
                     var succeeded = !string.Equals(result, "fail", StringComparison.OrdinalIgnoreCase);
-                    var startsPaidSubscription = string.Equals(payment.IslemTipi, "AbonelikBaslatma", StringComparison.Ordinal);
+                    var startsPaidSubscription =
+                        string.Equals(payment.IslemTipi, PaymentTransactionTypes.SubscriptionStart, StringComparison.Ordinal) ||
+                        string.Equals(payment.IslemTipi, PaymentTransactionTypes.PlanUpgrade, StringComparison.Ordinal);
                     var isAccountantService = string.Equals(
                         payment.IslemTipi,
                         PaymentTransactionTypes.AccountantService,
@@ -433,6 +494,20 @@ internal static class BillingApi
         var credits = quote.ExtraCustomerCredits > 0
             ? $" Buna Standart plana dahil 10 müşteriye ek olarak yinelenen {quote.ExtraCustomerCredits} adet +1 müşteri kredisi dahildir."
             : string.Empty;
+
+        if (quote.ChangeType == SubscriptionChangeTypes.ScheduledDowngrade && quote.EffectiveAt is { } effectiveAt)
+        {
+            return $"Plan değişikliğinin {effectiveAt:dd.MM.yyyy} tarihinde mevcut dönem sona erdiğinde uygulanmasını onaylıyorum. " +
+                   "Bugün tahsilat yapılmayacağını ve mevcut plan haklarımın bu tarihe kadar korunacağını kabul ediyorum.";
+        }
+
+        if (quote.ChangeType == SubscriptionChangeTypes.ImmediateUpgrade)
+        {
+            var fullPeriod = quote.FullPeriodNetAmount.ToString("N2", culture);
+            var credit = quote.ProrationCreditNetAmount.ToString("N2", culture);
+            return $"Plan yükseltmesinin hemen uygulanmasını; yeni dönem bedeli {fullPeriod} TL'den kullanılmayan dönem kredisi {credit} TL düşüldükten sonra " +
+                   $"{net} TL + {vat} TL KDV, toplam {total} TL tahsil edilmesini onaylıyorum.{credits}";
+        }
 
         if (quote.TrialDays <= 0)
         {
@@ -487,6 +562,19 @@ internal static class BillingApi
 
     private static string? FirstNonEmpty(params string?[] values) =>
         values.FirstOrDefault(x => !string.IsNullOrWhiteSpace(x))?.Trim();
+
+    private static CurrentSubscriptionPricingContext? ToPricingContext(CashTracker.Core.Entities.Abonelik? subscription)
+    {
+        if (subscription?.DonemBitisAt is not { } periodEnd)
+            return null;
+        return new CurrentSubscriptionPricingContext(
+            subscription.PlanKodu,
+            subscription.FaturalamaDonemi,
+            subscription.EkMusteriKredisi,
+            subscription.DonemTutari,
+            subscription.DonemBaslangicAt,
+            periodEnd);
+    }
 
     private static string NormalizeBillingPeriod(string billingPeriod)
     {

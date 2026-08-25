@@ -32,8 +32,10 @@ import {
 } from "lucide-react";
 import { AuthUserButton } from "../auth/AuthUserButton";
 import { AiAssistantPanel } from "./AiAssistantPanel";
+import { AktifSubeSecici } from "./AktifSubeSecici";
 import type { UstBarDurumu } from "./chrome";
 import { jsonOku, type EntitlementProblemDetail } from "./json";
+import { useI18n, type TranslationKey } from "./i18n";
 
 interface ReactWorkspaceShellProps {
   children: React.ReactNode;
@@ -51,24 +53,29 @@ interface WorkspacePageMeta {
 }
 
 interface Bildirim {
-  id: string;
+  id: number;
+  kaynakAnahtari: string;
   tur: string;
   onem: string;
   baslik: string;
   mesaj: string;
   aksiyon: string;
   url?: string;
+  okundu: boolean;
+  createdAt: string;
 }
 
-const anaMenu: Array<{ href: string; label: string; icon: LucideIcon; adminOnly?: boolean }> = [
+const anaMenu: Array<{ href: string; label: string; icon: LucideIcon; adminOnly?: boolean; bankaMutabakati?: boolean }> = [
   { href: "/", label: "Ana sayfa", icon: Home },
   { href: "/finansal-gorunum", label: "Finans durumu", icon: ChartNoAxesCombined },
   { href: "/gelir-gider", label: "Gelir / gider", icon: ArrowDownUp },
   { href: "/hizli-satis", label: "Hızlı satış", icon: ShoppingCart },
   { href: "/urun-stok", label: "Ürün ve stok", icon: Package },
+  { href: "/stok-defteri", label: "Stok defteri", icon: Package },
   { href: "/cari-hesaplar", label: "Cari hesaplar", icon: CreditCard },
   { href: "/faturalar", label: "Faturalar", icon: FileText },
   { href: "/tahsilat-odeme", label: "Tahsilat ve ödeme", icon: WalletCards },
+  { href: "/banka-eslestirme", label: "Banka eşleştirme", icon: Landmark, bankaMutabakati: true },
   { href: "/raporlar", label: "Raporlar", icon: BarChart3 },
   { href: "/sohbetler", label: "Sohbetler", icon: MessageCircle },
   { href: "/muhasebeci", label: "Muhasebeci paneli", icon: BriefcaseBusiness },
@@ -79,7 +86,8 @@ const anaMenu: Array<{ href: string; label: string; icon: LucideIcon; adminOnly?
 ];
 
 function menuForWorkspace(ustBar: UstBarDurumu | null, musteriBaglami: boolean) {
-  const visibleMenu = anaMenu.filter((item) => !item.adminOnly || ustBar?.yoneticiMi);
+  const visibleMenu = anaMenu.filter((item) =>
+    (!item.adminOnly || ustBar?.yoneticiMi) && (!item.bankaMutabakati || ustBar?.bankaMutabakatiAktif));
   const muhasebeciCalismaAlani = ustBar?.hesapTipi === "Muhasebeci" && !musteriBaglami;
   if (muhasebeciCalismaAlani) {
     return visibleMenu.filter((item) => item.href === "/muhasebeci" || item.href === "/muhasebeci/musteriler" || item.href === "/muhasebeciler" || item.href === "/sohbetler" || item.href === "/ayarlar" || item.adminOnly);
@@ -120,16 +128,16 @@ function menuAktifMi(currentPath: string, href: string) {
   return currentPath === href || currentPath.startsWith(`${href}/`);
 }
 
-function tarihBic(now: Date) {
-  return now.toLocaleDateString("tr-TR", {
+function tarihBic(now: Date, locale: string) {
+  return now.toLocaleDateString(locale, {
     day: "2-digit",
     month: "2-digit",
     year: "numeric"
   });
 }
 
-function saatBic(now: Date) {
-  return now.toLocaleTimeString("tr-TR", {
+function saatBic(now: Date, locale: string) {
+  return now.toLocaleTimeString(locale, {
     hour: "2-digit",
     minute: "2-digit"
   });
@@ -152,6 +160,13 @@ function bildirimIkonu(tur: string) {
 
 function yetkiEtiketi(value?: string) {
   return value === "TamIslem" ? "Tam işlem" : "Okuma + rapor";
+}
+
+function navKey(href: string): TranslationKey {
+  const keys: Record<string, TranslationKey> = {
+    "/": "nav.home", "/finansal-gorunum": "nav.finance", "/gelir-gider": "nav.incomeExpense", "/hizli-satis": "nav.quickSale", "/urun-stok": "nav.stock", "/stok-defteri": "nav.stockLedger", "/cari-hesaplar": "nav.accounts", "/faturalar": "nav.invoices", "/tahsilat-odeme": "nav.payments", "/banka-eslestirme": "nav.bank", "/raporlar": "nav.reports", "/sohbetler": "nav.chat", "/muhasebeci": "nav.accountant", "/muhasebeci/musteriler": "nav.clients", "/muhasebeciler": "nav.accountants", "/yonetim/muhasebeci-basvurulari": "nav.admin", "/ayarlar": "nav.settings"
+  };
+  return keys[href] ?? "nav.home";
 }
 
 function workspacePageMeta(path: string, settingsTab: string): WorkspacePageMeta {
@@ -183,6 +198,13 @@ function workspacePageMeta(path: string, settingsTab: string): WorkspacePageMeta
     };
   }
 
+  if (path === "/stok-defteri") {
+    return {
+      icon: Package,
+      title: "Stok defteri"
+    };
+  }
+
   if (path === "/hizli-satis") {
     return {
       icon: ScanBarcode,
@@ -201,6 +223,13 @@ function workspacePageMeta(path: string, settingsTab: string): WorkspacePageMeta
     return {
       icon: WalletCards,
       title: "Tahsilat ve ödeme"
+    };
+  }
+
+  if (path === "/banka-eslestirme") {
+    return {
+      icon: Landmark,
+      title: "Banka eşleştirme"
     };
   }
 
@@ -287,7 +316,8 @@ function workspacePageMeta(path: string, settingsTab: string): WorkspacePageMeta
   };
 }
 
-export function ReactWorkspaceShell({ children, ustBar, baslik, sagAksiyon }: ReactWorkspaceShellProps) {
+export function ReactWorkspaceShell({ children, ustBar, baslik, sagAksiyon, onUstBarYenile }: ReactWorkspaceShellProps) {
+  const { locale, t } = useI18n();
   const [now, setNow] = React.useState(() => new Date());
   const [bildirimPaneliAcik, setBildirimPaneliAcik] = React.useState(false);
   const [bildirimler, setBildirimler] = React.useState<Bildirim[]>([]);
@@ -353,6 +383,18 @@ export function ReactWorkspaceShell({ children, ustBar, baslik, sagAksiyon }: Re
       setBildirimYukleniyor(false);
     }
   }, []);
+
+  const bildirimiOkunduYap = React.useCallback(async (id: number) => {
+    await jsonOku<{ okunmamisSayisi: number }>(`/api/ekran/bildirimler/${id}/okundu`, { method: "PUT" });
+    setBildirimler((current) => current.map((item) => item.id === id ? { ...item, okundu: true } : item));
+    await onUstBarYenile?.();
+  }, [onUstBarYenile]);
+
+  const tumunuOkunduYap = React.useCallback(async () => {
+    await jsonOku<{ okunmamisSayisi: number }>("/api/ekran/bildirimler/tumunu-okundu", { method: "POST" });
+    setBildirimler((current) => current.map((item) => ({ ...item, okundu: true })));
+    await onUstBarYenile?.();
+  }, [onUstBarYenile]);
 
   React.useEffect(() => {
     if (bildirimPaneliAcik) {
@@ -441,7 +483,7 @@ export function ReactWorkspaceShell({ children, ustBar, baslik, sagAksiyon }: Re
                   onClick={() => setMobilMenuAcik(false)}
                 >
                   <Icon size={19} />
-                  <span>{item.label}</span>
+                  <span>{t(navKey(item.href), item.label)}</span>
                 </a>
                 {item.href === "/ayarlar" && active ? (
                   <nav className="react-sidebar__subnav" aria-label="Ayarlar alt menüsü">
@@ -460,7 +502,7 @@ export function ReactWorkspaceShell({ children, ustBar, baslik, sagAksiyon }: Re
                           onClick={() => setMobilMenuAcik(false)}
                         >
                           <SubIcon size={16} />
-                          <span>{subItem.label}</span>
+                          <span>{t(subItem.sekme === "isletme" ? "nav.business" : subItem.sekme === "plan" ? "nav.plan" : subItem.sekme === "gib" ? "nav.gib" : "nav.telegram", subItem.label)}</span>
                         </a>
                       );
                     })}
@@ -506,6 +548,10 @@ export function ReactWorkspaceShell({ children, ustBar, baslik, sagAksiyon }: Re
           </div>
 
           <div className="react-topbar__actions">
+            {ustBar?.hesapTipi === "Isletme" ? <AktifSubeSecici onDegisti={onUstBarYenile} /> : null}
+
+            {ustBar?.hesapTipi === "Isletme" ? <span className="react-topbar__divider react-topbar__divider--branch" /> : null}
+
             <div
               className="react-topbar__telegram"
               title={ustBar?.telegramAktif ? "Telegram bağlantısı açık" : "Telegram bağlantısı kapalı"}
@@ -521,8 +567,8 @@ export function ReactWorkspaceShell({ children, ustBar, baslik, sagAksiyon }: Re
             <span className="react-topbar__divider" />
 
             <div className="react-topbar__clock">
-              <strong>{tarihBic(now)}</strong>
-              <span>{saatBic(now)}</span>
+              <strong>{tarihBic(now, locale)}</strong>
+              <span>{saatBic(now, locale)}</span>
             </div>
 
             <span className="react-topbar__divider" />
@@ -598,7 +644,8 @@ export function ReactWorkspaceShell({ children, ustBar, baslik, sagAksiyon }: Re
                 <div id="react-topbar-notification-panel" className="react-topbar__panel" role="dialog" aria-label="Bildirimler">
                   <div className="react-topbar__panel-head">
                     <strong>Bildirimler</strong>
-                    {ustBar?.bildirimSayisi ? <span>{ustBar.bildirimSayisi}</span> : null}
+                    {bildirimler.some((item) => !item.okundu) ? <span>{bildirimler.filter((item) => !item.okundu).length}</span> : null}
+                    {bildirimler.some((item) => !item.okundu) ? <button type="button" className="billing-link-button" onClick={() => void tumunuOkunduYap()}>Tümünü okundu işaretle</button> : null}
                   </div>
 
                   {bildirimYukleniyor ? (
@@ -620,6 +667,7 @@ export function ReactWorkspaceShell({ children, ustBar, baslik, sagAksiyon }: Re
                             </span>
                             <div>
                               <strong>{item.baslik}</strong>
+                              {!item.okundu ? <em className="notification-item__unread">Okunmadı</em> : null}
                               <p>{item.mesaj}</p>
                               {item.aksiyon ? <small>{item.aksiyon}</small> : null}
                             </div>
@@ -627,12 +675,13 @@ export function ReactWorkspaceShell({ children, ustBar, baslik, sagAksiyon }: Re
                         );
 
                         return item.url ? (
-                          <a key={item.id} href={item.url} className={`notification-item notification-item--${item.onem}`}>
+                          <a key={item.id} href={item.url} onClick={() => { if (!item.okundu) void bildirimiOkunduYap(item.id); }} className={`notification-item notification-item--${item.onem} ${item.okundu ? "notification-item--read" : "notification-item--unread"}`}>
                             {content}
                           </a>
                         ) : (
-                          <article key={item.id} className={`notification-item notification-item--${item.onem}`}>
+                          <article key={item.id} className={`notification-item notification-item--${item.onem} ${item.okundu ? "notification-item--read" : "notification-item--unread"}`}>
                             {content}
+                            {!item.okundu ? <button type="button" className="billing-link-button" onClick={() => void bildirimiOkunduYap(item.id)}>Okundu işaretle</button> : null}
                           </article>
                         );
                       })}

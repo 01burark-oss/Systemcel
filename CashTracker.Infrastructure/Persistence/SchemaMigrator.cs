@@ -33,6 +33,7 @@ namespace CashTracker.Infrastructure.Persistence
             EnsureBelgeDosyaTable(db);
             EnsureGibPortalAyarTable(db);
             EnsureGibPortalIslemLogTable(db);
+            EnsureSubeKurTablesAndColumns(db, conn);
             EnsureWebAuthTables(db);
 
             EnsureKasaColumns(db, conn);
@@ -142,6 +143,7 @@ WHERE NOT EXISTS (
         private static partial void EnsureBelgeDosyaTable(CashTrackerDbContext db);
         private static partial void EnsureGibPortalAyarTable(CashTrackerDbContext db);
         private static partial void EnsureGibPortalIslemLogTable(CashTrackerDbContext db);
+        private static partial void EnsureSubeKurTablesAndColumns(CashTrackerDbContext db, DbConnection conn);
         private static partial void EnsureWebAuthTables(CashTrackerDbContext db);
         private static partial void EnsureKasaColumns(CashTrackerDbContext db, DbConnection conn);
         private static partial void EnsureIsletmeColumns(CashTrackerDbContext db, DbConnection conn);

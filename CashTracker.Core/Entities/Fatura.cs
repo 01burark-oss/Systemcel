@@ -6,6 +6,7 @@ namespace CashTracker.Core.Entities
     {
         public int Id { get; set; }
         public int IsletmeId { get; set; }
+        public int? SubeId { get; set; }
         public int CariKartId { get; set; }
         public DateTime Tarih { get; set; } = DateTime.Now;
         public DateTime? VadeTarihi { get; set; }
@@ -19,6 +20,9 @@ namespace CashTracker.Core.Entities
         public decimal IskontoToplam { get; set; }
         public decimal KdvToplam { get; set; }
         public decimal GenelToplam { get; set; }
+        public string ParaBirimi { get; set; } = "TRY";
+        public decimal KurSnapshot { get; set; } = 1m;
+        public decimal GenelToplamTry { get; set; }
         public decimal OdenenTutar { get; set; }
         public string OdemeYontemi { get; set; } = "Nakit";
         public string? Aciklama { get; set; }

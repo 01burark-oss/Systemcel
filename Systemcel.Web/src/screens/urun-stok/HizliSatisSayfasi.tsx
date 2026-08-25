@@ -2,17 +2,22 @@ import React from "react";
 import {
   Banknote,
   Barcode,
+  Camera,
   Check,
   CreditCard,
+  Loader2,
   Minus,
   PackageOpen,
   Plus,
   Search,
+  ScanBarcode,
   ShoppingCart,
+  ReceiptText,
   Trash2,
   WalletCards
 } from "lucide-react";
 import { jsonOku } from "../../shared/json";
+import { useI18n } from "../../shared/i18n";
 import type {
   HizliSatisSepetSatiri,
   HizliSatisSonucu,
@@ -23,7 +28,35 @@ import "./hizli-satis.css";
 
 interface HizliSatisSayfasiProps {
   yenileAnahtari: number;
+  onKayitOlusturuldu?: () => void;
 }
+
+interface FisOcrSonucu {
+  merchant: string;
+  receiptDate?: string | null;
+  paymentMethod: string;
+  receiptTotal?: number | null;
+  items: Array<{ rawName: string; amount: number; candidateKalem: string }>;
+}
+
+interface GelirGiderEkranOzeti {
+  giderKalemleri: string[];
+  odemeYontemleri: Array<{ deger: string; etiket: string }>;
+}
+
+interface GiderTaslagi {
+  tarih: string;
+  tutar: string;
+  odemeYontemi: string;
+  kalem: string;
+  aciklama: string;
+}
+
+interface BarcodeDetectorLike {
+  detect(source: ImageBitmapSource): Promise<Array<{ rawValue: string }>>;
+}
+
+type BarcodeDetectorConstructor = new (options?: { formats?: string[] }) => BarcodeDetectorLike;
 
 const odemeYontemleri = [
   { value: "Nakit", label: "Nakit", icon: Banknote },
@@ -54,8 +87,12 @@ function sayiBic(value: number) {
   }).format(value);
 }
 
-export function HizliSatisSayfasi({ yenileAnahtari }: HizliSatisSayfasiProps) {
+export function HizliSatisSayfasi({ yenileAnahtari, onKayitOlusturuldu }: HizliSatisSayfasiProps) {
+  const { t } = useI18n();
   const barkodRef = React.useRef<HTMLInputElement | null>(null);
+  const barkodKameraRef = React.useRef<HTMLInputElement | null>(null);
+  const fisKameraRef = React.useRef<HTMLInputElement | null>(null);
+  const giderKayitRef = React.useRef(false);
   const [ekran, setEkran] = React.useState<UrunStokEkranVerisi | null>(null);
   const [arama, setArama] = React.useState("");
   const [sepet, setSepet] = React.useState<HizliSatisSepetSatiri[]>([]);
@@ -65,6 +102,15 @@ export function HizliSatisSayfasi({ yenileAnahtari }: HizliSatisSayfasiProps) {
   const [yukleniyor, setYukleniyor] = React.useState(true);
   const [mesaj, setMesaj] = React.useState("");
   const [hata, setHata] = React.useState("");
+  const [taramaDurumu, setTaramaDurumu] = React.useState<"idle" | "loading" | "success" | "error" | "unsupported">("idle");
+  const [taramaMesaji, setTaramaMesaji] = React.useState("");
+  const [fisOcrHazir, setFisOcrHazir] = React.useState<boolean | null>(null);
+  const [fisSonucu, setFisSonucu] = React.useState<FisOcrSonucu | null>(null);
+  const [fisIslemde, setFisIslemde] = React.useState(false);
+  const [giderTaslagi, setGiderTaslagi] = React.useState<GiderTaslagi | null>(null);
+  const [giderKalemleri, setGiderKalemleri] = React.useState<string[]>([]);
+  const [giderOdemeYontemleri, setGiderOdemeYontemleri] = React.useState<Array<{ deger: string; etiket: string }>>([]);
+  const [giderKaydediliyor, setGiderKaydediliyor] = React.useState(false);
 
   const urunler = React.useMemo(
     () => (ekran?.urunler ?? []).filter((row) => row.aktif && row.tip === "Urun"),
@@ -113,6 +159,12 @@ export function HizliSatisSayfasi({ yenileAnahtari }: HizliSatisSayfasiProps) {
   }, [urunleriYukle, yenileAnahtari]);
 
   React.useEffect(() => {
+    jsonOku<{ fisOcrHazir: boolean }>("/api/ekran/mobil-tarama/durum")
+      .then((result) => setFisOcrHazir(result.fisOcrHazir))
+      .catch(() => setFisOcrHazir(false));
+  }, []);
+
+  React.useEffect(() => {
     const handle = window.setTimeout(() => barkodRef.current?.focus(), 100);
     return () => window.clearTimeout(handle);
   }, []);
@@ -150,15 +202,122 @@ export function HizliSatisSayfasi({ yenileAnahtari }: HizliSatisSayfasiProps) {
       return;
     }
 
-    const product = urunler.find((row) => row.barkod.trim() === barcode);
+    barkodlaUrunEkle(barcode);
+  }
+
+  function barkodlaUrunEkle(barcode: string) {
+    const product = urunler.find((row) => row.barkod.trim() === barcode.trim());
     if (!product) {
       setHata("Bu barkoda ait aktif bir ürün bulunamadı.");
-      return;
+      return false;
     }
 
     sepeteEkle(product);
     setArama("");
     window.setTimeout(() => barkodRef.current?.focus(), 20);
+    return true;
+  }
+
+  async function barkodFotografiSecildi(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+
+    setTaramaDurumu("loading");
+    setTaramaMesaji("Barkod okunuyor...");
+    setHata("");
+    try {
+      let barcode = await barkoduYerelOku(file);
+      if (!barcode) {
+        const form = new FormData();
+        form.append("file", file);
+        const result = await jsonOku<{ barkod: string }>("/api/ekran/mobil-tarama/barkod", { method: "POST", body: form });
+        barcode = result.barkod;
+      }
+
+      if (!barkodlaUrunEkle(barcode)) {
+        setTaramaDurumu("error");
+        setTaramaMesaji(`${barcode} barkodu okundu ancak aktif ürünlerde bulunamadı.`);
+        return;
+      }
+      setTaramaDurumu("success");
+      setTaramaMesaji(`${barcode} barkodu okundu ve sepete eklendi.`);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Barkod okunamadı. Barkodu kadraja yaklaştırıp tekrar deneyin.";
+      setTaramaDurumu(/platformda aktif değil|platformda aktif degil|desteklenmiyor/i.test(errorMessage) ? "unsupported" : "error");
+      setTaramaMesaji(errorMessage);
+    }
+  }
+
+  async function fisFotografiSecildi(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+
+    setFisIslemde(true);
+    setFisSonucu(null);
+    setGiderTaslagi(null);
+    setHata("");
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const [result, ledger] = await Promise.all([
+        jsonOku<FisOcrSonucu>("/api/ekran/mobil-tarama/fis-ocr", { method: "POST", body: form }),
+        jsonOku<GelirGiderEkranOzeti>("/api/ekran/gelir-gider")
+      ]);
+      setFisSonucu(result);
+      setGiderKalemleri(ledger.giderKalemleri);
+      setGiderOdemeYontemleri(ledger.odemeYontemleri);
+      setGiderTaslagi(fisTaslagiOlustur(result, ledger.giderKalemleri, ledger.odemeYontemleri));
+    } catch (error) {
+      setHata(error instanceof Error ? error.message : "Fiş okunamadı. Fotoğrafı daha aydınlık bir ortamda tekrar çekin.");
+    } finally {
+      setFisIslemde(false);
+    }
+  }
+
+  function giderTaslaginiGuncelle(patch: Partial<GiderTaslagi>) {
+    setGiderTaslagi((current) => current ? { ...current, ...patch } : current);
+  }
+
+  async function giderOlarakKaydet() {
+    if (!giderTaslagi || giderKayitRef.current) return;
+
+    try {
+      const tarih = giderTaslagi.tarih.trim();
+      if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(tarih) || !Number.isFinite(Date.parse(tarih)))
+        throw new Error("Geçerli bir fiş tarihi girin.");
+      const tutar = Number(giderTaslagi.tutar.trim().replace(/\s/g, "").replace(",", "."));
+      if (!Number.isFinite(tutar) || tutar <= 0)
+        throw new Error("Fiş toplamı sıfırdan büyük olmalıdır.");
+      if (!giderTaslagi.kalem.trim())
+        throw new Error("Gider kalemi seçin.");
+
+      giderKayitRef.current = true;
+      setGiderKaydediliyor(true);
+      setHata("");
+      await jsonOku("/api/ekran/gelir-gider/kayitlar", {
+        method: "POST",
+        body: JSON.stringify({
+          tarih,
+          tur: "gider",
+          tutar,
+          odemeYontemi: giderTaslagi.odemeYontemi,
+          kalem: giderTaslagi.kalem,
+          aciklama: giderTaslagi.aciklama,
+          stokGiris: { aktif: false, urunId: 0, miktar: 1 }
+        })
+      });
+      setFisSonucu(null);
+      setGiderTaslagi(null);
+      setMesaj("Fiş gider olarak kaydedildi. Finansal özet yenilendi.");
+      onKayitOlusturuldu?.();
+    } catch (error) {
+      setHata(error instanceof Error ? error.message : "Fiş gider olarak kaydedilemedi.");
+    } finally {
+      giderKayitRef.current = false;
+      setGiderKaydediliyor(false);
+    }
   }
 
   function miktariDegistir(id: number, fark: number) {
@@ -214,7 +373,7 @@ export function HizliSatisSayfasi({ yenileAnahtari }: HizliSatisSayfasiProps) {
 
   return (
     <main className="pos-page">
-      <section className="pos-summary" aria-label="Hızlı satış özeti">
+      <section className="pos-summary" aria-label={t("quickSale.title")}>
         <article>
           <span><PackageOpen size={20} /></span>
           <div><small>Satışa açık ürün</small><strong>{stoktaUrunSayisi}</strong></div>
@@ -230,7 +389,7 @@ export function HizliSatisSayfasi({ yenileAnahtari }: HizliSatisSayfasiProps) {
       </section>
 
       {(hata || mesaj) ? (
-        <div className={`pos-notice ${hata ? "error" : "success"}`} role="status">
+        <div className={`pos-notice ${hata ? "error" : "success"}`} role={hata ? "alert" : "status"}>
           {hata || mesaj}
         </div>
       ) : null}
@@ -262,9 +421,51 @@ export function HizliSatisSayfasi({ yenileAnahtari }: HizliSatisSayfasiProps) {
                 }
               }}
               placeholder="Ürün adı veya barkod ara"
+              aria-label={t("quickSale.search")}
               autoComplete="off"
             />
             <button type="button" onClick={barkoduIsle}><Barcode size={18} />Barkodu ekle</button>
+          </div>
+
+          <div className="pos-capture-stack">
+            <div className="pos-capture-actions" aria-label="Kamerayla tarama">
+              <input ref={barkodKameraRef} type="file" accept="image/jpeg,image/png,image/webp" capture="environment" onChange={barkodFotografiSecildi} aria-label="Barkod fotoğrafı" hidden />
+              <button type="button" onClick={() => barkodKameraRef.current?.click()} disabled={taramaDurumu === "loading"}>
+                {taramaDurumu === "loading" ? <Loader2 size={18} className="spin" /> : <ScanBarcode size={18} />}
+                <span><strong>Barkod tara</strong><small>Kamerayı ürün koduna tutun</small></span>
+              </button>
+              <input ref={fisKameraRef} type="file" accept="image/jpeg,image/png,image/webp" capture="environment" onChange={fisFotografiSecildi} aria-label="Fiş fotoğrafı" hidden />
+              <button type="button" onClick={() => fisKameraRef.current?.click()} disabled={fisOcrHazir !== true || fisIslemde}>
+                {fisIslemde ? <Loader2 size={18} className="spin" /> : <Camera size={18} />}
+                <span><strong>Fiş oku</strong><small>{fisOcrHazir === null ? "Servis kontrol ediliyor" : fisOcrHazir ? "Gider fişini fotoğraflayın" : "OCR yapılandırması gerekli"}</small></span>
+              </button>
+            </div>
+            <p className="pos-capture-help">Kamera izni reddedilirse tarayıcı ayarlarından izin verin veya galeriden net bir fotoğraf seçin.</p>
+
+            {taramaMesaji ? <p className={`pos-scan-feedback ${taramaDurumu}`} role={taramaDurumu === "error" ? "alert" : "status"}>{taramaMesaji}</p> : null}
+            {fisOcrHazir === false ? <p className="pos-scan-feedback error" role="alert">Fiş okuma servisi hazır değil. Yönetici ReceiptOcr API anahtarını yapılandırmalı.</p> : null}
+            {fisSonucu && giderTaslagi ? (
+              <article className="pos-receipt-preview pos-receipt-form" aria-label="Okunan fiş">
+                <span><ReceiptText size={19} /></span>
+                <div>
+                  <strong>{fisSonucu.merchant || "Satıcı okunamadı"}</strong>
+                  <small>{fisSonucu.receiptDate || "Tarih yok"} · {fisSonucu.paymentMethod || "Ödeme yöntemi yok"}</small>
+                </div>
+                <b>{paraBic(fisSonucu.receiptTotal ?? 0)}</b>
+                <p>{fisSonucu.items.length} satır okundu. Kayıt oluşturmadan önce tutarları kontrol edin.</p>
+                <div className="pos-receipt-form__fields">
+                  <label><span>Tarih</span><input aria-label="Fiş tarihi" type="datetime-local" value={giderTaslagi.tarih} onChange={(event) => giderTaslaginiGuncelle({ tarih: event.target.value })} /></label>
+                  <label><span>Toplam</span><input aria-label="Fiş toplamı" inputMode="decimal" value={giderTaslagi.tutar} onChange={(event) => giderTaslaginiGuncelle({ tutar: event.target.value })} /></label>
+                  <label><span>Ödeme yöntemi</span><select aria-label="Fiş ödeme yöntemi" value={giderTaslagi.odemeYontemi} onChange={(event) => giderTaslaginiGuncelle({ odemeYontemi: event.target.value })}>{giderOdemeYontemleri.map((option) => <option key={option.deger} value={option.deger}>{option.etiket}</option>)}</select></label>
+                  <label><span>Gider kalemi</span><select aria-label="Fiş gider kalemi" value={giderTaslagi.kalem} onChange={(event) => giderTaslaginiGuncelle({ kalem: event.target.value })}><option value="">Kalem seçin</option>{giderKalemleri.map((category) => <option key={category} value={category}>{category}</option>)}</select></label>
+                  <label className="pos-receipt-form__description"><span>Açıklama</span><textarea aria-label="Fiş açıklaması" value={giderTaslagi.aciklama} onChange={(event) => giderTaslaginiGuncelle({ aciklama: event.target.value })} /></label>
+                </div>
+                <button type="button" className="pos-receipt-form__save" onClick={() => void giderOlarakKaydet()} disabled={giderKaydediliyor}>
+                  {giderKaydediliyor ? <Loader2 size={17} className="spin" /> : <Check size={17} />}
+                  {giderKaydediliyor ? "Gider kaydediliyor..." : "Gider olarak kaydet"}
+                </button>
+              </article>
+            ) : null}
           </div>
 
           <div className="pos-products">
@@ -308,7 +509,7 @@ export function HizliSatisSayfasi({ yenileAnahtari }: HizliSatisSayfasiProps) {
           <header className="pos-section-header">
             <div>
               <span>Aktif satış</span>
-              <h2>Sepet</h2>
+              <h2>{t("quickSale.title")}</h2>
               <p>{sepet.length > 0 ? `${sepet.length} farklı ürün` : "Henüz ürün eklenmedi."}</p>
             </div>
             {sepet.length > 0 ? (
@@ -338,7 +539,7 @@ export function HizliSatisSayfasi({ yenileAnahtari }: HizliSatisSayfasiProps) {
             {sepet.length === 0 ? (
               <div className="pos-cart__empty">
                 <ShoppingCart size={31} />
-                <strong>Sepet boş</strong>
+                <strong>{t("quickSale.emptyCart")}</strong>
                 <p>Soldaki ürünlerden seçim yaparak satışa başlayın.</p>
               </div>
             ) : null}
@@ -371,7 +572,7 @@ export function HizliSatisSayfasi({ yenileAnahtari }: HizliSatisSayfasiProps) {
             </div>
             <button type="button" className="pos-checkout__submit" onClick={() => void satisiTamamla()} disabled={islemde || sepet.length === 0}>
               <Check size={19} />
-              {islemde ? "Satış kaydediliyor..." : "Satışı tamamla"}
+              {islemde ? t("support.saving") : t("quickSale.complete")}
             </button>
             <small>Satış tamamlandığında stok otomatik düşer ve tutar gelir kaydı olarak eklenir.</small>
           </footer>
@@ -379,4 +580,68 @@ export function HizliSatisSayfasi({ yenileAnahtari }: HizliSatisSayfasiProps) {
       </section>
     </main>
   );
+}
+
+async function barkoduYerelOku(file: File) {
+  const Detector = (window as typeof window & { BarcodeDetector?: BarcodeDetectorConstructor }).BarcodeDetector;
+  if (Detector && typeof createImageBitmap === "function") {
+    const bitmap = await createImageBitmap(file);
+    try {
+      const results = await new Detector({ formats: ["ean_13", "ean_8", "upc_a", "upc_e", "code_128", "code_39", "qr_code"] }).detect(bitmap);
+      const detected = results.find((item) => item.rawValue.trim())?.rawValue.trim();
+      if (detected) return detected;
+    } catch {
+      // ZXing handles browsers whose BarcodeDetector exists but rejects a format.
+    } finally {
+      bitmap.close();
+    }
+  }
+
+  if (typeof URL.createObjectURL !== "function") return "";
+  const imageUrl = URL.createObjectURL(file);
+  try {
+    const { BrowserMultiFormatReader } = await import("@zxing/browser");
+    const result = await new BrowserMultiFormatReader().decodeFromImageUrl(imageUrl);
+    return result.getText().trim();
+  } catch {
+    return "";
+  } finally {
+    URL.revokeObjectURL(imageUrl);
+  }
+}
+
+function fisTaslagiOlustur(
+  result: FisOcrSonucu,
+  categories: string[],
+  paymentMethods: Array<{ deger: string; etiket: string }>
+): GiderTaslagi {
+  const candidate = result.items.map((item) => item.candidateKalem.trim()).find((item) =>
+    categories.some((category) => category.localeCompare(item, "tr-TR", { sensitivity: "base" }) === 0));
+  const category = candidate
+    ? categories.find((item) => item.localeCompare(candidate, "tr-TR", { sensitivity: "base" }) === 0) ?? ""
+    : "";
+  const normalizedPayment = normalizePaymentMethod(result.paymentMethod);
+  const paymentMethod = paymentMethods.find((item) => item.deger === normalizedPayment)?.deger
+    ?? paymentMethods[0]?.deger
+    ?? "nakit";
+  const date = result.receiptDate?.slice(0, 10);
+  const description = [result.merchant.trim(), ...result.items.map((item) => item.rawName.trim())]
+    .filter(Boolean)
+    .join(" | ")
+    .slice(0, 500);
+  return {
+    tarih: date ? `${date}T12:00` : "",
+    tutar: result.receiptTotal && result.receiptTotal > 0 ? String(result.receiptTotal).replace(".", ",") : "",
+    odemeYontemi: paymentMethod,
+    kalem: category,
+    aciklama: description
+  };
+}
+
+function normalizePaymentMethod(value: string) {
+  const normalized = value.trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+  if (normalized === "kredikarti") return "krediKarti";
+  if (normalized === "onlineodeme") return "onlineOdeme";
+  if (normalized === "havale") return "havale";
+  return "nakit";
 }

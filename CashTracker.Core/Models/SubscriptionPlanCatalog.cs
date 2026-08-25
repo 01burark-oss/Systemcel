@@ -91,24 +91,32 @@ namespace CashTracker.Core.Models
                     YillikTutar = 15480,
                     KurucuAylikTutar = 990,
                     KurucuYillikTutar = 11880,
+                    BankaMutabakatiAktif = true,
                     StokRaporAktif = true,
-                    MuhasebeciErisimiAktif = true
+                    MuhasebeciErisimiAktif = true,
+                    ApiErisimiAktif = true
                 },
                 new(PlanKodlari.IsletmeKurumsal, HesapTipleri.Isletme, "Kurumsal", 2490, null, null, null)
                 {
                     YillikTutar = 23904,
                     KurucuAylikTutar = 1990,
                     KurucuYillikTutar = 22704,
+                    BankaMutabakatiAktif = true,
                     StokRaporAktif = true,
                     MuhasebeciErisimiAktif = true,
-                    OncelikliDestekAktif = true
+                    ApiErisimiAktif = true,
+                    OncelikliDestekAktif = true,
+                    CokluSubeAktif = true,
+                    CokluParaBirimiAktif = true
                 },
                 // Eski "Isletme" abonelikleri Büyüme haklariyla devam eder.
                 new(PlanKodlari.IsletmeIsletme, HesapTipleri.Isletme, "Büyüme (eski)", 1290, null, 3, null)
                 {
                     YillikTutar = 15480,
+                    BankaMutabakatiAktif = true,
                     StokRaporAktif = true,
-                    MuhasebeciErisimiAktif = true
+                    MuhasebeciErisimiAktif = true,
+                    ApiErisimiAktif = true
                 },
                 new(PlanKodlari.MuhasebeciUcretsiz, HesapTipleri.Muhasebeci, "Ücretsiz", 0, 0, 1, 3),
                 new(PlanKodlari.MuhasebeciSaltOkunur, HesapTipleri.Muhasebeci, "Salt okunur", 0, 0, 0, 0),

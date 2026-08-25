@@ -49,6 +49,9 @@ namespace Systemcel.Api.Api
         private readonly IDbContextFactory<CashTrackerDbContext>? _dbFactory;
         private readonly IPaymentPricingService? _paymentPricingService;
         private readonly IBelgeSaglikService? _belgeSaglikService;
+        private readonly IBildirimService? _bildirimService;
+        private readonly ICurrentUserContext? _currentUserContext;
+        private readonly IWebHostEnvironment? _hostEnvironment;
         private readonly ConcurrentDictionary<int, ReportPackageState> _lastReportPackages = new();
 
         public ScreenApi(
@@ -78,7 +81,10 @@ namespace Systemcel.Api.Api
             IDbContextFactory<CashTrackerDbContext>? dbFactory = null,
             IPaymentPricingService? paymentPricingService = null,
             IOdemeHatirlatmaService? odemeHatirlatmaService = null,
-            IBelgeSaglikService? belgeSaglikService = null)
+            IBelgeSaglikService? belgeSaglikService = null,
+            IBildirimService? bildirimService = null,
+            ICurrentUserContext? currentUserContext = null,
+            IWebHostEnvironment? hostEnvironment = null)
         {
             _kasaService = kasaService;
             _summaryService = summaryService;
@@ -107,6 +113,9 @@ namespace Systemcel.Api.Api
             _paymentPricingService = paymentPricingService;
             _odemeHatirlatmaService = odemeHatirlatmaService;
             _belgeSaglikService = belgeSaglikService;
+            _bildirimService = bildirimService;
+            _currentUserContext = currentUserContext;
+            _hostEnvironment = hostEnvironment;
         }
 
         public void MapApi(WebApplication app)
@@ -146,24 +155,82 @@ namespace Systemcel.Api.Api
                     }
                     catch (Exception ex)
                     {
-                        return Results.Problem($"Kolay kurulum yÃ¼klenemedi: {ex.Message}");
+                        return Results.Problem($"Kolay kurulum yüklenemedi: {ex.Message}");
                     }
                 });
             }
 
             if (_isletmeService is not null)
             {
-                app.MapGet("/api/ekran/bildirimler", async () =>
+                app.MapGet("/api/ekran/bildirimler", async (CancellationToken ct) =>
                 {
                     try
                     {
-                        return Results.Ok(await BuildNotificationsAsync());
+                        return Results.Ok(await BuildPersistentNotificationsAsync(ct));
                     }
-                    catch (Exception ex)
+                    catch
                     {
-                        return Results.Problem($"Bildirimler yÃ¼klenemedi: {ex.Message}");
+                        return Results.Problem("Bildirimler şu anda yüklenemiyor. Lütfen yeniden deneyin.");
                     }
                 });
+
+                app.MapPut("/api/ekran/bildirimler/{id:int}/okundu", async (int id, CancellationToken ct) =>
+                {
+                    try
+                    {
+                        var scope = await GetNotificationScopeAsync();
+                        var count = await _bildirimService!.MarkReadAsync(scope.BusinessId, scope.UserRef, id, ct);
+                        return count < 0 ? Results.NotFound() : Results.Ok(new { okunmamisSayisi = count });
+                    }
+                    catch
+                    {
+                        return Results.Problem("Bildirim durumu güncellenemedi. Lütfen yeniden deneyin.");
+                    }
+                }).RequireRateLimiting("sensitive");
+
+                app.MapPost("/api/ekran/bildirimler/tumunu-okundu", async (CancellationToken ct) =>
+                {
+                    try
+                    {
+                        var scope = await GetNotificationScopeAsync();
+                        var count = await _bildirimService!.MarkAllReadAsync(scope.BusinessId, scope.UserRef, ct);
+                        return Results.Ok(new { okunmamisSayisi = count });
+                    }
+                    catch
+                    {
+                        return Results.Problem("Bildirimler güncellenemedi. Lütfen yeniden deneyin.");
+                    }
+                }).RequireRateLimiting("sensitive");
+
+                app.MapGet("/api/ekran/bildirim-tercihleri", async (CancellationToken ct) =>
+                {
+                    try
+                    {
+                        var scope = await GetNotificationScopeAsync();
+                        return Results.Ok(await _bildirimService!.GetPreferencesAsync(scope.BusinessId, scope.UserRef, ct));
+                    }
+                    catch
+                    {
+                        return Results.Problem("Bildirim tercihleri yüklenemedi.");
+                    }
+                });
+
+                app.MapPut("/api/ekran/bildirim-tercihleri", async (BildirimTercihModeli request, CancellationToken ct) =>
+                {
+                    try
+                    {
+                        var scope = await GetNotificationScopeAsync();
+                        return Results.Ok(await _bildirimService!.SavePreferencesAsync(scope.BusinessId, scope.UserRef, request, ct));
+                    }
+                    catch (ArgumentException)
+                    {
+                        return Results.BadRequest(new ApiHata("Bildirim tercihleri geçersiz."));
+                    }
+                    catch
+                    {
+                        return Results.Problem("Bildirim tercihleri kaydedilemedi.");
+                    }
+                }).RequireRateLimiting("sensitive");
             }
 
             if (_isletmeService is not null && _kalemTanimiService is not null)
@@ -189,7 +256,7 @@ namespace Systemcel.Api.Api
                         foreach (var gider in preset.giderKalemleri)
                             await _kalemTanimiService!.CreateAsync("Gider", gider);
 
-                        return Results.Ok(await BuildEasySetupAsync("Kurulum tamamlandÄ±."));
+                        return Results.Ok(await BuildEasySetupAsync("Kurulum tamamlandı."));
                     }
                     catch (Exception ex)
                     {
@@ -532,7 +599,8 @@ namespace Systemcel.Api.Api
                 {
                     try
                     {
-                        return Results.Ok(await SaveDashboardSummaryPdfAsync());
+                        var report = await BuildDashboardPrintReportAsync();
+                        return Results.File(PrintReportPdfExporter.Generate(report), "application/pdf", "systemcel-yonetici-ozeti.pdf");
                     }
                     catch (Exception ex)
                     {
@@ -598,7 +666,8 @@ namespace Systemcel.Api.Api
                     await EnsureBusinessFeatureAsync(EntitlementFeatures.AdvancedExport);
                     try
                     {
-                        return Results.Ok(await SaveReportPdfAsync(request));
+                        var report = await BuildPrintReportAsync(request, recordLimit: null, isPreview: false);
+                        return Results.File(PrintReportPdfExporter.Generate(report), "application/pdf", BuildReportExportFileName(report.Template, "pdf"));
                     }
                     catch (Exception ex)
                     {
@@ -611,7 +680,8 @@ namespace Systemcel.Api.Api
                     await EnsureBusinessFeatureAsync(EntitlementFeatures.AdvancedExport);
                     try
                     {
-                        return Results.Ok(await ExportReportHtmlAsync(request));
+                        var report = await BuildPrintReportAsync(request, recordLimit: null, isPreview: false);
+                        return Results.File(Encoding.UTF8.GetBytes(PrintReportHtmlExporter.Generate(report)), "text/html; charset=utf-8", BuildReportExportFileName(report.Template, "html"));
                     }
                     catch (Exception ex)
                     {
@@ -621,9 +691,11 @@ namespace Systemcel.Api.Api
 
                 app.MapPost("/api/ekran/raporlar/yazdir", async (RaporYazdirIstek request) =>
                 {
+                    await EnsureBusinessFeatureAsync(EntitlementFeatures.AdvancedExport);
                     try
                     {
-                        return Results.Ok(await PrintReportAsync(request));
+                        var report = await BuildPrintReportAsync(request, recordLimit: null, isPreview: false);
+                        return Results.Content(PrintReportHtmlExporter.Generate(report), "text/html; charset=utf-8", Encoding.UTF8);
                     }
                     catch (Exception ex)
                     {
@@ -1204,6 +1276,7 @@ namespace Systemcel.Api.Api
                             FaturaId = id,
                             Tarih = ParseDate(request.tarih),
                             Tutar = request.tutar,
+                            ParaBirimi = request.paraBirimi,
                             OdemeYontemi = ToDomainPayment(request.odemeYontemi),
                             Aciklama = request.aciklama
                         });
@@ -1288,6 +1361,7 @@ namespace Systemcel.Api.Api
                                 FaturaId = request.faturaId,
                                 Tarih = ParseDate(request.tarih),
                                 Tutar = request.tutar,
+                                ParaBirimi = request.paraBirimi,
                                 OdemeYontemi = ToDomainPayment(request.odemeYontemi),
                                 Aciklama = BuildPaymentNote(request)
                             });
@@ -1300,6 +1374,7 @@ namespace Systemcel.Api.Api
                                 Tarih = ParseDate(request.tarih),
                                 HareketTipi = NormalizeCariMovementType(request.islemTipi),
                                 Tutar = request.tutar,
+                                ParaBirimi = request.paraBirimi ?? "TRY",
                                 Kaynak = "Manuel",
                                 Aciklama = BuildPaymentNote(request)
                             });
@@ -1384,6 +1459,42 @@ namespace Systemcel.Api.Api
 
             if (_appSecurityService is not null)
             {
+                app.MapGet("/api/ekran/ayarlar/pin", async () =>
+                {
+                    try
+                    {
+                        return Results.Ok(new
+                        {
+                            varsayilanPin = await _appSecurityService!.IsDefaultPinAsync(),
+                            mesaj = "PIN kilidi hazır."
+                        });
+                    }
+                    catch (Exception ex)
+                    {
+                        return Results.BadRequest(new ApiHata($"PIN durumu alınamadı: {ex.Message}"));
+                    }
+                });
+
+                app.MapPut("/api/ekran/ayarlar/pin", async (PinDegistirIstek request) =>
+                {
+                    if (request is null || string.IsNullOrWhiteSpace(request.mevcutPin) || string.IsNullOrWhiteSpace(request.yeniPin))
+                        return Results.BadRequest(new ApiHata("Mevcut ve yeni 4 haneli PIN'i girin."));
+                    if (request.yeniPin.Length != 4 || request.yeniPin.Any(x => !char.IsAsciiDigit(x)))
+                        return Results.BadRequest(new ApiHata("Yeni PIN yalnızca 4 rakamdan oluşmalıdır."));
+
+                    try
+                    {
+                        if (!await _appSecurityService!.VerifyPinAsync(request.mevcutPin.Trim()))
+                            return Results.BadRequest(new ApiHata("Mevcut PIN hatalı."));
+                        await _appSecurityService.SetPinAsync(request.yeniPin.Trim());
+                        return Results.Ok(new ApiMesaj("PIN güncellendi."));
+                    }
+                    catch (Exception ex)
+                    {
+                        return Results.BadRequest(new ApiHata($"PIN güncellenemedi: {ex.Message}"));
+                    }
+                }).RequireRateLimiting("sensitive");
+
                 app.MapPost("/api/ekran/kilit-ekrani/dogrula", async (PinDogrulaIstek request) =>
                 {
                     if (request is null || string.IsNullOrWhiteSpace(request.pin))
@@ -1400,7 +1511,7 @@ namespace Systemcel.Api.Api
                     {
                         return Results.BadRequest(new ApiHata($"PIN doğrulanamadı: {ex.Message}"));
                     }
-                });
+                }).RequireRateLimiting("sensitive");
 
                 app.MapPost("/api/ekran/kilit-ekrani/hatirlat", async () =>
                 {
@@ -1411,7 +1522,7 @@ namespace Systemcel.Api.Api
                     return result.Status == PinReminderStatus.Success
                         ? Results.Ok(new ApiMesaj(result.Message))
                         : Results.BadRequest(new ApiHata(result.Message));
-                });
+                }).RequireRateLimiting("sensitive");
             }
         }
 
@@ -1465,11 +1576,17 @@ namespace Systemcel.Api.Api
             var activeBusiness = await _isletmeService!.GetActiveAsync();
             var access = await _isletmeService.GetActiveAccessAsync();
             var businesses = await _isletmeService!.GetAllAsync();
-            var notifications = await BuildNotificationsSafelyAsync();
+            var notifications = await BuildPersistentNotificationsSafelyAsync();
             var chatStatus = await BuildChatNotificationStatusAsync();
             var accountant = access.MuhasebeciIsletmeId.HasValue
                 ? await _isletmeService.GetByIdAsync(access.MuhasebeciIsletmeId.Value)
                 : null;
+            var bankaMutabakatiAktif = false;
+            if (_entitlementGuard is not null && string.Equals(activeBusiness.TenantTipi, HesapTipleri.Isletme, StringComparison.OrdinalIgnoreCase))
+            {
+                var entitlement = await _entitlementGuard.GetAsync(activeBusiness.Id, HesapTipleri.Isletme, CancellationToken.None);
+                bankaMutabakatiAktif = !entitlement.SaltOkunur && entitlement.BankaMutabakatiAktif;
+            }
 
             return new UstBarDto
             {
@@ -1481,8 +1598,9 @@ namespace Systemcel.Api.Api
                 muhasebeciAdi = string.IsNullOrWhiteSpace(accountant?.Ad) ? string.Empty : accountant!.Ad.Trim(),
                 muhasebeciYetkiSeviyesi = access.YetkiSeviyesi,
                 telegramAktif = _telegramSettings?.IsEnabled ?? false,
-                bildirimVar = notifications.Count > 0,
-                bildirimSayisi = notifications.Count,
+                bankaMutabakatiAktif = bankaMutabakatiAktif,
+                bildirimVar = notifications.Any(x => !x.Okundu),
+                bildirimSayisi = notifications.Count(x => !x.Okundu),
                 sohbet = chatStatus,
                 yoneticiMi = _yonetimService != null && await _yonetimService.IsCurrentUserAdminAsync(),
                 isletmeler = businesses
@@ -1496,15 +1614,15 @@ namespace Systemcel.Api.Api
             };
         }
 
-        private async Task<List<BildirimDto>> BuildNotificationsSafelyAsync()
+        private async Task<IReadOnlyList<BildirimGorunumu>> BuildPersistentNotificationsSafelyAsync()
         {
             try
             {
-                return await BuildNotificationsAsync();
+                return await BuildPersistentNotificationsAsync(CancellationToken.None);
             }
             catch
             {
-                return new List<BildirimDto>();
+                return Array.Empty<BildirimGorunumu>();
             }
         }
 
@@ -1734,6 +1852,30 @@ namespace Systemcel.Api.Api
                 .ThenBy(x => x.baslik)
                 .Take(5)
                 .ToList();
+        }
+
+        private async Task<IReadOnlyList<BildirimGorunumu>> BuildPersistentNotificationsAsync(CancellationToken ct)
+        {
+            if (_bildirimService is null)
+                throw new InvalidOperationException("Bildirim servisi hazır değil.");
+            var scope = await GetNotificationScopeAsync();
+            var dynamicNotifications = await BuildNotificationsAsync();
+            var snapshots = dynamicNotifications.Select(x => new BildirimSnapshot(
+                x.id, x.tur, x.onem, x.baslik, x.mesaj, x.aksiyon, x.url)).ToList();
+            return await _bildirimService.SyncAndListAsync(scope.BusinessId, scope.UserRef, snapshots, ct);
+        }
+
+        private async Task<(int BusinessId, string UserRef)> GetNotificationScopeAsync()
+        {
+            var business = await _isletmeService!.GetActiveAsync();
+            var userRef = _currentUserContext?.GetCurrentUser()?.ProviderUserId;
+            if (string.IsNullOrWhiteSpace(userRef))
+            {
+                if (_hostEnvironment?.IsDevelopment() != true)
+                    throw new UnauthorizedAccessException("Bildirim kullanıcı kapsamı doğrulanamadı.");
+                userRef = "local-development-user";
+            }
+            return (business.Id, userRef.Trim());
         }
 
         private async Task AddAccountantRequestNotificationsAsync(List<BildirimDto> notifications)
@@ -2046,6 +2188,7 @@ namespace Systemcel.Api.Api
         {
             var activeBusiness = await _isletmeService!.GetActiveAsync();
             var settings = await _gibPortalService!.GetSettingsAsync();
+            var logs = await _gibPortalService.GetRecentLogsAsync();
 
             return new GibPortalEkranDto
             {
@@ -2053,6 +2196,15 @@ namespace Systemcel.Api.Api
                 kullaniciKodu = settings?.KullaniciKodu ?? string.Empty,
                 hasPassword = settings?.HasPassword ?? false,
                 testModu = settings?.TestModu ?? false,
+                sonIslemler = logs.Select(x => new GibPortalIslemDto
+                {
+                    id = x.Id,
+                    faturaId = x.FaturaId,
+                    tarih = x.Tarih,
+                    islem = x.Islem,
+                    basarili = x.Basarili,
+                    mesaj = x.Mesaj
+                }).ToList(),
                 mesaj = settings is null
                     ? "GİB Portal ayarları henüz yapılandırılmadı."
                     : "GİB Portal ayarları hazır."
@@ -2079,13 +2231,6 @@ namespace Systemcel.Api.Api
             await _backupReportService!.SendTextAsync(text);
 
             return new ApiMesaj(AppLocalization.T("main.telegram.sent"));
-        }
-
-        private async Task<ApiMesaj> SaveDashboardSummaryPdfAsync()
-        {
-            var report = await BuildDashboardPrintReportAsync();
-            var path = SavePrintReportHtml(report, "yonetici-ozeti");
-            return new ApiMesaj($"Web host PDF yerine yazdırılabilir HTML raporu hazırladı: {path}");
         }
 
         private async Task<PrintReportData> BuildDashboardPrintReportAsync()
@@ -2202,25 +2347,6 @@ namespace Systemcel.Api.Api
             };
         }
 
-        private async Task<ApiMesaj> SaveReportPdfAsync(RaporYazdirIstek request)
-        {
-            var report = await BuildPrintReportAsync(request, recordLimit: null, isPreview: false);
-            var path = SavePrintReportHtml(report);
-            return new ApiMesaj($"Web host PDF yerine yazdırılabilir HTML raporu hazırladı: {path}");
-        }
-
-        private async Task<ApiMesaj> ExportReportHtmlAsync(RaporYazdirIstek request)
-        {
-            var report = await BuildPrintReportAsync(request, recordLimit: null, isPreview: false);
-            var path = SavePrintReportHtml(report);
-            return new ApiMesaj($"HTML kaydedildi: {path}");
-        }
-
-        private Task<ApiMesaj> PrintReportAsync(RaporYazdirIstek request)
-        {
-            return Task.FromResult(new ApiMesaj("Yazdırma işlemi web akışında tarayıcının yazdır penceresiyle tamamlanacak."));
-        }
-
         private async Task<PrintReportData> BuildPrintReportAsync(RaporYazdirIstek request, int? recordLimit, bool isPreview)
         {
             var printRequest = CreatePrintReportRequest(request, recordLimit, isPreview);
@@ -2270,18 +2396,6 @@ namespace Systemcel.Api.Api
                 RecordLimit = recordLimit,
                 IsPreview = isPreview
             };
-        }
-
-        private static string SavePrintReportHtml(PrintReportData report, string? fileNamePrefix = null)
-        {
-            var outputDirectory = GetDefaultReportsFolder();
-            Directory.CreateDirectory(outputDirectory);
-            var fileName = string.IsNullOrWhiteSpace(fileNamePrefix)
-                ? BuildReportExportFileName(report.Template, "html")
-                : $"systemcel-{fileNamePrefix}-{DateTime.Now:yyyyMMdd-HHmm}.html";
-            var path = Path.Combine(outputDirectory, fileName);
-            File.WriteAllText(path, PrintReportHtmlExporter.Generate(report), Encoding.UTF8);
-            return path;
         }
 
         private static string BuildReportExportFileName(PrintReportTemplate template, string extension)
@@ -2986,6 +3100,7 @@ namespace Systemcel.Api.Api
                 KdvOrani = request.kdvOrani,
                 AlisFiyati = request.alisFiyati,
                 SatisFiyati = request.satisFiyati,
+                ParaBirimi = request.paraBirimi ?? "TRY",
                 KritikStok = request.kritikStok
             };
         }
@@ -3002,6 +3117,7 @@ namespace Systemcel.Api.Api
                 KdvOrani = request.kdvOrani,
                 AlisFiyati = request.alisFiyati,
                 SatisFiyati = request.satisFiyati,
+                ParaBirimi = request.paraBirimi ?? "TRY",
                 KritikStok = request.kritikStok,
                 Aktif = request.aktif
             };
@@ -3016,6 +3132,7 @@ namespace Systemcel.Api.Api
                 VadeTarihi = string.IsNullOrWhiteSpace(request.vadeTarihi) ? null : ParseDate(request.vadeTarihi),
                 FaturaTipi = NormalizeInvoiceType(request.faturaTipi),
                 OdemeYontemi = ToDomainPayment(request.odemeYontemi),
+                ParaBirimi = request.paraBirimi ?? "TRY",
                 Aciklama = string.IsNullOrWhiteSpace(request.aciklama) ? null : request.aciklama.Trim(),
                 Satirlar = request.satirlar.Select(x => new FaturaSatirRequest
                 {
@@ -3041,6 +3158,7 @@ namespace Systemcel.Api.Api
                 Tarih = ParseDate(request.tarih),
                 Tip = tur == "gider" ? "Gider" : "Gelir",
                 Tutar = request.tutar,
+                ParaBirimi = request.paraBirimi ?? "TRY",
                 OdemeYontemi = ToDomainPayment(request.odemeYontemi),
                 Kalem = kalem,
                 GiderTuru = tur == "gider" ? kalem : null,
@@ -3057,6 +3175,11 @@ namespace Systemcel.Api.Api
                 tarih = row.Tarih.ToString("yyyy-MM-ddTHH:mm", CultureInfo.InvariantCulture),
                 tur = tur,
                 tutar = row.Tutar,
+                orijinalTutar = row.OrijinalTutar == 0m ? row.Tutar : row.OrijinalTutar,
+                paraBirimi = string.IsNullOrWhiteSpace(row.ParaBirimi) ? "TRY" : row.ParaBirimi,
+                kurSnapshot = row.KurSnapshot <= 0m ? 1m : row.KurSnapshot,
+                tryKarsiligi = row.TryKarsiligi == 0m ? row.Tutar : row.TryKarsiligi,
+                subeId = row.SubeId,
                 odemeYontemi = ToApiPayment(row.OdemeYontemi),
                 kalem = (row.Kalem ?? row.GiderTuru ?? string.Empty).Trim(),
                 aciklama = row.Aciklama ?? string.Empty
@@ -3122,6 +3245,9 @@ namespace Systemcel.Api.Api
                 kdvOrani = row.KdvOrani,
                 alisFiyati = row.AlisFiyati,
                 satisFiyati = row.SatisFiyati,
+                paraBirimi = string.IsNullOrWhiteSpace(row.ParaBirimi) ? "TRY" : row.ParaBirimi,
+                kurSnapshot = row.KurSnapshot <= 0m ? 1m : row.KurSnapshot,
+                subeId = row.SubeId,
                 kritikStok = row.KritikStok,
                 mevcutStok = currentStock,
                 aktif = row.Aktif
@@ -3142,6 +3268,10 @@ namespace Systemcel.Api.Api
                 cariKartId = row.CariKartId,
                 cariUnvan = string.IsNullOrWhiteSpace(cariName) ? $"Cari #{row.CariKartId}" : cariName.Trim(),
                 genelToplam = row.GenelToplam,
+                paraBirimi = string.IsNullOrWhiteSpace(row.ParaBirimi) ? "TRY" : row.ParaBirimi,
+                genelToplamTry = row.GenelToplamTry == 0m ? row.GenelToplam : row.GenelToplamTry,
+                kurSnapshot = row.KurSnapshot <= 0m ? 1m : row.KurSnapshot,
+                subeId = row.SubeId,
                 odenenTutar = row.OdenenTutar,
                 odemeYontemi = ToDomainPayment(row.OdemeYontemi),
                 aciklama = row.Aciklama ?? string.Empty
@@ -3168,6 +3298,10 @@ namespace Systemcel.Api.Api
                     iskontoToplam = row.IskontoToplam,
                     kdvToplam = row.KdvToplam,
                     genelToplam = row.GenelToplam,
+                    paraBirimi = string.IsNullOrWhiteSpace(row.ParaBirimi) ? "TRY" : row.ParaBirimi,
+                    genelToplamTry = row.GenelToplamTry == 0m ? row.GenelToplam : row.GenelToplamTry,
+                    kurSnapshot = row.KurSnapshot <= 0m ? 1m : row.KurSnapshot,
+                    subeId = row.SubeId,
                     odenenTutar = row.OdenenTutar,
                     odemeYontemi = ToDomainPayment(row.OdemeYontemi),
                     aciklama = row.Aciklama ?? string.Empty,
@@ -3202,7 +3336,8 @@ namespace Systemcel.Api.Api
                 birim = string.IsNullOrWhiteSpace(row.Birim) ? "Adet" : row.Birim.Trim(),
                 kdvOrani = row.KdvOrani,
                 alisFiyati = row.AlisFiyati,
-                satisFiyati = row.SatisFiyati
+                satisFiyati = row.SatisFiyati,
+                paraBirimi = string.IsNullOrWhiteSpace(row.ParaBirimi) ? "TRY" : row.ParaBirimi
             };
         }
 
@@ -3825,6 +3960,17 @@ namespace Systemcel.Api.Api
             public string kullaniciKodu { get; set; } = string.Empty;
             public bool hasPassword { get; set; }
             public bool testModu { get; set; }
+            public List<GibPortalIslemDto> sonIslemler { get; set; } = new();
+            public string mesaj { get; set; } = string.Empty;
+        }
+
+        public sealed class GibPortalIslemDto
+        {
+            public int id { get; set; }
+            public int? faturaId { get; set; }
+            public DateTime tarih { get; set; }
+            public string islem { get; set; } = string.Empty;
+            public bool basarili { get; set; }
             public string mesaj { get; set; } = string.Empty;
         }
 
@@ -3900,6 +4046,7 @@ namespace Systemcel.Api.Api
             public string muhasebeciAdi { get; set; } = string.Empty;
             public string muhasebeciYetkiSeviyesi { get; set; } = "TamIslem";
             public bool telegramAktif { get; set; }
+            public bool bankaMutabakatiAktif { get; set; }
             public bool bildirimVar { get; set; }
             public int bildirimSayisi { get; set; }
             public MuhasebeciSohbetBildirimDurumuDto sohbet { get; set; } = new();
@@ -4076,6 +4223,7 @@ namespace Systemcel.Api.Api
             public decimal kdvOrani { get; set; }
             public decimal alisFiyati { get; set; }
             public decimal satisFiyati { get; set; }
+            public string paraBirimi { get; set; } = "TRY";
         }
 
         public sealed class FaturaListeSatirDto
@@ -4089,6 +4237,10 @@ namespace Systemcel.Api.Api
             public int cariKartId { get; set; }
             public string cariUnvan { get; set; } = string.Empty;
             public decimal genelToplam { get; set; }
+            public string paraBirimi { get; set; } = "TRY";
+            public decimal genelToplamTry { get; set; }
+            public decimal kurSnapshot { get; set; } = 1m;
+            public int? subeId { get; set; }
             public decimal odenenTutar { get; set; }
             public string odemeYontemi { get; set; } = string.Empty;
             public string aciklama { get; set; } = string.Empty;
@@ -4115,6 +4267,10 @@ namespace Systemcel.Api.Api
             public decimal iskontoToplam { get; set; }
             public decimal kdvToplam { get; set; }
             public decimal genelToplam { get; set; }
+            public string paraBirimi { get; set; } = "TRY";
+            public decimal genelToplamTry { get; set; }
+            public decimal kurSnapshot { get; set; } = 1m;
+            public int? subeId { get; set; }
             public decimal odenenTutar { get; set; }
             public string odemeYontemi { get; set; } = string.Empty;
             public string aciklama { get; set; } = string.Empty;
@@ -4145,6 +4301,9 @@ namespace Systemcel.Api.Api
             public decimal kdvOrani { get; set; }
             public decimal alisFiyati { get; set; }
             public decimal satisFiyati { get; set; }
+            public string paraBirimi { get; set; } = "TRY";
+            public decimal kurSnapshot { get; set; } = 1m;
+            public int? subeId { get; set; }
             public decimal kritikStok { get; set; }
             public decimal mevcutStok { get; set; }
             public bool aktif { get; set; }
@@ -4214,6 +4373,11 @@ namespace Systemcel.Api.Api
             public string tarih { get; set; } = string.Empty;
             public string tur { get; set; } = "gelir";
             public decimal tutar { get; set; }
+            public decimal orijinalTutar { get; set; }
+            public string paraBirimi { get; set; } = "TRY";
+            public decimal kurSnapshot { get; set; } = 1m;
+            public decimal tryKarsiligi { get; set; }
+            public int? subeId { get; set; }
             public string odemeYontemi { get; set; } = "nakit";
             public string kalem { get; set; } = string.Empty;
             public string aciklama { get; set; } = string.Empty;
@@ -4225,6 +4389,7 @@ namespace Systemcel.Api.Api
             public string? tarih { get; set; }
             public string? tur { get; set; }
             public decimal tutar { get; set; }
+            public string? paraBirimi { get; set; }
             public string? odemeYontemi { get; set; }
             public string? kalem { get; set; }
             public string? aciklama { get; set; }
@@ -4262,6 +4427,7 @@ namespace Systemcel.Api.Api
             public decimal kdvOrani { get; set; }
             public decimal alisFiyati { get; set; }
             public decimal satisFiyati { get; set; }
+            public string? paraBirimi { get; set; }
             public decimal kritikStok { get; set; }
             public bool aktif { get; set; } = true;
         }
@@ -4303,6 +4469,7 @@ namespace Systemcel.Api.Api
             public string? vadeTarihi { get; set; }
             public string? faturaTipi { get; set; }
             public string? odemeYontemi { get; set; }
+            public string? paraBirimi { get; set; }
             public string? aciklama { get; set; }
             public List<FaturaSatirKaydetIstek> satirlar { get; set; } = new();
         }
@@ -4324,6 +4491,7 @@ namespace Systemcel.Api.Api
             public decimal tutar { get; set; }
             public string? tarih { get; set; }
             public string? odemeYontemi { get; set; }
+            public string? paraBirimi { get; set; }
             public string? aciklama { get; set; }
         }
 
@@ -4350,6 +4518,7 @@ namespace Systemcel.Api.Api
             public int cariKartId { get; set; }
             public string? tarih { get; set; }
             public string? odemeYontemi { get; set; }
+            public string? paraBirimi { get; set; }
             public string? aciklama { get; set; }
             public decimal tutar { get; set; }
         }
@@ -4357,6 +4526,12 @@ namespace Systemcel.Api.Api
         public sealed class PinDogrulaIstek
         {
             public string? pin { get; set; }
+        }
+
+        public sealed class PinDegistirIstek
+        {
+            public string? mevcutPin { get; set; }
+            public string? yeniPin { get; set; }
         }
 
         public sealed class StokGirisIstek

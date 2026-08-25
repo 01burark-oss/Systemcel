@@ -14,13 +14,16 @@ namespace CashTracker.Infrastructure.Services
     {
         private readonly IDbContextFactory<CashTrackerDbContext> _dbFactory;
         private readonly IIsletmeService _isletmeService;
+        private readonly ISubeKurService? _subeKurService;
 
         public TahsilatOdemeService(
             IDbContextFactory<CashTrackerDbContext> dbFactory,
-            IIsletmeService isletmeService)
+            IIsletmeService isletmeService,
+            ISubeKurService? subeKurService = null)
         {
             _dbFactory = dbFactory;
             _isletmeService = isletmeService;
+            _subeKurService = subeKurService;
         }
 
         public async Task<int> CreateAsync(TahsilatOdemeRequest request, CancellationToken ct = default)
@@ -57,13 +60,24 @@ namespace CashTracker.Infrastructure.Services
             var isSale = fatura.FaturaTipi == "Satis";
             var hareketTipi = isSale ? "Tahsilat" : "Odeme";
             var odemeYontemi = FaturaService.NormalizeOdemeYontemi(request.OdemeYontemi);
+            var currency = string.IsNullOrWhiteSpace(request.ParaBirimi) ? fatura.ParaBirimi : request.ParaBirimi.Trim().ToUpperInvariant();
+            if (!string.Equals(currency, string.IsNullOrWhiteSpace(fatura.ParaBirimi) ? "TRY" : fatura.ParaBirimi, StringComparison.Ordinal))
+                throw new InvalidOperationException("Tahsilat para birimi fatura para birimiyle aynı olmalıdır.");
+            var snapshot = _subeKurService is null
+                ? new IslemKurSnapshot { SubeId = fatura.SubeId ?? 0, ParaBirimi = currency, Kur = fatura.KurSnapshot <= 0 ? 1m : fatura.KurSnapshot, OrijinalTutar = amount, TryKarsiligi = decimal.Round(amount * (fatura.KurSnapshot <= 0 ? 1m : fatura.KurSnapshot), 2) }
+                : await _subeKurService.ResolveSnapshotAsync(currency, amount, ct);
 
             var kasa = new Kasa
             {
                 IsletmeId = activeIsletmeId,
+                SubeId = snapshot.SubeId > 0 ? snapshot.SubeId : fatura.SubeId,
                 Tarih = request.Tarih,
                 Tip = isSale ? "Gelir" : "Gider",
                 Tutar = amount,
+                OrijinalTutar = amount,
+                ParaBirimi = snapshot.ParaBirimi,
+                KurSnapshot = snapshot.Kur,
+                TryKarsiligi = snapshot.TryKarsiligi,
                 OdemeYontemi = odemeYontemi,
                 Kalem = isSale ? "Fatura Tahsilat" : "Fatura Odeme",
                 GiderTuru = isSale ? null : "Fatura Odeme",
@@ -76,10 +90,14 @@ namespace CashTracker.Infrastructure.Services
             var cariHareket = new CariHareket
             {
                 IsletmeId = activeIsletmeId,
+                SubeId = snapshot.SubeId > 0 ? snapshot.SubeId : fatura.SubeId,
                 CariKartId = fatura.CariKartId,
                 Tarih = request.Tarih,
                 HareketTipi = hareketTipi,
                 Tutar = amount,
+                ParaBirimi = snapshot.ParaBirimi,
+                KurSnapshot = snapshot.Kur,
+                TryKarsiligi = snapshot.TryKarsiligi,
                 Kaynak = "TahsilatOdeme",
                 Aciklama = $"Fatura {hareketTipi} | {fatura.YerelFaturaNo}",
                 CreatedAt = DateTime.Now
@@ -90,11 +108,15 @@ namespace CashTracker.Infrastructure.Services
             var row = new TahsilatOdeme
             {
                 IsletmeId = activeIsletmeId,
+                SubeId = snapshot.SubeId > 0 ? snapshot.SubeId : fatura.SubeId,
                 FaturaId = fatura.Id,
                 CariKartId = fatura.CariKartId,
                 Tarih = request.Tarih,
                 Tip = hareketTipi,
                 Tutar = amount,
+                ParaBirimi = snapshot.ParaBirimi,
+                KurSnapshot = snapshot.Kur,
+                TryKarsiligi = snapshot.TryKarsiligi,
                 OdemeYontemi = odemeYontemi,
                 KasaId = kasa.Id,
                 CariHareketId = cariHareket.Id,
@@ -151,6 +173,7 @@ namespace CashTracker.Infrastructure.Services
                 hareket.Tarih = request.Tarih;
                 hareket.HareketTipi = NormalizeMovementType(request.IslemTipi);
                 hareket.Tutar = request.Tutar;
+                hareket.TryKarsiligi = decimal.Round(request.Tutar * (hareket.KurSnapshot <= 0 ? 1m : hareket.KurSnapshot), 2);
                 hareket.Aciklama = NormalizeNote(request.Aciklama);
             }
             else
@@ -172,12 +195,14 @@ namespace CashTracker.Infrastructure.Services
                 hareket.Tarih = request.Tarih;
                 hareket.HareketTipi = movementType;
                 hareket.Tutar = request.Tutar;
+                hareket.TryKarsiligi = decimal.Round(request.Tutar * (hareket.KurSnapshot <= 0 ? 1m : hareket.KurSnapshot), 2);
                 hareket.Aciklama = NormalizeNote(request.Aciklama);
 
                 linkedPayment.CariKartId = fatura.CariKartId;
                 linkedPayment.Tarih = request.Tarih;
                 linkedPayment.Tip = movementType;
                 linkedPayment.Tutar = request.Tutar;
+                linkedPayment.TryKarsiligi = decimal.Round(request.Tutar * (linkedPayment.KurSnapshot <= 0 ? 1m : linkedPayment.KurSnapshot), 2);
                 linkedPayment.OdemeYontemi = paymentMethod;
                 linkedPayment.Aciklama = NormalizeNote(request.Aciklama);
 
@@ -190,6 +215,8 @@ namespace CashTracker.Infrastructure.Services
                         kasa.Tarih = request.Tarih;
                         kasa.Tip = isSale ? "Gelir" : "Gider";
                         kasa.Tutar = request.Tutar;
+                        kasa.OrijinalTutar = request.Tutar;
+                        kasa.TryKarsiligi = decimal.Round(request.Tutar * (kasa.KurSnapshot <= 0 ? 1m : kasa.KurSnapshot), 2);
                         kasa.OdemeYontemi = paymentMethod;
                     }
                 }
@@ -304,6 +331,9 @@ namespace CashTracker.Infrastructure.Services
                 Tarih = fatura.Tarih,
                 HareketTipi = fatura.FaturaTipi == "Satis" ? "Alacak" : "Borc",
                 Tutar = fatura.GenelToplam,
+                ParaBirimi = fatura.ParaBirimi,
+                KurSnapshot = fatura.KurSnapshot,
+                TryKarsiligi = fatura.GenelToplamTry,
                 Kaynak = "Fatura",
                 Aciklama = $"Fatura {fatura.YerelFaturaNo}",
                 CreatedAt = DateTime.Now
@@ -314,6 +344,7 @@ namespace CashTracker.Infrastructure.Services
                 db.StokHareketleri.Add(new StokHareket
                 {
                     IsletmeId = activeIsletmeId,
+                    SubeId = fatura.SubeId,
                     UrunHizmetId = line.UrunHizmetId!.Value,
                     Tarih = fatura.Tarih,
                     Miktar = fatura.FaturaTipi == "Satis" ? -line.Miktar : line.Miktar,

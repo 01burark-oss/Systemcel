@@ -22,7 +22,7 @@ Required production services:
 - DigitalOcean Managed PostgreSQL
 - Clerk production application
 - Optional Telegram bot integration
-- Optional Gemini/OCR and DeepSeek API keys
+- Optional OpenAI receipt OCR and DeepSeek API keys
 
 ## Environment Variables
 
@@ -49,6 +49,9 @@ Telegram__BotToken=
 Telegram__AllowedUserIds=
 Telegram__ChatId=
 ReceiptOcr__ApiKey=
+ReceiptOcr__Provider=OpenAI
+ReceiptOcr__BaseUrl=https://api.openai.com/v1
+ReceiptOcr__Model=gpt-5-mini
 DeepSeek__ApiKey=
 SYSTEMCEL_SMS_PROVIDER=Netgsm
 NETGSM_USERNAME=
@@ -149,10 +152,15 @@ Deployment checklist:
 2. Add every required env var as an encrypted App Platform variable.
 3. Set `SYSTEMCEL_ALLOWED_ORIGINS` and `SYSTEMCEL_CLERK_AUTHORIZED_PARTIES` to the exact environment domains.
 4. Configure matching allowed origins, redirect URLs, and production keys in Clerk.
-5. Deploy the Docker app.
-6. Confirm `/api/health` returns 200.
-7. Confirm protected `/api/ekran/*` endpoints return 401 without a token.
-8. Sign in through Clerk and smoke test dashboard, settings, and accountant flows.
+5. Include `email` and boolean `email_verified` claims in the Clerk session token template. Team invitations fail closed when the e-mail claim is not verified.
+6. Deploy the Docker app.
+7. Confirm `/api/health` returns 200.
+8. Confirm protected `/api/ekran/*` endpoints return 401 without a token.
+9. Sign in through Clerk and smoke test dashboard, settings, and accountant flows.
+
+## Developer API
+
+The read-only Developer API v1, API-key handling rules, scopes, pagination, rate limits, and examples are documented in [`docs/developer-api.md`](docs/developer-api.md). The machine-readable contract is [`docs/openapi/developer-api-v1.yaml`](docs/openapi/developer-api-v1.yaml). Write scopes are intentionally unavailable in this MVP.
 
 ## Repo Hygiene
 

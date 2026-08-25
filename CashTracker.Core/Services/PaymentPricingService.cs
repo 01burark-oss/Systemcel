@@ -113,7 +113,95 @@ namespace CashTracker.Core.Services
                 listNetAmount,
                 useFounderPrice && normalizedPeriod == PaymentBillingPeriods.Monthly
                     ? SubscriptionPlanCatalog.KurucuAylikDonemSayisi
-                    : useFounderPrice ? 1 : 0);
+                    : useFounderPrice ? 1 : 0,
+                netAmount);
         }
+
+        public PaymentQuote CreateChangeQuote(
+            string planCode,
+            string accountType,
+            string billingPeriod,
+            int extraCustomerCredits,
+            CurrentSubscriptionPricingContext? currentSubscription,
+            DateTime nowUtc,
+            bool useFounderPrice = false)
+        {
+            var target = CreateQuote(planCode, accountType, billingPeriod, extraCustomerCredits, useFounderPrice);
+            if (currentSubscription is null)
+                return target;
+
+            var now = EnsureUtc(nowUtc);
+            var periodStart = EnsureUtc(currentSubscription.PeriodStartAt);
+            var periodEnd = EnsureUtc(currentSubscription.PeriodEndAt);
+            if (periodEnd <= now || periodEnd <= periodStart)
+                return target with { TrialDays = 0 };
+
+            if (string.Equals(currentSubscription.PlanCode, target.PlanCode, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(currentSubscription.BillingPeriod, target.BillingPeriod, StringComparison.OrdinalIgnoreCase) &&
+                currentSubscription.ExtraCustomerCredits == target.ExtraCustomerCredits)
+                throw new InvalidOperationException("Secilen plan zaten etkin.");
+
+            var currentComparable = CreateQuote(
+                currentSubscription.PlanCode,
+                accountType,
+                PaymentBillingPeriods.Monthly,
+                currentSubscription.ExtraCustomerCredits,
+                useFounderPrice: false).RenewalNetAmount;
+            var targetComparable = CreateQuote(
+                target.PlanCode,
+                accountType,
+                PaymentBillingPeriods.Monthly,
+                target.ExtraCustomerCredits,
+                useFounderPrice: false).RenewalNetAmount;
+            var annualToMonthly = string.Equals(currentSubscription.BillingPeriod, PaymentBillingPeriods.Annual, StringComparison.OrdinalIgnoreCase) &&
+                                  string.Equals(target.BillingPeriod, PaymentBillingPeriods.Monthly, StringComparison.OrdinalIgnoreCase);
+            var isDowngrade = annualToMonthly || targetComparable < currentComparable;
+            if (isDowngrade)
+            {
+                return target with
+                {
+                    NetAmount = 0m,
+                    VatAmount = 0m,
+                    TotalAmount = 0m,
+                    TrialDays = 0,
+                    ChangeType = SubscriptionChangeTypes.ScheduledDowngrade,
+                    EffectiveAt = periodEnd,
+                    TargetPeriodEndAt = periodEnd
+                };
+            }
+
+            var totalDays = Math.Max(1, (periodEnd.Date - periodStart.Date).Days);
+            var remainingDays = Math.Max(0, (periodEnd.Date - now.Date).Days);
+            var remainingRatio = decimal.Min(1m, (decimal)remainingDays / totalDays);
+            var credit = decimal.Round(
+                decimal.Max(0m, currentSubscription.PaidPeriodNetAmount) * remainingRatio,
+                2,
+                MidpointRounding.AwayFromZero);
+            var monthlyToAnnual = string.Equals(currentSubscription.BillingPeriod, PaymentBillingPeriods.Monthly, StringComparison.OrdinalIgnoreCase) &&
+                                  string.Equals(target.BillingPeriod, PaymentBillingPeriods.Annual, StringComparison.OrdinalIgnoreCase);
+            var targetPeriodCost = monthlyToAnnual
+                ? target.FullPeriodNetAmount
+                : decimal.Round(target.FullPeriodNetAmount * remainingRatio, 2, MidpointRounding.AwayFromZero);
+            var chargeNet = decimal.Max(0m, targetPeriodCost - credit);
+            var vat = decimal.Round(chargeNet * target.VatRate / 100m, 2, MidpointRounding.AwayFromZero);
+            return target with
+            {
+                NetAmount = chargeNet,
+                VatAmount = vat,
+                TotalAmount = chargeNet + vat,
+                TrialDays = 0,
+                ProrationCreditNetAmount = credit,
+                ChangeType = SubscriptionChangeTypes.ImmediateUpgrade,
+                EffectiveAt = now,
+                TargetPeriodEndAt = monthlyToAnnual ? now.AddYears(1) : periodEnd
+            };
+        }
+
+        private static DateTime EnsureUtc(DateTime value) => value.Kind switch
+        {
+            DateTimeKind.Utc => value,
+            DateTimeKind.Local => value.ToUniversalTime(),
+            _ => DateTime.SpecifyKind(value, DateTimeKind.Utc)
+        };
     }
 }

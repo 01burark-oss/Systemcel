@@ -19,6 +19,7 @@ namespace CashTracker.Infrastructure.Services
         private readonly IDbContextFactory<CashTrackerDbContext> _dbFactory;
         private readonly IIsletmeService _isletmeService;
         private readonly IEntitlementGuard? _entitlementGuard;
+        private readonly ISubeKurService? _subeKurService;
 
         public HizliSatisService(
             IDbContextFactory<CashTrackerDbContext> dbFactory,
@@ -30,11 +31,13 @@ namespace CashTracker.Infrastructure.Services
         public HizliSatisService(
             IDbContextFactory<CashTrackerDbContext> dbFactory,
             IIsletmeService isletmeService,
-            IEntitlementGuard? entitlementGuard)
+            IEntitlementGuard? entitlementGuard,
+            ISubeKurService? subeKurService = null)
         {
             _dbFactory = dbFactory;
             _isletmeService = isletmeService;
             _entitlementGuard = entitlementGuard;
+            _subeKurService = subeKurService;
         }
 
         public async Task<HizliSatisResult> CreateAsync(HizliSatisCreateRequest request, CancellationToken ct = default)
@@ -85,14 +88,33 @@ namespace CashTracker.Infrastructure.Services
             if (products.Count != productIds.Count)
                 throw new InvalidOperationException("Sepetteki ürünlerden biri bulunamadı veya pasif.");
 
+            var currencies = products.Values.Select(x => string.IsNullOrWhiteSpace(x.ParaBirimi) ? "TRY" : x.ParaBirimi).Distinct(StringComparer.Ordinal).ToList();
+            if (currencies.Count != 1)
+                throw new InvalidOperationException("Hızlı satış sepetinde tek para birimi kullanılmalıdır.");
+            var branchContext = _subeKurService is null ? null : await _subeKurService.GetContextAsync(ct);
+            var activeBranchId = branchContext?.AktifSube.Id;
+
+            var defaultWarehouseId = await db.StokDepolari
+                .Where(x => x.IsletmeId == activeIsletmeId && x.Aktif &&
+                    (activeBranchId == null ? x.Varsayilan : x.SubeId == activeBranchId || (branchContext!.AktifSube.Varsayilan && x.SubeId == null)))
+                .OrderByDescending(x => activeBranchId != null && x.SubeId == activeBranchId)
+                .ThenByDescending(x => x.Varsayilan)
+                .ThenBy(x => x.Id)
+                .Select(x => (int?)x.Id)
+                .FirstOrDefaultAsync(ct);
+            if (branchContext is not null && !branchContext.AktifSube.Varsayilan && defaultWarehouseId is null)
+                throw new InvalidOperationException("Aktif şube için önce bir stok deposu oluşturulmalıdır.");
+            var includeLegacyStock = branchContext is null || branchContext.AktifSube.Varsayilan;
             var stockMovements = await db.StokHareketleri
                 .AsNoTracking()
-                .Where(x => x.IsletmeId == activeIsletmeId && productIds.Contains(x.UrunHizmetId))
-                .Select(x => new { x.UrunHizmetId, x.Miktar })
+                .Where(x => x.IsletmeId == activeIsletmeId &&
+                    productIds.Contains(x.UrunHizmetId) &&
+                    (x.DepoId == defaultWarehouseId || (includeLegacyStock && x.DepoId == null)))
+                .Select(x => new { x.UrunHizmetId, x.Miktar, x.RezerveMiktar })
                 .ToListAsync(ct);
             var stockByProduct = stockMovements
                 .GroupBy(x => x.UrunHizmetId)
-                .ToDictionary(x => x.Key, x => x.Sum(row => row.Miktar));
+                .ToDictionary(x => x.Key, x => x.Sum(row => row.Miktar - row.RezerveMiktar));
 
             foreach (var row in groupedRows)
             {
@@ -140,12 +162,17 @@ namespace CashTracker.Infrastructure.Services
             var calculatedRows = groupedRows
                 .Select(row => CalculateLine(products[row.UrunHizmetId], row.Miktar))
                 .ToList();
+            var saleTotal = calculatedRows.Sum(x => x.SatirToplam);
+            var snapshot = _subeKurService is null
+                ? new IslemKurSnapshot { ParaBirimi = currencies[0], Kur = products.Values.First().KurSnapshot <= 0 ? 1m : products.Values.First().KurSnapshot, OrijinalTutar = saleTotal, TryKarsiligi = decimal.Round(saleTotal * (products.Values.First().KurSnapshot <= 0 ? 1m : products.Values.First().KurSnapshot), 2) }
+                : await _subeKurService.ResolveSnapshotAsync(currencies[0], saleTotal, ct);
             var now = DateTime.Now;
             var saleDate = request.Tarih == default ? now : request.Tarih;
             var paymentMethod = FaturaService.NormalizeOdemeYontemi(request.OdemeYontemi);
             var invoice = new Fatura
             {
                 IsletmeId = activeIsletmeId,
+                SubeId = snapshot.SubeId > 0 ? snapshot.SubeId : null,
                 CariKartId = cari.Id,
                 Tarih = saleDate,
                 FaturaTipi = "Satis",
@@ -155,7 +182,10 @@ namespace CashTracker.Infrastructure.Services
                 AraToplam = calculatedRows.Sum(x => x.SatirNetTutar + x.IskontoTutar),
                 IskontoToplam = calculatedRows.Sum(x => x.IskontoTutar),
                 KdvToplam = calculatedRows.Sum(x => x.KdvTutar),
-                GenelToplam = calculatedRows.Sum(x => x.SatirToplam),
+                GenelToplam = saleTotal,
+                ParaBirimi = snapshot.ParaBirimi,
+                KurSnapshot = snapshot.Kur,
+                GenelToplamTry = snapshot.TryKarsiligi,
                 OdemeYontemi = paymentMethod,
                 Aciklama = "Hızlı satış",
                 KesildiAt = now,
@@ -176,7 +206,9 @@ namespace CashTracker.Infrastructure.Services
                     db.StokHareketleri.Add(new StokHareket
                     {
                         IsletmeId = activeIsletmeId,
+                        SubeId = invoice.SubeId,
                         UrunHizmetId = line.UrunHizmetId.Value,
+                        DepoId = defaultWarehouseId,
                         Tarih = saleDate,
                         Miktar = -line.Miktar,
                         HareketTipi = "Cikis",
@@ -190,10 +222,14 @@ namespace CashTracker.Infrastructure.Services
             db.CariHareketleri.Add(new CariHareket
             {
                 IsletmeId = activeIsletmeId,
+                SubeId = invoice.SubeId,
                 CariKartId = cari.Id,
                 Tarih = saleDate,
                 HareketTipi = "Alacak",
                 Tutar = invoice.GenelToplam,
+                ParaBirimi = invoice.ParaBirimi,
+                KurSnapshot = invoice.KurSnapshot,
+                TryKarsiligi = invoice.GenelToplamTry,
                 Kaynak = "HizliSatis",
                 Aciklama = $"Hızlı satış | {invoice.YerelFaturaNo}",
                 CreatedAt = now
@@ -203,10 +239,14 @@ namespace CashTracker.Infrastructure.Services
             var paymentMovement = new CariHareket
             {
                 IsletmeId = activeIsletmeId,
+                SubeId = invoice.SubeId,
                 CariKartId = cari.Id,
                 Tarih = saleDate,
                 HareketTipi = "Tahsilat",
                 Tutar = invoice.GenelToplam,
+                ParaBirimi = invoice.ParaBirimi,
+                KurSnapshot = invoice.KurSnapshot,
+                TryKarsiligi = invoice.GenelToplamTry,
                 Kaynak = "HizliSatis",
                 Aciklama = $"Hızlı satış tahsilatı | {invoice.YerelFaturaNo}",
                 CreatedAt = now
@@ -214,9 +254,14 @@ namespace CashTracker.Infrastructure.Services
             var cash = new Kasa
             {
                 IsletmeId = activeIsletmeId,
+                SubeId = invoice.SubeId,
                 Tarih = saleDate,
                 Tip = "Gelir",
                 Tutar = invoice.GenelToplam,
+                OrijinalTutar = invoice.GenelToplam,
+                ParaBirimi = invoice.ParaBirimi,
+                KurSnapshot = invoice.KurSnapshot,
+                TryKarsiligi = invoice.GenelToplamTry,
                 OdemeYontemi = paymentMethod,
                 Kalem = "Hızlı Satış",
                 Aciklama = $"Hızlı satış | {invoice.YerelFaturaNo}",
@@ -229,11 +274,15 @@ namespace CashTracker.Infrastructure.Services
             db.TahsilatOdemeleri.Add(new TahsilatOdeme
             {
                 IsletmeId = activeIsletmeId,
+                SubeId = invoice.SubeId,
                 FaturaId = invoice.Id,
                 CariKartId = cari.Id,
                 Tarih = saleDate,
                 Tip = "Tahsilat",
                 Tutar = invoice.GenelToplam,
+                ParaBirimi = invoice.ParaBirimi,
+                KurSnapshot = invoice.KurSnapshot,
+                TryKarsiligi = invoice.GenelToplamTry,
                 OdemeYontemi = paymentMethod,
                 KasaId = cash.Id,
                 CariHareketId = paymentMovement.Id,

@@ -16,6 +16,7 @@ namespace CashTracker.Infrastructure.Services
         private readonly IDbContextFactory<CashTrackerDbContext> _dbFactory;
         private readonly IIsletmeService _isletmeService;
         private readonly IEntitlementGuard? _entitlementGuard;
+        private readonly ISubeKurService? _subeKurService;
 
         public KasaService(
             IDbContextFactory<CashTrackerDbContext> dbFactory,
@@ -27,11 +28,13 @@ namespace CashTracker.Infrastructure.Services
         public KasaService(
             IDbContextFactory<CashTrackerDbContext> dbFactory,
             IIsletmeService isletmeService,
-            IEntitlementGuard? entitlementGuard)
+            IEntitlementGuard? entitlementGuard,
+            ISubeKurService? subeKurService = null)
         {
             _dbFactory = dbFactory;
             _isletmeService = isletmeService;
             _entitlementGuard = entitlementGuard;
+            _subeKurService = subeKurService;
         }
 
         public async Task<List<Kasa>> GetAllAsync(DateTime? from = null, DateTime? to = null)
@@ -84,6 +87,7 @@ namespace CashTracker.Infrastructure.Services
             }
 
             kasa.IsletmeId = activeIsletmeId;
+            await ApplySnapshotAsync(kasa);
             kasa.Tip = NormalizeTip(kasa.Tip);
             kasa.OdemeYontemi = NormalizeOdemeYontemi(kasa.OdemeYontemi);
             kasa.Kalem = NormalizeKalem(kasa.Tip, kasa.Kalem, kasa.GiderTuru);
@@ -131,6 +135,7 @@ namespace CashTracker.Infrastructure.Services
             foreach (var kasa in rowList)
             {
                 kasa.IsletmeId = activeIsletmeId;
+                await ApplySnapshotAsync(kasa);
                 kasa.Tip = NormalizeTip(kasa.Tip);
                 kasa.OdemeYontemi = NormalizeOdemeYontemi(kasa.OdemeYontemi);
                 kasa.Kalem = NormalizeKalem(kasa.Tip, kasa.Kalem, kasa.GiderTuru);
@@ -161,6 +166,8 @@ namespace CashTracker.Infrastructure.Services
             existing.Tarih = kasa.Tarih;
             existing.Tip = NormalizeTip(kasa.Tip);
             existing.Tutar = kasa.Tutar;
+            existing.OrijinalTutar = kasa.Tutar;
+            existing.TryKarsiligi = decimal.Round(kasa.Tutar * (existing.KurSnapshot <= 0 ? 1m : existing.KurSnapshot), 2, MidpointRounding.AwayFromZero);
             existing.OdemeYontemi = NormalizeOdemeYontemi(kasa.OdemeYontemi);
             existing.Kalem = NormalizeKalem(existing.Tip, kasa.Kalem, kasa.GiderTuru);
             existing.GiderTuru = existing.Tip == "Gider" ? existing.Kalem : null;
@@ -229,6 +236,25 @@ namespace CashTracker.Infrastructure.Services
             }
 
             return "Genel Gelir";
+        }
+
+        private async Task ApplySnapshotAsync(Kasa row)
+        {
+            if (_subeKurService is null)
+            {
+                row.ParaBirimi = string.IsNullOrWhiteSpace(row.ParaBirimi) ? "TRY" : row.ParaBirimi.Trim().ToUpperInvariant();
+                row.OrijinalTutar = row.Tutar;
+                row.KurSnapshot = row.KurSnapshot <= 0 ? 1m : row.KurSnapshot;
+                row.TryKarsiligi = decimal.Round(row.Tutar * row.KurSnapshot, 2, MidpointRounding.AwayFromZero);
+                return;
+            }
+
+            var snapshot = await _subeKurService.ResolveSnapshotAsync(row.ParaBirimi, row.Tutar);
+            row.SubeId = snapshot.SubeId;
+            row.ParaBirimi = snapshot.ParaBirimi;
+            row.OrijinalTutar = snapshot.OrijinalTutar;
+            row.KurSnapshot = snapshot.Kur;
+            row.TryKarsiligi = snapshot.TryKarsiligi;
         }
     }
 }

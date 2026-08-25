@@ -45,6 +45,10 @@ namespace CashTracker.Infrastructure.Persistence
         public DbSet<CariHareket> CariHareketleri => Set<CariHareket>();
         public DbSet<UrunHizmet> UrunHizmetleri => Set<UrunHizmet>();
         public DbSet<StokHareket> StokHareketleri => Set<StokHareket>();
+        public DbSet<StokDepo> StokDepolari => Set<StokDepo>();
+        public DbSet<StokDefterIslemi> StokDefterIslemleri => Set<StokDefterIslemi>();
+        public DbSet<Sube> Subeler => Set<Sube>();
+        public DbSet<DovizKuru> DovizKurlari => Set<DovizKuru>();
         public DbSet<Fatura> Faturalar => Set<Fatura>();
         public DbSet<FaturaSatir> FaturaSatirlari => Set<FaturaSatir>();
         public DbSet<TahsilatOdeme> TahsilatOdemeleri => Set<TahsilatOdeme>();
@@ -55,6 +59,12 @@ namespace CashTracker.Infrastructure.Persistence
         public DbSet<GibPortalIslemLog> GibPortalIslemLoglari => Set<GibPortalIslemLog>();
         public DbSet<DesktopImportCode> DesktopImportKodlari => Set<DesktopImportCode>();
         public DbSet<YonetimDenetimKaydi> YonetimDenetimKayitlari => Set<YonetimDenetimKaydi>();
+        public DbSet<DestekTalebi> DestekTalepleri => Set<DestekTalebi>();
+        public DbSet<BildirimKaydi> BildirimKayitlari => Set<BildirimKaydi>();
+        public DbSet<BildirimTercihi> BildirimTercihleri => Set<BildirimTercihi>();
+        public DbSet<BildirimTeslimOutbox> BildirimTeslimOutboxlari => Set<BildirimTeslimOutbox>();
+        public DbSet<BankaHareketi> BankaHareketleri => Set<BankaHareketi>();
+        public DbSet<GelistiriciApiAnahtari> GelistiriciApiAnahtarlari => Set<GelistiriciApiAnahtari>();
 
         public override int SaveChanges()
         {
@@ -91,8 +101,41 @@ namespace CashTracker.Infrastructure.Persistence
                 e.Property(x => x.Tip).IsRequired();
                 e.Property(x => x.OdemeYontemi).IsRequired();
                 e.Property(x => x.Tutar).HasColumnType("NUMERIC");
+                e.Property(x => x.OrijinalTutar).HasColumnType("NUMERIC");
+                e.Property(x => x.KurSnapshot).HasColumnType("NUMERIC");
+                e.Property(x => x.TryKarsiligi).HasColumnType("NUMERIC");
+                e.Property(x => x.ParaBirimi).IsRequired().HasMaxLength(3);
                 e.HasIndex(x => x.IsletmeId);
                 e.HasIndex(x => new { x.IsletmeId, x.Tarih });
+                e.HasIndex(x => new { x.IsletmeId, x.SubeId, x.Tarih });
+                e.HasOne<Sube>().WithMany().HasForeignKey(x => x.SubeId).OnDelete(DeleteBehavior.Restrict);
+            });
+
+            modelBuilder.Entity<Sube>(e =>
+            {
+                e.ToTable("Sube");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Ad).IsRequired().HasMaxLength(120);
+                e.Property(x => x.Kod).IsRequired().HasMaxLength(24);
+                e.Property(x => x.OlusturmaAnahtari).IsRequired().HasMaxLength(120);
+                e.Property(x => x.IcerikOzeti).IsRequired().HasMaxLength(64);
+                e.HasIndex(x => new { x.IsletmeId, x.Kod }).IsUnique();
+                e.HasIndex(x => new { x.IsletmeId, x.OlusturmaAnahtari }).IsUnique();
+                e.HasIndex(x => new { x.IsletmeId, x.Varsayilan });
+                e.HasOne<Isletme>().WithMany().HasForeignKey(x => x.IsletmeId).OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<DovizKuru>(e =>
+            {
+                e.ToTable("DovizKuru");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.ParaBirimi).IsRequired().HasMaxLength(3);
+                e.Property(x => x.Kur).HasColumnType("NUMERIC");
+                e.Property(x => x.OlusturmaAnahtari).IsRequired().HasMaxLength(120);
+                e.Property(x => x.IcerikOzeti).IsRequired().HasMaxLength(64);
+                e.HasIndex(x => new { x.IsletmeId, x.OlusturmaAnahtari }).IsUnique();
+                e.HasIndex(x => new { x.IsletmeId, x.ParaBirimi, x.GecerliAt });
+                e.HasOne<Isletme>().WithMany().HasForeignKey(x => x.IsletmeId).OnDelete(DeleteBehavior.Cascade);
             });
 
             modelBuilder.Entity<NakitPlanKalemi>(e =>
@@ -298,6 +341,8 @@ namespace CashTracker.Infrastructure.Persistence
                 e.Property(x => x.OdemeSaglayici).IsRequired();
                 e.Property(x => x.SaglayiciMusteriId).IsRequired();
                 e.Property(x => x.SaglayiciAbonelikId).IsRequired();
+                e.Property(x => x.PlanlananPlanKodu).IsRequired();
+                e.Property(x => x.PlanlananFaturalamaDonemi).IsRequired();
                 e.HasIndex(x => x.IsletmeId);
                 e.HasIndex(x => new { x.IsletmeId, x.Durum });
                 e.HasIndex(x => x.PlanKodu);
@@ -339,10 +384,14 @@ namespace CashTracker.Infrastructure.Persistence
                 e.ToTable("MuhasebeciHizmetOdemesi");
                 e.HasKey(x => x.Id);
                 e.Property(x => x.AylikHizmetBedeli).HasColumnType("NUMERIC");
+                e.Property(x => x.HizmetDonemi).IsRequired().HasMaxLength(7);
+                e.Property(x => x.PlatformKomisyonOrani).HasColumnType("NUMERIC");
+                e.Property(x => x.PlatformKomisyonTutari).HasColumnType("NUMERIC");
+                e.Property(x => x.AktarilacakTutar).HasColumnType("NUMERIC");
                 e.Property(x => x.ParaBirimi).IsRequired().HasMaxLength(3);
                 e.Property(x => x.Durum).IsRequired();
                 e.Property(x => x.TahsilEdilenTutar).HasColumnType("NUMERIC");
-                e.HasIndex(x => x.TalepId).IsUnique();
+                e.HasIndex(x => new { x.TalepId, x.HizmetDonemi }).IsUnique();
                 e.HasIndex(x => x.OdemeIslemiId).IsUnique();
                 e.HasIndex(x => new { x.MusteriIsletmeId, x.Durum });
             });
@@ -358,7 +407,9 @@ namespace CashTracker.Infrastructure.Persistence
                 e.Property(x => x.AktarimDonemi).IsRequired().HasMaxLength(7);
                 e.Property(x => x.Durum).IsRequired();
                 e.Property(x => x.AktarimReferansi).IsRequired();
-                e.HasIndex(x => x.MuhasebeciHizmetOdemesiId).IsUnique();
+                // One service payment can have an original positive accrual and a later
+                // negative refund adjustment after that accrual has already been paid out.
+                e.HasIndex(x => x.MuhasebeciHizmetOdemesiId);
                 e.HasIndex(x => new { x.MuhasebeciIsletmeId, x.AktarimDonemi, x.Durum });
                 e.HasIndex(x => x.AktarimReferansi);
             });
@@ -375,6 +426,103 @@ namespace CashTracker.Infrastructure.Persistence
                 e.Property(x => x.Gerekce).IsRequired();
                 e.HasIndex(x => x.IsletmeId);
                 e.HasIndex(x => x.CreatedAt);
+            });
+
+            modelBuilder.Entity<DestekTalebi>(e =>
+            {
+                e.ToTable("DestekTalebi");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.OlusturanKullaniciReferansi).IsRequired().HasMaxLength(200);
+                e.Property(x => x.OlusturmaAnahtari).IsRequired().HasMaxLength(100);
+                e.Property(x => x.Konu).IsRequired().HasMaxLength(120);
+                e.Property(x => x.Kategori).IsRequired().HasMaxLength(30);
+                e.Property(x => x.Aciklama).IsRequired().HasMaxLength(4000);
+                e.Property(x => x.Oncelik).IsRequired().HasMaxLength(20);
+                e.Property(x => x.Durum).IsRequired().HasMaxLength(20);
+                e.Property(x => x.YoneticiYaniti).IsRequired().HasMaxLength(1000);
+                e.HasIndex(x => new { x.IsletmeId, x.OlusturmaAnahtari }).IsUnique();
+                e.HasIndex(x => new { x.IsletmeId, x.CreatedAt });
+                e.HasIndex(x => new { x.Oncelik, x.CreatedAt });
+                e.HasIndex(x => x.Durum);
+            });
+
+            modelBuilder.Entity<BildirimKaydi>(e =>
+            {
+                e.ToTable("BildirimKaydi");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.KullaniciRef).IsRequired().HasMaxLength(200);
+                e.Property(x => x.KaynakAnahtari).IsRequired().HasMaxLength(160);
+                e.Property(x => x.Tur).IsRequired().HasMaxLength(30);
+                e.Property(x => x.Onem).IsRequired().HasMaxLength(20);
+                e.Property(x => x.Baslik).IsRequired().HasMaxLength(200);
+                e.Property(x => x.Mesaj).IsRequired().HasMaxLength(1000);
+                e.Property(x => x.Aksiyon).IsRequired().HasMaxLength(120);
+                e.Property(x => x.Url).IsRequired().HasMaxLength(500);
+                e.HasIndex(x => new { x.IsletmeId, x.KullaniciRef, x.KaynakAnahtari }).IsUnique();
+                e.HasIndex(x => new { x.IsletmeId, x.KullaniciRef, x.OkunduAt });
+            });
+
+            modelBuilder.Entity<BildirimTercihi>(e =>
+            {
+                e.ToTable("BildirimTercihi");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.KullaniciRef).IsRequired().HasMaxLength(200);
+                e.Property(x => x.SaatDilimi).IsRequired().HasMaxLength(60);
+                e.HasIndex(x => new { x.IsletmeId, x.KullaniciRef }).IsUnique();
+            });
+
+            modelBuilder.Entity<BildirimTeslimOutbox>(e =>
+            {
+                e.ToTable("BildirimTeslimOutbox");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.KullaniciRef).IsRequired().HasMaxLength(200);
+                e.Property(x => x.IdempotencyAnahtari).IsRequired().HasMaxLength(160);
+                e.Property(x => x.Kanal).IsRequired().HasMaxLength(20);
+                e.Property(x => x.Durum).IsRequired().HasMaxLength(30);
+                e.Property(x => x.PayloadJson).IsRequired().HasMaxLength(4000);
+                e.Property(x => x.ClaimToken).IsRequired().HasMaxLength(64);
+                e.Property(x => x.SonHataKodu).IsRequired().HasMaxLength(80);
+                e.HasIndex(x => new { x.IsletmeId, x.KullaniciRef, x.Kanal, x.IdempotencyAnahtari }).IsUnique();
+                e.HasIndex(x => new { x.Durum, x.SonrakiDenemeAt, x.ClaimBitisAt });
+                e.HasIndex(x => new { x.IsletmeId, x.KullaniciRef });
+            });
+
+            modelBuilder.Entity<BankaHareketi>(e =>
+            {
+                e.ToTable("BankaHareketi");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Aciklama).IsRequired().HasMaxLength(500);
+                e.Property(x => x.Tutar).HasColumnType("NUMERIC(18,2)");
+                e.Property(x => x.ParaBirimi).IsRequired().HasMaxLength(3);
+                e.Property(x => x.Durum).IsRequired().HasMaxLength(20);
+                e.Property(x => x.KaynakHash).IsRequired().HasMaxLength(64);
+                e.Property(x => x.EslesenKaynakTuru).IsRequired().HasMaxLength(30);
+                e.HasIndex(x => new { x.IsletmeId, x.KaynakHash }).IsUnique();
+                e.HasIndex(x => new { x.IsletmeId, x.Durum, x.Tarih });
+                e.HasIndex(x => new { x.IsletmeId, x.EslesenKaynakTuru, x.EslesenKaynakId });
+                e.HasOne<Isletme>()
+                    .WithMany()
+                    .HasForeignKey(x => x.IsletmeId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<GelistiriciApiAnahtari>(e =>
+            {
+                e.ToTable("GelistiriciApiAnahtari");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.OlusturanKullaniciRef).IsRequired().HasMaxLength(200);
+                e.Property(x => x.Ad).IsRequired().HasMaxLength(100);
+                e.Property(x => x.Prefix).IsRequired().HasMaxLength(21);
+                e.Property(x => x.AnahtarHash).IsRequired().HasMaxLength(32);
+                e.Property(x => x.ScopeListesi).IsRequired().HasMaxLength(500);
+                e.Property(x => x.RevokedByUserRef).IsRequired().HasMaxLength(200);
+                e.HasIndex(x => x.Prefix).IsUnique();
+                e.HasIndex(x => new { x.IsletmeId, x.CreatedAt });
+                e.HasIndex(x => new { x.IsletmeId, x.RevokedAt, x.ExpiresAt });
+                e.HasOne<Isletme>()
+                    .WithMany()
+                    .HasForeignKey(x => x.IsletmeId)
+                    .OnDelete(DeleteBehavior.Cascade);
             });
 
             modelBuilder.Entity<AbonelikOnayi>(e =>
@@ -397,6 +545,9 @@ namespace CashTracker.Infrastructure.Persistence
                 e.Property(x => x.KdvOrani).HasColumnType("NUMERIC");
                 e.Property(x => x.KdvTutar).HasColumnType("NUMERIC");
                 e.Property(x => x.ToplamTutar).HasColumnType("NUMERIC");
+                e.Property(x => x.TamDonemNetTutar).HasColumnType("NUMERIC");
+                e.Property(x => x.KistKrediNetTutar).HasColumnType("NUMERIC");
+                e.Property(x => x.DegisiklikTipi).IsRequired();
                 e.Property(x => x.ParaBirimi).IsRequired();
                 e.HasIndex(x => x.IsletmeId);
                 e.HasIndex(x => new { x.IsletmeId, x.CheckoutAnahtari }).IsUnique();
@@ -423,6 +574,8 @@ namespace CashTracker.Infrastructure.Persistence
                 e.Property(x => x.KdvOrani).HasColumnType("NUMERIC");
                 e.Property(x => x.KdvTutar).HasColumnType("NUMERIC");
                 e.Property(x => x.ToplamTutar).HasColumnType("NUMERIC");
+                e.Property(x => x.TamDonemNetTutar).HasColumnType("NUMERIC");
+                e.Property(x => x.KistKrediNetTutar).HasColumnType("NUMERIC");
                 e.Property(x => x.ParaBirimi).IsRequired();
                 e.Property(x => x.HataKodu).IsRequired();
                 e.Property(x => x.HataMesaji).IsRequired();
@@ -520,8 +673,16 @@ namespace CashTracker.Infrastructure.Persistence
                 e.Property(x => x.HareketTipi).IsRequired();
                 e.Property(x => x.Kaynak).IsRequired();
                 e.Property(x => x.Tutar).HasColumnType("NUMERIC");
+                e.Property(x => x.ParaBirimi).IsRequired().HasMaxLength(3);
+                e.Property(x => x.KurSnapshot).HasColumnType("NUMERIC");
+                e.Property(x => x.TryKarsiligi).HasColumnType("NUMERIC");
                 e.HasIndex(x => x.IsletmeId);
                 e.HasIndex(x => new { x.IsletmeId, x.CariKartId, x.Tarih });
+                e.HasIndex(x => new { x.IsletmeId, x.SubeId, x.Tarih });
+                e.HasOne<Sube>()
+                    .WithMany()
+                    .HasForeignKey(x => x.SubeId)
+                    .OnDelete(DeleteBehavior.Restrict);
             });
 
             modelBuilder.Entity<UrunHizmet>(e =>
@@ -536,8 +697,15 @@ namespace CashTracker.Infrastructure.Persistence
                 e.Property(x => x.AlisFiyati).HasColumnType("NUMERIC");
                 e.Property(x => x.SatisFiyati).HasColumnType("NUMERIC");
                 e.Property(x => x.KritikStok).HasColumnType("NUMERIC");
+                e.Property(x => x.ParaBirimi).IsRequired().HasMaxLength(3);
+                e.Property(x => x.KurSnapshot).HasColumnType("NUMERIC");
                 e.HasIndex(x => x.IsletmeId);
                 e.HasIndex(x => new { x.IsletmeId, x.Barkod });
+                e.HasIndex(x => new { x.IsletmeId, x.SubeId, x.Ad });
+                e.HasOne<Sube>()
+                    .WithMany()
+                    .HasForeignKey(x => x.SubeId)
+                    .OnDelete(DeleteBehavior.Restrict);
             });
 
             modelBuilder.Entity<StokHareket>(e =>
@@ -545,10 +713,66 @@ namespace CashTracker.Infrastructure.Persistence
                 e.ToTable("StokHareket");
                 e.HasKey(x => x.Id);
                 e.Property(x => x.Miktar).HasColumnType("NUMERIC");
+                e.Property(x => x.RezerveMiktar).HasColumnType("NUMERIC");
                 e.Property(x => x.HareketTipi).IsRequired();
                 e.Property(x => x.Kaynak).IsRequired();
                 e.HasIndex(x => x.IsletmeId);
                 e.HasIndex(x => new { x.IsletmeId, x.UrunHizmetId, x.Tarih });
+                e.HasIndex(x => new { x.IsletmeId, x.DepoId, x.UrunHizmetId });
+                e.HasIndex(x => new { x.IsletmeId, x.SubeId, x.Tarih });
+                e.HasIndex(x => x.StokDefterIslemiId);
+                e.HasOne<Sube>()
+                    .WithMany()
+                    .HasForeignKey(x => x.SubeId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                e.HasOne<StokDepo>()
+                    .WithMany()
+                    .HasForeignKey(x => x.DepoId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                e.HasOne<StokDefterIslemi>()
+                    .WithMany()
+                    .HasForeignKey(x => x.StokDefterIslemiId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            modelBuilder.Entity<StokDepo>(e =>
+            {
+                e.ToTable("StokDepo");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Ad).IsRequired().HasMaxLength(120);
+                e.Property(x => x.Kod).IsRequired().HasMaxLength(32);
+                e.Property(x => x.Konum).HasMaxLength(240);
+                e.HasIndex(x => new { x.IsletmeId, x.Kod }).IsUnique();
+                e.HasIndex(x => new { x.IsletmeId, x.Varsayilan });
+                e.HasIndex(x => new { x.IsletmeId, x.SubeId });
+                e.HasOne<Isletme>()
+                    .WithMany()
+                    .HasForeignKey(x => x.IsletmeId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                e.HasOne<Sube>()
+                    .WithMany()
+                    .HasForeignKey(x => x.SubeId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            modelBuilder.Entity<StokDefterIslemi>(e =>
+            {
+                e.ToTable("StokDefterIslemi");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.IslemAnahtari).IsRequired().HasMaxLength(120);
+                e.Property(x => x.IcerikOzeti).IsRequired().HasMaxLength(64);
+                e.Property(x => x.IslemTipi).IsRequired().HasMaxLength(32);
+                e.Property(x => x.Aciklama).HasMaxLength(500);
+                e.HasIndex(x => new { x.IsletmeId, x.IslemAnahtari }).IsUnique();
+                e.HasIndex(x => new { x.IsletmeId, x.TersKayitKaynakIslemId }).IsUnique();
+                e.HasOne<Isletme>()
+                    .WithMany()
+                    .HasForeignKey(x => x.IsletmeId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                e.HasOne<StokDefterIslemi>()
+                    .WithMany()
+                    .HasForeignKey(x => x.TersKayitKaynakIslemId)
+                    .OnDelete(DeleteBehavior.Restrict);
             });
 
             modelBuilder.Entity<Fatura>(e =>
@@ -561,12 +785,20 @@ namespace CashTracker.Infrastructure.Persistence
                 e.Property(x => x.IskontoToplam).HasColumnType("NUMERIC");
                 e.Property(x => x.KdvToplam).HasColumnType("NUMERIC");
                 e.Property(x => x.GenelToplam).HasColumnType("NUMERIC");
+                e.Property(x => x.ParaBirimi).IsRequired().HasMaxLength(3);
+                e.Property(x => x.KurSnapshot).HasColumnType("NUMERIC");
+                e.Property(x => x.GenelToplamTry).HasColumnType("NUMERIC");
                 e.Property(x => x.OdenenTutar).HasColumnType("NUMERIC");
                 e.HasIndex(x => x.IsletmeId);
                 e.HasIndex(x => new { x.IsletmeId, x.Tarih });
                 e.HasIndex(x => new { x.IsletmeId, x.CariKartId });
                 e.HasIndex(x => new { x.IsletmeId, x.FaturaTipi, x.Durum, x.VadeTarihi });
+                e.HasIndex(x => new { x.IsletmeId, x.SubeId, x.Tarih });
                 e.HasIndex(x => new { x.IsletmeId, x.HizliSatisAnahtari }).IsUnique();
+                e.HasOne<Sube>()
+                    .WithMany()
+                    .HasForeignKey(x => x.SubeId)
+                    .OnDelete(DeleteBehavior.Restrict);
             });
 
             modelBuilder.Entity<FaturaSatir>(e =>
@@ -590,10 +822,18 @@ namespace CashTracker.Infrastructure.Persistence
                 e.ToTable("TahsilatOdeme");
                 e.HasKey(x => x.Id);
                 e.Property(x => x.Tutar).HasColumnType("NUMERIC");
+                e.Property(x => x.ParaBirimi).IsRequired().HasMaxLength(3);
+                e.Property(x => x.KurSnapshot).HasColumnType("NUMERIC");
+                e.Property(x => x.TryKarsiligi).HasColumnType("NUMERIC");
                 e.HasIndex(x => x.IsletmeId);
                 e.HasIndex(x => new { x.IsletmeId, x.FaturaId });
                 e.HasIndex(x => new { x.IsletmeId, x.FaturaId, x.Tarih });
                 e.HasIndex(x => new { x.IsletmeId, x.CariKartId, x.Tarih });
+                e.HasIndex(x => new { x.IsletmeId, x.SubeId, x.Tarih });
+                e.HasOne<Sube>()
+                    .WithMany()
+                    .HasForeignKey(x => x.SubeId)
+                    .OnDelete(DeleteBehavior.Restrict);
             });
 
             modelBuilder.Entity<OdemeHatirlatma>(e =>

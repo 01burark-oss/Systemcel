@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { BusinessSelector } from "../../shared/BusinessSelector";
 import type { UstBarDurumu } from "../../shared/chrome";
+import { openAuthenticatedFile } from "../../shared/authenticatedFile";
 import { jsonOku } from "../../shared/json";
 import { preventNativeDrag } from "../../shared/noDrag";
 import { odemeIkonu, paraBic, paraDegerBic } from "./helpers";
@@ -410,26 +411,65 @@ export function DashboardSayfasi({
     }));
   }, [ekran]);
 
-  async function paylas(kanal: "telegram" | "pdf") {
+  async function telegramPaylas() {
     try {
       setPaylasimIslemde(true);
-      const sonuc = await jsonOku<{ mesaj: string }>(`/api/ekran/anasayfa/paylas/${kanal}`, { method: "POST" });
+      const sonuc = await jsonOku<{ mesaj: string }>("/api/ekran/anasayfa/paylas/telegram", { method: "POST" });
       setPaylasimMesaj(sonuc.mesaj);
-      window.alert(sonuc.mesaj);
       setPaylasimAcik(false);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Paylaşım işlemi tamamlanamadı.";
       setPaylasimMesaj(message);
-      window.alert(message);
     } finally {
       setPaylasimIslemde(false);
     }
   }
 
-  function placeholderMesajiGoster() {
-    const message = "Bu özellik daha sonra eklenecektir.";
-    setPaylasimMesaj(message);
-    window.alert(message);
+  async function pdfIndir() {
+    try {
+      setPaylasimIslemde(true);
+      await openAuthenticatedFile("/api/ekran/anasayfa/paylas/pdf", {
+        fileName: "systemcel-yonetici-ozeti.pdf",
+        contentType: "application/pdf",
+        download: true,
+        request: { method: "POST" }
+      });
+      setPaylasimMesaj("PDF raporu indirildi.");
+      setPaylasimAcik(false);
+    } catch (error) {
+      setPaylasimMesaj(error instanceof Error ? error.message : "PDF raporu indirilemedi.");
+    } finally {
+      setPaylasimIslemde(false);
+    }
+  }
+
+  async function disKanaldaPaylas(kanal: "email" | "whatsapp") {
+    const title = `Systemcel • ${ekran?.aktifIsletme ?? "Finansal"} özeti`;
+    const summary = ekran?.bugun;
+    const text = summary
+      ? `Bugün: Gelir ${paraBic(summary.gelir)}, gider ${paraBic(summary.gider)}, net ${paraBic(summary.net)}.`
+      : "Systemcel finansal özeti";
+    try {
+      setPaylasimIslemde(true);
+      if (navigator.share) {
+        await navigator.share({ title, text });
+      } else if (kanal === "email") {
+        window.location.href = `mailto:?subject=${encodeURIComponent(title)}&body=${encodeURIComponent(text)}`;
+      } else {
+        const popup = window.open(`https://wa.me/?text=${encodeURIComponent(`${title}\n\n${text}`)}`, "_blank", "noopener,noreferrer");
+        if (!popup) throw new Error("WhatsApp penceresi açılamadı. Açılır pencere iznini kontrol edin.");
+      }
+      setPaylasimMesaj("Paylaşım penceresi açıldı.");
+      setPaylasimAcik(false);
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") {
+        setPaylasimMesaj("Paylaşım iptal edildi.");
+      } else {
+        setPaylasimMesaj(error instanceof Error ? error.message : "Paylaşım işlemi tamamlanamadı.");
+      }
+    } finally {
+      setPaylasimIslemde(false);
+    }
   }
 
   return (
@@ -515,33 +555,36 @@ export function DashboardSayfasi({
                 type="button"
                 onClick={() => setPaylasimAcik((current) => !current)}
                 disabled={paylasimIslemde}
+                aria-expanded={paylasimAcik}
+                aria-controls="dashboard-share-menu"
+                aria-haspopup="menu"
               >
                 Raporu Paylaş
                 <ChevronDown className={paylasimAcik ? "share-rail__arrow acik" : "share-rail__arrow"} size={16} />
               </button>
 
               {paylasimAcik && (
-                <div className="share-rail__menu">
-                  <button type="button" onClick={() => paylas("telegram")} disabled={paylasimIslemde}>
+                <div className="share-rail__menu" id="dashboard-share-menu">
+                  <button type="button" onClick={telegramPaylas} disabled={paylasimIslemde}>
                     <Send size={18} />
                     Telegram
                   </button>
-                  <button type="button" onClick={placeholderMesajiGoster} disabled={paylasimIslemde}>
+                  <button type="button" onClick={() => disKanaldaPaylas("email")} disabled={paylasimIslemde}>
                     <Mail size={18} />
                     Email
                   </button>
-                  <button type="button" onClick={placeholderMesajiGoster} disabled={paylasimIslemde}>
+                  <button type="button" onClick={() => disKanaldaPaylas("whatsapp")} disabled={paylasimIslemde}>
                     <MessageCircle size={18} />
                     WhatsApp
                   </button>
-                  <button type="button" onClick={() => paylas("pdf")} disabled={paylasimIslemde}>
+                  <button type="button" onClick={pdfIndir} disabled={paylasimIslemde}>
                     <FileText size={18} />
                     PDF İndir
                   </button>
                 </div>
               )}
 
-              {paylasimMesaj && <p className="share-rail__hint">{paylasimMesaj}</p>}
+              {paylasimMesaj && <p className="share-rail__hint" role="status" aria-live="polite">{paylasimMesaj}</p>}
             </aside>
           </div>
         </section>

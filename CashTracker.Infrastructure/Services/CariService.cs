@@ -17,6 +17,7 @@ namespace CashTracker.Infrastructure.Services
         private readonly IDbContextFactory<CashTrackerDbContext> _dbFactory;
         private readonly IIsletmeService _isletmeService;
         private readonly IEntitlementGuard? _entitlementGuard;
+        private readonly ISubeKurService? _subeKurService;
 
         public CariService(
             IDbContextFactory<CashTrackerDbContext> dbFactory,
@@ -28,11 +29,13 @@ namespace CashTracker.Infrastructure.Services
         public CariService(
             IDbContextFactory<CashTrackerDbContext> dbFactory,
             IIsletmeService isletmeService,
-            IEntitlementGuard? entitlementGuard)
+            IEntitlementGuard? entitlementGuard,
+            ISubeKurService? subeKurService = null)
         {
             _dbFactory = dbFactory;
             _isletmeService = isletmeService;
             _entitlementGuard = entitlementGuard;
+            _subeKurService = subeKurService;
         }
 
         public async Task<List<CariKart>> GetAllAsync(CancellationToken ct = default)
@@ -149,6 +152,20 @@ namespace CashTracker.Infrastructure.Services
                 throw new InvalidOperationException("Cari kart aktif isletmede bulunamadi.");
 
             hareket.IsletmeId = activeIsletmeId;
+            if (_subeKurService is not null)
+            {
+                var snapshot = await _subeKurService.ResolveSnapshotAsync(hareket.ParaBirimi, hareket.Tutar, ct);
+                hareket.SubeId = snapshot.SubeId;
+                hareket.ParaBirimi = snapshot.ParaBirimi;
+                hareket.KurSnapshot = snapshot.Kur;
+                hareket.TryKarsiligi = snapshot.TryKarsiligi;
+            }
+            else
+            {
+                hareket.ParaBirimi = string.IsNullOrWhiteSpace(hareket.ParaBirimi) ? "TRY" : hareket.ParaBirimi.Trim().ToUpperInvariant();
+                hareket.KurSnapshot = hareket.KurSnapshot <= 0 ? 1m : hareket.KurSnapshot;
+                hareket.TryKarsiligi = hareket.TryKarsiligi == 0 ? hareket.Tutar * hareket.KurSnapshot : hareket.TryKarsiligi;
+            }
             hareket.HareketTipi = NormalizeMovementType(hareket.HareketTipi);
             hareket.Kaynak = string.IsNullOrWhiteSpace(hareket.Kaynak) ? "Manuel" : hareket.Kaynak.Trim();
             hareket.Aciklama = string.IsNullOrWhiteSpace(hareket.Aciklama) ? null : hareket.Aciklama.Trim();

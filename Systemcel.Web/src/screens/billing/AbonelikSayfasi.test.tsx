@@ -87,7 +87,12 @@ const quote: TeklifYaniti = {
     isFounderPrice: true,
     listNetAmount: 999,
     renewalNetAmount: 999,
-    discountedPeriodCount: 3
+    discountedPeriodCount: 3,
+    fullPeriodNetAmount: 799,
+    prorationCreditNetAmount: 0,
+    changeType: "YeniAbonelik",
+    effectiveAt: null,
+    targetPeriodEndAt: null
   },
   kampanyaKodu: "kurucu-100-2026",
   onayMetniSurumu: "abonelik-onayi-2026-08-v5",
@@ -182,10 +187,84 @@ describe("AbonelikSayfasi", () => {
     button.click();
     await waitFor(() => expect(vi.mocked(jsonOku).mock.calls.filter(([url]) => url === "/api/abonelik/checkout")).toHaveLength(1));
   });
+
+  it("shows the unused-period credit and server-calculated upgrade charge", async () => {
+    vi.mocked(jsonOku).mockImplementation(async (url) => {
+      if (url === "/api/abonelik/ozet") return summary;
+      if (url === "/api/public/planlar") return plans;
+      if (url.startsWith("/api/abonelik/teklif?")) return {
+        ...quote,
+        fiyat: {
+          ...quote.fiyat,
+          changeType: "AnindaYukseltme",
+          fullPeriodNetAmount: 1499,
+          prorationCreditNetAmount: 333.87,
+          netAmount: 391.61,
+          vatAmount: 78.32,
+          totalAmount: 469.93,
+          effectiveAt: "2026-08-17T00:00:00Z",
+          targetPeriodEndAt: "2026-09-01T00:00:00Z"
+        }
+      };
+      throw new Error(`Unexpected request: ${url}`);
+    });
+
+    render(<AbonelikSayfasi />);
+
+    expect(await screen.findByText("Kullanılmayan dönem kredisi")).toBeVisible();
+    expect(screen.getByText("−₺333,87")).toBeVisible();
+    expect(screen.getByText("Bugün tahsil edilecek net")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Farkı öde ve yükselt" })).toBeDisabled();
+  });
+
+  it("schedules a downgrade without requiring a provider redirect", async () => {
+    const user = userEvent.setup();
+    let summaryReads = 0;
+    const scheduledQuote: TeklifYaniti = {
+      ...quote,
+      fiyat: {
+        ...quote.fiyat,
+        netAmount: 0,
+        vatAmount: 0,
+        totalAmount: 0,
+        changeType: "DonemSonuDegisiklik",
+        effectiveAt: "2026-09-01T00:00:00Z",
+        targetPeriodEndAt: "2026-09-01T00:00:00Z"
+      }
+    };
+    vi.mocked(jsonOku).mockImplementation(async (url) => {
+      if (url === "/api/abonelik/ozet") {
+        summaryReads += 1;
+        return summary;
+      }
+      if (url === "/api/public/planlar") return plans;
+      if (url.startsWith("/api/abonelik/teklif?")) return scheduledQuote;
+      if (url === "/api/abonelik/checkout") return {
+        odemeIslemiId: null,
+        checkoutUrl: null,
+        expiresAt: null,
+        firstChargeAt: null,
+        reused: false,
+        scheduled: true,
+        effectiveAt: scheduledQuote.fiyat.effectiveAt,
+        fiyat: scheduledQuote.fiyat
+      };
+      throw new Error(`Unexpected request: ${url}`);
+    });
+
+    render(<AbonelikSayfasi />);
+    await screen.findByText("DÖNEM SONU DEĞİŞİKLİĞİ");
+    expect(screen.getByText(/01 Eylül 2026 tarihinde uygulanır/)).toBeVisible();
+    await user.click(screen.getByRole("checkbox"));
+    await user.click(screen.getByRole("button", { name: "Dönem sonuna planla" }));
+
+    await waitFor(() => expect(summaryReads).toBe(2));
+    expect(screen.queryByRole("dialog", { name: "Planınızı seçin ve koşulları onaylayın" })).not.toBeInTheDocument();
+  });
 });
 
 function subscription(durum: string) {
-  return { planKodu: "muhasebeci_standart", faturalamaDonemi: "Aylik", ekMusteriKredisi: 0, durum, donemTutari: 799, kampanyaKodu: "", yenilemeDonemTutari: 899, indirimliDonemKalan: 0, paraBirimi: "TRY", donemBaslangicAt: "2026-08-01T00:00:00Z", donemBitisAt: "2026-09-01T00:00:00Z", toleransBitisAt: null, donemSonundaIptal: false, iptalAt: null };
+  return { planKodu: "muhasebeci_standart", faturalamaDonemi: "Aylik", ekMusteriKredisi: 0, durum, donemTutari: 799, kampanyaKodu: "", yenilemeDonemTutari: 899, indirimliDonemKalan: 0, paraBirimi: "TRY", donemBaslangicAt: "2026-08-01T00:00:00Z", donemBitisAt: "2026-09-01T00:00:00Z", toleransBitisAt: null, donemSonundaIptal: false, iptalAt: null, planlananPlanKodu: "", planlananFaturalamaDonemi: "", planlananEkMusteriKredisi: null, planlananDegisiklikAt: null };
 }
 
 function payment(durum: string): OdemeKaydi {

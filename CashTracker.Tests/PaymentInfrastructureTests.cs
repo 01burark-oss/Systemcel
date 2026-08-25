@@ -137,6 +137,56 @@ namespace CashTracker.Tests
         }
 
         [Fact]
+        public void Pricing_ImmediateUpgradeCreditsUnusedUtcDaysAndTaxesOnlyTheDifference()
+        {
+            var service = new PaymentPricingService(20m);
+            var quote = service.CreateChangeQuote(
+                PlanKodlari.IsletmeBuyume,
+                HesapTipleri.Isletme,
+                PaymentBillingPeriods.Monthly,
+                0,
+                new CurrentSubscriptionPricingContext(
+                    PlanKodlari.IsletmeBaslangic,
+                    PaymentBillingPeriods.Monthly,
+                    0,
+                    690m,
+                    new DateTime(2026, 8, 1, 0, 0, 0, DateTimeKind.Utc),
+                    new DateTime(2026, 9, 1, 0, 0, 0, DateTimeKind.Utc)),
+                new DateTime(2026, 8, 17, 23, 30, 0, DateTimeKind.Utc));
+
+            Assert.Equal(333.87m, quote.ProrationCreditNetAmount);
+            Assert.Equal(290.32m, quote.NetAmount);
+            Assert.Equal(58.06m, quote.VatAmount);
+            Assert.Equal(348.38m, quote.TotalAmount);
+            Assert.Equal(SubscriptionChangeTypes.ImmediateUpgrade, quote.ChangeType);
+            Assert.Equal(new DateTime(2026, 9, 1, 0, 0, 0, DateTimeKind.Utc), quote.TargetPeriodEndAt);
+        }
+
+        [Fact]
+        public void Pricing_AnnualToMonthlyDowngradeIsDeferredWithoutImmediateCharge()
+        {
+            var service = new PaymentPricingService();
+            var periodEnd = new DateTime(2027, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+            var quote = service.CreateChangeQuote(
+                PlanKodlari.IsletmeBaslangic,
+                HesapTipleri.Isletme,
+                PaymentBillingPeriods.Monthly,
+                0,
+                new CurrentSubscriptionPricingContext(
+                    PlanKodlari.IsletmeBuyume,
+                    PaymentBillingPeriods.Annual,
+                    0,
+                    15480m,
+                    new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+                    periodEnd),
+                new DateTime(2026, 8, 17, 0, 0, 0, DateTimeKind.Utc));
+
+            Assert.Equal(SubscriptionChangeTypes.ScheduledDowngrade, quote.ChangeType);
+            Assert.Equal(0m, quote.TotalAmount);
+            Assert.Equal(periodEnd, quote.EffectiveAt);
+        }
+
+        [Fact]
         public async Task FakeProvider_CreatesDeterministicCheckoutFromServerQuote()
         {
             var provider = new FakePaymentProvider(Secret);

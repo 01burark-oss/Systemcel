@@ -33,6 +33,7 @@ namespace CashTracker.Core.Models
         public DateTime? VadeTarihi { get; set; }
         public string FaturaTipi { get; set; } = "Satis";
         public string OdemeYontemi { get; set; } = "Nakit";
+        public string ParaBirimi { get; set; } = "TRY";
         public string? Aciklama { get; set; }
         public List<FaturaSatirRequest> Satirlar { get; set; } = [];
     }
@@ -58,6 +59,7 @@ namespace CashTracker.Core.Models
         public DateTime Tarih { get; set; } = DateTime.Now;
         public decimal Tutar { get; set; }
         public string OdemeYontemi { get; set; } = "Nakit";
+        public string? ParaBirimi { get; set; }
         public string? Aciklama { get; set; }
     }
 
@@ -83,6 +85,16 @@ namespace CashTracker.Core.Models
         public string KullaniciKodu { get; set; } = string.Empty;
         public string? Sifre { get; set; }
         public bool TestModu { get; set; }
+    }
+
+    public sealed class GibPortalLogModel
+    {
+        public int Id { get; init; }
+        public int? FaturaId { get; init; }
+        public DateTime Tarih { get; init; }
+        public string Islem { get; init; } = string.Empty;
+        public bool Basarili { get; init; }
+        public string Mesaj { get; init; } = string.Empty;
     }
 
     public sealed class GibPortalResult

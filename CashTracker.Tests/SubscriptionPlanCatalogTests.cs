@@ -69,28 +69,28 @@ namespace CashTracker.Tests
             Assert.Equal(990, buyume.KurucuAylikTutar);
             Assert.Equal(11880, buyume.KurucuYillikTutar);
             Assert.Equal(50, SubscriptionPlanCatalog.KurucuKampanyaKontenjani);
-            Assert.False(buyume.BankaMutabakatiAktif);
+            Assert.True(buyume.BankaMutabakatiAktif);
             Assert.True(buyume.MuhasebeciErisimiAktif);
+            Assert.True(buyume.ApiErisimiAktif);
             Assert.Equal(2490, kurumsal.AylikTutar);
             Assert.Equal(23904, kurumsal.YillikTutar);
             Assert.Equal(1990, kurumsal.KurucuAylikTutar);
             Assert.Equal(22704, kurumsal.KurucuYillikTutar);
-            Assert.False(kurumsal.CokluSubeAktif);
-            Assert.False(kurumsal.CokluParaBirimiAktif);
-            Assert.False(kurumsal.ApiErisimiAktif);
+            Assert.True(kurumsal.CokluSubeAktif);
+            Assert.True(kurumsal.CokluParaBirimiAktif);
+            Assert.True(kurumsal.ApiErisimiAktif);
+            Assert.True(kurumsal.BankaMutabakatiAktif);
             Assert.True(kurumsal.OncelikliDestekAktif);
             Assert.Null(kurumsal.KullaniciLimiti);
         }
 
         [Fact]
-        public void HenuzYayindaOlmayanHaklar_HicbirPlandaAktifDegildir()
+        public void CokluSubeVeParaBirimi_YalnizKurumsalPlandaAktiftir()
         {
-            Assert.All(SubscriptionPlanCatalog.Plans, plan =>
+            Assert.All(SubscriptionPlanCatalog.Plans.Where(x => x.Kod != PlanKodlari.IsletmeKurumsal), plan =>
             {
-                Assert.False(plan.BankaMutabakatiAktif);
                 Assert.False(plan.CokluSubeAktif);
                 Assert.False(plan.CokluParaBirimiAktif);
-                Assert.False(plan.ApiErisimiAktif);
             });
         }
     }

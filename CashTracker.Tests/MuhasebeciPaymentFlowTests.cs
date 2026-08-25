@@ -14,6 +14,7 @@ namespace CashTracker.Tests;
 public sealed class MuhasebeciPaymentFlowTests
 {
     private const string Secret = "accountant-payment-test-secret";
+    private static readonly string CurrentPeriod = DateTime.UtcNow.ToString("yyyy-MM", System.Globalization.CultureInfo.InvariantCulture);
 
     [Fact]
     public async Task SuccessfulWebhook_CreatesOneConnectionAndOneMonthlyPayable()
@@ -21,7 +22,7 @@ public sealed class MuhasebeciPaymentFlowTests
         using var fixture = await PaymentFixture.CreateAsync();
         var first = await fixture.BeginCheckoutAsync("accountant-checkout-001");
         var replay = await fixture.BeginCheckoutAsync("accountant-checkout-001");
-        var paidAt = new DateTime(2026, 8, 24, 12, 0, 0, DateTimeKind.Utc);
+        var paidAt = DateTime.UtcNow;
 
         var paid = await fixture.SendEventAsync("evt-accountant-paid", PaymentEventTypes.PaymentSucceeded, first.AylikHizmetBedeli, paidAt);
         var duplicate = await fixture.SendEventAsync("evt-accountant-paid", PaymentEventTypes.PaymentSucceeded, first.AylikHizmetBedeli, paidAt);
@@ -38,8 +39,9 @@ public sealed class MuhasebeciPaymentFlowTests
         Assert.Empty(await db.Abonelikler.ToListAsync());
         Assert.Equal(MuhasebeciTalepDurumlari.Kabul, (await db.MuhasebeciMusteriTalepleri.SingleAsync()).Durum);
         var payable = await db.MuhasebeciAktarimAlacaklari.SingleAsync();
-        Assert.Equal("2026-08", payable.AktarimDonemi);
-        Assert.Equal(2_500m, payable.AktarilacakTutar);
+        Assert.Equal(CurrentPeriod, payable.AktarimDonemi);
+        Assert.Equal(250m, payable.PlatformKomisyonTutari);
+        Assert.Equal(2_250m, payable.AktarilacakTutar);
         Assert.Equal(MuhasebeciAktarimDurumlari.Bekliyor, payable.Durum);
     }
 
@@ -65,7 +67,7 @@ public sealed class MuhasebeciPaymentFlowTests
     {
         using var fixture = await PaymentFixture.CreateAsync();
         var checkout = await fixture.BeginCheckoutAsync("accountant-checkout-003");
-        var paidAt = new DateTime(2026, 8, 24, 12, 0, 0, DateTimeKind.Utc);
+        var paidAt = DateTime.UtcNow;
         await fixture.SendEventAsync("evt-refund-paid", PaymentEventTypes.PaymentSucceeded, checkout.AylikHizmetBedeli, paidAt);
 
         var refunded = await fixture.SendEventAsync("evt-refund", PaymentEventTypes.PaymentRefunded, checkout.AylikHizmetBedeli, paidAt.AddDays(1));
@@ -83,7 +85,7 @@ public sealed class MuhasebeciPaymentFlowTests
         using var fixture = await PaymentFixture.CreateAsync();
         var checkout = await fixture.BeginCheckoutAsync("accountant-checkout-004");
         await fixture.SendEventAsync("evt-transfer-paid", PaymentEventTypes.PaymentSucceeded, checkout.AylikHizmetBedeli,
-            new DateTime(2026, 8, 24, 12, 0, 0, DateTimeKind.Utc));
+            DateTime.UtcNow);
         await using (var db = fixture.CreateDbContext())
         {
             var secondPayment = new MuhasebeciHizmetOdemesi
@@ -91,10 +93,15 @@ public sealed class MuhasebeciPaymentFlowTests
                 TalepId = fixture.RequestId + 100,
                 MuhasebeciIsletmeId = fixture.AccountantId,
                 MusteriIsletmeId = fixture.CustomerId,
+                HizmetDonemi = CurrentPeriod,
+                VadeAt = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1, 0, 0, 0, DateTimeKind.Utc),
                 AylikHizmetBedeli = 500m,
+                PlatformKomisyonOrani = 10m,
                 Durum = MuhasebeciHizmetOdemeDurumlari.TahsilEdildi,
                 TahsilEdilenTutar = 500m,
-                TahsilEdildiAt = new DateTime(2026, 8, 25, 12, 0, 0, DateTimeKind.Utc)
+                PlatformKomisyonTutari = 50m,
+                AktarilacakTutar = 450m,
+                TahsilEdildiAt = DateTime.UtcNow
             };
             db.MuhasebeciHizmetOdemeleri.Add(secondPayment);
             await db.SaveChangesAsync();
@@ -105,11 +112,12 @@ public sealed class MuhasebeciPaymentFlowTests
                 MusteriIsletmeId = fixture.CustomerId,
                 TalepId = secondPayment.TalepId,
                 TahsilEdilenTutar = 500m,
-                AktarilacakTutar = 500m,
-                AktarimDonemi = "2026-08",
+                PlatformKomisyonTutari = 50m,
+                AktarilacakTutar = 450m,
+                AktarimDonemi = CurrentPeriod,
                 Durum = MuhasebeciAktarimDurumlari.Bekliyor,
                 AktarimReferansi = $"pending-{secondPayment.Id}",
-                TahakkukAt = new DateTime(2026, 8, 25, 12, 0, 0, DateTimeKind.Utc)
+                TahakkukAt = DateTime.UtcNow
             });
             await db.SaveChangesAsync();
         }
@@ -119,20 +127,108 @@ public sealed class MuhasebeciPaymentFlowTests
             admin,
             new SystemcelYonetimOptions { AdminClerkUserIds = "admin-user" });
 
-        var list = await management.GetMuhasebeciAktarimlariAsync("2026-08");
+        var list = await management.GetMuhasebeciAktarimlariAsync(CurrentPeriod);
         var first = await management.CompleteMuhasebeciAktarimiAsync(fixture.AccountantId,
-            new MuhasebeciAktarimTamamlaRequest { AktarimDonemi = "2026-08", AktarimReferansi = "bank-ref-2026-08-001" });
+            new MuhasebeciAktarimTamamlaRequest { AktarimDonemi = CurrentPeriod, AktarimReferansi = "bank-ref-current-001" });
         var replay = await management.CompleteMuhasebeciAktarimiAsync(fixture.AccountantId,
-            new MuhasebeciAktarimTamamlaRequest { AktarimDonemi = "2026-08", AktarimReferansi = "bank-ref-2026-08-001" });
+            new MuhasebeciAktarimTamamlaRequest { AktarimDonemi = CurrentPeriod, AktarimReferansi = "bank-ref-current-001" });
 
         Assert.Single(list.Aktarimlar);
         Assert.Equal(2, list.Aktarimlar[0].AlacakSayisi);
-        Assert.Equal(3_000m, list.Aktarimlar[0].AktarilacakTutar);
+        Assert.Equal(3_000m, list.Aktarimlar[0].TahsilEdilenTutar);
+        Assert.Equal(300m, list.Aktarimlar[0].PlatformKomisyonTutari);
+        Assert.Equal(2_700m, list.Aktarimlar[0].AktarilacakTutar);
         Assert.Equal(MuhasebeciAktarimDurumlari.Aktarildi, first.Durum);
         Assert.Equal(first.AktarimReferansi, replay.AktarimReferansi);
         await Assert.ThrowsAsync<InvalidOperationException>(() => management.CompleteMuhasebeciAktarimiAsync(
             fixture.AccountantId,
-            new MuhasebeciAktarimTamamlaRequest { AktarimDonemi = "2026-08", AktarimReferansi = "bank-ref-different" }));
+            new MuhasebeciAktarimTamamlaRequest { AktarimDonemi = CurrentPeriod, AktarimReferansi = "bank-ref-different" }));
+    }
+
+    [Fact]
+    public async Task RefundAfterTransfer_CreatesNegativeCarryForwardAndNetsNextPayout()
+    {
+        using var fixture = await PaymentFixture.CreateAsync();
+        var checkout = await fixture.BeginCheckoutAsync("accountant-checkout-clawback");
+        var paidAt = DateTime.UtcNow;
+        await fixture.SendEventAsync("evt-clawback-paid", PaymentEventTypes.PaymentSucceeded, checkout.AylikHizmetBedeli, paidAt);
+
+        var admin = new StaticCurrentUserContext("admin-user", "admin@systemcel.test");
+        var management = new SystemcelYonetimService(
+            fixture.Factory,
+            admin,
+            new SystemcelYonetimOptions { AdminClerkUserIds = "admin-user" });
+        await management.CompleteMuhasebeciAktarimiAsync(fixture.AccountantId,
+            new MuhasebeciAktarimTamamlaRequest
+            {
+                AktarimDonemi = CurrentPeriod,
+                AktarimReferansi = "bank-ref-clawback-original"
+            });
+
+        await fixture.SendEventAsync("evt-clawback-refund", PaymentEventTypes.PaymentRefunded,
+            checkout.AylikHizmetBedeli, paidAt.AddDays(1));
+
+        await using (var db = fixture.CreateDbContext())
+        {
+            var original = await db.MuhasebeciAktarimAlacaklari.SingleAsync(x => x.AktarilacakTutar > 0m);
+            var adjustment = await db.MuhasebeciAktarimAlacaklari.SingleAsync(x => x.AktarilacakTutar < 0m);
+            Assert.Equal(MuhasebeciAktarimDurumlari.Aktarildi, original.Durum);
+            Assert.Equal(MuhasebeciAktarimDurumlari.Bekliyor, adjustment.Durum);
+            Assert.Equal(-original.AktarilacakTutar, adjustment.AktarilacakTutar);
+
+            var nextPayment = new MuhasebeciHizmetOdemesi
+            {
+                TalepId = fixture.RequestId + 500,
+                MuhasebeciIsletmeId = fixture.AccountantId,
+                MusteriIsletmeId = fixture.CustomerId,
+                HizmetDonemi = CurrentPeriod,
+                VadeAt = paidAt,
+                AylikHizmetBedeli = 3_000m,
+                PlatformKomisyonOrani = 10m,
+                Durum = MuhasebeciHizmetOdemeDurumlari.TahsilEdildi,
+                TahsilEdilenTutar = 3_000m,
+                PlatformKomisyonTutari = 300m,
+                AktarilacakTutar = 2_700m,
+                TahsilEdildiAt = paidAt.AddDays(2)
+            };
+            db.MuhasebeciHizmetOdemeleri.Add(nextPayment);
+            await db.SaveChangesAsync();
+            db.MuhasebeciAktarimAlacaklari.Add(new MuhasebeciAktarimAlacagi
+            {
+                MuhasebeciHizmetOdemesiId = nextPayment.Id,
+                MuhasebeciIsletmeId = fixture.AccountantId,
+                MusteriIsletmeId = fixture.CustomerId,
+                TalepId = nextPayment.TalepId,
+                TahsilEdilenTutar = 3_000m,
+                PlatformKomisyonTutari = 300m,
+                AktarilacakTutar = 2_700m,
+                AktarimDonemi = CurrentPeriod,
+                Durum = MuhasebeciAktarimDurumlari.Bekliyor,
+                AktarimReferansi = $"pending-{nextPayment.Id}",
+                TahakkukAt = paidAt.AddDays(2)
+            });
+            await db.SaveChangesAsync();
+        }
+
+        var netted = await management.CompleteMuhasebeciAktarimiAsync(fixture.AccountantId,
+            new MuhasebeciAktarimTamamlaRequest
+            {
+                AktarimDonemi = CurrentPeriod,
+                AktarimReferansi = "bank-ref-clawback-netted"
+            });
+        var replay = await management.CompleteMuhasebeciAktarimiAsync(fixture.AccountantId,
+            new MuhasebeciAktarimTamamlaRequest
+            {
+                AktarimDonemi = CurrentPeriod,
+                AktarimReferansi = "bank-ref-clawback-netted"
+            });
+
+        Assert.Equal(450m, netted.AktarilacakTutar);
+        Assert.Equal(450m, replay.AktarilacakTutar);
+        await using var verified = fixture.CreateDbContext();
+        Assert.Equal(2, await verified.MuhasebeciAktarimAlacaklari.CountAsync(x =>
+            x.AktarimReferansi == "bank-ref-clawback-netted" &&
+            x.Durum == MuhasebeciAktarimDurumlari.Aktarildi));
     }
 
     [Fact]
@@ -173,6 +269,47 @@ public sealed class MuhasebeciPaymentFlowTests
         Assert.Contains("Ödeme sonrası", text.Mesaj);
         Assert.Contains("aktif bağlantı", requestError.Message, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("aktif bağlantı", shareError.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task ActiveConnection_CreatesAndCollectsOnlyOnePaymentForCurrentPeriod()
+    {
+        using var fixture = await PaymentFixture.CreateAsync();
+        await using (var db = fixture.CreateDbContext())
+        {
+            var initial = await db.MuhasebeciHizmetOdemeleri.SingleAsync();
+            initial.HizmetDonemi = DateTime.UtcNow.AddMonths(-1).ToString("yyyy-MM", System.Globalization.CultureInfo.InvariantCulture);
+            var request = await db.MuhasebeciMusteriTalepleri.SingleAsync();
+            request.Durum = MuhasebeciTalepDurumlari.Kabul;
+            db.MuhasebeciMusterileri.Add(new MuhasebeciMusteri
+            {
+                MuhasebeciIsletmeId = fixture.AccountantId,
+                MusteriIsletmeId = fixture.CustomerId,
+                TalepId = fixture.RequestId,
+                Durum = "Aktif",
+                YetkiSeviyesi = request.YetkiSeviyesi,
+                Kaynak = request.Tur
+            });
+            await db.SaveChangesAsync();
+        }
+
+        var generated = await fixture.PaymentService.EnsureDuePeriodsAsync(DateTime.UtcNow);
+        var replayGeneration = await fixture.PaymentService.EnsureDuePeriodsAsync(DateTime.UtcNow);
+        var summary = await fixture.PaymentService.GetAsync(fixture.RequestId, fixture.CustomerId);
+        var checkout = await fixture.BeginCheckoutAsync("accountant-current-period-001");
+        var paid = await fixture.SendEventAsync("evt-current-period-paid", PaymentEventTypes.PaymentSucceeded,
+            checkout.AylikHizmetBedeli, DateTime.UtcNow);
+
+        Assert.Equal(CurrentPeriod, summary.HizmetDonemi);
+        Assert.Equal(1, generated);
+        Assert.Equal(0, replayGeneration);
+        Assert.True(summary.OdemeYapilabilir);
+        Assert.True(paid.Accepted);
+        await using var verify = fixture.CreateDbContext();
+        Assert.Equal(2, await verify.MuhasebeciHizmetOdemeleri.CountAsync());
+        Assert.Equal(1, await verify.MuhasebeciHizmetOdemeleri.CountAsync(x => x.HizmetDonemi == CurrentPeriod));
+        Assert.Equal(1, await verify.MuhasebeciAktarimAlacaklari.CountAsync());
+        Assert.Equal(1, await verify.MuhasebeciMusterileri.CountAsync());
     }
 
     private sealed class PaymentFixture : IDisposable
@@ -228,7 +365,10 @@ public sealed class MuhasebeciPaymentFlowTests
                 TalepId = request.Id,
                 MuhasebeciIsletmeId = accountant.Id,
                 MusteriIsletmeId = customer.Id,
+                HizmetDonemi = CurrentPeriod,
+                VadeAt = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1, 0, 0, 0, DateTimeKind.Utc),
                 AylikHizmetBedeli = request.AylikHizmetBedeli,
+                PlatformKomisyonOrani = 10m,
                 Durum = MuhasebeciHizmetOdemeDurumlari.OdemeBekliyor
             });
             await db.SaveChangesAsync();

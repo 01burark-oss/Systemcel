@@ -415,6 +415,44 @@ public sealed class PaymentLifecycleIntegrationTests
     }
 
     [Fact]
+    public async Task Reconcile_ScheduledDowngrade_DoesNotGrantAnUnpaidPeriod()
+    {
+        using var fixture = new PaymentFixture(HesapTipleri.Isletme);
+        var periodEnd = new DateTime(2026, 9, 1, 0, 0, 0, DateTimeKind.Utc);
+        await using (var db = fixture.Factory.CreateDbContext())
+        {
+            db.Abonelikler.Add(new Abonelik
+            {
+                IsletmeId = fixture.BusinessId,
+                HesapTipi = HesapTipleri.Isletme,
+                PlanKodu = PlanKodlari.IsletmeBuyume,
+                Durum = "Aktif",
+                FaturalamaDonemi = PaymentBillingPeriods.Annual,
+                DonemBaslangicAt = periodEnd.AddYears(-1),
+                DonemBitisAt = periodEnd,
+                PlanlananPlanKodu = PlanKodlari.IsletmeBaslangic,
+                PlanlananFaturalamaDonemi = PaymentBillingPeriods.Monthly,
+                PlanlananEkMusteriKredisi = 0,
+                PlanlananDegisiklikAt = periodEnd,
+                CreatedAt = periodEnd.AddYears(-1),
+                UpdatedAt = periodEnd.AddYears(-1)
+            });
+            await db.SaveChangesAsync();
+        }
+
+        var result = await fixture.Service.ReconcileAsync(periodEnd.AddMinutes(1));
+
+        await using var verified = fixture.Factory.CreateDbContext();
+        var subscription = await verified.Abonelikler.SingleAsync();
+        Assert.Equal(1, result.ExpiredSubscriptions);
+        Assert.Equal("SonaErdi", subscription.Durum);
+        Assert.Equal(PlanKodlari.IsletmeBuyume, subscription.PlanKodu);
+        Assert.Equal(periodEnd, subscription.DonemBitisAt);
+        Assert.Equal(PlanKodlari.IsletmeBaslangic, subscription.PlanlananPlanKodu);
+        Assert.Empty(await verified.Abonelikler.Where(x => x.Durum == "Aktif").ToListAsync());
+    }
+
+    [Fact]
     public async Task Reconcile_SendsSevenAndThreeDayRemindersOnce()
     {
         var sender = new FakeReminderSender();

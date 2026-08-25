@@ -11,13 +11,17 @@ public sealed class MuhasebeciOdemeService : IMuhasebeciOdemeService
 {
     private readonly IDbContextFactory<CashTrackerDbContext> _dbFactory;
     private readonly IPaymentProvider _provider;
+    private readonly MuhasebeciOdemeOptions _options;
 
     public MuhasebeciOdemeService(
         IDbContextFactory<CashTrackerDbContext> dbFactory,
-        IPaymentProvider provider)
+        IPaymentProvider provider,
+        MuhasebeciOdemeOptions? options = null)
     {
         _dbFactory = dbFactory;
         _provider = provider;
+        _options = options ?? new MuhasebeciOdemeOptions();
+        ValidateCommissionRate(_options.PlatformCommissionRate);
     }
 
     public async Task<MuhasebeciOdemeOzetiDto> GetAsync(
@@ -26,9 +30,11 @@ public sealed class MuhasebeciOdemeService : IMuhasebeciOdemeService
         CancellationToken ct = default)
     {
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
-        var payment = await RequireCustomerPaymentAsync(db, talepId, musteriIsletmeId, ct);
+        var payment = await EnsureCurrentPeriodAsync(db, talepId, musteriIsletmeId, DateTime.UtcNow, ct);
         var payable = await db.MuhasebeciAktarimAlacaklari.AsNoTracking()
-            .SingleOrDefaultAsync(x => x.MuhasebeciHizmetOdemesiId == payment.Id, ct);
+            .SingleOrDefaultAsync(x =>
+                x.MuhasebeciHizmetOdemesiId == payment.Id &&
+                x.AktarilacakTutar >= 0m, ct);
         return BuildSummary(payment, payable);
     }
 
@@ -40,8 +46,8 @@ public sealed class MuhasebeciOdemeService : IMuhasebeciOdemeService
         var checkoutKey = command.IdempotencyKey.Trim();
 
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
+        var servicePayment = await EnsureCurrentPeriodAsync(db, command.TalepId, command.MusteriIsletmeId, DateTime.UtcNow, ct);
         await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
-        var servicePayment = await RequireCustomerPaymentAsync(db, command.TalepId, command.MusteriIsletmeId, ct);
         if (servicePayment.Durum == MuhasebeciHizmetOdemeDurumlari.TahsilEdildi)
             throw new InvalidOperationException("Bu muhasebeci hizmeti daha önce ödendi.");
         if (servicePayment.Durum == MuhasebeciHizmetOdemeDurumlari.IptalEdildi)
@@ -63,6 +69,7 @@ public sealed class MuhasebeciOdemeService : IMuhasebeciOdemeService
                     existingUrl,
                     existingExpiry,
                     true,
+                    servicePayment.HizmetDonemi,
                     servicePayment.AylikHizmetBedeli,
                     servicePayment.ParaBirimi);
             }
@@ -111,6 +118,7 @@ public sealed class MuhasebeciOdemeService : IMuhasebeciOdemeService
                 {
                     ["islemTipi"] = PaymentTransactionTypes.AccountantService,
                     ["talepId"] = command.TalepId.ToString(),
+                    ["hizmetDonemi"] = servicePayment.HizmetDonemi,
                     ["muhasebeciIsletmeId"] = servicePayment.MuhasebeciIsletmeId.ToString(),
                     ["musteriIsletmeId"] = servicePayment.MusteriIsletmeId.ToString()
                 }), ct);
@@ -132,6 +140,7 @@ public sealed class MuhasebeciOdemeService : IMuhasebeciOdemeService
                 session.CheckoutUrl,
                 session.ExpiresAt,
                 false,
+                servicePayment.HizmetDonemi,
                 servicePayment.AylikHizmetBedeli,
                 servicePayment.ParaBirimi);
         }
@@ -149,15 +158,88 @@ public sealed class MuhasebeciOdemeService : IMuhasebeciOdemeService
         }
     }
 
-    private static async Task<MuhasebeciHizmetOdemesi> RequireCustomerPaymentAsync(
+    public async Task<int> EnsureDuePeriodsAsync(DateTime now, CancellationToken ct = default)
+    {
+        var utc = EnsureUtc(now);
+        var period = utc.ToString("yyyy-MM", System.Globalization.CultureInfo.InvariantCulture);
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+        var candidates = await (
+            from request in db.MuhasebeciMusteriTalepleri.AsNoTracking()
+            join relation in db.MuhasebeciMusterileri.AsNoTracking()
+                on (int?)request.Id equals relation.TalepId
+            where request.Durum == MuhasebeciTalepDurumlari.Kabul &&
+                  request.MusteriIsletmeId.HasValue &&
+                  relation.Durum == "Aktif" &&
+                  !db.MuhasebeciHizmetOdemeleri.Any(payment =>
+                      payment.TalepId == request.Id && payment.HizmetDonemi == period)
+            select new { request.Id, MusteriIsletmeId = request.MusteriIsletmeId ?? 0 })
+            .Distinct()
+            .ToListAsync(ct);
+
+        var created = 0;
+        foreach (var candidate in candidates)
+        {
+            var existed = await db.MuhasebeciHizmetOdemeleri.AnyAsync(x =>
+                x.TalepId == candidate.Id && x.HizmetDonemi == period, ct);
+            if (existed)
+                continue;
+            await EnsureCurrentPeriodAsync(db, candidate.Id, candidate.MusteriIsletmeId, utc, ct);
+            created++;
+        }
+        return created;
+    }
+
+    private async Task<MuhasebeciHizmetOdemesi> EnsureCurrentPeriodAsync(
         CashTrackerDbContext db,
         int talepId,
         int musteriIsletmeId,
+        DateTime now,
         CancellationToken ct)
     {
-        return await db.MuhasebeciHizmetOdemeleri.SingleOrDefaultAsync(x =>
-            x.TalepId == talepId && x.MusteriIsletmeId == musteriIsletmeId, ct)
-            ?? throw new InvalidOperationException("Ödeme bekleyen muhasebeci teklifi bulunamadı.");
+        var utc = EnsureUtc(now);
+        var period = utc.ToString("yyyy-MM", System.Globalization.CultureInfo.InvariantCulture);
+        var existing = await db.MuhasebeciHizmetOdemeleri.SingleOrDefaultAsync(x =>
+            x.TalepId == talepId && x.MusteriIsletmeId == musteriIsletmeId && x.HizmetDonemi == period, ct);
+        if (existing is not null)
+            return existing;
+
+        var request = await db.MuhasebeciMusteriTalepleri.SingleOrDefaultAsync(x =>
+            x.Id == talepId && x.MusteriIsletmeId == musteriIsletmeId, ct)
+            ?? throw new InvalidOperationException("Muhasebeci teklifi bulunamadı.");
+        if (request.Durum != MuhasebeciTalepDurumlari.Kabul ||
+            !await db.MuhasebeciMusterileri.AnyAsync(x =>
+                x.TalepId == talepId && x.MusteriIsletmeId == musteriIsletmeId && x.Durum == "Aktif", ct))
+            throw new InvalidOperationException("Ödeme bekleyen muhasebeci dönemi bulunamadı.");
+
+        existing = new MuhasebeciHizmetOdemesi
+        {
+            TalepId = request.Id,
+            MuhasebeciIsletmeId = request.MuhasebeciIsletmeId,
+            MusteriIsletmeId = musteriIsletmeId,
+            HizmetDonemi = period,
+            VadeAt = new DateTime(utc.Year, utc.Month, 1, 0, 0, 0, DateTimeKind.Utc),
+            AylikHizmetBedeli = request.AylikHizmetBedeli,
+            PlatformKomisyonOrani = _options.PlatformCommissionRate,
+            ParaBirimi = "TRY",
+            Durum = MuhasebeciHizmetOdemeDurumlari.OdemeBekliyor,
+            CreatedAt = utc,
+            UpdatedAt = utc
+        };
+        db.MuhasebeciHizmetOdemeleri.Add(existing);
+        try
+        {
+            await db.SaveChangesAsync(ct);
+            return existing;
+        }
+        catch (DbUpdateException)
+        {
+            db.Entry(existing).State = EntityState.Detached;
+            var concurrent = await db.MuhasebeciHizmetOdemeleri.SingleOrDefaultAsync(x =>
+                x.TalepId == talepId && x.MusteriIsletmeId == musteriIsletmeId && x.HizmetDonemi == period, ct);
+            if (concurrent is null)
+                throw;
+            return concurrent;
+        }
     }
 
     private static PaymentQuote BuildQuote(MuhasebeciHizmetOdemesi payment) => new(
@@ -187,6 +269,9 @@ public sealed class MuhasebeciOdemeService : IMuhasebeciOdemeService
         MuhasebeciIsletmeId = payment.MuhasebeciIsletmeId,
         MusteriIsletmeId = payment.MusteriIsletmeId,
         AylikHizmetBedeli = payment.AylikHizmetBedeli,
+        HizmetDonemi = payment.HizmetDonemi,
+        VadeAt = payment.VadeAt,
+        PlatformKomisyonOrani = payment.PlatformKomisyonOrani,
         ParaBirimi = payment.ParaBirimi,
         OdemeDurumu = payment.Durum,
         OdemeYapilabilir = payment.Durum is MuhasebeciHizmetOdemeDurumlari.OdemeBekliyor
@@ -196,6 +281,19 @@ public sealed class MuhasebeciOdemeService : IMuhasebeciOdemeService
         AktarimDonemi = payable?.AktarimDonemi ?? string.Empty,
         AktarimDurumu = payable?.Durum ?? MuhasebeciAktarimDurumlari.Olusmadi
     };
+
+    private static DateTime EnsureUtc(DateTime value) => value.Kind switch
+    {
+        DateTimeKind.Utc => value,
+        DateTimeKind.Local => value.ToUniversalTime(),
+        _ => DateTime.SpecifyKind(value, DateTimeKind.Utc)
+    };
+
+    private static void ValidateCommissionRate(decimal rate)
+    {
+        if (rate is < 0m or > 100m)
+            throw new ArgumentOutOfRangeException(nameof(rate), "Platform komisyon oranı 0-100 arasında olmalıdır.");
+    }
 
     private static void Validate(MuhasebeciOdemeCheckoutCommand command)
     {

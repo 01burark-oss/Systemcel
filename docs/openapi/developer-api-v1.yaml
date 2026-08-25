@@ -1,0 +1,112 @@
+openapi: 3.0.3
+info:
+  title: Systemcel Developer API
+  version: 1.0.0
+  description: Salt-okunur işletme entegrasyon API'si. Mutasyon kapsamları bu sürümde kapalıdır.
+servers:
+  - url: https://app.systemcel.app/api/v1
+security:
+  - ApiKey: []
+paths:
+  /business:
+    get:
+      summary: İşletme özetini getirir
+      operationId: getBusinessSummary
+      x-required-scope: summary:read
+      responses:
+        '200':
+          description: İşletme özeti
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BusinessSummary' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+  /accounts:
+    get:
+      summary: Cari kartları listeler
+      operationId: listAccounts
+      x-required-scope: accounts:read
+      parameters: [{ $ref: '#/components/parameters/Page' }, { $ref: '#/components/parameters/PageSize' }]
+      responses: { '200': { $ref: '#/components/responses/PagedResponse' }, '401': { $ref: '#/components/responses/Unauthorized' }, '403': { $ref: '#/components/responses/Forbidden' }, '429': { $ref: '#/components/responses/RateLimited' } }
+  /products:
+    get:
+      summary: Ürün ve hizmetleri listeler
+      operationId: listProducts
+      x-required-scope: products:read
+      parameters: [{ $ref: '#/components/parameters/Page' }, { $ref: '#/components/parameters/PageSize' }]
+      responses: { '200': { $ref: '#/components/responses/PagedResponse' }, '401': { $ref: '#/components/responses/Unauthorized' }, '403': { $ref: '#/components/responses/Forbidden' }, '429': { $ref: '#/components/responses/RateLimited' } }
+  /invoices:
+    get:
+      summary: Faturaları listeler
+      operationId: listInvoices
+      x-required-scope: invoices:read
+      parameters: [{ $ref: '#/components/parameters/Page' }, { $ref: '#/components/parameters/PageSize' }]
+      responses: { '200': { $ref: '#/components/responses/PagedResponse' }, '401': { $ref: '#/components/responses/Unauthorized' }, '403': { $ref: '#/components/responses/Forbidden' }, '429': { $ref: '#/components/responses/RateLimited' } }
+  /bank-transactions:
+    get:
+      summary: Banka hareketlerini listeler
+      operationId: listBankTransactions
+      x-required-scope: bank:read
+      parameters: [{ $ref: '#/components/parameters/Page' }, { $ref: '#/components/parameters/PageSize' }]
+      responses: { '200': { $ref: '#/components/responses/PagedResponse' }, '401': { $ref: '#/components/responses/Unauthorized' }, '403': { $ref: '#/components/responses/Forbidden' }, '429': { $ref: '#/components/responses/RateLimited' } }
+components:
+  securitySchemes:
+    ApiKey:
+      type: apiKey
+      in: header
+      name: X-Systemcel-Api-Key
+  parameters:
+    Page:
+      name: page
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 10000, default: 1 }
+    PageSize:
+      name: pageSize
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+  schemas:
+    BusinessSummary:
+      type: object
+      required: [id, name, currency, income, expense, cashBalance, accountCount, productCount, invoiceCount, openBankTransactionCount, generatedAt]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        currency: { type: string, example: TRY }
+        income: { type: number, format: decimal }
+        expense: { type: number, format: decimal }
+        cashBalance: { type: number, format: decimal }
+        accountCount: { type: integer }
+        productCount: { type: integer }
+        invoiceCount: { type: integer }
+        openBankTransactionCount: { type: integer }
+        generatedAt: { type: string, format: date-time }
+    Page:
+      type: object
+      required: [items, page, pageSize, total]
+      properties:
+        items: { type: array, items: { type: object } }
+        page: { type: integer }
+        pageSize: { type: integer }
+        total: { type: integer }
+    Problem:
+      type: object
+      properties:
+        type: { type: string }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        traceId: { type: string }
+  responses:
+    PagedResponse:
+      description: Sayfalı salt-okunur kayıtlar
+      content: { application/json: { schema: { $ref: '#/components/schemas/Page' } } }
+    Unauthorized:
+      description: Anahtar yok, geçersiz, iptal edilmiş veya süresi dolmuş
+      content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } }
+    Forbidden:
+      description: Plan veya kapsam bu uç noktaya izin vermiyor
+      content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } }
+    RateLimited:
+      description: Anahtarın hız sınırı aşıldı
+      content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } }

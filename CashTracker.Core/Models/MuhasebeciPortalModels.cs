@@ -37,6 +37,11 @@ namespace CashTracker.Core.Models
         public const string TersKayit = "TersKayit";
     }
 
+    public sealed class MuhasebeciOdemeOptions
+    {
+        public decimal PlatformCommissionRate { get; init; } = 10m;
+    }
+
     public static class MuhasebeciTalepTurleri
     {
         public const string Davet = "Davet";
@@ -185,6 +190,7 @@ namespace CashTracker.Core.Models
         Uri CheckoutUrl,
         DateTime ExpiresAt,
         bool Reused,
+        string HizmetDonemi,
         decimal AylikHizmetBedeli,
         string ParaBirimi);
 
@@ -194,6 +200,9 @@ namespace CashTracker.Core.Models
         public int MuhasebeciIsletmeId { get; init; }
         public int MusteriIsletmeId { get; init; }
         public decimal AylikHizmetBedeli { get; init; }
+        public string HizmetDonemi { get; init; } = string.Empty;
+        public DateTime VadeAt { get; init; }
+        public decimal PlatformKomisyonOrani { get; init; }
         public string ParaBirimi { get; init; } = "TRY";
         public string OdemeDurumu { get; init; } = string.Empty;
         public bool OdemeYapilabilir { get; init; }

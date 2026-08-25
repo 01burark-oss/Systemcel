@@ -18,6 +18,7 @@ namespace CashTracker.Infrastructure.Services
         private readonly IDbContextFactory<CashTrackerDbContext> _dbFactory;
         private readonly IIsletmeService _isletmeService;
         private readonly IEntitlementGuard? _entitlementGuard;
+        private readonly ISubeKurService? _subeKurService;
 
         public FaturaService(
             IDbContextFactory<CashTrackerDbContext> dbFactory,
@@ -29,11 +30,13 @@ namespace CashTracker.Infrastructure.Services
         public FaturaService(
             IDbContextFactory<CashTrackerDbContext> dbFactory,
             IIsletmeService isletmeService,
-            IEntitlementGuard? entitlementGuard)
+            IEntitlementGuard? entitlementGuard,
+            ISubeKurService? subeKurService = null)
         {
             _dbFactory = dbFactory;
             _isletmeService = isletmeService;
             _entitlementGuard = entitlementGuard;
+            _subeKurService = subeKurService;
         }
 
         public async Task<List<Fatura>> GetAllAsync(CancellationToken ct = default)
@@ -110,9 +113,14 @@ namespace CashTracker.Infrastructure.Services
             await EnsureCariExistsAsync(db, activeIsletmeId, request.CariKartId, ct);
 
             var calculated = request.Satirlar.Select(CalculateLine).ToList();
+            var invoiceTotal = calculated.Sum(x => x.SatirToplam);
+            var snapshot = _subeKurService is null
+                ? new IslemKurSnapshot { ParaBirimi = string.IsNullOrWhiteSpace(request.ParaBirimi) ? "TRY" : request.ParaBirimi.Trim().ToUpperInvariant(), Kur = 1m, OrijinalTutar = invoiceTotal, TryKarsiligi = invoiceTotal }
+                : await _subeKurService.ResolveSnapshotAsync(request.ParaBirimi, invoiceTotal, ct);
             var fatura = new Fatura
             {
                 IsletmeId = activeIsletmeId,
+                SubeId = snapshot.SubeId > 0 ? snapshot.SubeId : null,
                 CariKartId = request.CariKartId,
                 Tarih = request.Tarih,
                 VadeTarihi = request.VadeTarihi,
@@ -124,7 +132,10 @@ namespace CashTracker.Infrastructure.Services
                 AraToplam = CalculateAraToplam(calculated),
                 IskontoToplam = calculated.Sum(x => x.IskontoTutar),
                 KdvToplam = calculated.Sum(x => x.KdvTutar),
-                GenelToplam = calculated.Sum(x => x.SatirToplam),
+                GenelToplam = invoiceTotal,
+                ParaBirimi = snapshot.ParaBirimi,
+                KurSnapshot = snapshot.Kur,
+                GenelToplamTry = snapshot.TryKarsiligi,
                 CreatedAt = DateTime.Now,
                 UpdatedAt = DateTime.Now
             };
@@ -169,6 +180,10 @@ namespace CashTracker.Infrastructure.Services
 
             await EnsureCariExistsAsync(db, activeIsletmeId, request.CariKartId, ct);
             var calculated = request.Satirlar.Select(CalculateLine).ToList();
+            var updatedTotal = calculated.Sum(x => x.SatirToplam);
+            var updatedSnapshot = _subeKurService is null
+                ? new IslemKurSnapshot { SubeId = fatura.SubeId ?? 0, ParaBirimi = string.IsNullOrWhiteSpace(request.ParaBirimi) ? fatura.ParaBirimi : request.ParaBirimi.Trim().ToUpperInvariant(), Kur = fatura.KurSnapshot <= 0 ? 1m : fatura.KurSnapshot, OrijinalTutar = updatedTotal, TryKarsiligi = decimal.Round(updatedTotal * (fatura.KurSnapshot <= 0 ? 1m : fatura.KurSnapshot), 2) }
+                : await _subeKurService.ResolveSnapshotAsync(request.ParaBirimi, updatedTotal, ct);
 
             fatura.CariKartId = request.CariKartId;
             fatura.Tarih = request.Tarih;
@@ -179,7 +194,11 @@ namespace CashTracker.Infrastructure.Services
             fatura.AraToplam = CalculateAraToplam(calculated);
             fatura.IskontoToplam = calculated.Sum(x => x.IskontoTutar);
             fatura.KdvToplam = calculated.Sum(x => x.KdvTutar);
-            fatura.GenelToplam = calculated.Sum(x => x.SatirToplam);
+            fatura.GenelToplam = updatedTotal;
+            fatura.SubeId = updatedSnapshot.SubeId > 0 ? updatedSnapshot.SubeId : fatura.SubeId;
+            fatura.ParaBirimi = updatedSnapshot.ParaBirimi;
+            fatura.KurSnapshot = updatedSnapshot.Kur;
+            fatura.GenelToplamTry = updatedSnapshot.TryKarsiligi;
             fatura.UpdatedAt = DateTime.Now;
 
             var oldLines = db.FaturaSatirlari.Where(x => x.IsletmeId == activeIsletmeId && x.FaturaId == id);
@@ -242,10 +261,14 @@ namespace CashTracker.Infrastructure.Services
             db.CariHareketleri.Add(new CariHareket
             {
                 IsletmeId = activeIsletmeId,
+                SubeId = fatura.SubeId,
                 CariKartId = fatura.CariKartId,
                 Tarih = fatura.Tarih,
                 HareketTipi = fatura.FaturaTipi == "Satis" ? "Alacak" : "Borc",
                 Tutar = fatura.GenelToplam,
+                ParaBirimi = fatura.ParaBirimi,
+                KurSnapshot = fatura.KurSnapshot,
+                TryKarsiligi = fatura.GenelToplamTry,
                 Kaynak = "Fatura",
                 Aciklama = $"Fatura {fatura.YerelFaturaNo}"
             });
@@ -255,6 +278,7 @@ namespace CashTracker.Infrastructure.Services
                 db.StokHareketleri.Add(new StokHareket
                 {
                     IsletmeId = activeIsletmeId,
+                    SubeId = fatura.SubeId,
                     UrunHizmetId = line.UrunHizmetId!.Value,
                     Tarih = fatura.Tarih,
                     Miktar = fatura.FaturaTipi == "Satis" ? -line.Miktar : line.Miktar,

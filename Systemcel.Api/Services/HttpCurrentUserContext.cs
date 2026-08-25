@@ -36,8 +36,14 @@ internal sealed class HttpCurrentUserContext : ICurrentUserContext
             FirstNonEmpty(
                 principal.FindFirst(ClaimTypes.Name)?.Value,
                 principal.FindFirst("name")?.Value,
-                principal.FindFirst("full_name")?.Value));
+                principal.FindFirst("full_name")?.Value),
+            IsTrueClaim(principal, "email_verified", "primary_email_address_verified"));
     }
+
+    private static bool IsTrueClaim(ClaimsPrincipal principal, params string[] claimTypes) =>
+        claimTypes
+            .Select(type => principal.FindFirst(type)?.Value)
+            .Any(value => string.Equals(value, "true", StringComparison.OrdinalIgnoreCase) || value == "1");
 
     private static string? FirstNonEmpty(params string?[] values)
     {

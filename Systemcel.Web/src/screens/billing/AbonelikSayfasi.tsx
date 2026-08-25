@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { legalTexts } from "../../auth/legalTexts";
 import { jsonOku } from "../../shared/json";
+import { useI18n } from "../../shared/i18n";
 import type {
   AbonelikOzeti,
   CheckoutYaniti,
@@ -127,6 +128,7 @@ function yeniIdempotencyKey() {
 }
 
 export function AbonelikSayfasi() {
+  const { t } = useI18n();
   const ilkSecim = React.useMemo(urlSecimi, []);
   const [ozet, setOzet] = React.useState<AbonelikOzeti | null>(null);
   const [planlar, setPlanlar] = React.useState<PublicPlan[]>([]);
@@ -275,6 +277,16 @@ export function AbonelikSayfasi() {
           idempotencyKey: idempotencyRef.current
         })
       });
+      if (result.scheduled) {
+        await yukle();
+        setModal(null);
+        setOnaylandi(false);
+        setTeklif(null);
+        setIslemde(false);
+        checkoutIslemdeRef.current = false;
+        return;
+      }
+      if (!result.checkoutUrl) throw new Error("Ödeme bağlantısı oluşturulamadı.");
       window.location.assign(result.checkoutUrl);
     } catch (error) {
       setHata(kullaniciHataMesaji(error, "Ödeme işlemi başlatılamadı. Lütfen yeniden deneyin."));
@@ -292,6 +304,19 @@ export function AbonelikSayfasi() {
       setModal(null);
     } catch (error) {
       setHata(kullaniciHataMesaji(error, "İptal talebi kaydedilemedi."));
+    } finally {
+      setIslemde(false);
+    }
+  };
+
+  const planDegisikliginiIptalEt = async () => {
+    try {
+      setIslemde(true);
+      setHata("");
+      await jsonOku<{ mesaj: string }>("/api/abonelik/plan-degisikligi", { method: "DELETE" });
+      await yukle();
+    } catch (error) {
+      setHata(kullaniciHataMesaji(error, "Planlanan değişiklik iptal edilemedi."));
     } finally {
       setIslemde(false);
     }
@@ -355,7 +380,7 @@ export function AbonelikSayfasi() {
       ) : null}
 
       {yukleniyor && !ozet ? (
-        <section className="billing-loading" aria-live="polite"><Loader2 className="spin" size={24} /> Abonelik bilgileri yükleniyor…</section>
+        <section className="billing-loading" aria-live="polite"><Loader2 className="spin" size={24} /> {t("billing.loading")}</section>
       ) : ozet ? (
         <>
           <section className="billing-summary" aria-label="Abonelik özeti">
@@ -386,7 +411,7 @@ export function AbonelikSayfasi() {
             </article>
 
             <article className="billing-period-card">
-              <h2>Plan dönemi</h2>
+              <h2>{t("billing.period")}</h2>
               <div className="billing-period-row">
                 <span className="billing-fact-icon"><CalendarClock size={20} /></span>
                 <div><small>BAŞLANGIÇ</small><strong>{tarihBic(baslangicAt)}</strong></div>
@@ -405,11 +430,18 @@ export function AbonelikSayfasi() {
                   ? "Deneme süreniz bu tarihte sona erer."
                   : "Planınız bu tarihte yenilenir."}</p>
               {ozet.donemSonundaIptal ? <span className="billing-period-status"><FileCheck2 size={16} /> İptal talebi alındı</span> : null}
+              {ozet.abonelik?.planlananDegisiklikAt ? (
+                <div className="billing-period-status" role="status">
+                  <FileCheck2 size={16} />
+                  <span>{ozet.abonelik.planlananPlanKodu} planına geçiş için {tarihBic(ozet.abonelik.planlananDegisiklikAt)} tarihinde yeni dönem ödemesi beklenecek.</span>
+                  <button className="billing-link-button" type="button" onClick={planDegisikliginiIptalEt} disabled={islemde}>Plan değişikliğini iptal et</button>
+                </div>
+              ) : null}
             </article>
           </section>
 
-          <section className="billing-rights-card" aria-label="Plan hakları">
-            <header><h2>Plan hakları</h2>{ozet.haklar.saltOkunur ? <span>Salt okunur</span> : null}</header>
+          <section className="billing-rights-card" aria-label={t("billing.rights")}>
+            <header><h2>{t("billing.rights")}</h2>{ozet.haklar.saltOkunur ? <span>Salt okunur</span> : null}</header>
             <div className="billing-rights-grid">
               {planHaklari.map((hak, index) => (
                 <div className="billing-right" key={`${hak.text}-${index}`}>
@@ -428,7 +460,7 @@ export function AbonelikSayfasi() {
                 <p>{denemeSonaErdi ? "Plan seçene kadar verilerinizi görüntülemeye devam edebilirsiniz." : "Planınızı kullanmaya devam etmek için ödeme bilgilerinizi güncelleyin."}</p>
               </div>
               <div className="billing-expired__actions">
-                <button className="billing-button billing-button--primary" type="button" onClick={planModaliniAc}>Plan seç</button>
+                <button className="billing-button billing-button--primary" type="button" onClick={planModaliniAc}>{t("billing.select")}</button>
                 <button className="billing-button billing-button--secondary" type="button" onClick={planModaliniAc}>Ödeme yöntemi ekle</button>
               </div>
             </section>
@@ -480,7 +512,7 @@ export function AbonelikSayfasi() {
               <>
                 <span className="billing-modal__icon"><FileCheck2 size={24} /></span>
                 <p className="billing-modal__eyebrow">AÇIK ONAY</p>
-                <h2 id="billing-modal-title" ref={modalBaslikRef} tabIndex={-1}>Planınızı seçin ve koşulları onaylayın</h2>
+                <h2 id="billing-modal-title" ref={modalBaslikRef} tabIndex={-1}>{t("billing.choose")}</h2>
                 <p className="billing-modal__lead">Seçtiğiniz plan bugün başlar. Tutar ve yenileme koşulları ödeme öncesinde gösterilir.</p>
 
                 <div className="billing-plan-fields">
@@ -516,11 +548,13 @@ export function AbonelikSayfasi() {
                   <>
                     <div className="billing-quote">
                       <div>
-                        <small>{teklif.fiyat.isFounderPrice ? "LANSMANA ÖZEL" : faturalamaDonemi === "Yillik" ? "YILLIK ABONELİK" : "AYLIK ABONELİK"}</small>
-                        <strong>Bugün {paraBic(teklif.fiyat.totalAmount, teklif.fiyat.currency)}</strong>
+                        <small>{teklif.fiyat.changeType === "DonemSonuDegisiklik" ? "DÖNEM SONU DEĞİŞİKLİĞİ" : teklif.fiyat.isFounderPrice ? "LANSMANA ÖZEL" : faturalamaDonemi === "Yillik" ? "YILLIK ABONELİK" : "AYLIK ABONELİK"}</small>
+                        <strong>{teklif.fiyat.changeType === "DonemSonuDegisiklik" ? `${tarihBic(teklif.fiyat.effectiveAt)} tarihinde uygulanır` : `Bugün ${paraBic(teklif.fiyat.totalAmount, teklif.fiyat.currency)}`}</strong>
                       </div>
                       <dl>
-                        <div><dt>Plan bedeli</dt><dd>{paraBic(teklif.fiyat.netAmount, teklif.fiyat.currency)}</dd></div>
+                        <div><dt>Yeni plan dönem bedeli</dt><dd>{paraBic(teklif.fiyat.fullPeriodNetAmount, teklif.fiyat.currency)}</dd></div>
+                        {teklif.fiyat.prorationCreditNetAmount > 0 ? <div><dt>Kullanılmayan dönem kredisi</dt><dd>−{paraBic(teklif.fiyat.prorationCreditNetAmount, teklif.fiyat.currency)}</dd></div> : null}
+                        {teklif.fiyat.changeType === "AnindaYukseltme" ? <div><dt>Bugün tahsil edilecek net</dt><dd>{paraBic(teklif.fiyat.netAmount, teklif.fiyat.currency)}</dd></div> : null}
                         {teklif.fiyat.extraCustomerCredits > 0 ? <div><dt>Müşteri kapasitesi</dt><dd>{teklif.fiyat.includedCustomerCount + teklif.fiyat.extraCustomerCredits} müşteri</dd></div> : null}
                         <div><dt>KDV (%{Math.round(teklif.fiyat.vatRate)})</dt><dd>{paraBic(teklif.fiyat.vatAmount, teklif.fiyat.currency)}</dd></div>
                         {teklif.fiyat.isFounderPrice ? <div><dt>Bugünkü liste fiyatı</dt><dd>{paraBic(teklif.fiyat.renewalNetAmount, teklif.fiyat.currency)} + KDV</dd></div> : null}
@@ -530,7 +564,7 @@ export function AbonelikSayfasi() {
                     <label className="billing-email"><span>E-posta <small>(hesabınızda yoksa)</small></span><input type="email" autoComplete="email" value={eposta} onChange={(event) => setEposta(event.target.value)} placeholder="ornek@isletme.com" /></label>
                     <div className="billing-consent">
                       <input id="billing-subscription-consent" type="checkbox" checked={onaylandi} onChange={(event) => setOnaylandi(event.target.checked)} aria-labelledby="billing-consent-copy" />
-                      <label htmlFor="billing-subscription-consent" aria-label="Abonelik onayını seç"><i aria-hidden="true"><Check size={14} /></i></label>
+                      <label htmlFor="billing-subscription-consent"><i aria-hidden="true"><Check size={14} /></i></label>
                       <span id="billing-consent-copy" className="billing-consent__copy">
                         <button ref={sozlesmeTetikRef} className="billing-consent__link" type="button" onClick={() => setSozlesmeAcik(true)}>Abonelik sözleşmesini</button> okudum ve {faturalamaDonemi === "Yillik" ? "yıllık" : "aylık"} aboneliği onaylıyorum.
                       </span>
@@ -540,7 +574,7 @@ export function AbonelikSayfasi() {
                 {hata ? <div className="billing-inline-error" role="alert"><AlertCircle size={17} />{hata}</div> : null}
                 <div className="billing-modal__actions">
                   <button className="billing-button billing-button--secondary" type="button" onClick={modalKapat} disabled={islemde}>Daha sonra</button>
-                  <button className="billing-button billing-button--primary" type="button" onClick={checkoutBaslat} disabled={!onaylandi || !teklif || islemde || teklifYukleniyor}>{islemde ? <Loader2 className="spin" size={17} /> : <ShieldCheck size={17} />} Öde ve aboneliği başlat</button>
+                  <button className="billing-button billing-button--primary" type="button" onClick={checkoutBaslat} disabled={!onaylandi || !teklif || islemde || teklifYukleniyor}>{islemde ? <Loader2 className="spin" size={17} /> : <ShieldCheck size={17} />} {teklif?.fiyat.changeType === "DonemSonuDegisiklik" ? "Dönem sonuna planla" : teklif?.fiyat.changeType === "AnindaYukseltme" ? "Farkı öde ve yükselt" : "Öde ve aboneliği başlat"}</button>
                 </div>
               </>
             )}

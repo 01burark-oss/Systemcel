@@ -16,6 +16,12 @@ namespace CashTracker.Core.Services
 
         Task CancelAtPeriodEndAsync(int businessId, CancellationToken ct = default);
 
+        Task<SubscriptionPlanChangeResult> SchedulePlanChangeAsync(
+            SubscriptionCheckoutCommand command,
+            CancellationToken ct = default);
+
+        Task CancelScheduledPlanChangeAsync(int businessId, CancellationToken ct = default);
+
         Task<SubscriptionReconciliationResult> ReconcileAsync(
             DateTime now,
             CancellationToken ct = default);

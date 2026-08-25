@@ -256,11 +256,15 @@ namespace CashTracker.Infrastructure.Services
             var period = NormalizeTransferPeriod(aktarimDonemi);
             await using var db = await _dbFactory.CreateDbContextAsync(ct);
             var query = db.MuhasebeciAktarimAlacaklari.AsNoTracking()
-                .Where(x => x.AktarimDonemi == period);
+                .Where(x => x.AktarimDonemi == period || x.Durum == MuhasebeciAktarimDurumlari.Bekliyor);
             if (muhasebeciIsletmeId.HasValue)
                 query = query.Where(x => x.MuhasebeciIsletmeId == muhasebeciIsletmeId.Value);
 
-            var rows = await query.OrderBy(x => x.MuhasebeciIsletmeId).ThenBy(x => x.Id).ToListAsync(ct);
+            var rows = (await query.OrderBy(x => x.MuhasebeciIsletmeId).ThenBy(x => x.Id).ToListAsync(ct))
+                .Where(x => x.AktarimDonemi == period ||
+                            (x.Durum == MuhasebeciAktarimDurumlari.Bekliyor &&
+                             string.CompareOrdinal(x.AktarimDonemi, period) < 0))
+                .ToList();
             var ids = rows.Select(x => x.MuhasebeciIsletmeId).Distinct().ToList();
             var names = await db.Isletmeler.AsNoTracking()
                 .Where(x => ids.Contains(x.Id))
@@ -282,7 +286,8 @@ namespace CashTracker.Infrastructure.Services
                     })
                     .Select(group => BuildTransferSummary(
                         group.ToList(),
-                        names.GetValueOrDefault(group.Key.MuhasebeciIsletmeId, $"Muhasebeci #{group.Key.MuhasebeciIsletmeId}")))
+                        names.GetValueOrDefault(group.Key.MuhasebeciIsletmeId, $"Muhasebeci #{group.Key.MuhasebeciIsletmeId}"),
+                        period))
                     .ToList()
             };
         }
@@ -302,41 +307,49 @@ namespace CashTracker.Infrastructure.Services
 
             await using var db = await _dbFactory.CreateDbContextAsync(ct);
             await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
-            var referenceUsedElsewhere = await db.MuhasebeciAktarimAlacaklari.AsNoTracking().AnyAsync(x =>
-                x.AktarimReferansi == reference &&
-                (x.MuhasebeciIsletmeId != muhasebeciIsletmeId || x.AktarimDonemi != period), ct);
-            if (referenceUsedElsewhere)
-                throw new InvalidOperationException("Aktarım referansı başka bir dönem veya muhasebeci için kullanılmış.");
-
             var rows = await db.MuhasebeciAktarimAlacaklari
-                .Where(x => x.MuhasebeciIsletmeId == muhasebeciIsletmeId && x.AktarimDonemi == period)
+                .Where(x => x.MuhasebeciIsletmeId == muhasebeciIsletmeId &&
+                            (x.AktarimDonemi == period || x.Durum == MuhasebeciAktarimDurumlari.Bekliyor))
                 .OrderBy(x => x.Id)
                 .ToListAsync(ct);
-            if (rows.Count == 0)
-                throw new InvalidOperationException("Aktarılacak muhasebeci bakiyesi bulunamadı.");
+            rows = rows.Where(x => x.AktarimDonemi == period ||
+                                   (x.Durum == MuhasebeciAktarimDurumlari.Bekliyor &&
+                                    string.CompareOrdinal(x.AktarimDonemi, period) < 0))
+                .ToList();
 
-            var completed = rows.Where(x => x.Durum == MuhasebeciAktarimDurumlari.Aktarildi).ToList();
-            if (completed.Count > 0)
+            var pending = rows.Where(x => x.Durum == MuhasebeciAktarimDurumlari.Bekliyor).ToList();
+            if (pending.Count == 0)
             {
-                if (completed.Count == rows.Count && completed.All(x => x.AktarimReferansi == reference))
+                var completed = rows.Where(x =>
+                    x.Durum == MuhasebeciAktarimDurumlari.Aktarildi &&
+                    x.AktarimReferansi == reference).ToList();
+                if (completed.Count > 0)
                 {
                     var completedName = await db.Isletmeler.AsNoTracking()
                         .Where(x => x.Id == muhasebeciIsletmeId)
                         .Select(x => x.Ad)
                         .SingleOrDefaultAsync(ct) ?? $"Muhasebeci #{muhasebeciIsletmeId}";
                     await transaction.CommitAsync(ct);
-                    return BuildTransferSummary(rows, completedName);
+                    return BuildTransferSummary(completed, completedName, period);
                 }
-                throw new InvalidOperationException("Bu dönem daha önce farklı bir referansla aktarılmış veya kısmi durumda.");
+                throw new InvalidOperationException("Aktarılacak muhasebeci bakiyesi bulunamadı.");
             }
 
-            if (rows.Any(x => x.Durum != MuhasebeciAktarimDurumlari.Bekliyor))
-                throw new InvalidOperationException("Ters kayıt veya iptal içeren dönem aktarım için uygun değil.");
+            if (pending.Select(x => x.ParaBirimi).Distinct(StringComparer.OrdinalIgnoreCase).Count() != 1)
+                throw new InvalidOperationException("Farklı para birimleri ayrı aktarılmalıdır.");
+            if (pending.Sum(x => x.AktarilacakTutar) <= 0m)
+                throw new InvalidOperationException("Net bakiye pozitif değil; iade mahsubu sonraki hakedişe devredilecek.");
+            if (await db.MuhasebeciAktarimAlacaklari.AsNoTracking().AnyAsync(x =>
+                    x.AktarimReferansi == reference, ct))
+                throw new InvalidOperationException("Aktarım referansı daha önce kullanılmış.");
 
             var now = DateTime.UtcNow;
-            foreach (var row in rows)
+            foreach (var row in pending)
             {
                 row.Durum = MuhasebeciAktarimDurumlari.Aktarildi;
+                // The monthly field represents the settlement batch after a carry-forward
+                // is paid, so list and idempotent replay include every positive/negative row.
+                row.AktarimDonemi = period;
                 row.AktarimReferansi = reference;
                 row.AktarildiAt = now;
                 row.UpdatedAt = now;
@@ -347,19 +360,20 @@ namespace CashTracker.Infrastructure.Services
                 .Where(x => x.Id == muhasebeciIsletmeId)
                 .Select(x => x.Ad)
                 .SingleOrDefaultAsync(ct) ?? $"Muhasebeci #{muhasebeciIsletmeId}";
-            return BuildTransferSummary(rows, name);
+            return BuildTransferSummary(pending, name, period);
         }
 
         private static MuhasebeciAktarimOzetDto BuildTransferSummary(
             IReadOnlyCollection<MuhasebeciAktarimAlacagi> rows,
-            string accountantName)
+            string accountantName,
+            string? settlementPeriod = null)
         {
             var first = rows.First();
             return new MuhasebeciAktarimOzetDto
             {
                 MuhasebeciIsletmeId = first.MuhasebeciIsletmeId,
                 MuhasebeciAdi = accountantName,
-                AktarimDonemi = first.AktarimDonemi,
+                AktarimDonemi = settlementPeriod ?? first.AktarimDonemi,
                 ParaBirimi = first.ParaBirimi,
                 AlacakSayisi = rows.Count,
                 TahsilEdilenTutar = rows.Sum(x => x.TahsilEdilenTutar),
@@ -380,6 +394,72 @@ namespace CashTracker.Infrastructure.Services
                 year is < 2020 or > 2200 || month is < 1 or > 12)
                 throw new ArgumentException("Aktarım dönemi YYYY-MM biçiminde olmalıdır.");
             return $"{year:0000}-{month:00}";
+        }
+
+        public async Task<DestekTalebiListeDto> GetDestekTalepleriAsync(CancellationToken ct = default)
+        {
+            await RequireAdminAsync(ct);
+            await using var db = await _dbFactory.CreateDbContextAsync(ct);
+            var rows = await db.DestekTalepleri.AsNoTracking()
+                .OrderBy(x => x.Oncelik == DestekOncelikleri.Oncelikli ? 0 : 1)
+                .ThenBy(x => x.CreatedAt)
+                .ThenBy(x => x.Id)
+                .ToListAsync(ct);
+            var ids = rows.Select(x => x.IsletmeId).Distinct().ToList();
+            var names = await db.Isletmeler.AsNoTracking()
+                .Where(x => ids.Contains(x.Id))
+                .ToDictionaryAsync(x => x.Id, x => x.Ad, ct);
+            return new DestekTalebiListeDto
+            {
+                Talepler = rows.Select(x => DestekTalebiService.BuildDto(
+                    x,
+                    names.GetValueOrDefault(x.IsletmeId, $"İşletme #{x.IsletmeId}"))).ToList()
+            };
+        }
+
+        public async Task<DestekTalebiDto> UpdateDestekTalebiAsync(
+            int destekTalebiId,
+            DestekTalebiGuncelleRequest request,
+            CancellationToken ct = default)
+        {
+            await RequireAdminAsync(ct);
+            if (destekTalebiId <= 0)
+                throw new ArgumentOutOfRangeException(nameof(destekTalebiId));
+            var status = (request.Durum ?? string.Empty).Trim();
+            var reply = (request.YoneticiYaniti ?? string.Empty).Trim();
+            if (!DestekTalebiDurumlari.TumDurumlar.Contains(status))
+                throw new ArgumentException("Geçerli bir destek durumu seçin.");
+            if (reply.Length > 1000)
+                throw new ArgumentException("Yönetici yanıtı en fazla 1000 karakter olabilir.");
+
+            await using var db = await _dbFactory.CreateDbContextAsync(ct);
+            var row = await db.DestekTalepleri.SingleOrDefaultAsync(x => x.Id == destekTalebiId, ct)
+                ?? throw new InvalidOperationException("Destek talebi bulunamadı.");
+            var businessName = await db.Isletmeler.AsNoTracking()
+                .Where(x => x.Id == row.IsletmeId)
+                .Select(x => x.Ad)
+                .SingleOrDefaultAsync(ct) ?? $"İşletme #{row.IsletmeId}";
+            if (row.Durum == status && row.YoneticiYaniti == reply)
+                return DestekTalebiService.BuildDto(row, businessName);
+            var before = new { row.Durum, row.YoneticiYaniti };
+            var now = DateTime.UtcNow;
+            row.Durum = status;
+            row.YoneticiYaniti = reply;
+            row.CozulduAt = status == DestekTalebiDurumlari.Cozuldu ? row.CozulduAt ?? now : null;
+            row.UpdatedAt = now;
+            db.YonetimDenetimKayitlari.Add(new YonetimDenetimKaydi
+            {
+                IsletmeId = row.IsletmeId,
+                AktorProviderKullaniciId = _currentUserContext.GetCurrentUser()!.ProviderUserId,
+                Islem = "DestekTalebiGuncelle",
+                KaynakTuru = nameof(DestekTalebi),
+                OncekiDeger = JsonSerializer.Serialize(before),
+                YeniDeger = JsonSerializer.Serialize(new { row.Durum, row.YoneticiYaniti }),
+                Gerekce = "Destek talebi durumu ve yanıtı güncellendi.",
+                CreatedAt = now
+            });
+            await db.SaveChangesAsync(ct);
+            return DestekTalebiService.BuildDto(row, businessName);
         }
 
         public async Task<EntitlementOverrideResult> ApplyEntitlementOverrideAsync(int isletmeId, EntitlementOverrideRequest request, CancellationToken ct = default)

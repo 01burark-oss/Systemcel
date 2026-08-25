@@ -12,7 +12,11 @@ import { GibPortalSayfasi } from "../gib-portal/GibPortalSayfasi";
 import { TelegramBaglantisiSayfasi } from "../telegram/TelegramBaglantisiSayfasi";
 import type { UstBarDurumu } from "../../shared/chrome";
 import { jsonOku } from "../../shared/json";
+import { setAppLanguage } from "../../shared/i18n";
 import type { AyarKalem, AyarlarEkranVerisi } from "./types";
+import { AyarlarOperasyonPanelleri } from "./AyarlarOperasyonPanelleri";
+import { BildirimTercihleriPaneli } from "./BildirimTercihleriPaneli";
+import { SubeKurPaneli } from "./SubeKurPaneli";
 
 interface AyarlarSayfasiProps {
   onIsletmeDegistir: (id: number) => void | Promise<void>;
@@ -196,6 +200,7 @@ export function AyarlarSayfasi({ onIsletmeDegistir, onUstBarYenile, ustBar, yeni
   const uygula = React.useCallback((data: AyarlarEkranVerisi) => {
     setEkran(data);
     setDil(data.dil || "tr");
+    setAppLanguage(data.dil || "tr");
     setSeciliIsletmeId(data.seciliIsletmeId || data.aktifIsletmeId);
     const selectedBusiness = data.isletmeler.find((row) => row.id === (data.seciliIsletmeId || data.aktifIsletmeId));
     setIsletmeAdi(selectedBusiness?.ad ?? data.aktifIsletme ?? "");
@@ -351,6 +356,7 @@ export function AyarlarSayfasi({ onIsletmeDegistir, onUstBarYenile, ustBar, yeni
   return (
     <main className={`settings-page settings-page--tabbed ${aktifSekme !== "isletme" ? "settings-page--wide" : ""}`}>
       {aktifSekme === "isletme" ? (
+      <>
       <div className="settings-grid">
         <section className="settings-card settings-card--business">
           <header className="settings-card__header">
@@ -360,7 +366,7 @@ export function AyarlarSayfasi({ onIsletmeDegistir, onUstBarYenile, ustBar, yeni
           <div className="settings-section-row">
             <span className="settings-row-icon"><Globe2 size={22} /></span>
             <strong>{L.language}</strong>
-            <select value={dil} onChange={(event) => setDil(event.target.value)} disabled={islemde}>
+            <select aria-label={L.language} value={dil} onChange={(event) => setDil(event.target.value)} disabled={islemde}>
               {(ekran?.diller ?? []).map((row) => (
                 <option key={row.kod} value={row.kod}>{row.ad}</option>
               ))}
@@ -374,6 +380,7 @@ export function AyarlarSayfasi({ onIsletmeDegistir, onUstBarYenile, ustBar, yeni
             <span className="settings-row-icon"><Store size={22} /></span>
             <strong>{L.activeBusiness}</strong>
             <select
+              aria-label={L.activeBusiness}
               value={seciliIsletmeId}
               onChange={(event) => aktifIsletmeSec(Number(event.target.value))}
               disabled={islemde || isletmeler.length === 0}
@@ -394,6 +401,7 @@ export function AyarlarSayfasi({ onIsletmeDegistir, onUstBarYenile, ustBar, yeni
             </div>
             <div className="settings-inline-actions">
               <input
+                aria-label={L.businessName}
                 value={isletmeAdi}
                 onChange={(event) => setIsletmeAdi(event.target.value)}
                 placeholder={L.businessNamePlaceholder}
@@ -412,6 +420,7 @@ export function AyarlarSayfasi({ onIsletmeDegistir, onUstBarYenile, ustBar, yeni
             <h3>{L.newBusiness}</h3>
             <div className="settings-inline-actions">
               <input
+                aria-label={L.newBusiness}
                 value={yeniIsletmeAdi}
                 onChange={(event) => setYeniIsletmeAdi(event.target.value)}
                 placeholder={L.newBusinessPlaceholder}
@@ -453,6 +462,7 @@ export function AyarlarSayfasi({ onIsletmeDegistir, onUstBarYenile, ustBar, yeni
             <label className="settings-search">
               <Search size={20} />
               <input
+                aria-label={L.categorySearch}
                 value={kalemArama}
                 onChange={(event) => setKalemArama(event.target.value)}
                 placeholder={L.categorySearch}
@@ -467,7 +477,7 @@ export function AyarlarSayfasi({ onIsletmeDegistir, onUstBarYenile, ustBar, yeni
             </button>
           </div>
 
-          <div className="settings-list" role="listbox" aria-label="Kalemler">
+          <div className="settings-list" role="group" aria-label="Kalemler">
             {gorunenKalemler.length === 0 ? (
               <div className="settings-list__empty">{L.noCategory}</div>
             ) : (
@@ -476,6 +486,7 @@ export function AyarlarSayfasi({ onIsletmeDegistir, onUstBarYenile, ustBar, yeni
                   key={row.id}
                   className={`settings-list__row ${row.id === seciliKalemId ? "selected" : ""}`}
                   type="button"
+                  aria-pressed={row.id === seciliKalemId}
                   onClick={() => setSeciliKalemId(row.id)}
                 >
                   <span>{row.ad}</span>
@@ -487,6 +498,7 @@ export function AyarlarSayfasi({ onIsletmeDegistir, onUstBarYenile, ustBar, yeni
 
           <div className="settings-add-category">
             <input
+              aria-label={L.newCategoryPlaceholder}
               value={yeniKalemAdi}
               onChange={(event) => setYeniKalemAdi(event.target.value)}
               placeholder={L.newCategoryPlaceholder}
@@ -503,6 +515,10 @@ export function AyarlarSayfasi({ onIsletmeDegistir, onUstBarYenile, ustBar, yeni
           </div>
         </section>
       </div>
+      {ustBar?.hesapTipi === "Isletme" ? <SubeKurPaneli /> : null}
+      <AyarlarOperasyonPanelleri />
+      <BildirimTercihleriPaneli />
+      </>
       ) : aktifSekme === "gib" ? (
         <section className="settings-tab-panel settings-tab-panel--embedded">
           <GibPortalSayfasi
@@ -519,7 +535,7 @@ export function AyarlarSayfasi({ onIsletmeDegistir, onUstBarYenile, ustBar, yeni
       )}
 
       {aktifSekme === "isletme" && (hata || mesaj || islemde) && (
-        <div className={`settings-feedback ${hata ? "error" : ""}`}>
+        <div className={`settings-feedback ${hata ? "error" : ""}`} role={hata ? "alert" : "status"}>
           {hata || (islemde ? L.working : mesaj)}
         </div>
       )}

@@ -48,8 +48,13 @@ builder.Services.AddSingleton(new AppRuntimeOptions { AppDataPath = appDataPath 
 builder.Services.AddSingleton(new MuhasebeciSohbetStorageOptions { AppDataPath = appDataPath });
 builder.Services.AddClerkAuthentication(clerkAuthenticationOptions);
 builder.Services.AddSignalR();
-builder.Services.AddProblemDetails();
+builder.Services.AddProblemDetails(options =>
+{
+    options.CustomizeProblemDetails = context =>
+        context.ProblemDetails.Extensions["traceId"] = context.HttpContext.TraceIdentifier;
+});
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+builder.Services.AddSingleton<RequestTelemetry>();
 builder.Services.Configure<FormOptions>(options =>
 {
     options.MultipartBodyLengthLimit = 52L * 1024 * 1024;
@@ -91,6 +96,14 @@ builder.Services.AddRateLimiter(options =>
             QueueLimit = 0,
             AutoReplenishment = true
         }));
+    options.AddPolicy("developer-api", context =>
+        RateLimitPartition.GetFixedWindowLimiter(DeveloperApiRateLimit.GetPartitionKey(context), _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = DeveloperApiRateLimit.PermitLimit,
+            Window = TimeSpan.FromMinutes(1),
+            QueueLimit = 0,
+            AutoReplenishment = true
+        }));
     options.OnRejected = async (context, cancellationToken) =>
     {
         context.HttpContext.Response.ContentType = "application/problem+json";
@@ -115,6 +128,10 @@ builder.Services.AddSingleton(yonetimOptions);
 builder.Services.AddSingleton(deepSeekSettings);
 builder.Services.AddSingleton(receiptOcrSettings);
 builder.Services.AddSingleton(paymentOptions);
+builder.Services.AddSingleton(new MuhasebeciOdemeOptions
+{
+    PlatformCommissionRate = paymentOptions.AccountantPlatformCommissionRate
+});
 builder.Services.AddSingleton(reminderEmailOptions);
 builder.Services.AddSingleton(musteriSmsSettings);
 builder.Services.AddHttpContextAccessor();
@@ -122,6 +139,7 @@ builder.Services.AddSingleton<ICurrentUserContext, HttpCurrentUserContext>();
 
 builder.Services.AddSingleton<IIsletmeService, IsletmeService>();
 builder.Services.AddSingleton<IIsletmeUyelikService, IsletmeUyelikService>();
+builder.Services.AddSingleton<ISubeKurService, SubeKurService>();
 builder.Services.AddSingleton<IKalemTanimiService, KalemTanimiService>();
 builder.Services.AddSingleton<IKasaService, KasaService>();
 builder.Services.AddSingleton<ISummaryService, SummaryService>();
@@ -129,6 +147,7 @@ builder.Services.AddSingleton<IDailyReportService, DailyReportService>();
 builder.Services.AddSingleton<ICariService, CariService>();
 builder.Services.AddSingleton<IUrunHizmetService, UrunHizmetService>();
 builder.Services.AddSingleton<IStokService, StokService>();
+builder.Services.AddSingleton<IGelismisStokService, GelismisStokService>();
 builder.Services.AddSingleton<IHizliSatisService, HizliSatisService>();
 builder.Services.AddSingleton<IFaturaService, FaturaService>();
 builder.Services.AddSingleton<ITahsilatOdemeService, TahsilatOdemeService>();
@@ -151,6 +170,9 @@ builder.Services.AddSingleton<IFinansalGorunumService, FinansalGorunumService>()
 builder.Services.AddSingleton<IBelgeSaglikService, BelgeSaglikService>();
 builder.Services.AddSingleton<ISubscriptionEntitlementService, SubscriptionEntitlementService>();
 builder.Services.AddSingleton<IEntitlementGuard, EntitlementGuard>();
+builder.Services.AddSingleton<IBankaMutabakatService, BankaMutabakatService>();
+builder.Services.AddSingleton<DeveloperApiKeyService>();
+builder.Services.AddSingleton<DeveloperApiReadService>();
 builder.Services.AddSingleton<IPaymentPricingService>(_ => new PaymentPricingService(
     paymentOptions.VatRate,
     paymentOptions.FreeTrialEnabled,
@@ -171,6 +193,15 @@ builder.Services.AddHostedService<SubscriptionLifecycleHostedService>();
 builder.Services.AddHostedService<PaymentReconciliationHostedService>();
 builder.Services.AddSingleton<IMuhasebeciPortalService, MuhasebeciPortalService>();
 builder.Services.AddSingleton<IMuhasebeciSohbetMerkeziService, MuhasebeciSohbetMerkeziService>();
+builder.Services.AddSingleton<IDestekTalebiService, DestekTalebiService>();
+builder.Services.AddSingleton<BildirimService>();
+builder.Services.AddSingleton<IBildirimService>(sp => sp.GetRequiredService<BildirimService>());
+builder.Services.AddSingleton<IBildirimOutboxService>(sp => sp.GetRequiredService<BildirimService>());
+builder.Services.AddSingleton<IBildirimKanalAdapter, UygulamaBildirimAdapter>();
+builder.Services.AddSingleton<IBildirimKanalAdapter>(_ => new YapilandirilmamisBildirimAdapter(BildirimKanallari.Eposta));
+builder.Services.AddSingleton<IBildirimKanalAdapter>(_ => new YapilandirilmamisBildirimAdapter(BildirimKanallari.Telegram));
+builder.Services.AddSingleton<BildirimDeliveryService>();
+builder.Services.AddHostedService<BildirimDeliveryHostedService>();
 builder.Services.AddSingleton<ISystemcelYonetimService, SystemcelYonetimService>();
 builder.Services.AddSingleton<IAccountantApplicationNotifier>(sp =>
 {
@@ -217,14 +248,14 @@ if (string.Equals(receiptOcrSettings.EffectiveProvider, "OcrSpace", StringCompar
     builder.Services.AddHttpClient<IReceiptOcrService, OcrSpaceDeepSeekReceiptOcrService>(client =>
     {
         client.Timeout = TimeSpan.FromSeconds(90);
-    });
+    }).RedactLoggedHeaders(["apikey"]);
 }
 else
 {
-    builder.Services.AddHttpClient<IReceiptOcrService, GeminiReceiptOcrService>(client =>
+    builder.Services.AddHttpClient<IReceiptOcrService, OpenAiReceiptOcrService>(client =>
     {
         client.Timeout = TimeSpan.FromSeconds(90);
-    });
+    }).RedactLoggedHeaders(["Authorization"]);
 }
 builder.Services.AddSingleton<IAiAssistantService, AiAssistantService>();
 builder.Services.AddSingleton<ITelegramApprovalService, TelegramApprovalService>();
@@ -276,6 +307,8 @@ var forwardedHeadersOptions = new ForwardedHeadersOptions
 forwardedHeadersOptions.KnownNetworks.Clear();
 forwardedHeadersOptions.KnownProxies.Clear();
 app.UseForwardedHeaders(forwardedHeadersOptions);
+app.UseMiddleware<RequestObservabilityMiddleware>();
+app.UseRouting();
 app.UseExceptionHandler();
 if (!app.Environment.IsDevelopment())
 {
@@ -338,7 +371,9 @@ if (clerkAuthenticationOptions.Enabled)
         await next();
     });
 }
+app.UseMiddleware<DeveloperApiAuthenticationMiddleware>();
 app.UseRateLimiter();
+app.UseMiddleware<DeveloperApiAuthenticationEnforcementMiddleware>();
 
 app.MapGet("/api/health/live", () => Results.Ok(new
 {
@@ -366,10 +401,16 @@ app.MapDesktopImportApi();
 app.MapAiAssistantApi();
 app.MapMuhasebeciApi();
 app.MapSohbetMerkeziApi();
+app.MapDestekApi();
+app.MapMobilTaramaApi();
 app.MapYonetimApi();
 app.MapUyelikApi();
 app.MapFinansalGorunumApi();
 app.MapFaturaMusteriOnayApi();
+app.MapBankaMutabakatApi();
+app.MapStokDefteriApi();
+app.MapSubeKurApi();
+app.MapDeveloperApi();
 var sohbetHub = app.MapHub<MuhasebeciSohbetHub>("/hubs/muhasebeci-sohbet");
 if (clerkAuthenticationOptions.Enabled)
     sohbetHub.RequireAuthorization();
@@ -503,6 +544,16 @@ static PaymentRuntimeOptions ResolvePaymentOptions(IConfiguration configuration,
                               parsedAccountantTrialDays is > 0 and <= 90
         ? parsedAccountantTrialDays
         : 14;
+    var configuredAccountantCommissionRate = FirstNonEmpty(
+        Environment.GetEnvironmentVariable("SYSTEMCEL_ACCOUNTANT_PLATFORM_COMMISSION_RATE"),
+        configuration["Systemcel:Payment:AccountantPlatformCommissionRate"]);
+    var accountantCommissionRate = decimal.TryParse(
+        configuredAccountantCommissionRate,
+        System.Globalization.NumberStyles.Number,
+        System.Globalization.CultureInfo.InvariantCulture,
+        out var parsedAccountantCommissionRate) && parsedAccountantCommissionRate is >= 0m and <= 100m
+        ? parsedAccountantCommissionRate
+        : 10m;
 
     return new PaymentRuntimeOptions
     {
@@ -514,7 +565,8 @@ static PaymentRuntimeOptions ResolvePaymentOptions(IConfiguration configuration,
         VatRate = vatRate,
         FreeTrialEnabled = freeTrialEnabled,
         BusinessTrialDays = businessTrialDays,
-        AccountantTrialDays = accountantTrialDays
+        AccountantTrialDays = accountantTrialDays,
+        AccountantPlatformCommissionRate = accountantCommissionRate
     };
 }
 

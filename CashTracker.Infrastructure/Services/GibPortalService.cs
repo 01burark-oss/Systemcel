@@ -50,6 +50,28 @@ namespace CashTracker.Infrastructure.Services
             };
         }
 
+        public async Task<IReadOnlyList<GibPortalLogModel>> GetRecentLogsAsync(int limit = 10, CancellationToken ct = default)
+        {
+            var activeIsletmeId = await _isletmeService.GetActiveIdAsync();
+            var take = Math.Clamp(limit, 1, 50);
+            await using var db = await _dbFactory.CreateDbContextAsync(ct);
+            return await db.GibPortalIslemLoglari.AsNoTracking()
+                .Where(x => x.IsletmeId == activeIsletmeId)
+                .OrderByDescending(x => x.Tarih)
+                .ThenByDescending(x => x.Id)
+                .Take(take)
+                .Select(x => new GibPortalLogModel
+                {
+                    Id = x.Id,
+                    FaturaId = x.FaturaId,
+                    Tarih = x.Tarih,
+                    Islem = x.Islem,
+                    Basarili = x.Basarili,
+                    Mesaj = x.Mesaj
+                })
+                .ToListAsync(ct);
+        }
+
         public async Task SaveSettingsAsync(GibPortalSaveSettingsRequest request, CancellationToken ct = default)
         {
             await EnsureOfficialEInvoiceAsync(ct);

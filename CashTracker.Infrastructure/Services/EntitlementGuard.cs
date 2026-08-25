@@ -71,6 +71,7 @@ namespace CashTracker.Infrastructure.Services
                 EntitlementFeatures.AdvancedExport => entitlement.GelismisDisaAktarimAktif,
                 EntitlementFeatures.BankReconciliation => entitlement.BankaMutabakatiAktif,
                 EntitlementFeatures.StockReport => entitlement.StokRaporAktif,
+                EntitlementFeatures.AdvancedStock => entitlement.StokRaporAktif,
                 EntitlementFeatures.MultipleBranches => entitlement.CokluSubeAktif,
                 EntitlementFeatures.MultipleCurrencies => entitlement.CokluParaBirimiAktif,
                 EntitlementFeatures.ApiAccess => entitlement.ApiErisimiAktif,

@@ -26,6 +26,10 @@ namespace CashTracker.Core.Entities
         public decimal KdvOrani { get; set; }
         public decimal KdvTutar { get; set; }
         public decimal ToplamTutar { get; set; }
+        public decimal TamDonemNetTutar { get; set; }
+        public decimal KistKrediNetTutar { get; set; }
+        public string DegisiklikTipi { get; set; } = string.Empty;
+        public DateTime? HedefDonemBitisAt { get; set; }
         public string ParaBirimi { get; set; } = "TRY";
         public string HataKodu { get; set; } = string.Empty;
         public string HataMesaji { get; set; } = string.Empty;
