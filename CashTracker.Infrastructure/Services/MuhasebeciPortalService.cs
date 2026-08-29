@@ -210,6 +210,10 @@ namespace CashTracker.Infrastructure.Services
             profile.UcretBilgisi = request.Yayinda ? NormalizeRequiredText(request.UcretBilgisi, "Ücret bilgisi") : NormalizeText(request.UcretBilgisi, profile.UcretBilgisi);
             profile.Uzmanliklar = NormalizeText(request.Uzmanliklar, "Genel muhasebe");
             profile.MusteriTipleri = NormalizeText(request.MusteriTipleri, "KOBİ ve küçük işletmeler");
+            profile.SektorDeneyimleri = NormalizeText(request.SektorDeneyimleri, profile.Uzmanliklar);
+            profile.VergiMukellefiTipleri = NormalizeText(request.VergiMukellefiTipleri, "Tüm mükellef tipleri");
+            profile.UygunIsletmeOlcekleri = NormalizeText(request.UygunIsletmeOlcekleri, "Küçük, Orta");
+            profile.CalismaSekilleri = NormalizeText(request.CalismaSekilleri, "Online");
             profile.KisaAciklama = NormalizeText(request.KisaAciklama, "Gelir, gider, fatura ve dönem takibinde destek olur.");
             profile.UpdatedAt = now;
             await db.SaveChangesAsync(ct);
@@ -283,6 +287,10 @@ namespace CashTracker.Infrastructure.Services
                 Durum = MuhasebeciTalepDurumlari.Beklemede,
                 YetkiSeviyesi = NormalizeYetki(request.YetkiSeviyesi),
                 Mesaj = NormalizeConversationText(request.Mesaj, allowEmpty: true),
+                Sektor = customer.IsletmeTuru,
+                VergiMukellefiTipi = NormalizeText(request.VergiMukellefiTipi, customer.VergiMukellefiTipi),
+                IsletmeOlcegi = NormalizeText(request.IsletmeOlcegi, customer.IsletmeOlcegi),
+                CalismaSekli = NormalizeText(request.CalismaSekli, customer.TercihEdilenCalismaSekli),
                 CreatedAt = now,
                 UpdatedAt = now
             };
@@ -777,8 +785,13 @@ namespace CashTracker.Infrastructure.Services
                     .ToHashSet();
             }
 
+            Isletme? viewerBusiness = null;
+            if (viewerBusinessId.HasValue)
+                viewerBusiness = await db.Isletmeler.AsNoTracking().FirstOrDefaultAsync(x => x.Id == viewerBusinessId.Value, ct);
+
             return profiles
                 .Where(x => accountants.ContainsKey(x.MuhasebeciIsletmeId) && approvedAccountantIds.Contains(x.MuhasebeciIsletmeId))
+                .Where(x => IsStrongMatch(x, viewerBusiness))
                 .Select(x =>
                 {
                     var isPro = proIds.Contains(x.MuhasebeciIsletmeId);
@@ -789,7 +802,8 @@ namespace CashTracker.Infrastructure.Services
                         pro: isPro,
                         talepVar: pendingIds.Contains(x.MuhasebeciIsletmeId),
                         bagli: connectedIds.Contains(x.MuhasebeciIsletmeId),
-                        telefonGoster: false);
+                        telefonGoster: false,
+                        matchBusiness: viewerBusiness);
                 })
                 .OrderByDescending(x => x.Pro)
                 .ThenBy(x => x.Unvan)
@@ -1277,7 +1291,8 @@ namespace CashTracker.Infrastructure.Services
             bool pro,
             bool talepVar,
             bool bagli,
-            bool telefonGoster = true)
+            bool telefonGoster = true,
+            Isletme? matchBusiness = null)
         {
             return new MuhasebeciProfilDto
             {
@@ -1291,12 +1306,70 @@ namespace CashTracker.Infrastructure.Services
                 UcretBilgisi = profile?.UcretBilgisi ?? string.Empty,
                 Uzmanliklar = DisplayName(profile?.Uzmanliklar, "Genel muhasebe"),
                 MusteriTipleri = DisplayName(profile?.MusteriTipleri, "KOBİ ve küçük işletmeler"),
+                SektorDeneyimleri = profile?.SektorDeneyimleri ?? string.Empty,
+                VergiMukellefiTipleri = profile?.VergiMukellefiTipleri ?? string.Empty,
+                UygunIsletmeOlcekleri = profile?.UygunIsletmeOlcekleri ?? string.Empty,
+                CalismaSekilleri = profile?.CalismaSekilleri ?? string.Empty,
                 KisaAciklama = DisplayName(profile?.KisaAciklama, "Gelir, gider, fatura ve dönem takibinde destek olur."),
                 PlanAdi = planAdi,
                 Pro = pro,
                 TalepVar = talepVar,
-                Bagli = bagli
+                Bagli = bagli,
+                EslesmeNedenleri = BuildMatchReasons(profile, matchBusiness)
             };
+        }
+
+        private static bool IsStrongMatch(MuhasebeciProfil profile, Isletme? business)
+        {
+            if (business is null)
+                return true;
+
+            return Supports(profile.SektorDeneyimleri, business.IsletmeTuru) &&
+                Supports(profile.VergiMukellefiTipleri, business.VergiMukellefiTipi) &&
+                Supports(profile.UygunIsletmeOlcekleri, business.IsletmeOlcegi) &&
+                Supports(profile.CalismaSekilleri, business.TercihEdilenCalismaSekli);
+        }
+
+        private static List<string> BuildMatchReasons(MuhasebeciProfil? profile, Isletme? business)
+        {
+            if (profile is null || business is null)
+                return new List<string>();
+
+            var reasons = new List<string>();
+            if (Supports(profile.SektorDeneyimleri, business.IsletmeTuru))
+                reasons.Add("Sektörünüzle çalışıyor");
+            if (Supports(profile.VergiMukellefiTipleri, business.VergiMukellefiTipi))
+                reasons.Add("Mükellef tipinize uygun");
+            if (Supports(profile.UygunIsletmeOlcekleri, business.IsletmeOlcegi))
+                reasons.Add("İş yükünüze uygun");
+            if (Supports(profile.CalismaSekilleri, business.TercihEdilenCalismaSekli))
+                reasons.Add("Çalışma biçiminize uygun");
+            return reasons;
+        }
+
+        private static bool Supports(string? supportedValues, string? requestedValue)
+        {
+            if (string.IsNullOrWhiteSpace(requestedValue))
+                return true;
+
+            var requested = NormalizeSearch(requestedValue);
+            return SplitValues(supportedValues).Any(value =>
+                value == requested || IsWildcardSupport(value));
+        }
+
+        private static bool IsWildcardSupport(string value)
+        {
+            return value is "tum" or "tumu" or "hepsi" or "all" ||
+                value.StartsWith("tum ", StringComparison.Ordinal) ||
+                value.StartsWith("hepsi ", StringComparison.Ordinal);
+        }
+
+        private static IEnumerable<string> SplitValues(string? value)
+        {
+            return (value ?? string.Empty)
+                .Split(new[] { ',', ';', '/', '|' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(NormalizeSearch)
+                .Where(x => !string.IsNullOrWhiteSpace(x));
         }
 
         private sealed record ConversationContext(
@@ -1340,6 +1413,10 @@ namespace CashTracker.Infrastructure.Services
                 DavetLinki = inviteLink,
                 Mesaj = talep.Mesaj,
                 AylikHizmetBedeli = talep.AylikHizmetBedeli,
+                Sektor = talep.Sektor,
+                VergiMukellefiTipi = talep.VergiMukellefiTipi,
+                IsletmeOlcegi = talep.IsletmeOlcegi,
+                CalismaSekli = talep.CalismaSekli,
                 OdemeDurumu = talep.Durum == MuhasebeciTalepDurumlari.OdemeBekliyor
                     ? MuhasebeciHizmetOdemeDurumlari.OdemeBekliyor
                     : talep.Durum == MuhasebeciTalepDurumlari.Kabul

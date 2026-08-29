@@ -88,6 +88,40 @@ namespace CashTracker.Tests
         }
 
         [Fact]
+        public async Task MarkAsIssuedAsync_ForPurchase_SnapshotsVatExcludedUnitCost()
+        {
+            using var fixture = await FaturaFixture.CreateAsync();
+            var service = fixture.CreateFaturaService();
+            var id = await service.CreateDraftAsync(new FaturaCreateRequest
+            {
+                CariKartId = fixture.CariId,
+                FaturaTipi = "Alis",
+                Satirlar =
+                [
+                    new FaturaSatirRequest
+                    {
+                        UrunHizmetId = fixture.UrunId,
+                        Aciklama = "Alış ürünü",
+                        Miktar = 2,
+                        BirimFiyat = 120,
+                        KdvOrani = 20
+                    }
+                ]
+            });
+
+            await service.MarkAsIssuedAsync(id);
+
+            await using var db = fixture.CreateDbContext();
+            var stok = await db.StokHareketleri.SingleAsync();
+
+            Assert.Equal(2m, stok.Miktar);
+            Assert.Equal(100m, stok.BirimMaliyet);
+            Assert.Equal("TRY", stok.MaliyetParaBirimi);
+            Assert.Equal(1m, stok.MaliyetKurSnapshot);
+            Assert.Equal(100m, stok.BirimMaliyetTry);
+        }
+
+        [Fact]
         public async Task TahsilatOdemeService_FullPayment_UpdatesInvoiceCariAndKasa()
         {
             using var fixture = await FaturaFixture.CreateAsync();

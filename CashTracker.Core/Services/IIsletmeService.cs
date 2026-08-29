@@ -13,7 +13,7 @@ namespace CashTracker.Core.Services
         Task<int> GetActiveIdAsync();
         Task<int> CreateAsync(string ad, bool makeActive = false);
         Task RenameAsync(int id, string ad);
-        Task UpdateSetupAsync(int id, string ad, string isletmeTuru, string konum, bool tamamlandi, string? hesapTipi = null, bool? muhasebeciVarMi = null, MuhasebeciProfilKaydetRequest? muhasebeciProfil = null);
+        Task UpdateSetupAsync(int id, string ad, string isletmeTuru, string konum, bool tamamlandi, string? hesapTipi = null, bool? muhasebeciVarMi = null, MuhasebeciProfilKaydetRequest? muhasebeciProfil = null, string? vergiMukellefiTipi = null, string? isletmeOlcegi = null, string? tercihEdilenCalismaSekli = null);
         Task SetActiveAsync(int id);
         Task SetActiveCustomerContextAsync(int musteriIsletmeId);
         Task ClearActiveCustomerContextAsync();

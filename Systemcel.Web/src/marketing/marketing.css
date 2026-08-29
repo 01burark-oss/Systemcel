@@ -466,6 +466,13 @@
 .marketing-pricing__head h2 { max-width: 690px; margin-inline: auto; }
 .marketing-pricing__billing { display: flex; justify-content: center; }
 .marketing-pricing__billing .marketing-billing { margin-top: 20px; }
+.marketing-founder-progress { width: min(520px, 100%); margin: 24px auto 0; display: grid; gap: 9px; }
+.marketing-founder-progress__copy { display: grid; grid-template-columns: 1fr auto auto; align-items: baseline; gap: 14px; color: var(--mk-muted); font-size: 12px; }
+.marketing-founder-progress__copy span { text-align: left; }
+.marketing-founder-progress__copy strong { color: var(--mk-ink); font-size: 14px; }
+.marketing-founder-progress__copy b { min-width: 44px; color: var(--mk-ink); font-family: Consolas, monospace; font-size: 13px; font-variant-numeric: tabular-nums; }
+.marketing-founder-progress__track { height: 8px; overflow: hidden; background: rgba(11,11,9,.1); border-radius: 999px; }
+.marketing-founder-progress__track i { width: 100%; height: 100%; display: block; transform-origin: left; background: var(--mk-lime); border: 1px solid rgba(11,11,9,.18); border-radius: inherit; transition: transform .35s ease; }
 .marketing-pricing-audience { width: min(430px, 100%); margin: 32px auto 0; padding: 5px; display: grid; grid-template-columns: 1fr 1fr; gap: 5px; background: rgba(11,11,9,.08); border: 1px solid var(--mk-line-soft); border-radius: 999px; }
 .marketing-pricing-audience button { min-height: 44px; padding: 9px 16px; border: 0; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: transparent; color: var(--mk-muted); font-weight: 800; cursor: pointer; transition: background .25s, color .25s, transform .2s; }
 .marketing-pricing-audience button:hover { color: var(--mk-ink); }
@@ -1558,6 +1565,10 @@
 }
 
 @media (max-width: 700px) {
+  .marketing-founder-progress { margin-top: 18px; }
+  .marketing-founder-progress__copy { grid-template-columns: 1fr auto; gap: 6px 10px; }
+  .marketing-founder-progress__copy b { grid-column: 2; grid-row: 1; }
+  .marketing-founder-progress__copy strong { grid-column: 1 / -1; }
   .marketing-modal-backdrop { padding: 0; }
   .marketing-tour-modal {
     width: 100%;

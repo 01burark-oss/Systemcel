@@ -202,7 +202,7 @@ namespace CashTracker.Tests.Support
             return Task.CompletedTask;
         }
 
-        public Task UpdateSetupAsync(int id, string ad, string isletmeTuru, string konum, bool tamamlandi, string? hesapTipi = null, bool? muhasebeciVarMi = null, MuhasebeciProfilKaydetRequest? muhasebeciProfil = null)
+        public Task UpdateSetupAsync(int id, string ad, string isletmeTuru, string konum, bool tamamlandi, string? hesapTipi = null, bool? muhasebeciVarMi = null, MuhasebeciProfilKaydetRequest? muhasebeciProfil = null, string? vergiMukellefiTipi = null, string? isletmeOlcegi = null, string? tercihEdilenCalismaSekli = null)
         {
             if (id == Active.Id)
             {

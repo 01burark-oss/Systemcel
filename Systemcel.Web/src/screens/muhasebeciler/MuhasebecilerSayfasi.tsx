@@ -38,11 +38,16 @@ interface MuhasebeciProfil {
   ucretBilgisi: string;
   uzmanliklar: string;
   musteriTipleri: string;
+  sektorDeneyimleri: string;
+  vergiMukellefiTipleri: string;
+  uygunIsletmeOlcekleri: string;
+  calismaSekilleri: string;
   kisaAciklama: string;
   planAdi: string;
   pro: boolean;
   talepVar: boolean;
   bagli: boolean;
+  eslesmeNedenleri: string[];
 }
 
 interface MuhasebeciPazaryeri {
@@ -65,7 +70,7 @@ interface MuhasebecilerSayfasiProps {
   onUstBarYenile?: () => unknown | Promise<unknown>;
 }
 
-type MobilFiltre = "konum" | "uzmanlik" | "musteriTipi";
+type MobilFiltre = "konum" | "uzmanlik" | "musteriTipi" | "eslesme";
 
 function AccountantAvatar({ src, name }: { src: string; name: string }) {
   const [imageFailed, setImageFailed] = React.useState(false);
@@ -121,7 +126,11 @@ export function MuhasebecilerSayfasi({ mobileMode = false, publicMode = false, u
   const [ilceFiltresi, setIlceFiltresi] = React.useState("");
   const [uzmanlikFiltresi, setUzmanlikFiltresi] = React.useState("");
   const [musteriTipiFiltresi, setMusteriTipiFiltresi] = React.useState("");
-  const [siralama, setSiralama] = React.useState("onerilen");
+  const [sektorFiltresi, setSektorFiltresi] = React.useState("");
+  const [vergiMukellefiFiltresi, setVergiMukellefiFiltresi] = React.useState("");
+  const [isletmeOlcegiFiltresi, setIsletmeOlcegiFiltresi] = React.useState("");
+  const [calismaSekliFiltresi, setCalismaSekliFiltresi] = React.useState("");
+  const [siralama, setSiralama] = React.useState("uygun");
   const [aktifMobilFiltre, setAktifMobilFiltre] = React.useState<MobilFiltre | null>(null);
   const urlHedefMuhasebeciId = React.useMemo(() => {
     const params = new URLSearchParams(window.location.search);
@@ -298,12 +307,20 @@ export function MuhasebecilerSayfasi({ mobileMode = false, publicMode = false, u
   }, [profilKonumlari, sehirFiltresi]);
   const uzmanlikSecenekleri = React.useMemo(() => uniqueValues(profiller.flatMap((profil) => splitFilterValues(profil.uzmanliklar))), [profiller]);
   const musteriTipiSecenekleri = React.useMemo(() => uniqueValues(profiller.flatMap((profil) => splitFilterValues(profil.musteriTipleri))), [profiller]);
+  const sektorSecenekleri = React.useMemo(() => uniqueValues(profiller.flatMap((profil) => splitFilterValues(profil.sektorDeneyimleri))), [profiller]);
+  const vergiMukellefiSecenekleri = React.useMemo(() => uniqueValues(profiller.flatMap((profil) => splitFilterValues(profil.vergiMukellefiTipleri))), [profiller]);
+  const isletmeOlcegiSecenekleri = React.useMemo(() => uniqueValues(profiller.flatMap((profil) => splitFilterValues(profil.uygunIsletmeOlcekleri))), [profiller]);
+  const calismaSekliSecenekleri = React.useMemo(() => uniqueValues(profiller.flatMap((profil) => splitFilterValues(profil.calismaSekilleri))), [profiller]);
   const gorunenProfiller = React.useMemo(() => {
     const filtered = profiller.filter((profil) => {
       return filterMatches(profil.konum, sehirFiltresi) &&
         filterMatches(profil.konum, ilceFiltresi) &&
         filterMatches(profil.uzmanliklar, uzmanlikFiltresi) &&
-        filterMatches(profil.musteriTipleri, musteriTipiFiltresi);
+        filterMatches(profil.musteriTipleri, musteriTipiFiltresi) &&
+        supportedValueMatches(profil.sektorDeneyimleri, sektorFiltresi) &&
+        supportedValueMatches(profil.vergiMukellefiTipleri, vergiMukellefiFiltresi) &&
+        supportedValueMatches(profil.uygunIsletmeOlcekleri, isletmeOlcegiFiltresi) &&
+        supportedValueMatches(profil.calismaSekilleri, calismaSekliFiltresi);
     });
 
     return [...filtered].sort((a, b) => {
@@ -313,10 +330,13 @@ export function MuhasebecilerSayfasi({ mobileMode = false, publicMode = false, u
       if (siralama === "ucret")
         return parsePrice(a.ucretBilgisi) - parsePrice(b.ucretBilgisi) || a.unvan.localeCompare(b.unvan, "tr");
 
+      if (siralama === "uygun")
+        return b.eslesmeNedenleri.length - a.eslesmeNedenleri.length || Number(b.pro) - Number(a.pro) || a.unvan.localeCompare(b.unvan, "tr");
+
       return Number(b.pro) - Number(a.pro) || a.unvan.localeCompare(b.unvan, "tr");
     });
-  }, [ilceFiltresi, musteriTipiFiltresi, profiller, sehirFiltresi, siralama, uzmanlikFiltresi]);
-  const filtreVar = Boolean(sehirFiltresi || ilceFiltresi || uzmanlikFiltresi || musteriTipiFiltresi || aktifArama);
+  }, [calismaSekliFiltresi, ilceFiltresi, isletmeOlcegiFiltresi, musteriTipiFiltresi, profiller, sehirFiltresi, sektorFiltresi, siralama, uzmanlikFiltresi, vergiMukellefiFiltresi]);
+  const filtreVar = Boolean(sehirFiltresi || ilceFiltresi || uzmanlikFiltresi || musteriTipiFiltresi || sektorFiltresi || vergiMukellefiFiltresi || isletmeOlcegiFiltresi || calismaSekliFiltresi || aktifArama);
 
   function filtreleriSifirla() {
     setArama("");
@@ -325,6 +345,10 @@ export function MuhasebecilerSayfasi({ mobileMode = false, publicMode = false, u
     setIlceFiltresi("");
     setUzmanlikFiltresi("");
     setMusteriTipiFiltresi("");
+    setSektorFiltresi("");
+    setVergiMukellefiFiltresi("");
+    setIsletmeOlcegiFiltresi("");
+    setCalismaSekliFiltresi("");
   }
 
   function sehirDegistir(value: string) {
@@ -406,6 +430,7 @@ export function MuhasebecilerSayfasi({ mobileMode = false, publicMode = false, u
             <MobileFilterTab active={aktifMobilFiltre === "konum"} icon={<MapPin size={18} />} label="Konum" onClick={() => setAktifMobilFiltre(aktifMobilFiltre === "konum" ? null : "konum")} />
             <MobileFilterTab active={aktifMobilFiltre === "uzmanlik"} icon={<BriefcaseBusiness size={18} />} label="Uzmanlık" onClick={() => setAktifMobilFiltre(aktifMobilFiltre === "uzmanlik" ? null : "uzmanlik")} />
             <MobileFilterTab active={aktifMobilFiltre === "musteriTipi"} icon={<UsersRound size={18} />} label="Müşteri tipi" onClick={() => setAktifMobilFiltre(aktifMobilFiltre === "musteriTipi" ? null : "musteriTipi")} />
+            <MobileFilterTab active={aktifMobilFiltre === "eslesme"} icon={<ShieldCheck size={18} />} label="Uyum" onClick={() => setAktifMobilFiltre(aktifMobilFiltre === "eslesme" ? null : "eslesme")} />
           </div>
           {aktifMobilFiltre ? (
             <div className="accountant-mobile-filter-detail">
@@ -417,6 +442,12 @@ export function MuhasebecilerSayfasi({ mobileMode = false, publicMode = false, u
               ) : null}
               {aktifMobilFiltre === "uzmanlik" ? <FilterField label="Uzmanlık alanı" value={uzmanlikFiltresi} onChange={setUzmanlikFiltresi} options={uzmanlikSecenekleri} placeholder="Tüm uzmanlıklar" /> : null}
               {aktifMobilFiltre === "musteriTipi" ? <FilterField label="Müşteri tipi" value={musteriTipiFiltresi} onChange={setMusteriTipiFiltresi} options={musteriTipiSecenekleri} placeholder="Tüm müşteri tipleri" /> : null}
+              {aktifMobilFiltre === "eslesme" ? <>
+                <FilterField label="Sektör deneyimi" value={sektorFiltresi} onChange={setSektorFiltresi} options={sektorSecenekleri} placeholder="Tüm sektörler" />
+                <FilterField label="Mükellef tipi" value={vergiMukellefiFiltresi} onChange={setVergiMukellefiFiltresi} options={vergiMukellefiSecenekleri} placeholder="Tüm tipler" />
+                <FilterField label="İş yükü" value={isletmeOlcegiFiltresi} onChange={setIsletmeOlcegiFiltresi} options={isletmeOlcegiSecenekleri} placeholder="Tüm ölçekler" />
+                <FilterField label="Çalışma biçimi" value={calismaSekliFiltresi} onChange={setCalismaSekliFiltresi} options={calismaSekliSecenekleri} placeholder="Tüm biçimler" />
+              </> : null}
               <button type="button" className="accountant-filter-clear" onClick={filtreleriSifirla} disabled={!filtreVar}>
                 <RotateCcw size={16} />
                 <span>Filtreleri sıfırla</span>
@@ -446,6 +477,10 @@ export function MuhasebecilerSayfasi({ mobileMode = false, publicMode = false, u
           <FilterField label="İlçe" value={ilceFiltresi} onChange={setIlceFiltresi} options={ilceSecenekleri} placeholder={sehirFiltresi ? "İlçe seçin" : "Önce şehir seçin"} />
           <FilterField label="Uzmanlık alanı" value={uzmanlikFiltresi} onChange={setUzmanlikFiltresi} options={uzmanlikSecenekleri} placeholder="Uzmanlık seçin" />
           <FilterField label="Müşteri tipi" value={musteriTipiFiltresi} onChange={setMusteriTipiFiltresi} options={musteriTipiSecenekleri} placeholder="Müşteri tipi seçin" />
+          <FilterField label="Sektör deneyimi" value={sektorFiltresi} onChange={setSektorFiltresi} options={sektorSecenekleri} placeholder="Sektör seçin" />
+          <FilterField label="Mükellef tipi" value={vergiMukellefiFiltresi} onChange={setVergiMukellefiFiltresi} options={vergiMukellefiSecenekleri} placeholder="Mükellef tipi seçin" />
+          <FilterField label="İş yükü" value={isletmeOlcegiFiltresi} onChange={setIsletmeOlcegiFiltresi} options={isletmeOlcegiSecenekleri} placeholder="İş yükü seçin" />
+          <FilterField label="Çalışma biçimi" value={calismaSekliFiltresi} onChange={setCalismaSekliFiltresi} options={calismaSekliSecenekleri} placeholder="Çalışma biçimi seçin" />
           <button type="button" className="accountant-filter-clear" onClick={filtreleriSifirla} disabled={!filtreVar}>
             <RotateCcw size={16} />
             <span>Filtreleri sıfırla</span>
@@ -463,6 +498,7 @@ export function MuhasebecilerSayfasi({ mobileMode = false, publicMode = false, u
               <label>
                 <span>Sıralama:</span>
                 <select value={siralama} onChange={(event) => setSiralama(event.target.value)}>
+                  <option value="uygun">Sana en uygun</option>
                   <option value="onerilen">Önerilen</option>
                   <option value="deneyim">Deneyim</option>
                   <option value="ucret">Ücret</option>
@@ -510,6 +546,9 @@ export function MuhasebecilerSayfasi({ mobileMode = false, publicMode = false, u
                     </span>
                   </div>
                   <p className="accountant-card__summary">{profil.kisaAciklama}</p>
+                  {profil.eslesmeNedenleri.length > 0 ? <div className="accountant-match-reasons" aria-label="Eşleşme nedenleri">
+                    {profil.eslesmeNedenleri.slice(0, 3).map((neden) => <span key={neden}>{neden}</span>)}
+                  </div> : null}
                   <div className="accountant-card__meta">
                     <span>
                       <Clock3 size={15} />
@@ -874,6 +913,22 @@ function filterMatches(value: string, filter: string) {
     return true;
 
   return normalizeFilterText(value).includes(normalizeFilterText(filter));
+}
+
+function supportedValueMatches(supportedValues: string, filter: string) {
+  if (!filter)
+    return true;
+
+  const normalizedFilter = normalizeFilterText(filter);
+  return splitFilterValues(supportedValues).some((value) => {
+    const normalizedValue = normalizeFilterText(value);
+    return normalizedValue === normalizedFilter ||
+      normalizedValue === "tum" ||
+      normalizedValue === "hepsi" ||
+      normalizedValue === "all" ||
+      normalizedValue.startsWith("tum ") ||
+      normalizedValue.startsWith("hepsi ");
+  });
 }
 
 function normalizeFilterText(value: string) {

@@ -211,7 +211,7 @@ namespace CashTracker.Infrastructure.Services
             await db.SaveChangesAsync();
         }
 
-        public async Task UpdateSetupAsync(int id, string ad, string isletmeTuru, string konum, bool tamamlandi, string? hesapTipi = null, bool? muhasebeciVarMi = null, MuhasebeciProfilKaydetRequest? muhasebeciProfil = null)
+        public async Task UpdateSetupAsync(int id, string ad, string isletmeTuru, string konum, bool tamamlandi, string? hesapTipi = null, bool? muhasebeciVarMi = null, MuhasebeciProfilKaydetRequest? muhasebeciProfil = null, string? vergiMukellefiTipi = null, string? isletmeOlcegi = null, string? tercihEdilenCalismaSekli = null)
         {
             var normalizedName = NormalizeBusinessName(ad);
             var normalizedType = NormalizeSetupText(isletmeTuru, "Genel");
@@ -231,6 +231,9 @@ namespace CashTracker.Infrastructure.Services
             isletme.Ad = normalizedName;
             isletme.IsletmeTuru = normalizedType;
             isletme.Konum = normalizedLocation;
+            isletme.VergiMukellefiTipi = NormalizeSetupText(vergiMukellefiTipi, isletme.VergiMukellefiTipi);
+            isletme.IsletmeOlcegi = NormalizeSetupText(isletmeOlcegi, isletme.IsletmeOlcegi);
+            isletme.TercihEdilenCalismaSekli = NormalizeSetupText(tercihEdilenCalismaSekli, isletme.TercihEdilenCalismaSekli);
             isletme.KolayKurulumTamamlandi = tamamlandi;
             if (muhasebeciVarMi.HasValue)
                 isletme.MuhasebeciVarMi = muhasebeciVarMi.Value;
@@ -296,6 +299,10 @@ namespace CashTracker.Infrastructure.Services
             profile.UcretBilgisi = ucretBilgisi;
             profile.Uzmanliklar = NormalizeSetupText(request?.Uzmanliklar, "Genel muhasebe");
             profile.MusteriTipleri = NormalizeSetupText(request?.MusteriTipleri, "KOBİ ve küçük işletmeler");
+            profile.SektorDeneyimleri = NormalizeSetupText(request?.SektorDeneyimleri, profile.Uzmanliklar);
+            profile.VergiMukellefiTipleri = NormalizeSetupText(request?.VergiMukellefiTipleri, "Tüm mükellef tipleri");
+            profile.UygunIsletmeOlcekleri = NormalizeSetupText(request?.UygunIsletmeOlcekleri, "Küçük, Orta");
+            profile.CalismaSekilleri = NormalizeSetupText(request?.CalismaSekilleri, "Online");
             profile.KisaAciklama = NormalizeSetupText(request?.KisaAciklama, "Gelir, gider, fatura ve dönem takibinde destek olur.");
             profile.UpdatedAt = now;
         }

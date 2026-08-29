@@ -15,6 +15,10 @@ namespace CashTracker.Core.Entities
         public string UcretBilgisi { get; set; } = string.Empty;
         public string Uzmanliklar { get; set; } = string.Empty;
         public string MusteriTipleri { get; set; } = string.Empty;
+        public string SektorDeneyimleri { get; set; } = string.Empty;
+        public string VergiMukellefiTipleri { get; set; } = string.Empty;
+        public string UygunIsletmeOlcekleri { get; set; } = string.Empty;
+        public string CalismaSekilleri { get; set; } = string.Empty;
         public string KisaAciklama { get; set; } = string.Empty;
         public DateTime CreatedAt { get; set; } = DateTime.Now;
         public DateTime UpdatedAt { get; set; } = DateTime.Now;

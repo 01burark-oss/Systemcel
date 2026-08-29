@@ -51,6 +51,7 @@ export interface UrunFormu {
 
 export interface StokHareketFormu {
   miktar: string;
+  birimMaliyet: string;
   tarih: string;
   aciklama: string;
 }

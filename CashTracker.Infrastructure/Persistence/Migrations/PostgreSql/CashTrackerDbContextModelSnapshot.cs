@@ -1192,6 +1192,20 @@ namespace CashTracker.Infrastructure.Persistence.Migrations.PostgreSql
                     b.Property<decimal>("Miktar")
                         .HasColumnType("NUMERIC");
 
+                    b.Property<decimal>("BirimMaliyet")
+                        .HasColumnType("NUMERIC");
+
+                    b.Property<decimal>("BirimMaliyetTry")
+                        .HasColumnType("NUMERIC");
+
+                    b.Property<decimal>("MaliyetKurSnapshot")
+                        .HasColumnType("NUMERIC");
+
+                    b.Property<string>("MaliyetParaBirimi")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)");
+
                     b.Property<decimal>("SatirNetTutar")
                         .HasColumnType("NUMERIC");
 
@@ -1376,10 +1390,18 @@ namespace CashTracker.Infrastructure.Persistence.Migrations.PostgreSql
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("IsletmeOlcegi")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.Property<bool>("KolayKurulumTamamlandi")
                         .HasColumnType("boolean");
 
                     b.Property<string>("Konum")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("TercihEdilenCalismaSekli")
                         .IsRequired()
                         .HasColumnType("text");
 
@@ -1390,6 +1412,10 @@ namespace CashTracker.Infrastructure.Persistence.Migrations.PostgreSql
                         .HasColumnType("integer");
 
                     b.Property<string>("TenantTipi")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("VergiMukellefiTipi")
                         .IsRequired()
                         .HasColumnType("text");
 
@@ -1981,8 +2007,16 @@ namespace CashTracker.Infrastructure.Persistence.Migrations.PostgreSql
                     b.Property<decimal>("AylikHizmetBedeli")
                         .HasColumnType("NUMERIC");
 
+                    b.Property<string>("CalismaSekli")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("IsletmeOlcegi")
+                        .IsRequired()
+                        .HasColumnType("text");
 
                     b.Property<string>("Durum")
                         .IsRequired()
@@ -2146,10 +2180,18 @@ namespace CashTracker.Infrastructure.Persistence.Migrations.PostgreSql
                     b.Property<DateTime?>("SonucAt")
                         .HasColumnType("timestamp without time zone");
 
+                    b.Property<string>("Sektor")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.Property<int>("TalepEdenIsletmeId")
                         .HasColumnType("integer");
 
                     b.Property<string>("Tur")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("VergiMukellefiTipi")
                         .IsRequired()
                         .HasColumnType("text");
 
@@ -2191,6 +2233,10 @@ namespace CashTracker.Infrastructure.Persistence.Migrations.PostgreSql
                     b.Property<int>("DeneyimYili")
                         .HasColumnType("integer");
 
+                    b.Property<string>("CalismaSekilleri")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.Property<string>("KisaAciklama")
                         .IsRequired()
                         .HasColumnType("text");
@@ -2203,6 +2249,10 @@ namespace CashTracker.Infrastructure.Persistence.Migrations.PostgreSql
                         .HasColumnType("integer");
 
                     b.Property<string>("MusteriTipleri")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("SektorDeneyimleri")
                         .IsRequired()
                         .HasColumnType("text");
 
@@ -2222,10 +2272,18 @@ namespace CashTracker.Infrastructure.Persistence.Migrations.PostgreSql
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("UygunIsletmeOlcekleri")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamp without time zone");
 
                     b.Property<string>("Uzmanliklar")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("VergiMukellefiTipleri")
                         .IsRequired()
                         .HasColumnType("text");
 

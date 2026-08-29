@@ -30,6 +30,10 @@ interface ProfilFormu {
   ucretBilgisi: string;
   uzmanliklar: string;
   musteriTipleri: string;
+  sektorDeneyimleri: string;
+  vergiMukellefiTipleri: string;
+  uygunIsletmeOlcekleri: string;
+  calismaSekilleri: string;
   kisaAciklama: string;
 }
 
@@ -47,6 +51,10 @@ const bosProfil: ProfilFormu = {
   ucretBilgisi: "",
   uzmanliklar: "",
   musteriTipleri: "",
+  sektorDeneyimleri: "",
+  vergiMukellefiTipleri: "Tüm mükellef tipleri",
+  uygunIsletmeOlcekleri: "Küçük, Orta",
+  calismaSekilleri: "Online",
   kisaAciklama: ""
 };
 
@@ -338,6 +346,10 @@ export function MuhasebeciPanelSayfasi({ onUstBarYenile }: MuhasebeciPanelSayfas
               <span>Müşteri tipi</span>
               <input value={profilFormu.musteriTipleri} onChange={(event) => setProfilFormu((current) => ({ ...current, musteriTipleri: event.target.value }))} />
             </label>
+            <label><span>Sektör deneyimi</span><input value={profilFormu.sektorDeneyimleri} onChange={(event) => setProfilFormu((current) => ({ ...current, sektorDeneyimleri: event.target.value }))} placeholder="Örn. Kafe, Perakende" /></label>
+            <label><span>Çalıştığınız mükellef tipleri</span><input value={profilFormu.vergiMukellefiTipleri} onChange={(event) => setProfilFormu((current) => ({ ...current, vergiMukellefiTipleri: event.target.value }))} placeholder="Şahıs, Sermaye şirketi" /></label>
+            <label><span>Uygun iş yükü</span><input value={profilFormu.uygunIsletmeOlcekleri} onChange={(event) => setProfilFormu((current) => ({ ...current, uygunIsletmeOlcekleri: event.target.value }))} placeholder="Küçük, Orta" /></label>
+            <label><span>Çalışma biçimi</span><input value={profilFormu.calismaSekilleri} onChange={(event) => setProfilFormu((current) => ({ ...current, calismaSekilleri: event.target.value }))} placeholder="Online, Hibrit" /></label>
             <label className="accountant-form-grid__wide">
               <span>Kısa açıklama</span>
               <textarea value={profilFormu.kisaAciklama} onChange={(event) => setProfilFormu((current) => ({ ...current, kisaAciklama: event.target.value }))} rows={4} />
@@ -462,6 +474,10 @@ function profilFormuOlustur(panel: MuhasebeciPanel): ProfilFormu {
     ucretBilgisi: panel.profil?.ucretBilgisi || "",
     uzmanliklar: panel.profil?.uzmanliklar || "",
     musteriTipleri: panel.profil?.musteriTipleri || "",
+    sektorDeneyimleri: panel.profil?.sektorDeneyimleri || "",
+    vergiMukellefiTipleri: panel.profil?.vergiMukellefiTipleri || "Tüm mükellef tipleri",
+    uygunIsletmeOlcekleri: panel.profil?.uygunIsletmeOlcekleri || "Küçük, Orta",
+    calismaSekilleri: panel.profil?.calismaSekilleri || "Online",
     kisaAciklama: panel.profil?.kisaAciklama || ""
   };
 }

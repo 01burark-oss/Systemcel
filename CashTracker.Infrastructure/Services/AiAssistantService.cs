@@ -25,6 +25,7 @@ namespace CashTracker.Infrastructure.Services
         private readonly IStokService _stokService;
         private readonly IFaturaService _faturaService;
         private readonly IFinansalGorunumService _finansalGorunumService;
+        private readonly IBrutKarMarjiService? _brutKarMarjiService;
         private readonly IAiUsageQuotaService _usageQuotaService;
 
         public AiAssistantService(
@@ -38,7 +39,8 @@ namespace CashTracker.Infrastructure.Services
             IStokService stokService,
             IFaturaService faturaService,
             IFinansalGorunumService finansalGorunumService,
-            IAiUsageQuotaService usageQuotaService)
+            IAiUsageQuotaService usageQuotaService,
+            IBrutKarMarjiService? brutKarMarjiService = null)
         {
             _settings = settings;
             _deepSeek = deepSeek;
@@ -50,6 +52,7 @@ namespace CashTracker.Infrastructure.Services
             _stokService = stokService;
             _faturaService = faturaService;
             _finansalGorunumService = finansalGorunumService;
+            _brutKarMarjiService = brutKarMarjiService;
             _usageQuotaService = usageQuotaService;
         }
 
@@ -257,6 +260,9 @@ namespace CashTracker.Infrastructure.Services
             var cariCards = await _cariService.GetAllAsync(ct);
             var products = await _urunHizmetService.GetAllAsync(ct);
             var financialView = await _finansalGorunumService.GetAsync(today, 13, ct);
+            var grossMargin = _brutKarMarjiService is null
+                ? null
+                : await _brutKarMarjiService.GetAsync(currentFrom, today, ct);
 
             var activeProducts = products
                 .Where(x => x.Aktif && string.Equals(x.Tip, "Urun", StringComparison.OrdinalIgnoreCase))
@@ -312,6 +318,7 @@ namespace CashTracker.Infrastructure.Services
                     .Take(5)
                     .ToList(),
                 FinancialView = financialView,
+                GrossMargin = grossMargin,
                 CariCount = cariCards.Count,
                 ProductCount = products.Count(x => x.Aktif),
                 StockWarnings = stockWarnings
@@ -519,6 +526,10 @@ namespace CashTracker.Infrastructure.Services
             }
 
             AppendFinancialView(sb, context.FinancialView);
+            if (context.GrossMargin?.Guvenilir == true)
+            {
+                sb.AppendLine($"Son 30 gün brüt kâr: {FormatMoney(context.GrossMargin.BrutKarTry)}, marj %{context.GrossMargin.BrutKarOrani?.ToString("N1", TrCulture) ?? "—"}; KDV hariç hareketli ortalama stok maliyetiyle hesaplandı.");
+            }
 
             sb.AppendLine($"Cari kart: {context.CariCount}, aktif ürün/hizmet: {context.ProductCount}");
             if (context.StockWarnings.Count > 0)
@@ -730,6 +741,7 @@ namespace CashTracker.Infrastructure.Services
             public decimal OutstandingInvoiceTotal { get; set; }
             public List<Fatura> OverdueInvoices { get; set; } = [];
             public FinansalGorunum FinancialView { get; set; } = new();
+            public BrutKarMarjiOzeti? GrossMargin { get; set; }
             public int CariCount { get; set; }
             public int ProductCount { get; set; }
             public List<StockWarning> StockWarnings { get; set; } = [];

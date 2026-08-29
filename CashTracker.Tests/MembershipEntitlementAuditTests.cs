@@ -251,7 +251,7 @@ public sealed class MembershipEntitlementAuditTests
         public Task<Isletme?> GetByIdAsync(int id) => throw new NotSupportedException();
         public Task<int> CreateAsync(string ad, bool makeActive = false) => throw new NotSupportedException();
         public Task RenameAsync(int id, string ad) => throw new NotSupportedException();
-        public Task UpdateSetupAsync(int id, string ad, string isletmeTuru, string konum, bool tamamlandi, string? hesapTipi = null, bool? muhasebeciVarMi = null, MuhasebeciProfilKaydetRequest? muhasebeciProfil = null) => throw new NotSupportedException();
+        public Task UpdateSetupAsync(int id, string ad, string isletmeTuru, string konum, bool tamamlandi, string? hesapTipi = null, bool? muhasebeciVarMi = null, MuhasebeciProfilKaydetRequest? muhasebeciProfil = null, string? vergiMukellefiTipi = null, string? isletmeOlcegi = null, string? tercihEdilenCalismaSekli = null) => throw new NotSupportedException();
         public Task SetActiveAsync(int id) => throw new NotSupportedException();
         public Task SetActiveCustomerContextAsync(int musteriIsletmeId) => throw new NotSupportedException();
         public Task ClearActiveCustomerContextAsync() => throw new NotSupportedException();

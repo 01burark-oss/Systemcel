@@ -76,6 +76,19 @@ export interface DashboardEkran {
   giderDegisim: Karsilastirma;
   odemeDagilimi: OdemeDagilim[];
   netTrend: NetTrendNokta[];
+  brutKarMarji: BrutKarMarji;
   sohbet?: SohbetBildirimDurumu;
   belgeSagligi?: BelgeSaglikOzeti | null;
+}
+
+export interface BrutKarMarji {
+  durum: "Hazir" | "EksikMaliyet" | "VeriYok";
+  guvenilir: boolean;
+  satisGeliri: number;
+  satisMaliyeti: number;
+  brutKar: number;
+  brutKarOrani: number | null;
+  satisSatiri: number;
+  eksikMaliyetliSatisSatiri: number;
+  aciklama: string;
 }

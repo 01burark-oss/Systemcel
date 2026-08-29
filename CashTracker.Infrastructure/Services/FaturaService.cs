@@ -275,6 +275,11 @@ namespace CashTracker.Infrastructure.Services
 
             foreach (var line in satirlar.Where(x => x.StokEtkilesin && x.UrunHizmetId.HasValue))
             {
+                var isPurchase = fatura.FaturaTipi == "Alis";
+                var unitCost = isPurchase && line.Miktar > 0m
+                    ? decimal.Round(line.SatirNetTutar / line.Miktar, 2, MidpointRounding.AwayFromZero)
+                    : 0m;
+                var exchangeRate = fatura.KurSnapshot <= 0m ? 1m : fatura.KurSnapshot;
                 db.StokHareketleri.Add(new StokHareket
                 {
                     IsletmeId = activeIsletmeId,
@@ -282,6 +287,12 @@ namespace CashTracker.Infrastructure.Services
                     UrunHizmetId = line.UrunHizmetId!.Value,
                     Tarih = fatura.Tarih,
                     Miktar = fatura.FaturaTipi == "Satis" ? -line.Miktar : line.Miktar,
+                    BirimMaliyet = unitCost,
+                    MaliyetParaBirimi = fatura.ParaBirimi,
+                    MaliyetKurSnapshot = exchangeRate,
+                    BirimMaliyetTry = isPurchase
+                        ? decimal.Round(unitCost * exchangeRate, 2, MidpointRounding.AwayFromZero)
+                        : 0m,
                     HareketTipi = fatura.FaturaTipi == "Satis" ? "Cikis" : "Giris",
                     Kaynak = "Fatura",
                     Aciklama = $"Fatura stok | {fatura.YerelFaturaNo}"

@@ -73,14 +73,17 @@ namespace CashTracker.Infrastructure.Services
 
             var activeIsletmeId = await _isletmeService.GetActiveIdAsync();
             await using var db = await _dbFactory.CreateDbContextAsync(ct);
-            var productExists = await db.UrunHizmetleri.AnyAsync(x =>
+            var product = await db.UrunHizmetleri.SingleOrDefaultAsync(x =>
                 x.Id == request.UrunHizmetId &&
                 x.IsletmeId == activeIsletmeId &&
                 x.Aktif,
                 ct);
 
-            if (!productExists)
+            if (product is null)
                 throw new InvalidOperationException("Urun aktif isletmede bulunamadi.");
+
+            if (request.Miktar < 0 && request.BirimMaliyet.HasValue)
+                throw new ArgumentException("Stok çıkışında birim maliyet girilmez.", nameof(request));
 
             var activeBranch = _subeKurService is null ? null : (await _subeKurService.GetContextAsync(ct)).AktifSube;
             var warehouseId = await ResolveWarehouseIdAsync(db, activeIsletmeId, activeBranch, ct);
@@ -92,6 +95,10 @@ namespace CashTracker.Infrastructure.Services
                 DepoId = warehouseId,
                 Tarih = request.Tarih ?? DateTime.Now,
                 Miktar = request.Miktar,
+                BirimMaliyet = request.BirimMaliyet ?? 0m,
+                MaliyetParaBirimi = string.IsNullOrWhiteSpace(product.ParaBirimi) ? "TRY" : product.ParaBirimi.Trim().ToUpperInvariant(),
+                MaliyetKurSnapshot = product.KurSnapshot <= 0m ? 1m : product.KurSnapshot,
+                BirimMaliyetTry = decimal.Round((request.BirimMaliyet ?? 0m) * (product.KurSnapshot <= 0m ? 1m : product.KurSnapshot), 2, MidpointRounding.AwayFromZero),
                 HareketTipi = request.Miktar > 0 ? "Giris" : "Cikis",
                 Kaynak = string.IsNullOrWhiteSpace(request.Kaynak) ? "Manuel" : request.Kaynak.Trim(),
                 Aciklama = string.IsNullOrWhiteSpace(request.Aciklama) ? null : request.Aciklama.Trim(),

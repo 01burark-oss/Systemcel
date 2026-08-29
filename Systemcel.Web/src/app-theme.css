@@ -10423,6 +10423,22 @@
 .settings-import-steps span { display:flex; align-items:center; gap:7px; color:var(--sc-muted,#6d6b62); font-size:12px; font-weight:700; }
 .settings-import-steps strong { display:grid; flex:0 0 24px; width:24px; height:24px; place-items:center; border-radius:50%; color:var(--sc-ink,#171812); background:color-mix(in srgb,var(--sc-lime,#c8ff00),transparent 20%); }
 .settings-import-form { display:grid; gap:10px; }
+.settings-migration-steps { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
+.settings-migration-steps span { display:flex; align-items:center; gap:7px; color:var(--sc-muted,#6d6b62); font-size:12px; font-weight:700; }
+.settings-migration-steps strong { display:grid; flex:0 0 24px; width:24px; height:24px; place-items:center; border-radius:50%; color:var(--sc-ink,#171812); background:color-mix(in srgb,var(--sc-lime,#c8ff00),transparent 20%); }
+.settings-migration-form { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:end; gap:10px; }
+.settings-migration-form label { display:grid; gap:6px; min-width:0; }
+.settings-migration-form label > span { color:var(--sc-muted,#6d6b62); font-size:12px; font-weight:750; }
+.settings-migration-form select { width:100%; min-height:42px; border:1px solid var(--sc-line,#dddcd2); border-radius:10px; padding:0 11px; color:var(--sc-ink,#171812); background:var(--sc-surface,#fffef9); }
+.settings-migration-preview { display:grid; gap:10px; padding-top:2px; }
+.settings-migration-summary { display:flex; flex-wrap:wrap; gap:10px; color:var(--sc-muted,#6d6b62); font-size:13px; }
+.settings-migration-summary strong { color:var(--sc-ink,#171812); }
+.settings-migration-summary .error { color:#8c2520; font-weight:700; }
+.settings-migration-table-wrap { overflow:auto; border:1px solid var(--sc-line,#dddcd2); border-radius:10px; }
+.settings-migration-table-wrap table { width:100%; min-width:420px; border-collapse:collapse; font-size:12px; }
+.settings-migration-table-wrap th,.settings-migration-table-wrap td { max-width:180px; padding:8px 10px; overflow:hidden; text-align:left; text-overflow:ellipsis; white-space:nowrap; border-bottom:1px solid var(--sc-line,#eee9dc); }
+.settings-migration-table-wrap th { color:var(--sc-muted,#6d6b62); font-size:11px; text-transform:uppercase; }
+.settings-migration-errors { max-height:160px; overflow:auto; margin:0; padding-left:18px; color:#8c2520; font-size:12px; }
 .settings-transfer-code { display:grid; gap:3px; padding:12px; border-radius:11px; background:color-mix(in srgb,var(--sc-surface,#fffef9),var(--sc-ink,#171812) 4%); }
 .settings-transfer-code > span,.settings-transfer-code > small { color:var(--sc-muted,#6d6b62); }
 .settings-transfer-code > strong { font-size:clamp(18px,3vw,25px); letter-spacing:.08em; overflow-wrap:anywhere; }
@@ -10441,6 +10457,8 @@
   .settings-operation-form .settings-btn,.settings-accept-invite .settings-btn,.settings-team-row select { width:100%; }
   .settings-team-row__actions { justify-content:flex-start; }
   .settings-import-steps { grid-template-columns:1fr; }
+  .settings-migration-steps { grid-template-columns:1fr; }
+  .settings-migration-form { grid-template-columns:1fr; }
 }
 
 .gib-log-card { width:min(100%,1320px); margin:16px auto 0; }

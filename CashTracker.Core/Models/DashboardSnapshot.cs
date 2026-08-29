@@ -11,5 +11,6 @@ namespace CashTracker.Core.Models
         public PeriodSummary MonthlySummary { get; set; } = new();
         public PeriodSummary YearlySummary { get; set; } = new();
         public List<DailyPaymentMethodBreakdown> DailyPaymentMethodBreakdowns { get; set; } = new();
+        public BrutKarMarjiOzeti GrossMargin { get; set; } = new();
     }
 }

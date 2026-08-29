@@ -37,6 +37,9 @@ CREATE TABLE IF NOT EXISTS Isletme (
     Id INTEGER PRIMARY KEY AUTOINCREMENT,
     Ad TEXT NOT NULL,
     IsletmeTuru TEXT NOT NULL DEFAULT 'Genel',
+    VergiMukellefiTipi TEXT NOT NULL DEFAULT '',
+    IsletmeOlcegi TEXT NOT NULL DEFAULT '',
+    TercihEdilenCalismaSekli TEXT NOT NULL DEFAULT '',
     Konum TEXT NOT NULL DEFAULT '',
     KolayKurulumTamamlandi INTEGER NOT NULL DEFAULT 0,
     MuhasebeciVarMi INTEGER NOT NULL DEFAULT 0,
@@ -148,6 +151,10 @@ CREATE TABLE IF NOT EXISTS StokHareket (
     Tarih TEXT NOT NULL,
     Miktar NUMERIC NOT NULL DEFAULT 0,
     RezerveMiktar NUMERIC NOT NULL DEFAULT 0,
+    BirimMaliyet NUMERIC NOT NULL DEFAULT 0,
+    MaliyetParaBirimi TEXT NOT NULL DEFAULT 'TRY',
+    MaliyetKurSnapshot NUMERIC NOT NULL DEFAULT 1,
+    BirimMaliyetTry NUMERIC NOT NULL DEFAULT 0,
     HareketTipi TEXT NOT NULL,
     Kaynak TEXT NOT NULL DEFAULT 'Manuel',
     Aciklama TEXT,
@@ -285,6 +292,14 @@ CREATE INDEX IF NOT EXISTS IX_StokDefterIslemi_TersKayitKaynakIslemId ON StokDef
                 db.Database.ExecuteSqlRaw("ALTER TABLE StokHareket ADD COLUMN StokDefterIslemiId INTEGER;");
             if (!ColumnExists(conn, "StokHareket", "RezerveMiktar"))
                 db.Database.ExecuteSqlRaw("ALTER TABLE StokHareket ADD COLUMN RezerveMiktar NUMERIC NOT NULL DEFAULT 0;");
+            if (!ColumnExists(conn, "StokHareket", "BirimMaliyet"))
+                db.Database.ExecuteSqlRaw("ALTER TABLE StokHareket ADD COLUMN BirimMaliyet NUMERIC NOT NULL DEFAULT 0;");
+            if (!ColumnExists(conn, "StokHareket", "MaliyetParaBirimi"))
+                db.Database.ExecuteSqlRaw("ALTER TABLE StokHareket ADD COLUMN MaliyetParaBirimi TEXT NOT NULL DEFAULT 'TRY';");
+            if (!ColumnExists(conn, "StokHareket", "MaliyetKurSnapshot"))
+                db.Database.ExecuteSqlRaw("ALTER TABLE StokHareket ADD COLUMN MaliyetKurSnapshot NUMERIC NOT NULL DEFAULT 1;");
+            if (!ColumnExists(conn, "StokHareket", "BirimMaliyetTry"))
+                db.Database.ExecuteSqlRaw("ALTER TABLE StokHareket ADD COLUMN BirimMaliyetTry NUMERIC NOT NULL DEFAULT 0;");
 
             db.Database.ExecuteSqlRaw(@"
 CREATE INDEX IF NOT EXISTS IX_StokHareket_IsletmeId_DepoId_UrunHizmetId ON StokHareket(IsletmeId, DepoId, UrunHizmetId);
@@ -517,6 +532,10 @@ CREATE TABLE IF NOT EXISTS MuhasebeciProfil (
     UcretBilgisi TEXT NOT NULL DEFAULT '',
     Uzmanliklar TEXT NOT NULL DEFAULT '',
     MusteriTipleri TEXT NOT NULL DEFAULT '',
+    SektorDeneyimleri TEXT NOT NULL DEFAULT 'Tüm',
+    VergiMukellefiTipleri TEXT NOT NULL DEFAULT 'Tüm',
+    UygunIsletmeOlcekleri TEXT NOT NULL DEFAULT 'Küçük, Orta',
+    CalismaSekilleri TEXT NOT NULL DEFAULT 'Tüm',
     KisaAciklama TEXT NOT NULL DEFAULT '',
     CreatedAt TEXT NOT NULL,
     UpdatedAt TEXT NOT NULL
@@ -534,6 +553,10 @@ CREATE TABLE IF NOT EXISTS MuhasebeciMusteriTalebi (
     DavetKodu TEXT NOT NULL DEFAULT '',
     Mesaj TEXT NOT NULL DEFAULT '',
     AylikHizmetBedeli NUMERIC NOT NULL DEFAULT 0,
+    Sektor TEXT NOT NULL DEFAULT '',
+    VergiMukellefiTipi TEXT NOT NULL DEFAULT '',
+    IsletmeOlcegi TEXT NOT NULL DEFAULT '',
+    CalismaSekli TEXT NOT NULL DEFAULT '',
     SonucAt TEXT,
     CreatedAt TEXT NOT NULL,
     UpdatedAt TEXT NOT NULL
@@ -1002,6 +1025,15 @@ CREATE TABLE IF NOT EXISTS AiKullanimDonemi (
             if (!ColumnExists(conn, "Isletme", "IsletmeTuru"))
                 db.Database.ExecuteSqlRaw("ALTER TABLE Isletme ADD COLUMN IsletmeTuru TEXT NOT NULL DEFAULT 'Genel'");
 
+            if (!ColumnExists(conn, "Isletme", "VergiMukellefiTipi"))
+                db.Database.ExecuteSqlRaw("ALTER TABLE Isletme ADD COLUMN VergiMukellefiTipi TEXT NOT NULL DEFAULT ''");
+
+            if (!ColumnExists(conn, "Isletme", "IsletmeOlcegi"))
+                db.Database.ExecuteSqlRaw("ALTER TABLE Isletme ADD COLUMN IsletmeOlcegi TEXT NOT NULL DEFAULT ''");
+
+            if (!ColumnExists(conn, "Isletme", "TercihEdilenCalismaSekli"))
+                db.Database.ExecuteSqlRaw("ALTER TABLE Isletme ADD COLUMN TercihEdilenCalismaSekli TEXT NOT NULL DEFAULT ''");
+
             if (!ColumnExists(conn, "Isletme", "Konum"))
                 db.Database.ExecuteSqlRaw("ALTER TABLE Isletme ADD COLUMN Konum TEXT NOT NULL DEFAULT ''");
 
@@ -1149,6 +1181,14 @@ WHERE UpdatedAt = '1970-01-01 00:00:00' OR TRIM(UpdatedAt) = '';");
 
             if (!ColumnExists(conn, "MuhasebeciMusteriTalebi", "AylikHizmetBedeli"))
                 db.Database.ExecuteSqlRaw("ALTER TABLE MuhasebeciMusteriTalebi ADD COLUMN AylikHizmetBedeli NUMERIC NOT NULL DEFAULT 0");
+            if (!ColumnExists(conn, "MuhasebeciMusteriTalebi", "Sektor"))
+                db.Database.ExecuteSqlRaw("ALTER TABLE MuhasebeciMusteriTalebi ADD COLUMN Sektor TEXT NOT NULL DEFAULT ''");
+            if (!ColumnExists(conn, "MuhasebeciMusteriTalebi", "VergiMukellefiTipi"))
+                db.Database.ExecuteSqlRaw("ALTER TABLE MuhasebeciMusteriTalebi ADD COLUMN VergiMukellefiTipi TEXT NOT NULL DEFAULT ''");
+            if (!ColumnExists(conn, "MuhasebeciMusteriTalebi", "IsletmeOlcegi"))
+                db.Database.ExecuteSqlRaw("ALTER TABLE MuhasebeciMusteriTalebi ADD COLUMN IsletmeOlcegi TEXT NOT NULL DEFAULT ''");
+            if (!ColumnExists(conn, "MuhasebeciMusteriTalebi", "CalismaSekli"))
+                db.Database.ExecuteSqlRaw("ALTER TABLE MuhasebeciMusteriTalebi ADD COLUMN CalismaSekli TEXT NOT NULL DEFAULT ''");
             if (!ColumnExists(conn, "MuhasebeciHizmetOdemesi", "HizmetDonemi"))
                 db.Database.ExecuteSqlRaw("ALTER TABLE MuhasebeciHizmetOdemesi ADD COLUMN HizmetDonemi TEXT NOT NULL DEFAULT ''");
             if (!ColumnExists(conn, "MuhasebeciHizmetOdemesi", "VadeAt"))
@@ -1174,6 +1214,18 @@ WHERE UpdatedAt = '1970-01-01 00:00:00' OR TRIM(UpdatedAt) = '';");
 
             if (!ColumnExists(conn, "MuhasebeciProfil", "UcretBilgisi"))
                 db.Database.ExecuteSqlRaw("ALTER TABLE MuhasebeciProfil ADD COLUMN UcretBilgisi TEXT NOT NULL DEFAULT ''");
+
+            if (!ColumnExists(conn, "MuhasebeciProfil", "SektorDeneyimleri"))
+                db.Database.ExecuteSqlRaw("ALTER TABLE MuhasebeciProfil ADD COLUMN SektorDeneyimleri TEXT NOT NULL DEFAULT 'Tüm'");
+
+            if (!ColumnExists(conn, "MuhasebeciProfil", "VergiMukellefiTipleri"))
+                db.Database.ExecuteSqlRaw("ALTER TABLE MuhasebeciProfil ADD COLUMN VergiMukellefiTipleri TEXT NOT NULL DEFAULT 'Tüm'");
+
+            if (!ColumnExists(conn, "MuhasebeciProfil", "UygunIsletmeOlcekleri"))
+                db.Database.ExecuteSqlRaw("ALTER TABLE MuhasebeciProfil ADD COLUMN UygunIsletmeOlcekleri TEXT NOT NULL DEFAULT 'Küçük, Orta'");
+
+            if (!ColumnExists(conn, "MuhasebeciProfil", "CalismaSekilleri"))
+                db.Database.ExecuteSqlRaw("ALTER TABLE MuhasebeciProfil ADD COLUMN CalismaSekilleri TEXT NOT NULL DEFAULT 'Tüm'");
 
             if (!ColumnExists(conn, "MuhasebeciSohbetMesaji", "OkunduAt"))
                 db.Database.ExecuteSqlRaw("ALTER TABLE MuhasebeciSohbetMesaji ADD COLUMN OkunduAt TEXT");

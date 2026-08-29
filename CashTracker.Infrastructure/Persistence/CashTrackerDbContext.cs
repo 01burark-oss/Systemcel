@@ -162,6 +162,9 @@ namespace CashTracker.Infrastructure.Persistence
                 e.HasKey(x => x.Id);
                 e.Property(x => x.Ad).IsRequired();
                 e.Property(x => x.IsletmeTuru).IsRequired();
+                e.Property(x => x.VergiMukellefiTipi).IsRequired();
+                e.Property(x => x.IsletmeOlcegi).IsRequired();
+                e.Property(x => x.TercihEdilenCalismaSekli).IsRequired();
                 e.Property(x => x.Konum).IsRequired();
                 e.Property(x => x.TenantTipi).IsRequired();
                 e.HasIndex(x => x.IsAktif);
@@ -227,6 +230,10 @@ namespace CashTracker.Infrastructure.Persistence
                 e.Property(x => x.UcretBilgisi).IsRequired();
                 e.Property(x => x.Uzmanliklar).IsRequired();
                 e.Property(x => x.MusteriTipleri).IsRequired();
+                e.Property(x => x.SektorDeneyimleri).IsRequired();
+                e.Property(x => x.VergiMukellefiTipleri).IsRequired();
+                e.Property(x => x.UygunIsletmeOlcekleri).IsRequired();
+                e.Property(x => x.CalismaSekilleri).IsRequired();
                 e.Property(x => x.KisaAciklama).IsRequired();
                 e.HasIndex(x => x.MuhasebeciIsletmeId).IsUnique();
                 e.HasIndex(x => x.Yayinda);
@@ -244,6 +251,10 @@ namespace CashTracker.Infrastructure.Persistence
                 e.Property(x => x.DavetKodu).IsRequired();
                 e.Property(x => x.Mesaj).IsRequired();
                 e.Property(x => x.AylikHizmetBedeli).HasColumnType("NUMERIC");
+                e.Property(x => x.Sektor).IsRequired();
+                e.Property(x => x.VergiMukellefiTipi).IsRequired();
+                e.Property(x => x.IsletmeOlcegi).IsRequired();
+                e.Property(x => x.CalismaSekli).IsRequired();
                 e.HasIndex(x => x.MuhasebeciIsletmeId);
                 e.HasIndex(x => x.MusteriIsletmeId);
                 e.HasIndex(x => x.TalepEdenIsletmeId);
@@ -714,6 +725,10 @@ namespace CashTracker.Infrastructure.Persistence
                 e.HasKey(x => x.Id);
                 e.Property(x => x.Miktar).HasColumnType("NUMERIC");
                 e.Property(x => x.RezerveMiktar).HasColumnType("NUMERIC");
+                e.Property(x => x.BirimMaliyet).HasColumnType("NUMERIC");
+                e.Property(x => x.MaliyetParaBirimi).IsRequired().HasMaxLength(3);
+                e.Property(x => x.MaliyetKurSnapshot).HasColumnType("NUMERIC");
+                e.Property(x => x.BirimMaliyetTry).HasColumnType("NUMERIC");
                 e.Property(x => x.HareketTipi).IsRequired();
                 e.Property(x => x.Kaynak).IsRequired();
                 e.HasIndex(x => x.IsletmeId);

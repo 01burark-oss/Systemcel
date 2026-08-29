@@ -17,6 +17,141 @@ namespace CashTracker.Tests
     public sealed class MuhasebeciPortalServiceTests
     {
         [Fact]
+        public async Task Pazaryeri_DortUygunlukBilgisineGoreFiltrelerVeNedenleriniGosterir()
+        {
+            using var fixture = await MuhasebeciPortalFixture.CreateAsync();
+            var ids = await fixture.CreateAccountantAndCustomerAsync();
+
+            await using (var db = fixture.CreateDbContext())
+            {
+                var customer = await db.Isletmeler.SingleAsync(x => x.Id == ids.CustomerId);
+                customer.IsletmeTuru = "Kafe";
+                customer.VergiMukellefiTipi = "Sahis";
+                customer.IsletmeOlcegi = "Kucuk";
+                customer.TercihEdilenCalismaSekli = "Online";
+                await db.SaveChangesAsync();
+            }
+
+            fixture.CurrentUser.Set("accountant", "accountant@example.com", "Ada Muhasebe");
+            await fixture.Portal.SaveProfileAsync(new MuhasebeciProfilKaydetRequest
+            {
+                Yayinda = true,
+                Unvan = "Ada Muhasebe",
+                Konum = "İstanbul / Kadıköy",
+                Telefon = "+90 532 000 00 00",
+                DeneyimYili = 8,
+                ProfilResmiUrl = "https://cdn.systemcel.test/ada.png",
+                UcretBilgisi = "Aylık 2500 TL",
+                Uzmanliklar = "Kafe muhasebesi",
+                MusteriTipleri = "Kafe",
+                SektorDeneyimleri = "Kafe",
+                VergiMukellefiTipleri = "Sahis",
+                UygunIsletmeOlcekleri = "Kucuk",
+                CalismaSekilleri = "Online",
+                KisaAciklama = "Kafeler için dönem takibi."
+            });
+
+            fixture.CurrentUser.Set("customer", "customer@example.com", "Bahar Kafe");
+            var marketplace = await fixture.Portal.GetMarketplaceAsync();
+
+            var profile = Assert.Single(marketplace.Profiller);
+            Assert.Contains("Sektörünüzle çalışıyor", profile.EslesmeNedenleri);
+            Assert.Contains("Mükellef tipinize uygun", profile.EslesmeNedenleri);
+            Assert.Contains("İş yükünüze uygun", profile.EslesmeNedenleri);
+            Assert.Contains("Çalışma biçiminize uygun", profile.EslesmeNedenleri);
+
+            fixture.CurrentUser.Set("accountant", "accountant@example.com", "Ada Muhasebe");
+            await fixture.Portal.SaveProfileAsync(new MuhasebeciProfilKaydetRequest
+            {
+                Yayinda = true,
+                Unvan = "Ada Muhasebe",
+                Konum = "İstanbul / Kadıköy",
+                Telefon = "+90 532 000 00 00",
+                DeneyimYili = 8,
+                ProfilResmiUrl = "https://cdn.systemcel.test/ada.png",
+                UcretBilgisi = "Aylık 2500 TL",
+                Uzmanliklar = "Kafe muhasebesi",
+                MusteriTipleri = "Kafe",
+                SektorDeneyimleri = "Kafe",
+                VergiMukellefiTipleri = "Sahis",
+                UygunIsletmeOlcekleri = "Orta",
+                CalismaSekilleri = "Online",
+                KisaAciklama = "Kafeler için dönem takibi."
+            });
+
+            fixture.CurrentUser.Set("customer", "customer@example.com", "Bahar Kafe");
+            var uyumsuzIsYuku = await fixture.Portal.GetMarketplaceAsync();
+
+            Assert.Empty(uyumsuzIsYuku.Profiller);
+        }
+
+        [Fact]
+        public async Task PazaryeriTalebi_IsletmeTercihleriniKaliciOlarakKaydeder()
+        {
+            using var fixture = await MuhasebeciPortalFixture.CreateAsync();
+            var ids = await fixture.CreateAccountantAndCustomerAsync();
+            await fixture.PublishDefaultProfileAsync();
+
+            await using (var db = fixture.CreateDbContext())
+            {
+                var customer = await db.Isletmeler.SingleAsync(x => x.Id == ids.CustomerId);
+                customer.IsletmeTuru = "Kafe";
+                customer.VergiMukellefiTipi = "Sahis";
+                customer.IsletmeOlcegi = "Orta";
+                customer.TercihEdilenCalismaSekli = "Hibrit";
+                await db.SaveChangesAsync();
+            }
+
+            fixture.CurrentUser.Set("customer", "customer@example.com", "Bahar Kafe");
+            var request = await fixture.Portal.SubmitMarketplaceRequestAsync(ids.AccountantId, new MuhasebeciTalepOlusturRequest { Mesaj = "Dönem desteği istiyoruz." });
+
+            Assert.Equal("Kafe", request.Sektor);
+            Assert.Equal("Sahis", request.VergiMukellefiTipi);
+            Assert.Equal("Orta", request.IsletmeOlcegi);
+            Assert.Equal("Hibrit", request.CalismaSekli);
+        }
+
+        [Fact]
+        public async Task Pazaryeri_TumMukellefTipleriIfadesiniGenelUyumOlarakKabulEder()
+        {
+            using var fixture = await MuhasebeciPortalFixture.CreateAsync();
+            var ids = await fixture.CreateAccountantAndCustomerAsync();
+
+            await using (var db = fixture.CreateDbContext())
+            {
+                var customer = await db.Isletmeler.SingleAsync(x => x.Id == ids.CustomerId);
+                customer.IsletmeTuru = "Kafe";
+                customer.VergiMukellefiTipi = "Sahis";
+                customer.IsletmeOlcegi = "Kucuk";
+                customer.TercihEdilenCalismaSekli = "Online";
+                await db.SaveChangesAsync();
+            }
+
+            fixture.CurrentUser.Set("accountant", "accountant@example.com", "Ada Muhasebe");
+            await fixture.Portal.SaveProfileAsync(new MuhasebeciProfilKaydetRequest
+            {
+                Yayinda = true,
+                Unvan = "Ada Muhasebe",
+                Konum = "İstanbul / Kadıköy",
+                Telefon = "+90 532 000 00 00",
+                DeneyimYili = 8,
+                ProfilResmiUrl = "https://cdn.systemcel.test/ada.png",
+                UcretBilgisi = "Aylık 2500 TL",
+                Uzmanliklar = "Kafe muhasebesi",
+                MusteriTipleri = "Kafe",
+                SektorDeneyimleri = "Kafe",
+                UygunIsletmeOlcekleri = "Kucuk",
+                CalismaSekilleri = "Online",
+                KisaAciklama = "Kafeler için dönem takibi."
+            });
+
+            fixture.CurrentUser.Set("customer", "customer@example.com", "Bahar Kafe");
+            var marketplace = await fixture.Portal.GetMarketplaceAsync();
+
+            Assert.Single(marketplace.Profiller);
+        }
+
+        [Fact]
         public async Task ProfilYayinlaninca_PublicPazaryerindeListelenir()
         {
             using var fixture = await MuhasebeciPortalFixture.CreateAsync();

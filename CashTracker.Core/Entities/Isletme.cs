@@ -8,6 +8,9 @@ namespace CashTracker.Core.Entities
         public string Ad { get; set; } = string.Empty;
         public string IsletmeTuru { get; set; } = "Genel";
         public string Konum { get; set; } = string.Empty;
+        public string VergiMukellefiTipi { get; set; } = string.Empty;
+        public string IsletmeOlcegi { get; set; } = string.Empty;
+        public string TercihEdilenCalismaSekli { get; set; } = string.Empty;
         public bool KolayKurulumTamamlandi { get; set; }
         public bool MuhasebeciVarMi { get; set; }
         public string TenantTipi { get; set; } = "Isletme";

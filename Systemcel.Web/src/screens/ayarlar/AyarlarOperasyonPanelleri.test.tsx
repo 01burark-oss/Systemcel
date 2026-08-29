@@ -98,4 +98,34 @@ describe("Ayarlar operasyon panelleri", () => {
     expect(screen.getByRole("button", { name: "Paketi içe aktar" })).toBeDisabled();
     expect(jsonOku).not.toHaveBeenCalledWith("/api/import/desktop/packages", expect.anything());
   });
+
+  it("harici CSV dosyasını önizleyip satır hatalarını onaydan önce gösterir", async () => {
+    const user = userEvent.setup();
+    vi.mocked(jsonOku).mockImplementation(async (url, init) => {
+      if (url === "/api/ekran/ayarlar/pin" && !init) return { varsayilanPin: false, mesaj: "" } as never;
+      if (url === "/api/ekran/uyelikler") return memberships as never;
+      if (url === "/api/ekran/gelistirici-api/anahtarlar" && !init) return { anahtarlar: [] } as never;
+      if (url === "/api/ekran/veri-aktarim/onizleme" && init?.method === "POST") {
+        return {
+          draftId: "preview-1", type: "cari", fileName: "cariler.csv", totalRows: 2, validRows: 1,
+          duplicateRows: 0, headers: ["unvan", "tip"], sampleRows: [{ unvan: "Örnek Müşteri", tip: "Musteri" }],
+          errors: [{ row: 3, message: "unvan alanı boş." }]
+        } as never;
+      }
+      throw new Error(`Beklenmeyen istek: ${url}`);
+    });
+    render(<AyarlarOperasyonPanelleri />);
+
+    const picker = screen.getByLabelText("Cari kartı CSV dosyasını seçin");
+    fireEvent.change(picker, { target: { files: [new File(["kayitAnahtari;unvan;tip\n1;Örnek Müşteri;Musteri"], "cariler.csv", { type: "text/csv" })] } });
+    await user.click(screen.getByRole("button", { name: "Önizlemeyi göster" }));
+
+    await waitFor(() => expect(jsonOku).toHaveBeenCalledWith(
+      "/api/ekran/veri-aktarim/onizleme",
+      expect.objectContaining({ method: "POST", body: expect.any(FormData) })
+    ));
+    expect(await screen.findByText("Örnek Müşteri")).toBeVisible();
+    expect(screen.getByText("Satır 3: unvan alanı boş.")).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Bu özeti onayla ve aktar" })).not.toBeInTheDocument();
+  });
 });

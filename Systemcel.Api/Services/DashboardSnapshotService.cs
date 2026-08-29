@@ -13,13 +13,16 @@ namespace Systemcel.Api.Services
     {
         private readonly IKasaService _kasaService;
         private readonly IIsletmeService _isletmeService;
+        private readonly IBrutKarMarjiService _brutKarMarjiService;
 
         public DashboardSnapshotService(
             IKasaService kasaService,
-            IIsletmeService isletmeService)
+            IIsletmeService isletmeService,
+            IBrutKarMarjiService brutKarMarjiService)
         {
             _kasaService = kasaService;
             _isletmeService = isletmeService;
+            _brutKarMarjiService = brutKarMarjiService;
         }
 
         public async Task<DashboardSnapshot> GetSnapshotAsync(
@@ -43,6 +46,7 @@ namespace Systemcel.Api.Services
 
             var activeBusiness = await _isletmeService.GetActiveAsync();
             var rows = await _kasaService.GetAllAsync(minDate, maxDate);
+            var grossMargin = await _brutKarMarjiService.GetAsync(primaryFrom, primaryTo);
 
             var todayRows = rows.Where(x => x.Tarih.Date == today).ToList();
 
@@ -54,7 +58,8 @@ namespace Systemcel.Api.Services
                 SecondaryRangeSummary = BuildSummary(rows, secondaryFrom, secondaryTo),
                 MonthlySummary = BuildSummary(rows, monthFrom, monthTo),
                 YearlySummary = BuildSummary(rows, yearFrom, yearTo),
-                DailyPaymentMethodBreakdowns = BuildPaymentMethodBreakdowns(todayRows)
+                DailyPaymentMethodBreakdowns = BuildPaymentMethodBreakdowns(todayRows),
+                GrossMargin = grossMargin
             };
         }
 

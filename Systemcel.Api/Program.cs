@@ -221,6 +221,7 @@ builder.Services.AddHostedService<LegacySecretMigrationHostedService>();
 builder.Services.AddSingleton<IGibPortalService, GibPortalService>();
 builder.Services.AddSingleton<IAppSecurityService, AppSecurityService>();
 builder.Services.AddSingleton<IDashboardSnapshotService, DashboardSnapshotService>();
+builder.Services.AddSingleton<IBrutKarMarjiService, BrutKarMarjiService>();
 builder.Services.AddSingleton<DatabaseBackupService>();
 builder.Services.AddSingleton<BackupReportService>();
 builder.Services.AddSingleton<PinReminderService>();
@@ -270,6 +271,7 @@ else
     builder.Services.AddSingleton<IBarcodeReaderService, UnsupportedBarcodeReaderService>();
 builder.Services.AddSingleton<DesktopImportCodeStore>();
 builder.Services.AddSingleton<DesktopImportService>();
+builder.Services.AddSingleton<ExternalDataMigrationService>();
 builder.Services.AddSingleton<ScreenApi>();
 
 builder.Services.AddCors(options =>
@@ -398,6 +400,7 @@ app.MapGet("/api/public/config", () => Results.Ok(new
 app.MapSubscriptionApi();
 app.MapBillingApi();
 app.MapDesktopImportApi();
+app.MapExternalDataMigrationApi();
 app.MapAiAssistantApi();
 app.MapMuhasebeciApi();
 app.MapSohbetMerkeziApi();

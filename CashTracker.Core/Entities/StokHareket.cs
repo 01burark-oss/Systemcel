@@ -13,6 +13,10 @@ namespace CashTracker.Core.Entities
         public DateTime Tarih { get; set; } = DateTime.Now;
         public decimal Miktar { get; set; }
         public decimal RezerveMiktar { get; set; }
+        public decimal BirimMaliyet { get; set; }
+        public string MaliyetParaBirimi { get; set; } = "TRY";
+        public decimal MaliyetKurSnapshot { get; set; } = 1m;
+        public decimal BirimMaliyetTry { get; set; }
         public string HareketTipi { get; set; } = "Giris"; // Giris | Cikis
         public string Kaynak { get; set; } = "Manuel";
         public string? Aciklama { get; set; }

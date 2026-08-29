@@ -249,7 +249,10 @@ namespace Systemcel.Api.Api
                             tamamlandi: true,
                             request?.hesapTipi,
                             request?.muhasebeciVarMi,
-                            request?.muhasebeciProfil);
+                            request?.muhasebeciProfil,
+                            request?.vergiMukellefiTipi,
+                            request?.isletmeOlcegi,
+                            request?.tercihEdilenCalismaSekli);
 
                         foreach (var gelir in preset.gelirKalemleri)
                             await _kalemTanimiService!.CreateAsync("Gelir", gelir);
@@ -1009,6 +1012,7 @@ namespace Systemcel.Api.Api
                             UrunHizmetId = id,
                             Tarih = ParseDate(request.tarih),
                             Miktar = request.miktar,
+                            BirimMaliyet = request.birimMaliyet,
                             Kaynak = "Manuel",
                             Aciklama = request.aciklama
                         });
@@ -1566,6 +1570,7 @@ namespace Systemcel.Api.Api
                     .Select(ToOdemeDagilimDto)
                     .ToList(),
                 netTrend = BuildNetTrend(recentRows, today, 30),
+                brutKarMarji = ToBrutKarMarjiDto(snapshot.GrossMargin),
                 sohbet = chatStatus,
                 belgeSagligi = documentHealth
             };
@@ -1984,6 +1989,9 @@ namespace Systemcel.Api.Api
                 hesapTipi = string.IsNullOrWhiteSpace(activeBusiness.TenantTipi) ? HesapTipleri.Isletme : activeBusiness.TenantTipi,
                 isletmeTuru = string.IsNullOrWhiteSpace(activeBusiness.IsletmeTuru) ? "Genel" : activeBusiness.IsletmeTuru.Trim(),
                 konum = activeBusiness.Konum?.Trim() ?? string.Empty,
+                vergiMukellefiTipi = activeBusiness.VergiMukellefiTipi?.Trim() ?? string.Empty,
+                isletmeOlcegi = activeBusiness.IsletmeOlcegi?.Trim() ?? string.Empty,
+                tercihEdilenCalismaSekli = activeBusiness.TercihEdilenCalismaSekli?.Trim() ?? string.Empty,
                 muhasebeciVarMi = activeBusiness.MuhasebeciVarMi,
                 mesaj = mesaj,
                 turler = BuildEasySetupTypes().Concat(BuildExtraEasySetupTypes()).ToList()
@@ -2949,6 +2957,12 @@ namespace Systemcel.Api.Api
             if (request.miktar == 0)
                 return new ApiHata("Miktar sıfır olamaz.");
 
+            if (request.miktar > 0 && (!request.birimMaliyet.HasValue || request.birimMaliyet.Value <= 0))
+                return new ApiHata("Stok girişi için KDV hariç birim maliyet girin.");
+
+            if (request.miktar < 0 && request.birimMaliyet.HasValue)
+                return new ApiHata("Stok çıkışında birim maliyet girilmez.");
+
             if (!TryParseDate(request.tarih, out _))
                 return new ApiHata("Tarih geçerli değil.");
 
@@ -3869,6 +3883,9 @@ namespace Systemcel.Api.Api
             public string hesapTipi { get; set; } = "Isletme";
             public string isletmeTuru { get; set; } = "Genel";
             public string konum { get; set; } = string.Empty;
+            public string vergiMukellefiTipi { get; set; } = string.Empty;
+            public string isletmeOlcegi { get; set; } = string.Empty;
+            public string tercihEdilenCalismaSekli { get; set; } = string.Empty;
             public bool muhasebeciVarMi { get; set; }
             public string mesaj { get; set; } = string.Empty;
             public List<KolayKurulumTurDto> turler { get; set; } = new();
@@ -3889,6 +3906,9 @@ namespace Systemcel.Api.Api
             public string? hesapTipi { get; set; }
             public string? isletmeTuru { get; set; }
             public string? konum { get; set; }
+            public string? vergiMukellefiTipi { get; set; }
+            public string? isletmeOlcegi { get; set; }
+            public string? tercihEdilenCalismaSekli { get; set; }
             public bool? muhasebeciVarMi { get; set; }
             public MuhasebeciProfilKaydetRequest? muhasebeciProfil { get; set; }
         }
@@ -3964,6 +3984,22 @@ namespace Systemcel.Api.Api
             public string mesaj { get; set; } = string.Empty;
         }
 
+        private static BrutKarMarjiDto ToBrutKarMarjiDto(BrutKarMarjiOzeti summary)
+        {
+            return new BrutKarMarjiDto
+            {
+                durum = summary.Durum,
+                guvenilir = summary.Guvenilir,
+                satisGeliri = summary.SatisGeliriTry,
+                satisMaliyeti = summary.SatisMaliyetiTry,
+                brutKar = summary.BrutKarTry,
+                brutKarOrani = summary.BrutKarOrani,
+                satisSatiri = summary.SatisSatiri,
+                eksikMaliyetliSatisSatiri = summary.EksikMaliyetliSatisSatiri,
+                aciklama = summary.Aciklama
+            };
+        }
+
         public sealed class GibPortalIslemDto
         {
             public int id { get; set; }
@@ -4032,6 +4068,7 @@ namespace Systemcel.Api.Api
             public KarsilastirmaDto giderDegisim { get; set; } = new();
             public List<OdemeDagilimDto> odemeDagilimi { get; set; } = new();
             public List<NetTrendNoktaDto> netTrend { get; set; } = new();
+            public BrutKarMarjiDto brutKarMarji { get; set; } = new();
             public MuhasebeciSohbetBildirimDurumuDto sohbet { get; set; } = new();
             public BelgeSaglikOzeti belgeSagligi { get; set; } = new();
         }
@@ -4435,8 +4472,22 @@ namespace Systemcel.Api.Api
         public sealed class StokHareketKaydetIstek
         {
             public decimal miktar { get; set; }
+            public decimal? birimMaliyet { get; set; }
             public string? tarih { get; set; }
             public string? aciklama { get; set; }
+        }
+
+        public sealed class BrutKarMarjiDto
+        {
+            public string durum { get; set; } = "VeriYok";
+            public bool guvenilir { get; set; }
+            public decimal satisGeliri { get; set; }
+            public decimal satisMaliyeti { get; set; }
+            public decimal brutKar { get; set; }
+            public decimal? brutKarOrani { get; set; }
+            public int satisSatiri { get; set; }
+            public int eksikMaliyetliSatisSatiri { get; set; }
+            public string aciklama { get; set; } = string.Empty;
         }
 
         public sealed class HizliSatisKaydetIstek

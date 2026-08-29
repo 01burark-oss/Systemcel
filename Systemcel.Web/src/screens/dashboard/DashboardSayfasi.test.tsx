@@ -25,6 +25,17 @@ const dashboard: DashboardEkran = {
   giderDegisim: { yuzde: 0, etiket: "", olumlu: true },
   odemeDagilimi: [],
   netTrend: [],
+  brutKarMarji: {
+    durum: "VeriYok",
+    guvenilir: false,
+    satisGeliri: 0,
+    satisMaliyeti: 0,
+    brutKar: 0,
+    brutKarOrani: null,
+    satisSatiri: 0,
+    eksikMaliyetliSatisSatiri: 0,
+    aciklama: "Bu dönemde maliyeti izlenen ürün satışı yok."
+  },
   belgeSagligi: {
     skor: 82,
     durum: "Dikkat",
@@ -104,6 +115,24 @@ describe("DashboardSayfasi belge sağlığı", () => {
     expect(within(kart).getByText("Muhasebecin verileri doğrudan görebilir")).toBeVisible();
     expect(within(kart).getByRole("link", { name: "Sohbete git" })).toHaveAttribute("href", "/app/sohbetler");
     expect(within(kart).queryByRole("link", { name: "Muhasebecini bağla" })).not.toBeInTheDocument();
+  });
+
+  it("maliyeti eksik satışlarda brüt kâr tutarı göstermez", async () => {
+    vi.mocked(jsonOku).mockResolvedValue({
+      ...dashboard,
+      brutKarMarji: {
+        ...dashboard.brutKarMarji,
+        durum: "EksikMaliyet",
+        eksikMaliyetliSatisSatiri: 2,
+        aciklama: "2 satış satırının stok maliyeti eksik olduğu için brüt kâr hesaplanmadı."
+      }
+    });
+
+    render(<DashboardSayfasi onIsletmeDegistir={vi.fn()} ustBar={null} ustBarIslemde={false} yenileAnahtari={0} />);
+
+    expect(await screen.findByText("Maliyet eksik")).toBeVisible();
+    expect(screen.getByText("2 satış satırının maliyeti girilmeli.")).toBeVisible();
+    expect(screen.queryByText("₺0")).not.toBeInTheDocument();
   });
 
   it("PDF raporunu mesaj yerine indirilebilir dosya olarak ister", async () => {

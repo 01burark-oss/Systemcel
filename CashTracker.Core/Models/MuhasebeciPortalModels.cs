@@ -77,6 +77,10 @@ namespace CashTracker.Core.Models
         public string UcretBilgisi { get; init; } = string.Empty;
         public string Uzmanliklar { get; init; } = string.Empty;
         public string MusteriTipleri { get; init; } = string.Empty;
+        public string SektorDeneyimleri { get; init; } = string.Empty;
+        public string VergiMukellefiTipleri { get; init; } = string.Empty;
+        public string UygunIsletmeOlcekleri { get; init; } = string.Empty;
+        public string CalismaSekilleri { get; init; } = string.Empty;
         public string KisaAciklama { get; init; } = string.Empty;
     }
 
@@ -85,6 +89,9 @@ namespace CashTracker.Core.Models
         public string YetkiSeviyesi { get; init; } = MuhasebeciYetkiSeviyeleri.OkumaRapor;
         public string Mesaj { get; init; } = string.Empty;
         public decimal AylikHizmetBedeli { get; init; }
+        public string VergiMukellefiTipi { get; init; } = string.Empty;
+        public string IsletmeOlcegi { get; init; } = string.Empty;
+        public string CalismaSekli { get; init; } = string.Empty;
     }
 
     public sealed class MuhasebeciSohbetMesajiGonderRequest
@@ -116,11 +123,16 @@ namespace CashTracker.Core.Models
         public string UcretBilgisi { get; init; } = string.Empty;
         public string Uzmanliklar { get; init; } = string.Empty;
         public string MusteriTipleri { get; init; } = string.Empty;
+        public string SektorDeneyimleri { get; init; } = string.Empty;
+        public string VergiMukellefiTipleri { get; init; } = string.Empty;
+        public string UygunIsletmeOlcekleri { get; init; } = string.Empty;
+        public string CalismaSekilleri { get; init; } = string.Empty;
         public string KisaAciklama { get; init; } = string.Empty;
         public string PlanAdi { get; init; } = string.Empty;
         public bool Pro { get; init; }
         public bool TalepVar { get; init; }
         public bool Bagli { get; init; }
+        public List<string> EslesmeNedenleri { get; init; } = new();
     }
 
     public sealed class MuhasebeciMusteriDto
@@ -170,6 +182,10 @@ namespace CashTracker.Core.Models
         public string DavetLinki { get; init; } = string.Empty;
         public string Mesaj { get; init; } = string.Empty;
         public decimal AylikHizmetBedeli { get; init; }
+        public string Sektor { get; init; } = string.Empty;
+        public string VergiMukellefiTipi { get; init; } = string.Empty;
+        public string IsletmeOlcegi { get; init; } = string.Empty;
+        public string CalismaSekli { get; init; } = string.Empty;
         public string OdemeDurumu { get; init; } = string.Empty;
         public bool OdemeYapilabilir { get; init; }
         public DateTime CreatedAt { get; init; }

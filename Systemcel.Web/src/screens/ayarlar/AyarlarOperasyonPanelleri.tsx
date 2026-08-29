@@ -5,6 +5,7 @@ import {
   CheckCircle2,
   Copy,
   DatabaseBackup,
+  FileSpreadsheet,
   KeyRound,
   LockKeyhole,
   ShieldCheck,
@@ -89,6 +90,7 @@ export function AyarlarOperasyonPanelleri() {
       <PinPaneli />
       <EkipPaneli />
       <MasaustuAktarimPaneli />
+      <HariciVeriAktarimPaneli />
       <GelistiriciApiPaneli />
     </div>
   );
@@ -475,6 +477,44 @@ function MasaustuAktarimPaneli() {
       <Geribildirim hata={hata} mesaj={mesaj} />
     </section>
   );
+}
+
+type HariciVeriTuru = "cari" | "urun" | "stok" | "kategori" | "fatura";
+interface HariciOnizleme { draftId: string; type: HariciVeriTuru; fileName: string; totalRows: number; validRows: number; duplicateRows: number; headers: string[]; sampleRows: Record<string, string>[]; errors: { row: number; message: string }[]; unsupportedReason?: string; }
+interface HariciAktarimSonucu { applied: number; skippedDuplicates: number; errors: { row: number; message: string }[]; }
+
+function HariciVeriAktarimPaneli() {
+  const [tur, setTur] = React.useState<HariciVeriTuru>("cari");
+  const [dosya, setDosya] = React.useState<File | null>(null);
+  const [onizleme, setOnizleme] = React.useState<HariciOnizleme | null>(null);
+  const [sonuc, setSonuc] = React.useState<HariciAktarimSonucu | null>(null);
+  const [hata, setHata] = React.useState("");
+  const [islemde, setIslemde] = React.useState(false);
+
+  const turEtiketi: Record<HariciVeriTuru, string> = { cari: "Cari kartı", urun: "Ürün / hizmet", stok: "Açılış stok", kategori: "Gelir / gider kalemi", fatura: "Açık fatura" };
+  function dosyaSec(file: File | null) { setHata(""); setSonuc(null); setOnizleme(null); if (!file) return setDosya(null); if (!file.name.toLowerCase().endsWith(".csv")) return setHata("Şimdilik yalnızca CSV şablonu destekleniyor."); if (file.size > 10 * 1024 * 1024) return setHata("Dosya en fazla 10 MB olabilir."); setDosya(file); }
+  async function onizle() {
+    if (!dosya) return;
+    try { setIslemde(true); setHata(""); setSonuc(null); const form = new FormData(); form.append("type", tur); form.append("file", dosya); setOnizleme(await jsonOku<HariciOnizleme>("/api/ekran/veri-aktarim/onizleme", { method: "POST", body: form })); }
+    catch (error) { setHata(error instanceof Error ? error.message : "Dosya önizlenemedi."); }
+    finally { setIslemde(false); }
+  }
+  async function uygula() {
+    if (!onizleme || onizleme.errors.length > 0 || onizleme.unsupportedReason) return;
+    try { setIslemde(true); setHata(""); setSonuc(await jsonOku<HariciAktarimSonucu>("/api/ekran/veri-aktarim/uygula", { method: "POST", body: JSON.stringify({ draftId: onizleme.draftId }) })); setOnizleme(null); setDosya(null); }
+    catch (error) { setHata(error instanceof Error ? error.message : "Aktarım uygulanamadı."); }
+    finally { setIslemde(false); }
+  }
+  return <section className="settings-card settings-operation-card settings-operation-card--migration">
+    <header className="settings-card__header settings-operation-card__header"><span className="settings-operation-card__icon"><FileSpreadsheet size={21} /></span><div><h2>CSV ile veri taşı</h2><p>Dosyayı önce kontrol edin; onayınız olmadan kayıt eklenmez.</p></div></header>
+    <div className="settings-migration-steps"><span><strong>1</strong> Şablonu indir</span><span><strong>2</strong> Önizle</span><span><strong>3</strong> Onayla</span></div>
+    <div className="settings-migration-form"><label><span>Veri türü</span><select value={tur} onChange={(event) => { setTur(event.target.value as HariciVeriTuru); setOnizleme(null); setSonuc(null); }} disabled={islemde}><option value="cari">Cari kartı ve açılış bakiyesi</option><option value="urun">Ürün / hizmet ve açılış stok</option><option value="stok">Açılış stok hareketi</option><option value="kategori">Gelir / gider kalemi</option><option value="fatura">Açık fatura (bu sürümde yok)</option></select></label><a className="settings-btn settings-btn--navy" href={`/api/ekran/veri-aktarim/sablon/${tur}`} download>Şablonu indir</a></div>
+    <label className="settings-file-picker"><Upload size={19} /><span>{dosya?.name ?? `${turEtiketi[tur]} CSV dosyasını seçin`}</span><input type="file" accept=".csv,text/csv" onChange={(event) => dosyaSec(event.target.files?.[0] ?? null)} /></label>
+    <button className="settings-btn settings-btn--green" type="button" disabled={islemde || !dosya} onClick={() => void onizle()}>{islemde ? "Kontrol ediliyor..." : "Önizlemeyi göster"}</button>
+    {onizleme ? <div className="settings-migration-preview" aria-live="polite"><div className="settings-migration-summary"><strong>{onizleme.totalRows} satır</strong><span>{onizleme.validRows} uygun</span><span>{onizleme.duplicateRows} tekrar</span>{onizleme.errors.length ? <span className="error">{onizleme.errors.length} hata</span> : null}</div>{onizleme.unsupportedReason ? <div className="settings-inline-notice settings-inline-notice--warning">{onizleme.unsupportedReason}</div> : null}<div className="settings-migration-table-wrap"><table><thead><tr>{onizleme.headers.slice(0, 5).map((header) => <th key={header}>{header}</th>)}</tr></thead><tbody>{onizleme.sampleRows.map((row, index) => <tr key={index}>{onizleme.headers.slice(0, 5).map((header) => <td key={header}>{row[header] ?? ""}</td>)}</tr>)}</tbody></table></div>{onizleme.errors.length ? <ul className="settings-migration-errors">{onizleme.errors.slice(0, 8).map((error) => <li key={`${error.row}-${error.message}`}>Satır {error.row}: {error.message}</li>)}</ul> : <button className="settings-btn settings-btn--green" type="button" disabled={islemde || Boolean(onizleme.unsupportedReason)} onClick={() => void uygula()}>Bu özeti onayla ve aktar</button>}</div> : null}
+    {sonuc ? <div className={`settings-operation-feedback ${sonuc.errors.length ? "error" : ""}`} role={sonuc.errors.length ? "alert" : "status"}>{sonuc.errors.length ? <ul className="settings-migration-errors">{sonuc.errors.slice(0, 8).map((error) => <li key={`${error.row}-${error.message}`}>Satır {error.row}: {error.message}</li>)}</ul> : <><CheckCircle2 size={17} />{sonuc.applied} kayıt aktarıldı. {sonuc.skippedDuplicates ? `${sonuc.skippedDuplicates} tekrar atlandı.` : ""}</>}</div> : null}
+    <Geribildirim hata={hata} mesaj="" />
+  </section>;
 }
 
 function Geribildirim({ hata, mesaj }: { hata: string; mesaj: string }) {

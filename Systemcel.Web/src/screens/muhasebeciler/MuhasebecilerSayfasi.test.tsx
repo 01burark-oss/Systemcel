@@ -58,4 +58,100 @@ describe("MuhasebecilerSayfasi", () => {
       })
     );
   });
+
+  it("eşleşme gerekçelerini puan göstermeden sunar ve uygun sıralamayı varsayılan seçer", async () => {
+    vi.mocked(jsonOku).mockResolvedValue({
+      mesaj: "",
+      profiller: [{
+        muhasebeciIsletmeId: 9,
+        yayinda: true,
+        unvan: "Ada Muhasebe",
+        konum: "İstanbul / Kadıköy",
+        telefon: "",
+        deneyimYili: 8,
+        profilResmiUrl: "",
+        ucretBilgisi: "Aylık 2500 TL",
+        uzmanliklar: "Kafe muhasebesi",
+        musteriTipleri: "Kafe",
+        sektorDeneyimleri: "Kafe",
+        vergiMukellefiTipleri: "Şahıs",
+        uygunIsletmeOlcekleri: "Küçük",
+        calismaSekilleri: "Online",
+        kisaAciklama: "Dönem takibi.",
+        planAdi: "",
+        pro: false,
+        talepVar: false,
+        bagli: false,
+        eslesmeNedenleri: ["Sektörünüzle çalışıyor", "İş yükünüze uygun"]
+      }]
+    } as never);
+
+    render(<MuhasebecilerSayfasi ustBar={{ hesapTipi: "Isletme" } as never} />);
+
+    expect(await screen.findByText("Sektörünüzle çalışıyor")).toBeVisible();
+    expect(screen.getByText("İş yükünüze uygun")).toBeVisible();
+    expect(screen.getByRole("combobox", { name: /Sıralama/i })).toHaveValue("uygun");
+    expect(screen.queryByText(/%/)).not.toBeInTheDocument();
+  });
+
+  it("tüm mükellef tipleriyle çalışan profili seçili mükellef filtresinde korur", async () => {
+    vi.mocked(jsonOku).mockResolvedValue({
+      mesaj: "",
+      profiller: [
+        {
+          muhasebeciIsletmeId: 9,
+          yayinda: true,
+          unvan: "Ada Muhasebe",
+          konum: "İstanbul / Kadıköy",
+          telefon: "",
+          deneyimYili: 8,
+          profilResmiUrl: "",
+          ucretBilgisi: "Aylık 2500 TL",
+          uzmanliklar: "Kafe muhasebesi",
+          musteriTipleri: "Kafe",
+          sektorDeneyimleri: "Kafe",
+          vergiMukellefiTipleri: "Tüm mükellef tipleri",
+          uygunIsletmeOlcekleri: "Küçük",
+          calismaSekilleri: "Online",
+          kisaAciklama: "Dönem takibi.",
+          planAdi: "",
+          pro: false,
+          talepVar: false,
+          bagli: false,
+          eslesmeNedenleri: []
+        },
+        {
+          muhasebeciIsletmeId: 10,
+          yayinda: true,
+          unvan: "Bora Mali Müşavirlik",
+          konum: "İstanbul / Beşiktaş",
+          telefon: "",
+          deneyimYili: 6,
+          profilResmiUrl: "",
+          ucretBilgisi: "Aylık 3000 TL",
+          uzmanliklar: "Perakende",
+          musteriTipleri: "KOBİ",
+          sektorDeneyimleri: "Perakende",
+          vergiMukellefiTipleri: "Şahıs",
+          uygunIsletmeOlcekleri: "Orta",
+          calismaSekilleri: "Hibrit",
+          kisaAciklama: "Aylık takip.",
+          planAdi: "",
+          pro: false,
+          talepVar: false,
+          bagli: false,
+          eslesmeNedenleri: []
+        }
+      ]
+    } as never);
+
+    const user = userEvent.setup();
+    render(<MuhasebecilerSayfasi ustBar={{ hesapTipi: "Isletme" } as never} />);
+
+    await screen.findByText("Ada Muhasebe");
+    await user.selectOptions(screen.getByLabelText("Mükellef tipi"), "Şahıs");
+
+    expect(screen.getByText("Ada Muhasebe")).toBeVisible();
+    expect(screen.getByText("Bora Mali Müşavirlik")).toBeVisible();
+  });
 });

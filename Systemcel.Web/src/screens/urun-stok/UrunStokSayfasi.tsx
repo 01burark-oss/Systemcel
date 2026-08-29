@@ -55,6 +55,7 @@ function bosUrunFormu(): UrunFormu {
 function bosStokFormu(): StokHareketFormu {
   return {
     miktar: "0",
+    birimMaliyet: "",
     tarih: bugun(),
     aciklama: ""
   };
@@ -335,11 +336,16 @@ export function UrunStokSayfasi({ yenileAnahtari }: UrunStokSayfasiProps) {
       if (miktar === 0) {
         throw new Error("Miktar sıfır olamaz.");
       }
+      const birimMaliyet = stokFormu.birimMaliyet.trim() ? sayiyaCevir(stokFormu.birimMaliyet) : undefined;
+      if (miktar > 0 && (birimMaliyet === undefined || birimMaliyet <= 0)) {
+        throw new Error("Stok girişi için KDV hariç birim maliyet girin.");
+      }
 
       const result = await jsonOku<{ mesaj: string; mevcutStok: number }>(`/api/ekran/urun-stok/urunler/${seciliId}/hareketler`, {
         method: "POST",
         body: JSON.stringify({
           miktar,
+          birimMaliyet,
           tarih: stokFormu.tarih,
           aciklama: stokFormu.aciklama
         })
@@ -666,8 +672,12 @@ export function UrunStokSayfasi({ yenileAnahtari }: UrunStokSayfasiProps) {
                     </label>
                   </div>
                   <p className="stock-movement-form__hint">
-                    Pozitif değer stok girişi, negatif değer stok çıkışı yapar.
+                    Pozitif değer stok girişi, negatif değer stok çıkışı yapar. Giriş maliyeti KDV hariçtir.
                   </p>
+                  <label className="stock-field stock-field--grow">
+                    <span>Birim maliyet (KDV hariç)</span>
+                    <input inputMode="decimal" value={stokFormu.birimMaliyet} onChange={(event) => stokAlaniniGuncelle("birimMaliyet", event.target.value)} disabled={!seciliId || seciliUrun?.tip !== "Urun" || stokFormu.miktar.trim().startsWith("-")} placeholder="Sadece stok girişi" />
+                  </label>
                   <label className="stock-field stock-field--grow stock-field--wide">
                     <span>Açıklama</span>
                     <input value={stokFormu.aciklama} onChange={(event) => stokAlaniniGuncelle("aciklama", event.target.value)} disabled={!seciliId || seciliUrun?.tip !== "Urun"} placeholder="Hareket açıklaması" />

@@ -14,7 +14,7 @@ import { openAuthenticatedFile } from "../../shared/authenticatedFile";
 import { jsonOku } from "../../shared/json";
 import { preventNativeDrag } from "../../shared/noDrag";
 import { odemeIkonu, paraBic, paraDegerBic } from "./helpers";
-import type { BelgeSaglikOzeti, DashboardEkran, NetTrendNokta, OdemeDagilim, OzetKart } from "./types";
+import type { BelgeSaglikOzeti, BrutKarMarji, DashboardEkran, NetTrendNokta, OdemeDagilim, OzetKart } from "./types";
 
 const ODEME_RENKLERI = ["#c8ff00", "#11110f", "#a6a493", "#dedbcc"];
 
@@ -204,6 +204,18 @@ function PastaChart({ odemeler }: { odemeler: OdemeDagilim[] }) {
       </div>
     </div>
   );
+}
+
+function BrutKarKarti({ ozet }: { ozet: BrutKarMarji | undefined }) {
+  if (!ozet || ozet.durum === "VeriYok") {
+    return <article className="snapshot-card snapshot-card--net snapshot-card--bos"><div className="snapshot-card__head"><h3>Brüt kâr</h3></div><strong className="snapshot-card__empty">Henüz veri yok</strong></article>;
+  }
+
+  if (!ozet.guvenilir) {
+    return <article className="snapshot-card snapshot-card--gider"><div className="snapshot-card__head"><h3>Brüt kâr</h3></div><strong className="snapshot-card__empty">Maliyet eksik</strong><small>{ozet.eksikMaliyetliSatisSatiri} satış satırının maliyeti girilmeli.</small></article>;
+  }
+
+  return <article className="snapshot-card snapshot-card--net"><div className="snapshot-card__head"><h3>Brüt kâr</h3><small>KDV hariç</small></div><div className="snapshot-card__value"><span className="currency">₺</span><strong>{paraDegerBic(ozet.brutKar)}</strong></div><small>Marj %{ozet.brutKarOrani?.toLocaleString("tr-TR", { maximumFractionDigits: 1 }) ?? "—"}</small></article>;
 }
 
 function DonemKarti({ kart }: { kart: OzetKart }) {
@@ -499,6 +511,7 @@ export function DashboardSayfasi({
 
         <section className="snapshot-grid">
           <OzetMetrik baslik="Toplam Gelir" deger={ekran?.bugun.gelir ?? 0} ton="gelir" />
+          <BrutKarKarti ozet={ekran?.brutKarMarji} />
           <OzetMetrik
             baslik="Net Kâr"
             deger={seciliNetDonem?.net ?? 0}

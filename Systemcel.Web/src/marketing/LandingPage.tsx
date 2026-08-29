@@ -21,6 +21,7 @@ import {
 import { useSystemcelAuth } from "../auth/SystemcelAuthProvider";
 import accountantAyseAvatar from "../assets/accountant-ayse-demirtas.jpg";
 import { buildPricingPresentation } from "./pricingPresentation";
+import { FounderCampaignProgress, type FounderCampaignProgressProps } from "./FounderCampaignProgress";
 import "./marketing.css";
 
 type Language = "tr" | "en";
@@ -39,6 +40,9 @@ type PublicPlan = {
   kurucuYillikTutar: number | null;
   kampanyaKodu: string;
   kurucuKontenjanKalan: number;
+  kurucuKontenjanToplam: number;
+  kurucuKontenjanKazanilan: number;
+  kurucuKontenjanYuzdesi: number;
   aiMesajLimiti: number | null;
   kullaniciLimiti: number | null;
   musteriLimiti: number | null;
@@ -55,22 +59,22 @@ type PublicPlan = {
 
 const fallbackPlans: PublicPlan[] = [
   {
-    kod: "isletme_baslangic", ad: "Başlangıç", hesapTipi: "Isletme", aylikTutar: 490, yillikTutar: 6144,
-    yillikEfektifAylikTutar: 512, normalAylikTutar: 690, normalYillikTutar: 6624, kurucuAylikTutar: 490, kurucuYillikTutar: 6144, kampanyaKodu: "kurucu-100-2026", kurucuKontenjanKalan: 50, aiMesajLimiti: 100, kullaniciLimiti: 1, musteriLimiti: null, faturaLimiti: 50,
+    kod: "isletme_baslangic", ad: "Başlangıç", hesapTipi: "Isletme", aylikTutar: 690, yillikTutar: 6624,
+    yillikEfektifAylikTutar: 552, normalAylikTutar: 690, normalYillikTutar: 6624, kurucuAylikTutar: 490, kurucuYillikTutar: 6144, kampanyaKodu: "", kurucuKontenjanKalan: 0, kurucuKontenjanToplam: 0, kurucuKontenjanKazanilan: 0, kurucuKontenjanYuzdesi: 0, aiMesajLimiti: 100, kullaniciLimiti: 1, musteriLimiti: null, faturaLimiti: 50,
     bankaMutabakatiAktif: false, stokRaporAktif: false, muhasebeciErisimiAktif: false,
     cokluSubeAktif: false, cokluParaBirimiAktif: false, apiErisimiAktif: false,
     oncelikliDestekAktif: false, denemeGunSayisi: 0,
   },
   {
-    kod: "isletme_buyume", ad: "Büyüme", hesapTipi: "Isletme", aylikTutar: 990, yillikTutar: 11880,
-    yillikEfektifAylikTutar: 990, normalAylikTutar: 1290, normalYillikTutar: 15480, kurucuAylikTutar: 990, kurucuYillikTutar: 11880, kampanyaKodu: "kurucu-100-2026", kurucuKontenjanKalan: 50, aiMesajLimiti: null, kullaniciLimiti: 3, musteriLimiti: null, faturaLimiti: null,
+    kod: "isletme_buyume", ad: "Büyüme", hesapTipi: "Isletme", aylikTutar: 1290, yillikTutar: 15480,
+    yillikEfektifAylikTutar: 1290, normalAylikTutar: 1290, normalYillikTutar: 15480, kurucuAylikTutar: 990, kurucuYillikTutar: 11880, kampanyaKodu: "", kurucuKontenjanKalan: 0, kurucuKontenjanToplam: 0, kurucuKontenjanKazanilan: 0, kurucuKontenjanYuzdesi: 0, aiMesajLimiti: null, kullaniciLimiti: 3, musteriLimiti: null, faturaLimiti: null,
     bankaMutabakatiAktif: true, stokRaporAktif: true, muhasebeciErisimiAktif: true,
     cokluSubeAktif: false, cokluParaBirimiAktif: false, apiErisimiAktif: false,
     oncelikliDestekAktif: false, denemeGunSayisi: 0,
   },
   {
-    kod: "isletme_kurumsal", ad: "Kurumsal", hesapTipi: "Isletme", aylikTutar: 1990, yillikTutar: 22704,
-    yillikEfektifAylikTutar: 1892, normalAylikTutar: 2490, normalYillikTutar: 23904, kurucuAylikTutar: 1990, kurucuYillikTutar: 22704, kampanyaKodu: "kurucu-100-2026", kurucuKontenjanKalan: 50, aiMesajLimiti: null, kullaniciLimiti: null, musteriLimiti: null, faturaLimiti: null,
+    kod: "isletme_kurumsal", ad: "Kurumsal", hesapTipi: "Isletme", aylikTutar: 2490, yillikTutar: 23904,
+    yillikEfektifAylikTutar: 1992, normalAylikTutar: 2490, normalYillikTutar: 23904, kurucuAylikTutar: 1990, kurucuYillikTutar: 22704, kampanyaKodu: "", kurucuKontenjanKalan: 0, kurucuKontenjanToplam: 0, kurucuKontenjanKazanilan: 0, kurucuKontenjanYuzdesi: 0, aiMesajLimiti: null, kullaniciLimiti: null, musteriLimiti: null, faturaLimiti: null,
     bankaMutabakatiAktif: true, stokRaporAktif: true, muhasebeciErisimiAktif: true,
     cokluSubeAktif: false, cokluParaBirimiAktif: false, apiErisimiAktif: false,
     oncelikliDestekAktif: true, denemeGunSayisi: 0,
@@ -79,15 +83,15 @@ const fallbackPlans: PublicPlan[] = [
 
 const fallbackAccountantPlans: PublicPlan[] = [
   {
-    kod: "muhasebeci_standart", ad: "Standart", hesapTipi: "Muhasebeci", aylikTutar: 699, yillikTutar: 8557.92,
-    yillikEfektifAylikTutar: 713.16, normalAylikTutar: 899, normalYillikTutar: 9061.92, kurucuAylikTutar: 699, kurucuYillikTutar: 8557.92, kampanyaKodu: "kurucu-100-2026", kurucuKontenjanKalan: 50, aiMesajLimiti: 100, kullaniciLimiti: 1, musteriLimiti: 10, faturaLimiti: null,
+    kod: "muhasebeci_standart", ad: "Standart", hesapTipi: "Muhasebeci", aylikTutar: 899, yillikTutar: 9061.92,
+    yillikEfektifAylikTutar: 755.16, normalAylikTutar: 899, normalYillikTutar: 9061.92, kurucuAylikTutar: 699, kurucuYillikTutar: 8557.92, kampanyaKodu: "", kurucuKontenjanKalan: 0, kurucuKontenjanToplam: 0, kurucuKontenjanKazanilan: 0, kurucuKontenjanYuzdesi: 0, aiMesajLimiti: 100, kullaniciLimiti: 1, musteriLimiti: 10, faturaLimiti: null,
     bankaMutabakatiAktif: false, stokRaporAktif: false, muhasebeciErisimiAktif: false,
     cokluSubeAktif: false, cokluParaBirimiAktif: false, apiErisimiAktif: false,
     oncelikliDestekAktif: false, denemeGunSayisi: 0,
   },
   {
-    kod: "muhasebeci_pro", ad: "Pro", hesapTipi: "Muhasebeci", aylikTutar: 1199, yillikTutar: 14353.92,
-    yillikEfektifAylikTutar: 1196.16, normalAylikTutar: 1499, normalYillikTutar: 15109.92, kurucuAylikTutar: 1199, kurucuYillikTutar: 14353.92, kampanyaKodu: "kurucu-100-2026", kurucuKontenjanKalan: 50, aiMesajLimiti: null, kullaniciLimiti: null, musteriLimiti: null, faturaLimiti: null,
+    kod: "muhasebeci_pro", ad: "Pro", hesapTipi: "Muhasebeci", aylikTutar: 1499, yillikTutar: 15109.92,
+    yillikEfektifAylikTutar: 1259.16, normalAylikTutar: 1499, normalYillikTutar: 15109.92, kurucuAylikTutar: 1199, kurucuYillikTutar: 14353.92, kampanyaKodu: "", kurucuKontenjanKalan: 0, kurucuKontenjanToplam: 0, kurucuKontenjanKazanilan: 0, kurucuKontenjanYuzdesi: 0, aiMesajLimiti: null, kullaniciLimiti: null, musteriLimiti: null, faturaLimiti: null,
     bankaMutabakatiAktif: false, stokRaporAktif: false, muhasebeciErisimiAktif: false,
     cokluSubeAktif: false, cokluParaBirimiAktif: false, apiErisimiAktif: false,
     oncelikliDestekAktif: true, denemeGunSayisi: 0,
@@ -104,7 +108,7 @@ const copy = {
     trial: "Lansman fiyatıyla başla", tour: "Canlı tur", setup: "5 dk kurulum", cancel: "İstediğin an iptal",
     section1: "Defter seni değil, sen defteri yönet.", section1Text: "Kasa, cari hesap, stok ve faturalar tek akışta birleşir. Tekrarlayan işleri azaltır, karar vermen gereken noktaları görünür kılarız.",
     section2: "Defterine soru sor, yanıtını al.", section2Text: "Systemcel AI, işletme verilerine göre gelir, gider, stok, cari, tahsilat ve rapor sorularına kısa ve uygulanabilir yanıtlar hazırlar.",
-    section3: "Muhasebecin bir tık uzağında.", section3Business: "İhtiyacını ve uzmanlık alanlarını belirt; Systemcel, muhasebecileri uzmanlık alanlarının örtüşmesine göre şeffaf bir eşleşme skoru ile sıralar.",
+    section3: "Muhasebecin bir tık uzağında.", section3Business: "Sektörünü, işletme türünü, ölçeğini ve çalışma tercihini belirt; Systemcel sana uygun muhasebecileri neden uygun olduklarıyla gösterir.",
     section3Accountant: "Profilini oluştur, uzmanlığını göster, işletmelerden gelen talepleri yönet ve müşterilerinle güvenli biçimde çalış.",
     forBusiness: "İşletmeler için", forAccountant: "Muhasebeciler için", findAccountant: "Muhasebecini bul", joinMarketplace: "Pazaryerine katıl",
     pricingTitle: "Şeffaf fiyat, sürpriz yok.", monthly: "Aylık", yearly: "Yıllık", discount: "Lansmana özel", popular: "Popüler", perMonth: "/ay", billedYearly: "yıllık ödemede", yearlyTotal: "Yıllık toplam", planCta: "Lansman fiyatıyla başla",
@@ -121,7 +125,7 @@ const copy = {
     trial: "Start with launch pricing", tour: "Live tour", setup: "5-minute setup", cancel: "Cancel anytime",
     section1: "You run the books — not the other way around.", section1Text: "Cash, accounts, inventory and invoices come together in one flow. Reduce repetitive work and make decisions visible.",
     section2: "Ask your books and get an answer.", section2Text: "Systemcel AI prepares concise, actionable answers about income, expenses, inventory, accounts, collections and reports.",
-    section3: "Your accountant is one click away.", section3Business: "Share your needs and areas of expertise; Systemcel ranks accountants with a transparent score based on expertise overlap.",
+    section3: "Your accountant is one click away.", section3Business: "Share your industry, business type, scale and work preferences; Systemcel shows suitable accountants and explains why they fit.",
     section3Accountant: "Create your profile, showcase your expertise, manage business requests and work securely with your clients.",
     forBusiness: "For businesses", forAccountant: "For accountants", findAccountant: "Find an accountant", joinMarketplace: "Join marketplace",
     pricingTitle: "Transparent pricing. No surprises.", monthly: "Monthly", yearly: "Yearly", discount: "Launch offer", popular: "Popular", perMonth: "/mo", billedYearly: "with annual billing", yearlyTotal: "Annual total", planCta: "Start with launch pricing",
@@ -146,6 +150,7 @@ export function LandingPage() {
   const [billing, setBilling] = React.useState<Billing>("Aylik");
   const [plans, setPlans] = React.useState<PublicPlan[]>(fallbackPlans);
   const [accountantPlans, setAccountantPlans] = React.useState<PublicPlan[]>(fallbackAccountantPlans);
+  const [founderProgress, setFounderProgress] = React.useState<Omit<FounderCampaignProgressProps, "language"> | null>(null);
   const [pricingAudience, setPricingAudience] = React.useState<"business" | "accountant">("business");
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
   const [tourOpen, setTourOpen] = React.useState(false);
@@ -182,10 +187,10 @@ export function LandingPage() {
       number: "03",
       eyebrow: "Muhasebeci pazaryeri",
       title: "İhtiyacına uygun uzmanla eşleş",
-      text: "Uzmanlık, konum ve müşteri tipi uyumuna göre muhasebecileri karşılaştır; güvenli çalışma alanında iletişim kur.",
-      metricLabel: "Örnek eşleşme",
-      metricValue: "%97 uyum",
-      chips: ["Uzmanlık", "Konum", "Güvenli sohbet"],
+      text: "Sektör, işletme türü, iş hacmi ve çalışma biçimi uyumuna göre muhasebecileri karşılaştır; neden uygun olduklarını gör.",
+      metricLabel: "Neden uygun",
+      metricValue: "4 uyum sinyali",
+      chips: ["Sektör", "İşletme türü", "Online çalışma"],
     },
     {
       target: "fiyat",
@@ -223,10 +228,10 @@ export function LandingPage() {
       number: "03",
       eyebrow: "Accountant marketplace",
       title: "Match with the right expert",
-      text: "Compare accountants by expertise, location and customer fit, then collaborate in a secure workspace.",
-      metricLabel: "Example match",
-      metricValue: "97% fit",
-      chips: ["Expertise", "Location", "Secure chat"],
+      text: "Compare accountants by industry, business type, workload and work-style fit, and see why each profile suits you.",
+      metricLabel: "Why it fits",
+      metricValue: "4 matching signals",
+      chips: ["Industry", "Business type", "Online work"],
     },
     {
       target: "fiyat",
@@ -252,6 +257,14 @@ export function LandingPage() {
         const publicAccountantPlans = data.filter((plan) => plan.hesapTipi === "Muhasebeci");
         if (businessPlans.length === 3) setPlans(businessPlans);
         if (publicAccountantPlans.length === 2) setAccountantPlans(publicAccountantPlans);
+        const campaign = data.find((plan) => plan.kurucuKontenjanToplam > 0);
+        if (campaign) {
+          setFounderProgress({
+            total: campaign.kurucuKontenjanToplam,
+            won: campaign.kurucuKontenjanKazanilan,
+            percentage: campaign.kurucuKontenjanYuzdesi,
+          });
+        }
       })
       .catch(() => undefined);
   }, [language]);
@@ -465,6 +478,15 @@ export function LandingPage() {
     });
   }
 
+  const hasActiveFounderCampaign = [...plans, ...accountantPlans]
+    .some((plan) => Boolean(plan.kampanyaKodu && plan.kurucuKontenjanKalan > 0));
+  const pricingCta = hasActiveFounderCampaign
+    ? t.trial
+    : language === "tr" ? "Planla başla" : "Choose a plan";
+  const annualBillingBadge = hasActiveFounderCampaign
+    ? t.discount
+    : language === "tr" ? "Yıllık avantaj" : "Annual savings";
+
   return (
     <div className="marketing-page" ref={pageRef}>
       <a className="marketing-skip" href="#main">{language === "tr" ? "İçeriğe geç" : "Skip to content"}</a>
@@ -478,7 +500,7 @@ export function LandingPage() {
           <div className="marketing-nav__actions">
             <button className="marketing-language" type="button" onClick={changeLanguage} aria-label="Change language">{language === "tr" ? "EN" : "TR"}</button>
             <a className="marketing-button marketing-button--ghost" href={signedIn ? "/app" : "/giris"}>{signedIn ? (language === "tr" ? "Uygulamaya Git" : "Open app") : t.signIn}</a>
-            <a className="marketing-button marketing-button--ink" href={trialHref()}>{t.start}</a>
+            <a className="marketing-button marketing-button--ink" href={trialHref()}>{pricingCta}</a>
             <button className="marketing-menu-button" type="button" aria-label={language === "tr" ? "Menü" : "Menu"} aria-expanded={mobileMenuOpen} onClick={() => setMobileMenuOpen((value) => !value)}>{mobileMenuOpen ? <X /> : <Menu />}</button>
           </div>
         </nav>
@@ -488,7 +510,7 @@ export function LandingPage() {
           <a href="#pazaryeri" onClick={() => setMobileMenuOpen(false)}>{t.marketplace}</a>
           <a href="#fiyat" onClick={() => setMobileMenuOpen(false)}>{t.pricing}</a>
           <a href={signedIn ? "/app" : "/giris"}>{signedIn ? (language === "tr" ? "Uygulamaya Git" : "Open app") : t.signIn}</a>
-          <a className="marketing-mobile-menu__cta" href={trialHref()}>{t.trial}<ArrowRight size={18} /></a>
+          <a className="marketing-mobile-menu__cta" href={trialHref()}>{pricingCta}<ArrowRight size={18} /></a>
         </div> : null}
         <div className="marketing-scroll-progress" aria-hidden="true"><div ref={progressRef} /></div>
       </header>
@@ -502,7 +524,7 @@ export function LandingPage() {
               <h1>{t.titleA}<br />{t.titleB}<br /><em>{t.titleC}</em></h1>
               <p>{t.lead}</p>
               <div className="marketing-hero__actions">
-                <a className="marketing-button marketing-button--hero-primary marketing-button--large" href={trialHref()}>{t.trial}<ArrowRight size={18} /></a>
+                <a className="marketing-button marketing-button--hero-primary marketing-button--large" href={trialHref()}>{pricingCta}<ArrowRight size={18} /></a>
                 <button className="marketing-button marketing-button--ghost marketing-button--large" type="button" onClick={openTour}><Play size={17} />{t.tour}</button>
               </div>
               <div className="marketing-proof"><span>{t.setup}</span><i>·</i><span>{t.cancel}</span></div>
@@ -581,14 +603,14 @@ export function LandingPage() {
                       <strong>Ayşe Demirtaş</strong>
                       <span>{language === "tr" ? "Muhasebe uzmanı" : "Accounting specialist"}</span>
                     </div>
-                    <b className="marketing-market-accountant__score"><Check size={14} strokeWidth={3} />%97 {language === "tr" ? "eşleşme" : "match"}</b>
+                    <b className="marketing-market-accountant__score"><Check size={14} strokeWidth={3} />{language === "tr" ? "Uygun profil" : "Good fit"}</b>
                   </div>
                   <div className="marketing-market-accountant__facts">
                     <span><ShieldCheck size={17} />{language === "tr" ? "12 yıl deneyim" : "12 years of experience"}</span>
                     <span><WalletCards size={17} />{language === "tr" ? "E-ticaret" : "E-commerce"}</span>
                     <span><FileText size={17} />KDV</span>
                   </div>
-                  <p>{language === "tr" ? "E-ticaret ve KOBİ finans süreçlerinde uzman; işletme ihtiyaçlarınla yüksek oranda örtüşüyor." : "Specialized in e-commerce and SME finance, with a strong match for your business needs."}</p>
+                  <p>{language === "tr" ? "E-ticaret tecrübesi, limited şirket uyumu ve online çalışma tercihiyle ihtiyaçlarına uygun." : "A good fit for your needs through e-commerce experience, limited-company expertise and online work."}</p>
                   <a className="marketing-button marketing-button--ink" href="/muhasebeciler">{t.findAccountant}<ArrowRight size={17} /></a>
                 </div>
               ) : (
@@ -609,12 +631,13 @@ export function LandingPage() {
                 <button type="button" className={pricingAudience === "accountant" ? "active" : ""} aria-pressed={pricingAudience === "accountant"} onClick={() => setPricingAudience("accountant")}><Users size={17} />{language === "tr" ? "Muhasebeciler" : "Accountants"}</button>
               </div>
             </div>
-            <div className="marketing-pricing__billing"><div className="marketing-billing"><span>{t.monthly}</span><button type="button" aria-label={language === "tr" ? "Faturalama dönemini değiştir" : "Change billing period"} aria-pressed={billing === "Yillik"} onClick={() => setBilling((value) => value === "Aylik" ? "Yillik" : "Aylik")}><i className={billing === "Yillik" ? "yearly" : ""} /></button><span>{t.yearly} <b>{t.discount}</b></span></div></div>
+            <div className="marketing-pricing__billing"><div className="marketing-billing"><span>{t.monthly}</span><button type="button" aria-label={language === "tr" ? "Faturalama dönemini değiştir" : "Change billing period"} aria-pressed={billing === "Yillik"} onClick={() => setBilling((value) => value === "Aylik" ? "Yillik" : "Aylik")}><i className={billing === "Yillik" ? "yearly" : ""} /></button><span>{t.yearly} <b>{annualBillingBadge}</b></span></div></div>
+            {founderProgress ? <FounderCampaignProgress {...founderProgress} language={language} /> : null}
             <div className={`marketing-plan-grid${pricingAudience === "accountant" ? " marketing-plan-grid--accountant" : ""}`} key={`${pricingAudience}-${billing}`}>{pricingAudience === "business" ? plans.map((plan) => <PlanCard key={plan.kod} plan={plan} billing={billing} language={language} popular={plan.kod === "isletme_buyume"} href={trialHref(plan.kod)} />) : accountantPlans.map((plan) => <AccountantPlanCard key={plan.kod} plan={plan} billing={billing} language={language} popular={plan.kod === "muhasebeci_standart"} href={accountantHref(plan.kod)} />)}</div>
           </div>
         </section>
 
-        <section className="marketing-final-cta"><div className="marketing-wrap"><h2>{t.finalTitle}</h2><div><a className="marketing-button marketing-button--lime marketing-button--large" href={trialHref()}>{t.trial}<ArrowRight size={18} /></a><a className="marketing-button marketing-button--dark-ghost marketing-button--large" href="mailto:satis@systemcel.app?subject=Systemcel%20Satış%20Görüşmesi">{t.sales}</a></div></div></section>
+        <section className="marketing-final-cta"><div className="marketing-wrap"><h2>{t.finalTitle}</h2><div><a className="marketing-button marketing-button--lime marketing-button--large" href={trialHref()}>{pricingCta}<ArrowRight size={18} /></a><a className="marketing-button marketing-button--dark-ghost marketing-button--large" href="mailto:satis@systemcel.app?subject=Systemcel%20Satış%20Görüşmesi">{t.sales}</a></div></div></section>
       </main>
 
       <footer className="marketing-footer"><div className="marketing-wrap marketing-footer__grid"><div><a className="marketing-brand marketing-brand--dark" href="#top"><BrandMark /><strong>systemcel</strong></a><p>{t.footerText}</p></div><FooterGroup title={t.product} links={[[t.accounting, "/#on-muhasebe"], [t.ai, "/#ai"], [t.marketplace, "/#pazaryeri"], [t.bankMatching, "/giris"], [t.pricing, "/#fiyat"]]} soonTitle={t.soon} soonItems={[t.multipleBranchesAndCurrencies, t.integrationApis, t.periodAutomation]} /><FooterGroup title={t.company} links={[[t.about, "/hakkimizda"], [t.careers, "/kariyer"], [t.blog, "/blog"], [t.contact, "/iletisim"]]} /><FooterGroup title={t.legal} links={[["KVKK", "/kvkk"], [t.privacy, "/gizlilik"], [t.terms, "/kullanim-sartlari"], [language === "tr" ? "Abonelik Koşulları" : "Subscription Terms", "/abonelik-kosullari"], [t.cookies, "/cerezler"]]} /></div><div className="marketing-wrap marketing-footer__bottom"><span>© 2026 SYSTEMCEL — İSTANBUL</span><button type="button" onClick={changeLanguage}>{language === "tr" ? "TR / EN" : "EN / TR"}</button></div></footer>
@@ -840,7 +863,7 @@ function TourSceneVisual({
                 <strong>Ayşe Demirtaş</strong>
                 <span>{tr ? "Muhasebe uzmanı · İstanbul" : "Accounting expert · Istanbul"}</span>
               </div>
-              <b><Check size={13} strokeWidth={3} />%97</b>
+              <b><Check size={13} strokeWidth={3} />{tr ? "Uygun" : "Good fit"}</b>
             </div>
             <div className="marketing-tour-accountant__facts">
               {step.chips.map((chip) => <span key={chip}>{chip}</span>)}
@@ -983,7 +1006,8 @@ function PlanCard({ plan, billing, language, popular, href }: { plan: PublicPlan
   const pricing = buildPricingPresentation(plan, billing, language);
   const features = planFeatures(plan, language);
   const planName = language === "tr" ? plan.ad : plan.kod === "isletme_baslangic" ? "Starter" : plan.kod === "isletme_buyume" ? "Growth" : "Enterprise";
-  return <article className={`marketing-plan${popular ? " marketing-plan--popular" : ""}`}><div className="marketing-plan__top"><span>{planName}</span>{popular ? <b>{t.popular}</b> : null}</div><div className="marketing-plan__price"><strong key={`${billing}-${pricing.price}`}>₺{pricing.price.toLocaleString("tr-TR")}</strong><span>{pricing.unit}</span></div><small>{pricing.note}</small><ul>{features.map((feature) => <li key={feature}><Check size={16} />{feature}</li>)}</ul><a className={`marketing-button ${popular ? "marketing-button--lime" : "marketing-button--ghost"}`} href={href}>{t.planCta}<ArrowRight size={16} /></a></article>;
+  const cta = plan.kampanyaKodu ? t.planCta : language === "tr" ? "Planı incele" : "View plan";
+  return <article className={`marketing-plan${popular ? " marketing-plan--popular" : ""}`}><div className="marketing-plan__top"><span>{planName}</span>{popular ? <b>{t.popular}</b> : null}</div><div className="marketing-plan__price"><strong key={`${billing}-${pricing.price}`}>₺{pricing.price.toLocaleString("tr-TR")}</strong><span>{pricing.unit}</span></div><small>{pricing.note}</small><ul>{features.map((feature) => <li key={feature}><Check size={16} />{feature}</li>)}</ul><a className={`marketing-button ${popular ? "marketing-button--lime" : "marketing-button--ghost"}`} href={href}>{cta}<ArrowRight size={16} /></a></article>;
 }
 
 function AccountantPlanCard({ plan, billing, language, popular, href }: { plan: PublicPlan; billing: Billing; language: Language; popular: boolean; href: string }) {

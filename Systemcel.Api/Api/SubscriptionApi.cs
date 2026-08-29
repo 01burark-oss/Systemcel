@@ -19,11 +19,13 @@ internal static class SubscriptionApi
         {
             await using var db = await dbFactory.CreateDbContextAsync(ct);
             var now = DateTime.UtcNow;
-            var usedFounderSlots = await db.KurucuKampanyaHaklari.AsNoTracking().CountAsync(x =>
-                x.KampanyaKodu == SubscriptionPlanCatalog.KurucuKampanyaKodu &&
-                (x.Durum == "Kazanildi" || (x.Durum == "Rezerve" && x.RezervasyonBitisAt > now)), ct);
-            var remainingFounderSlots = Math.Max(0, SubscriptionPlanCatalog.KurucuKampanyaKontenjani - usedFounderSlots);
-            var founderActive = remainingFounderSlots > 0;
+            var founderRights = await db.KurucuKampanyaHaklari.AsNoTracking()
+                .Where(x => x.KampanyaKodu == SubscriptionPlanCatalog.KurucuKampanyaKodu)
+                .Select(x => new { x.Durum, x.RezervasyonBitisAt })
+                .ToListAsync(ct);
+            var founderProgress = SubscriptionPlanCatalog.CreateFounderCampaignProgress(
+                founderRights.Count(x => x.Durum == "Kazanildi"),
+                founderRights.Count(x => x.Durum == "Rezerve" && x.RezervasyonBitisAt > now));
             var plans = SubscriptionPlanCatalog.Plans
                 .Where(x => x.Kod is PlanKodlari.IsletmeBaslangic
                     or PlanKodlari.IsletmeBuyume
@@ -35,15 +37,18 @@ internal static class SubscriptionApi
                     kod = x.Kod,
                     ad = x.Ad,
                     hesapTipi = x.HesapTipi,
-                    aylikTutar = founderActive ? x.KurucuAylikTutar : x.AylikTutar,
-                    yillikTutar = founderActive ? x.KurucuYillikTutar : x.YillikTutar,
-                    yillikEfektifAylikTutar = (founderActive ? x.KurucuYillikTutar : x.YillikTutar) / 12,
+                    aylikTutar = founderProgress.IsActive ? x.KurucuAylikTutar : x.AylikTutar,
+                    yillikTutar = founderProgress.IsActive ? x.KurucuYillikTutar : x.YillikTutar,
+                    yillikEfektifAylikTutar = (founderProgress.IsActive ? x.KurucuYillikTutar : x.YillikTutar) / 12,
                     normalAylikTutar = x.AylikTutar,
                     normalYillikTutar = x.YillikTutar,
                     kurucuAylikTutar = x.KurucuAylikTutar,
                     kurucuYillikTutar = x.KurucuYillikTutar,
-                    kampanyaKodu = founderActive ? SubscriptionPlanCatalog.KurucuKampanyaKodu : string.Empty,
-                    kurucuKontenjanKalan = remainingFounderSlots,
+                    kampanyaKodu = founderProgress.IsActive ? SubscriptionPlanCatalog.KurucuKampanyaKodu : string.Empty,
+                    kurucuKontenjanKalan = founderProgress.RemainingSlots,
+                    kurucuKontenjanToplam = founderProgress.TotalSlots,
+                    kurucuKontenjanKazanilan = founderProgress.WonSlots,
+                    kurucuKontenjanYuzdesi = founderProgress.FillPercentage,
                     paraBirimi = "TRY",
                     aiMesajLimiti = x.AiMesajLimiti,
                     kullaniciLimiti = x.KullaniciLimiti,
@@ -60,7 +65,7 @@ internal static class SubscriptionApi
                     cokluParaBirimiAktif = x.CokluParaBirimiAktif,
                     apiErisimiAktif = x.ApiErisimiAktif,
                     oncelikliDestekAktif = x.OncelikliDestekAktif,
-                    denemeGunSayisi = paymentOptions.FreeTrialEnabled && !founderActive
+                    denemeGunSayisi = paymentOptions.FreeTrialEnabled && !founderProgress.IsActive
                         ? string.Equals(x.HesapTipi, HesapTipleri.Muhasebeci, StringComparison.OrdinalIgnoreCase)
                             ? paymentOptions.AccountantTrialDays
                             : paymentOptions.BusinessTrialDays

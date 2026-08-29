@@ -1,6 +1,7 @@
 using System;
 using System.Data.Common;
 using System.IO;
+using CashTracker.Core.Entities;
 using CashTracker.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
@@ -108,6 +109,9 @@ namespace CashTracker.Tests
                 Assert.True(TableExists(conn, "YonetimDenetimKaydi"));
                 Assert.True(ColumnExists(conn, "Isletme", "TenantTipi"));
                 Assert.True(ColumnExists(conn, "Isletme", "ClerkOrganizationId"));
+                Assert.True(ColumnExists(conn, "Isletme", "VergiMukellefiTipi"));
+                Assert.True(ColumnExists(conn, "Isletme", "IsletmeOlcegi"));
+                Assert.True(ColumnExists(conn, "Isletme", "TercihEdilenCalismaSekli"));
                 Assert.True(ColumnExists(conn, "Abonelik", "FaturalamaDonemi"));
                 Assert.True(ColumnExists(conn, "Abonelik", "EkMusteriKredisi"));
                 Assert.True(ColumnExists(conn, "Abonelik", "DonemTutari"));
@@ -121,12 +125,24 @@ namespace CashTracker.Tests
                 Assert.True(ColumnExists(conn, "OdemeIslemi", "SonOlayAt"));
                 Assert.True(ColumnExists(conn, "OdemeIslemi", "EkMusteriKredisi"));
                 Assert.True(ColumnExists(conn, "MuhasebeciMusteriTalebi", "AylikHizmetBedeli"));
+                Assert.True(ColumnExists(conn, "MuhasebeciMusteriTalebi", "Sektor"));
+                Assert.True(ColumnExists(conn, "MuhasebeciMusteriTalebi", "VergiMukellefiTipi"));
+                Assert.True(ColumnExists(conn, "MuhasebeciMusteriTalebi", "IsletmeOlcegi"));
+                Assert.True(ColumnExists(conn, "MuhasebeciMusteriTalebi", "CalismaSekli"));
+                Assert.True(ColumnExists(conn, "MuhasebeciProfil", "SektorDeneyimleri"));
+                Assert.True(ColumnExists(conn, "MuhasebeciProfil", "VergiMukellefiTipleri"));
+                Assert.True(ColumnExists(conn, "MuhasebeciProfil", "UygunIsletmeOlcekleri"));
+                Assert.True(ColumnExists(conn, "MuhasebeciProfil", "CalismaSekilleri"));
                 Assert.True(ColumnExists(conn, "MuhasebeciHizmetOdemesi", "HizmetDonemi"));
                 Assert.True(ColumnExists(conn, "MuhasebeciHizmetOdemesi", "PlatformKomisyonOrani"));
                 Assert.True(ColumnExists(conn, "AbonelikOnayi", "EkMusteriKredisi"));
                 Assert.True(ColumnExists(conn, "StokHareket", "DepoId"));
                 Assert.True(ColumnExists(conn, "StokHareket", "StokDefterIslemiId"));
                 Assert.True(ColumnExists(conn, "StokHareket", "RezerveMiktar"));
+                Assert.True(ColumnExists(conn, "StokHareket", "BirimMaliyet"));
+                Assert.True(ColumnExists(conn, "StokHareket", "MaliyetParaBirimi"));
+                Assert.True(ColumnExists(conn, "StokHareket", "MaliyetKurSnapshot"));
+                Assert.True(ColumnExists(conn, "StokHareket", "BirimMaliyetTry"));
                 Assert.True(IndexExists(conn, "IX_IsletmeDeneme_IsletmeId_HesapTipi"));
                 Assert.True(IndexExists(conn, "IX_AbonelikOnayi_IsletmeId_CheckoutAnahtari"));
                 Assert.True(IndexExists(conn, "IX_OdemeIslemi_IsletmeId_CheckoutAnahtari"));
@@ -166,6 +182,98 @@ namespace CashTracker.Tests
             p.Value = tableName;
             cmd.Parameters.Add(p);
             return Convert.ToInt32(cmd.ExecuteScalar()) > 0;
+        }
+
+        [Fact]
+        public void EnsureKasaSchema_EskiPazaryeriTablolarinaEslesmeAlanlariniEkler()
+        {
+            var dbPath = Path.Combine(Path.GetTempPath(), $"cashtracker_legacy_marketplace_{Guid.NewGuid():N}.db");
+
+            try
+            {
+                var options = new DbContextOptionsBuilder<CashTrackerDbContext>()
+                    .UseSqlite($"Data Source={dbPath}")
+                    .Options;
+
+                using var db = new CashTrackerDbContext(options);
+                db.Database.OpenConnection();
+                db.Database.ExecuteSqlRaw(@"
+CREATE TABLE Isletme (
+    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+    Ad TEXT NOT NULL,
+    IsletmeTuru TEXT NOT NULL DEFAULT 'Genel',
+    Konum TEXT NOT NULL DEFAULT '',
+    KolayKurulumTamamlandi INTEGER NOT NULL DEFAULT 0,
+    MuhasebeciVarMi INTEGER NOT NULL DEFAULT 0,
+    IsAktif INTEGER NOT NULL DEFAULT 0,
+    CreatedAt TEXT NOT NULL
+);
+CREATE TABLE MuhasebeciProfil (
+    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+    MuhasebeciIsletmeId INTEGER NOT NULL,
+    Yayinda INTEGER NOT NULL DEFAULT 0,
+    Unvan TEXT NOT NULL DEFAULT '',
+    Konum TEXT NOT NULL DEFAULT '',
+    Telefon TEXT NOT NULL DEFAULT '',
+    DeneyimYili INTEGER NOT NULL DEFAULT 0,
+    ProfilResmiUrl TEXT NOT NULL DEFAULT '',
+    UcretBilgisi TEXT NOT NULL DEFAULT '',
+    Uzmanliklar TEXT NOT NULL DEFAULT '',
+    MusteriTipleri TEXT NOT NULL DEFAULT '',
+    KisaAciklama TEXT NOT NULL DEFAULT '',
+    CreatedAt TEXT NOT NULL,
+    UpdatedAt TEXT NOT NULL
+);
+CREATE TABLE MuhasebeciMusteriTalebi (
+    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+    MuhasebeciIsletmeId INTEGER NOT NULL,
+    MusteriIsletmeId INTEGER,
+    TalepEdenIsletmeId INTEGER NOT NULL,
+    Tur TEXT NOT NULL DEFAULT 'Pazaryeri',
+    Durum TEXT NOT NULL DEFAULT 'Beklemede',
+    YetkiSeviyesi TEXT NOT NULL DEFAULT 'OkumaRapor',
+    DavetKodu TEXT NOT NULL DEFAULT '',
+    Mesaj TEXT NOT NULL DEFAULT '',
+    AylikHizmetBedeli NUMERIC NOT NULL DEFAULT 0,
+    SonucAt TEXT,
+    CreatedAt TEXT NOT NULL,
+    UpdatedAt TEXT NOT NULL
+);
+INSERT INTO Isletme (Ad, CreatedAt) VALUES ('Eski İşletme', '2026-08-01');
+INSERT INTO MuhasebeciProfil (MuhasebeciIsletmeId, Unvan, CreatedAt, UpdatedAt)
+VALUES (1, 'Eski Muhasebe', '2026-08-01', '2026-08-01');
+INSERT INTO MuhasebeciMusteriTalebi (MuhasebeciIsletmeId, TalepEdenIsletmeId, CreatedAt, UpdatedAt)
+VALUES (1, 1, '2026-08-01', '2026-08-01');");
+
+                SchemaMigrator.EnsureKasaSchema(db);
+
+                var business = db.Isletmeler.Single(x => x.Id == 1);
+                var profile = db.MuhasebeciProfilleri.Single(x => x.MuhasebeciIsletmeId == 1);
+                var request = db.MuhasebeciMusteriTalepleri.Single(x => x.MuhasebeciIsletmeId == 1);
+
+                Assert.Equal(string.Empty, business.VergiMukellefiTipi);
+                Assert.Equal(string.Empty, business.IsletmeOlcegi);
+                Assert.Equal(string.Empty, business.TercihEdilenCalismaSekli);
+                Assert.Equal("Tüm", profile.SektorDeneyimleri);
+                Assert.Equal("Tüm", profile.VergiMukellefiTipleri);
+                Assert.Equal("Küçük, Orta", profile.UygunIsletmeOlcekleri);
+                Assert.Equal("Tüm", profile.CalismaSekilleri);
+                Assert.Equal(string.Empty, request.Sektor);
+                Assert.Equal(string.Empty, request.VergiMukellefiTipi);
+                Assert.Equal(string.Empty, request.IsletmeOlcegi);
+                Assert.Equal(string.Empty, request.CalismaSekli);
+            }
+            finally
+            {
+                try
+                {
+                    if (File.Exists(dbPath))
+                        File.Delete(dbPath);
+                }
+                catch
+                {
+                }
+            }
         }
 
         private static bool ColumnExists(DbConnection conn, string tableName, string columnName)

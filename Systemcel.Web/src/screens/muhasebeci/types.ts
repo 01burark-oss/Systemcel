@@ -28,6 +28,10 @@ export interface MuhasebeciProfil {
   ucretBilgisi: string;
   uzmanliklar: string;
   musteriTipleri: string;
+  sektorDeneyimleri: string;
+  vergiMukellefiTipleri: string;
+  uygunIsletmeOlcekleri: string;
+  calismaSekilleri: string;
   kisaAciklama: string;
   planAdi: string;
   pro: boolean;

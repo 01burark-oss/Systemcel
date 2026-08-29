@@ -23,6 +23,9 @@ export interface KolayKurulumEkran {
   hesapTipi: "Isletme" | "Muhasebeci";
   isletmeTuru: string;
   konum: string;
+  vergiMukellefiTipi: string;
+  isletmeOlcegi: string;
+  tercihEdilenCalismaSekli: string;
   muhasebeciVarMi: boolean;
   mesaj: string;
   turler: KolayKurulumTur[];
@@ -47,12 +50,19 @@ export function KolayKurulumModal({ ekran, onComplete, onClose }: KolayKurulumMo
       : isletmeTurleri[0]?.kod || "Genel"
   );
   const [muhasebeciVarMi, setMuhasebeciVarMi] = React.useState(Boolean(ekran.muhasebeciVarMi));
+  const [vergiMukellefiTipi, setVergiMukellefiTipi] = React.useState(ekran.vergiMukellefiTipi || "Sahis");
+  const [isletmeOlcegi, setIsletmeOlcegi] = React.useState(ekran.isletmeOlcegi || "Kucuk");
+  const [tercihEdilenCalismaSekli, setTercihEdilenCalismaSekli] = React.useState(ekran.tercihEdilenCalismaSekli || "Online");
   const [profilTelefon, setProfilTelefon] = React.useState("");
   const [profilDeneyimYili, setProfilDeneyimYili] = React.useState("1");
   const [profilResmiUrl, setProfilResmiUrl] = React.useState("");
   const [profilUcretBilgisi, setProfilUcretBilgisi] = React.useState("");
   const [profilUzmanliklar, setProfilUzmanliklar] = React.useState("");
   const [profilMusteriTipleri, setProfilMusteriTipleri] = React.useState("");
+  const [profilSektorDeneyimleri, setProfilSektorDeneyimleri] = React.useState("");
+  const [profilVergiMukellefiTipleri, setProfilVergiMukellefiTipleri] = React.useState("Tüm mükellef tipleri");
+  const [profilUygunIsletmeOlcekleri, setProfilUygunIsletmeOlcekleri] = React.useState("Küçük, Orta");
+  const [profilCalismaSekilleri, setProfilCalismaSekilleri] = React.useState("Online");
   const [profilKisaAciklama, setProfilKisaAciklama] = React.useState("");
   const [profilResmiYukleniyor, setProfilResmiYukleniyor] = React.useState(false);
   const [il, setIl] = React.useState(() => resolveIl(baslangicKonum.il));
@@ -102,7 +112,10 @@ export function KolayKurulumModal({ ekran, onComplete, onClose }: KolayKurulumMo
           hesapTipi,
           isletmeTuru: hesapTipi === "Muhasebeci" ? "MuhasebeOfisi" : isletmeTuru,
           konum,
-          muhasebeciVarMi: hesapTipi === "Isletme" ? muhasebeciVarMi : false,
+                muhasebeciVarMi: hesapTipi === "Isletme" ? muhasebeciVarMi : false,
+          vergiMukellefiTipi: hesapTipi === "Isletme" ? vergiMukellefiTipi : "",
+          isletmeOlcegi: hesapTipi === "Isletme" ? isletmeOlcegi : "",
+          tercihEdilenCalismaSekli: hesapTipi === "Isletme" ? tercihEdilenCalismaSekli : "",
           muhasebeciProfil: hesapTipi === "Muhasebeci"
             ? {
                 yayinda: false,
@@ -114,6 +127,10 @@ export function KolayKurulumModal({ ekran, onComplete, onClose }: KolayKurulumMo
                 ucretBilgisi: profilUcretBilgisi,
                 uzmanliklar: profilUzmanliklar,
                 musteriTipleri: profilMusteriTipleri,
+                sektorDeneyimleri: profilSektorDeneyimleri,
+                vergiMukellefiTipleri: profilVergiMukellefiTipleri,
+                uygunIsletmeOlcekleri: profilUygunIsletmeOlcekleri,
+                calismaSekilleri: profilCalismaSekilleri,
                 kisaAciklama: profilKisaAciklama
               }
             : null
@@ -202,6 +219,19 @@ export function KolayKurulumModal({ ekran, onComplete, onClose }: KolayKurulumMo
             </label>
           ) : null}
 
+          {hesapTipi === "Isletme" ? (
+            <>
+              <label className="setup-field">
+                <span>Mükellef tipi</span>
+                <select value={vergiMukellefiTipi} onChange={(event) => setVergiMukellefiTipi(event.target.value)}>
+                  <option value="Sahis">Şahıs</option><option value="Sermaye">Sermaye şirketi</option><option value="DernekVakif">Dernek / vakıf</option>
+                </select>
+              </label>
+              <label className="setup-field"><span>İş yükü</span><select value={isletmeOlcegi} onChange={(event) => setIsletmeOlcegi(event.target.value)}><option value="Kucuk">Küçük</option><option value="Orta">Orta</option><option value="Yuksek">Yüksek</option></select></label>
+              <label className="setup-field"><span>Çalışma biçimi</span><select value={tercihEdilenCalismaSekli} onChange={(event) => setTercihEdilenCalismaSekli(event.target.value)}><option value="Online">Online</option><option value="Hibrit">Hibrit</option><option value="YuzYuze">Yüz yüze</option></select></label>
+            </>
+          ) : null}
+
           <label className="setup-field">
             <span>
               <MapPin size={17} />
@@ -242,6 +272,10 @@ export function KolayKurulumModal({ ekran, onComplete, onClose }: KolayKurulumMo
                   required
                 />
               </label>
+              <label className="setup-field"><span>Sektör deneyimi</span><input value={profilSektorDeneyimleri} onChange={(event) => setProfilSektorDeneyimleri(event.target.value)} placeholder="Örn. Kafe, Perakende" required /></label>
+              <label className="setup-field"><span>Çalıştığınız mükellef tipleri</span><input value={profilVergiMukellefiTipleri} onChange={(event) => setProfilVergiMukellefiTipleri(event.target.value)} placeholder="Şahıs, Sermaye şirketi" required /></label>
+              <label className="setup-field"><span>Uygun iş yükü</span><input value={profilUygunIsletmeOlcekleri} onChange={(event) => setProfilUygunIsletmeOlcekleri(event.target.value)} placeholder="Küçük, Orta" required /></label>
+              <label className="setup-field"><span>Çalışma biçimi</span><input value={profilCalismaSekilleri} onChange={(event) => setProfilCalismaSekilleri(event.target.value)} placeholder="Online, Hibrit" required /></label>
               <label className="setup-field">
                 <span>Deneyim yılı</span>
                 <input

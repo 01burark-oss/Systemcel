@@ -2808,6 +2808,23 @@ select:disabled {
   overflow: visible;
 }
 
+.accountant-match-reasons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 12px 0 2px;
+}
+
+.accountant-match-reasons span {
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.2;
+  padding: 5px 8px;
+}
+
 .entitlement-modal-backdrop {
   position: fixed;
   inset: 0;

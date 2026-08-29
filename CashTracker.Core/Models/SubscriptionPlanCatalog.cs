@@ -68,6 +68,32 @@ namespace CashTracker.Core.Models
         public const decimal EkMusteriKredisiAylikTutar = 50m;
         public const decimal EkMusteriKredisiYillikTutar = 504m;
 
+        public static FounderCampaignProgress CreateFounderCampaignProgress(
+            int wonSlots,
+            int activeReservations)
+        {
+            if (wonSlots < 0)
+                throw new ArgumentOutOfRangeException(nameof(wonSlots));
+            if (activeReservations < 0)
+                throw new ArgumentOutOfRangeException(nameof(activeReservations));
+
+            var totalSlots = KurucuKampanyaKontenjani;
+            var occupiedSlots = Math.Min(totalSlots, checked(wonSlots + activeReservations));
+            var remainingSlots = totalSlots - occupiedSlots;
+            var fillPercentage = totalSlots == 0
+                ? 0
+                : Math.Clamp((int)Math.Round(wonSlots * 100m / totalSlots, MidpointRounding.AwayFromZero), 0, 100);
+
+            return new FounderCampaignProgress(
+                totalSlots,
+                Math.Min(wonSlots, totalSlots),
+                activeReservations,
+                occupiedSlots,
+                remainingSlots,
+                fillPercentage,
+                remainingSlots > 0);
+        }
+
         public static IReadOnlyList<SubscriptionPlanDefinition> Plans { get; } =
             new List<SubscriptionPlanDefinition>
             {
@@ -174,4 +200,13 @@ namespace CashTracker.Core.Models
             return CalculateMuhasebeciStandartAylikTutar(ekMusteriKredisi) >= 1499;
         }
     }
+
+    public sealed record FounderCampaignProgress(
+        int TotalSlots,
+        int WonSlots,
+        int ActiveReservations,
+        int OccupiedSlots,
+        int RemainingSlots,
+        int FillPercentage,
+        bool IsActive);
 }
