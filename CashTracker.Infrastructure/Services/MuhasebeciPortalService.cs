@@ -750,7 +750,7 @@ namespace CashTracker.Infrastructure.Services
             if (!string.IsNullOrWhiteSpace(normalizedSearch))
             {
                 profiles = profiles
-                    .Where(x => NormalizeSearch($"{x.Unvan} {x.Konum} {x.UcretBilgisi} {x.Uzmanliklar} {x.MusteriTipleri} {x.KisaAciklama}").Contains(normalizedSearch))
+                    .Where(x => NormalizeSearch($"{x.Unvan} {x.UcretBilgisi} {x.Uzmanliklar} {x.MusteriTipleri} {x.KisaAciklama}").Contains(normalizedSearch))
                     .ToList();
             }
 
@@ -807,6 +807,7 @@ namespace CashTracker.Infrastructure.Services
                         talepVar: pendingIds.Contains(x.MuhasebeciIsletmeId),
                         bagli: connectedIds.Contains(x.MuhasebeciIsletmeId),
                         telefonGoster: false,
+                        konumGoster: false,
                         matchBusiness: viewerBusiness);
                 })
                 .OrderByDescending(x => x.EslesmeSkoru ?? -1)
@@ -1297,6 +1298,7 @@ namespace CashTracker.Infrastructure.Services
             bool talepVar,
             bool bagli,
             bool telefonGoster = true,
+            bool konumGoster = true,
             Isletme? matchBusiness = null)
         {
             return new MuhasebeciProfilDto
@@ -1304,7 +1306,7 @@ namespace CashTracker.Infrastructure.Services
                 MuhasebeciIsletmeId = accountant.Id,
                 Yayinda = profile?.Yayinda ?? false,
                 Unvan = DisplayName(profile?.Unvan, DisplayName(accountant.Ad, "Muhasebeci")),
-                Konum = DisplayName(profile?.Konum, accountant.Konum ?? string.Empty),
+                Konum = konumGoster ? DisplayName(profile?.Konum, accountant.Konum ?? string.Empty) : string.Empty,
                 Telefon = telefonGoster ? profile?.Telefon ?? string.Empty : string.Empty,
                 DeneyimYili = profile?.DeneyimYili ?? 0,
                 ProfilResmiUrl = profile?.ProfilResmiUrl ?? string.Empty,

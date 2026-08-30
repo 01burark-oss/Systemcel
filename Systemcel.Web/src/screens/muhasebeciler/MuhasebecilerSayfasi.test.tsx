@@ -93,6 +93,10 @@ describe("MuhasebecilerSayfasi", () => {
     expect(screen.getByText("İş yükünüze uygun")).toBeVisible();
     expect(screen.getByLabelText("Eşleşme skoru yüzde 80")).toHaveTextContent("%80");
     expect(screen.getByRole("combobox", { name: /Sıralama/i })).toHaveValue("uygun");
+    expect(screen.queryByText("İstanbul / Kadıköy")).not.toBeInTheDocument();
+    expect(screen.queryByText("Konum")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Şehir")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("İlçe")).not.toBeInTheDocument();
   });
 
   it("sana en uygun sıralamasında yüksek skoru önce gösterir", async () => {

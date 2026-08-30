@@ -55,6 +55,7 @@ namespace CashTracker.Tests
             var marketplace = await fixture.Portal.GetMarketplaceAsync();
 
             var profile = Assert.Single(marketplace.Profiller);
+            Assert.Equal(string.Empty, profile.Konum);
             Assert.Equal(100, profile.EslesmeSkoru);
             Assert.Contains("Sektörünüzle çalışıyor", profile.EslesmeNedenleri);
             Assert.Contains("Mükellef tipinize uygun", profile.EslesmeNedenleri);
@@ -177,13 +178,17 @@ namespace CashTracker.Tests
             });
 
             var marketplace = await fixture.Portal.GetPublicMarketplaceAsync("kobi");
+            var locationSearch = await fixture.Portal.GetPublicMarketplaceAsync("Kadikoy");
 
             Assert.True(profile.Yayinda);
+            Assert.Equal("Istanbul / Kadikoy", profile.Konum);
             Assert.Contains(marketplace.Profiller, x => x.MuhasebeciIsletmeId == ids.AccountantId && x.Unvan == "Ada Muhasebe");
             var listed = marketplace.Profiller.Single(x => x.MuhasebeciIsletmeId == ids.AccountantId);
+            Assert.Equal(string.Empty, listed.Konum);
             Assert.Equal(string.Empty, listed.Telefon);
             Assert.Equal(string.Empty, listed.PlanAdi);
             Assert.Null(listed.EslesmeSkoru);
+            Assert.DoesNotContain(locationSearch.Profiller, x => x.MuhasebeciIsletmeId == ids.AccountantId);
         }
 
         [Fact]
