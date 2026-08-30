@@ -18,6 +18,11 @@ namespace CashTracker.Infrastructure.Services
     public sealed class MuhasebeciPortalService : IMuhasebeciPortalService
     {
         private const string AuthProvider = "clerk";
+        private const int SectorMatchWeight = 35;
+        private const int TaxpayerTypeMatchWeight = 25;
+        private const int BusinessScaleMatchWeight = 20;
+        private const int WorkStyleMatchWeight = 20;
+        private const decimal WildcardMatchFactor = 0.75m;
         private readonly IDbContextFactory<CashTrackerDbContext> _dbFactory;
         private readonly ICurrentUserContext _currentUserContext;
         private readonly IIsletmeService _isletmeService;
@@ -791,7 +796,6 @@ namespace CashTracker.Infrastructure.Services
 
             return profiles
                 .Where(x => accountants.ContainsKey(x.MuhasebeciIsletmeId) && approvedAccountantIds.Contains(x.MuhasebeciIsletmeId))
-                .Where(x => IsStrongMatch(x, viewerBusiness))
                 .Select(x =>
                 {
                     var isPro = proIds.Contains(x.MuhasebeciIsletmeId);
@@ -805,7 +809,8 @@ namespace CashTracker.Infrastructure.Services
                         telefonGoster: false,
                         matchBusiness: viewerBusiness);
                 })
-                .OrderByDescending(x => x.Pro)
+                .OrderByDescending(x => x.EslesmeSkoru ?? -1)
+                .ThenByDescending(x => x.Pro)
                 .ThenBy(x => x.Unvan)
                 .ToList();
         }
@@ -1315,19 +1320,37 @@ namespace CashTracker.Infrastructure.Services
                 Pro = pro,
                 TalepVar = talepVar,
                 Bagli = bagli,
+                EslesmeSkoru = CalculateMatchScore(profile, matchBusiness),
                 EslesmeNedenleri = BuildMatchReasons(profile, matchBusiness)
             };
         }
 
-        private static bool IsStrongMatch(MuhasebeciProfil profile, Isletme? business)
+        private static int? CalculateMatchScore(MuhasebeciProfil? profile, Isletme? business)
         {
-            if (business is null)
-                return true;
+            if (profile is null || business is null || !HasCompleteMatchPreferences(business))
+                return null;
 
-            return Supports(profile.SektorDeneyimleri, business.IsletmeTuru) &&
-                Supports(profile.VergiMukellefiTipleri, business.VergiMukellefiTipi) &&
-                Supports(profile.UygunIsletmeOlcekleri, business.IsletmeOlcegi) &&
-                Supports(profile.CalismaSekilleri, business.TercihEdilenCalismaSekli);
+            return ScoreCriterion(profile.SektorDeneyimleri, business.IsletmeTuru, SectorMatchWeight) +
+                ScoreCriterion(profile.VergiMukellefiTipleri, business.VergiMukellefiTipi, TaxpayerTypeMatchWeight) +
+                ScoreCriterion(profile.UygunIsletmeOlcekleri, business.IsletmeOlcegi, BusinessScaleMatchWeight) +
+                ScoreCriterion(profile.CalismaSekilleri, business.TercihEdilenCalismaSekli, WorkStyleMatchWeight);
+        }
+
+        private static bool HasCompleteMatchPreferences(Isletme business) =>
+            !string.IsNullOrWhiteSpace(business.IsletmeTuru) &&
+            !string.IsNullOrWhiteSpace(business.VergiMukellefiTipi) &&
+            !string.IsNullOrWhiteSpace(business.IsletmeOlcegi) &&
+            !string.IsNullOrWhiteSpace(business.TercihEdilenCalismaSekli);
+
+        private static int ScoreCriterion(string? supportedValues, string requestedValue, int weight)
+        {
+            var requested = NormalizeSearch(requestedValue);
+            var supported = SplitValues(supportedValues).ToList();
+            if (supported.Contains(requested, StringComparer.Ordinal))
+                return weight;
+            if (supported.Any(IsWildcardSupport))
+                return (int)Math.Round(weight * WildcardMatchFactor, MidpointRounding.AwayFromZero);
+            return 0;
         }
 
         private static List<string> BuildMatchReasons(MuhasebeciProfil? profile, Isletme? business)

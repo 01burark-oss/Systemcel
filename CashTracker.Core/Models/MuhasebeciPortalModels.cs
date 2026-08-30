@@ -132,6 +132,7 @@ namespace CashTracker.Core.Models
         public bool Pro { get; init; }
         public bool TalepVar { get; init; }
         public bool Bagli { get; init; }
+        public int? EslesmeSkoru { get; init; }
         public List<string> EslesmeNedenleri { get; init; } = new();
     }
 

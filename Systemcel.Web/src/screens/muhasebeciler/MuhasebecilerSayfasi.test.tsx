@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { jsonOku } from "../../shared/json";
@@ -59,7 +59,7 @@ describe("MuhasebecilerSayfasi", () => {
     );
   });
 
-  it("eşleşme gerekçelerini puan göstermeden sunar ve uygun sıralamayı varsayılan seçer", async () => {
+  it("sayısal eşleşme skorunu gerekçeleriyle gösterir ve uygun sıralamayı varsayılan seçer", async () => {
     vi.mocked(jsonOku).mockResolvedValue({
       mesaj: "",
       profiller: [{
@@ -82,6 +82,7 @@ describe("MuhasebecilerSayfasi", () => {
         pro: false,
         talepVar: false,
         bagli: false,
+        eslesmeSkoru: 80,
         eslesmeNedenleri: ["Sektörünüzle çalışıyor", "İş yükünüze uygun"]
       }]
     } as never);
@@ -90,8 +91,52 @@ describe("MuhasebecilerSayfasi", () => {
 
     expect(await screen.findByText("Sektörünüzle çalışıyor")).toBeVisible();
     expect(screen.getByText("İş yükünüze uygun")).toBeVisible();
+    expect(screen.getByLabelText("Eşleşme skoru yüzde 80")).toHaveTextContent("%80");
     expect(screen.getByRole("combobox", { name: /Sıralama/i })).toHaveValue("uygun");
-    expect(screen.queryByText(/%/)).not.toBeInTheDocument();
+  });
+
+  it("sana en uygun sıralamasında yüksek skoru önce gösterir", async () => {
+    const profile = {
+      muhasebeciIsletmeId: 9,
+      yayinda: true,
+      unvan: "Düşük Uyum",
+      konum: "İstanbul",
+      telefon: "",
+      deneyimYili: 12,
+      profilResmiUrl: "",
+      ucretBilgisi: "Aylık 2000 TL",
+      uzmanliklar: "Genel muhasebe",
+      musteriTipleri: "KOBİ",
+      sektorDeneyimleri: "Perakende",
+      vergiMukellefiTipleri: "Şahıs",
+      uygunIsletmeOlcekleri: "Küçük",
+      calismaSekilleri: "Online",
+      kisaAciklama: "Dönem takibi.",
+      planAdi: "",
+      pro: true,
+      talepVar: false,
+      bagli: false,
+      eslesmeSkoru: 55,
+      eslesmeNedenleri: ["Çalışma biçiminize uygun"]
+    };
+    vi.mocked(jsonOku).mockResolvedValue({
+      mesaj: "",
+      profiller: [profile, {
+        ...profile,
+        muhasebeciIsletmeId: 10,
+        unvan: "Yüksek Uyum",
+        deneyimYili: 4,
+        pro: false,
+        eslesmeSkoru: 94,
+        eslesmeNedenleri: ["Sektörünüzle çalışıyor", "Mükellef tipinize uygun", "İş yükünüze uygun", "Çalışma biçiminize uygun"]
+      }]
+    } as never);
+
+    render(<MuhasebecilerSayfasi ustBar={{ hesapTipi: "Isletme" } as never} />);
+
+    const cards = await screen.findAllByRole("article");
+    expect(within(cards[0]).getByRole("heading", { name: "Yüksek Uyum" })).toBeVisible();
+    expect(within(cards[1]).getByRole("heading", { name: "Düşük Uyum" })).toBeVisible();
   });
 
   it("tüm mükellef tipleriyle çalışan profili seçili mükellef filtresinde korur", async () => {

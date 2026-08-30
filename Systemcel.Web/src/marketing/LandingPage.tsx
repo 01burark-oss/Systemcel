@@ -108,7 +108,7 @@ const copy = {
     trial: "Lansman fiyatıyla başla", tour: "Canlı tur", setup: "5 dk kurulum", cancel: "İstediğin an iptal",
     section1: "Defter seni değil, sen defteri yönet.", section1Text: "Kasa, cari hesap, stok ve faturalar tek akışta birleşir. Tekrarlayan işleri azaltır, karar vermen gereken noktaları görünür kılarız.",
     section2: "Defterine soru sor, yanıtını al.", section2Text: "Systemcel AI, işletme verilerine göre gelir, gider, stok, cari, tahsilat ve rapor sorularına kısa ve uygulanabilir yanıtlar hazırlar.",
-    section3: "Muhasebecin bir tık uzağında.", section3Business: "Sektörünü, işletme türünü, ölçeğini ve çalışma tercihini belirt; Systemcel sana uygun muhasebecileri neden uygun olduklarıyla gösterir.",
+    section3: "Muhasebecin bir tık uzağında.", section3Business: "Sektörünü, mükellefiyet türünü, iş hacmini ve çalışma tercihini belirt; Systemcel muhasebecileri 0-100 uyum skoruyla sıralar ve neden uygun olduklarını gösterir.",
     section3Accountant: "Profilini oluştur, uzmanlığını göster, işletmelerden gelen talepleri yönet ve müşterilerinle güvenli biçimde çalış.",
     forBusiness: "İşletmeler için", forAccountant: "Muhasebeciler için", findAccountant: "Muhasebecini bul", joinMarketplace: "Pazaryerine katıl",
     pricingTitle: "Şeffaf fiyat, sürpriz yok.", monthly: "Aylık", yearly: "Yıllık", discount: "Lansmana özel", popular: "Popüler", perMonth: "/ay", billedYearly: "yıllık ödemede", yearlyTotal: "Yıllık toplam", planCta: "Lansman fiyatıyla başla",
@@ -125,7 +125,7 @@ const copy = {
     trial: "Start with launch pricing", tour: "Live tour", setup: "5-minute setup", cancel: "Cancel anytime",
     section1: "You run the books — not the other way around.", section1Text: "Cash, accounts, inventory and invoices come together in one flow. Reduce repetitive work and make decisions visible.",
     section2: "Ask your books and get an answer.", section2Text: "Systemcel AI prepares concise, actionable answers about income, expenses, inventory, accounts, collections and reports.",
-    section3: "Your accountant is one click away.", section3Business: "Share your industry, business type, scale and work preferences; Systemcel shows suitable accountants and explains why they fit.",
+    section3: "Your accountant is one click away.", section3Business: "Share your industry, taxpayer type, business scale and work preferences; Systemcel ranks accountants with a 0-100 fit score and explains each result.",
     section3Accountant: "Create your profile, showcase your expertise, manage business requests and work securely with your clients.",
     forBusiness: "For businesses", forAccountant: "For accountants", findAccountant: "Find an accountant", joinMarketplace: "Join marketplace",
     pricingTitle: "Transparent pricing. No surprises.", monthly: "Monthly", yearly: "Yearly", discount: "Launch offer", popular: "Popular", perMonth: "/mo", billedYearly: "with annual billing", yearlyTotal: "Annual total", planCta: "Start with launch pricing",
@@ -187,9 +187,9 @@ export function LandingPage() {
       number: "03",
       eyebrow: "Muhasebeci pazaryeri",
       title: "İhtiyacına uygun uzmanla eşleş",
-      text: "Sektör, işletme türü, iş hacmi ve çalışma biçimi uyumuna göre muhasebecileri karşılaştır; neden uygun olduklarını gör.",
+      text: "Sektör, mükellefiyet türü, iş hacmi ve çalışma biçimine göre hesaplanan skoru karşılaştır; eşleşme nedenlerini gör.",
       metricLabel: "Neden uygun",
-      metricValue: "4 uyum sinyali",
+      metricValue: "0-100 uyum skoru",
       chips: ["Sektör", "İşletme türü", "Online çalışma"],
     },
     {
@@ -228,9 +228,9 @@ export function LandingPage() {
       number: "03",
       eyebrow: "Accountant marketplace",
       title: "Match with the right expert",
-      text: "Compare accountants by industry, business type, workload and work-style fit, and see why each profile suits you.",
+      text: "Compare the score calculated from industry, taxpayer type, workload and work style, then review the matching reasons.",
       metricLabel: "Why it fits",
-      metricValue: "4 matching signals",
+      metricValue: "0-100 fit score",
       chips: ["Industry", "Business type", "Online work"],
     },
     {
@@ -603,7 +603,7 @@ export function LandingPage() {
                       <strong>Ayşe Demirtaş</strong>
                       <span>{language === "tr" ? "Muhasebe uzmanı" : "Accounting specialist"}</span>
                     </div>
-                    <b className="marketing-market-accountant__score"><Check size={14} strokeWidth={3} />{language === "tr" ? "Uygun profil" : "Good fit"}</b>
+                    <b className="marketing-market-accountant__score"><Check size={14} strokeWidth={3} />{language === "tr" ? "Skor + nedenler" : "Score + reasons"}</b>
                   </div>
                   <div className="marketing-market-accountant__facts">
                     <span><ShieldCheck size={17} />{language === "tr" ? "12 yıl deneyim" : "12 years of experience"}</span>
@@ -863,7 +863,7 @@ function TourSceneVisual({
                 <strong>Ayşe Demirtaş</strong>
                 <span>{tr ? "Muhasebe uzmanı · İstanbul" : "Accounting expert · Istanbul"}</span>
               </div>
-              <b><Check size={13} strokeWidth={3} />{tr ? "Uygun" : "Good fit"}</b>
+              <b><Check size={13} strokeWidth={3} />{tr ? "Uyum skoru" : "Fit score"}</b>
             </div>
             <div className="marketing-tour-accountant__facts">
               {step.chips.map((chip) => <span key={chip}>{chip}</span>)}

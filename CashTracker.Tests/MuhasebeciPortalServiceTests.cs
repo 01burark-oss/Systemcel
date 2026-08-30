@@ -55,6 +55,7 @@ namespace CashTracker.Tests
             var marketplace = await fixture.Portal.GetMarketplaceAsync();
 
             var profile = Assert.Single(marketplace.Profiller);
+            Assert.Equal(100, profile.EslesmeSkoru);
             Assert.Contains("Sektörünüzle çalışıyor", profile.EslesmeNedenleri);
             Assert.Contains("Mükellef tipinize uygun", profile.EslesmeNedenleri);
             Assert.Contains("İş yükünüze uygun", profile.EslesmeNedenleri);
@@ -82,7 +83,9 @@ namespace CashTracker.Tests
             fixture.CurrentUser.Set("customer", "customer@example.com", "Bahar Kafe");
             var uyumsuzIsYuku = await fixture.Portal.GetMarketplaceAsync();
 
-            Assert.Empty(uyumsuzIsYuku.Profiller);
+            var kismiUyum = Assert.Single(uyumsuzIsYuku.Profiller);
+            Assert.Equal(80, kismiUyum.EslesmeSkoru);
+            Assert.DoesNotContain("İş yükünüze uygun", kismiUyum.EslesmeNedenleri);
         }
 
         [Fact]
@@ -148,7 +151,8 @@ namespace CashTracker.Tests
             fixture.CurrentUser.Set("customer", "customer@example.com", "Bahar Kafe");
             var marketplace = await fixture.Portal.GetMarketplaceAsync();
 
-            Assert.Single(marketplace.Profiller);
+            var profile = Assert.Single(marketplace.Profiller);
+            Assert.Equal(94, profile.EslesmeSkoru);
         }
 
         [Fact]
@@ -179,6 +183,7 @@ namespace CashTracker.Tests
             var listed = marketplace.Profiller.Single(x => x.MuhasebeciIsletmeId == ids.AccountantId);
             Assert.Equal(string.Empty, listed.Telefon);
             Assert.Equal(string.Empty, listed.PlanAdi);
+            Assert.Null(listed.EslesmeSkoru);
         }
 
         [Fact]

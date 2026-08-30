@@ -47,6 +47,7 @@ interface MuhasebeciProfil {
   pro: boolean;
   talepVar: boolean;
   bagli: boolean;
+  eslesmeSkoru: number | null;
   eslesmeNedenleri: string[];
 }
 
@@ -90,6 +91,18 @@ function AccountantAvatar({ src, name }: { src: string; name: string }) {
       ) : (
         <UserRound aria-hidden="true" size={24} strokeWidth={1.8} />
       )}
+    </span>
+  );
+}
+
+function AccountantMatchScore({ score }: { score: number | null | undefined }) {
+  if (typeof score !== "number" || !Number.isFinite(score)) return null;
+  const safeScore = Math.min(100, Math.max(0, Math.round(score)));
+
+  return (
+    <span className="accountant-match-score" aria-label={`Eşleşme skoru yüzde ${safeScore}`}>
+      <strong>%{safeScore}</strong>
+      <small>uyum</small>
     </span>
   );
 }
@@ -331,7 +344,7 @@ export function MuhasebecilerSayfasi({ mobileMode = false, publicMode = false, u
         return parsePrice(a.ucretBilgisi) - parsePrice(b.ucretBilgisi) || a.unvan.localeCompare(b.unvan, "tr");
 
       if (siralama === "uygun")
-        return b.eslesmeNedenleri.length - a.eslesmeNedenleri.length || Number(b.pro) - Number(a.pro) || a.unvan.localeCompare(b.unvan, "tr");
+        return (b.eslesmeSkoru ?? -1) - (a.eslesmeSkoru ?? -1) || Number(b.pro) - Number(a.pro) || a.unvan.localeCompare(b.unvan, "tr");
 
       return Number(b.pro) - Number(a.pro) || a.unvan.localeCompare(b.unvan, "tr");
     });
@@ -526,6 +539,7 @@ export function MuhasebecilerSayfasi({ mobileMode = false, publicMode = false, u
                     <AccountantAvatar src={profil.profilResmiUrl} name={profil.unvan} />
                     <div>
                       <h2>{profil.unvan}</h2>
+                      <AccountantMatchScore score={profil.eslesmeSkoru} />
                     </div>
                     {profilDurumu(profil) ? <strong className="accountant-status">{profilDurumu(profil)}</strong> : null}
                   </header>
@@ -547,7 +561,7 @@ export function MuhasebecilerSayfasi({ mobileMode = false, publicMode = false, u
                   </div>
                   <p className="accountant-card__summary">{profil.kisaAciklama}</p>
                   {profil.eslesmeNedenleri.length > 0 ? <div className="accountant-match-reasons" aria-label="Eşleşme nedenleri">
-                    {profil.eslesmeNedenleri.slice(0, 3).map((neden) => <span key={neden}>{neden}</span>)}
+                    {profil.eslesmeNedenleri.slice(0, 4).map((neden) => <span key={neden}>{neden}</span>)}
                   </div> : null}
                   <div className="accountant-card__meta">
                     <span>

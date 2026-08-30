@@ -2815,6 +2815,33 @@ select:disabled {
   margin: 12px 0 2px;
 }
 
+.accountant-match-score {
+  width: fit-content;
+  margin-top: 8px;
+  padding: 5px 8px;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  border: 1px solid rgba(86, 214, 156, 0.42);
+  border-radius: 999px;
+  background: rgba(34, 197, 120, 0.14);
+  color: #83efbc;
+  font-variant-numeric: tabular-nums;
+}
+
+.accountant-match-score strong {
+  font-size: 14px;
+  font-weight: 950;
+}
+
+.accountant-match-score small {
+  color: inherit;
+  font-size: 10px;
+  font-weight: 850;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
 .accountant-match-reasons span {
   border-radius: 999px;
   background: color-mix(in srgb, var(--accent) 12%, transparent);
