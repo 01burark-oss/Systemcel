@@ -23,6 +23,7 @@ namespace CashTracker.Infrastructure.Services
         private readonly ICurrentUserContext _currentUserContext;
         private readonly IAccountantApplicationNotifier? _accountantApplicationNotifier;
         private readonly IEntitlementGuard? _entitlementGuard;
+        private readonly ClerkIdentityMigrationOptions _clerkIdentityMigrationOptions;
         private static readonly ConcurrentDictionary<string, SemaphoreSlim> ProvisioningLocks = new(StringComparer.Ordinal);
 
         public IsletmeService(IDbContextFactory<CashTrackerDbContext> dbFactory)
@@ -34,12 +35,14 @@ namespace CashTracker.Infrastructure.Services
             IDbContextFactory<CashTrackerDbContext> dbFactory,
             ICurrentUserContext currentUserContext,
             IAccountantApplicationNotifier? accountantApplicationNotifier = null,
-            IEntitlementGuard? entitlementGuard = null)
+            IEntitlementGuard? entitlementGuard = null,
+            ClerkIdentityMigrationOptions? clerkIdentityMigrationOptions = null)
         {
             _dbFactory = dbFactory;
             _currentUserContext = currentUserContext;
             _accountantApplicationNotifier = accountantApplicationNotifier;
             _entitlementGuard = entitlementGuard;
+            _clerkIdentityMigrationOptions = clerkIdentityMigrationOptions ?? new ClerkIdentityMigrationOptions();
         }
 
         public async Task<List<Isletme>> GetAllAsync()
@@ -541,6 +544,9 @@ namespace CashTracker.Infrastructure.Services
                 x.AuthProviderUserId == identity.ProviderUserId);
 
             if (user == null)
+                user = await TryRelinkLegacyUserAsync(db, identity, now);
+
+            if (user == null)
             {
                 user = new Kullanici
                 {
@@ -600,6 +606,64 @@ namespace CashTracker.Infrastructure.Services
             }
 
             return user;
+        }
+
+        private async Task<Kullanici?> TryRelinkLegacyUserAsync(
+            CashTrackerDbContext db,
+            CurrentUserIdentity identity,
+            DateTime now)
+        {
+            if (!_clerkIdentityMigrationOptions.IsEnabled || !identity.EmailVerified)
+                return null;
+
+            var email = NormalizeOptional(identity.Email);
+            if (string.IsNullOrWhiteSpace(email))
+                return null;
+
+            using var emailLock = await AcquireProvisioningLockAsync($"verified-email:{email.ToUpperInvariant()}");
+            var currentUser = await db.Kullanicilar.FirstOrDefaultAsync(x =>
+                x.AuthProvider == AuthProvider &&
+                x.AuthProviderUserId == identity.ProviderUserId);
+            if (currentUser != null)
+                return currentUser;
+
+            var normalizedEmail = email.ToUpperInvariant();
+            var legacyUserIds = _clerkIdentityMigrationOptions.LegacyUserIds.ToArray();
+            var matches = await db.Kullanicilar
+                .Where(x =>
+                    x.AuthProvider == AuthProvider &&
+                    legacyUserIds.Contains(x.AuthProviderUserId) &&
+                    x.Eposta.ToUpper() == normalizedEmail)
+                .Take(2)
+                .ToListAsync();
+
+            if (matches.Count != 1)
+                return null;
+
+            var user = matches[0];
+            user.AuthProviderUserId = identity.ProviderUserId;
+            user.Eposta = email;
+            var fullName = NormalizeOptional(identity.FullName);
+            if (!string.IsNullOrWhiteSpace(fullName))
+                user.AdSoyad = fullName;
+            user.SonGirisAt = now;
+            user.UpdatedAt = now;
+
+            try
+            {
+                await db.SaveChangesAsync();
+                return user;
+            }
+            catch (DbUpdateException)
+            {
+                db.ChangeTracker.Clear();
+                currentUser = await db.Kullanicilar.FirstOrDefaultAsync(x =>
+                    x.AuthProvider == AuthProvider &&
+                    x.AuthProviderUserId == identity.ProviderUserId);
+                if (currentUser != null)
+                    return currentUser;
+                throw;
+            }
         }
 
         private async Task<Isletme> EnsureUserActiveIsletmeAsync(CashTrackerDbContext db, Kullanici user)

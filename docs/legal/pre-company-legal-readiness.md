@@ -1,14 +1,15 @@
-# Systemcel şirket öncesi yasal hazırlık dosyası
+# Systemcel yasal metin yayım kaydı
 
-> Durum: Teknik taslak — hukuk görüşü değildir. Canlı tahsilat ve genel yayın öncesinde şirket bilgileri doldurulmalı ve Türkiye'de yetkili hukuk danışmanı tarafından onaylanmalıdır.
+> Hukuk onayı kullanıcı tarafından 31 Ağustos 2026'da bildirildi. Hizmet sağlayıcı Burak Özmen (şahıs işletmesi) olarak doğrulandı. Kaynak metinlerdeki taslak ibareleri kaldırıldı; vergi, adres ve resmî iletişim alanları henüz sağlanmadığı için yayım hazırlığı tamamlanmış sayılmıyor.
 >
-> Teknik sürüm tarihi: 1 Ağustos 2026
+> Teknik sürüm tarihi: 31 Ağustos 2026
 
-## 1. Şirket kuruluşundan sonra doldurulacak tek kaynak alanları
+## 1. Hizmet sağlayıcı bilgileri
 
-| Alan | Yer tutucu |
+| Alan | Bilgi / durum |
 |---|---|
-| Ticaret unvanı | `[ŞİRKET UNVANI]` |
+| Hizmet sağlayıcı | Burak Özmen |
+| İşletme türü | Şahıs işletmesi |
 | Vergi dairesi / vergi numarası | `[VERGİ DAİRESİ / VERGİ NO]` |
 | MERSİS / ticaret sicil | `[MERSİS / SİCİL]` |
 | Açık adres | `[AÇIK ADRES]` |
@@ -21,12 +22,12 @@
 
 ## 2. Yayınlanacak metin seti ve sürümleme
 
-| Metin | Teknik kaynak | Şirket öncesi durum |
+| Metin | Teknik kaynak | Durum |
 |---|---|---|
-| Kullanım şartları | `Systemcel.Web/src/auth/legalTexts.ts` / `terms` | Taslak |
-| Gizlilik politikası | `Systemcel.Web/src/auth/legalTexts.ts` / `privacy` | Taslak |
-| KVKK aydınlatma | `Systemcel.Web/src/auth/legalTexts.ts` / `kvkk` | Veri sorumlusu alanları bekliyor |
-| Abonelik, yenileme, iptal ve iade | `Systemcel.Web/src/auth/legalTexts.ts` / `subscription` | Taslak, checkout'tan bağlantılı |
+| Kullanım şartları | `Systemcel.Web/src/auth/legalTexts.ts` / `terms` | Hukuk onayı bildirildi; taslak ibaresi kaldırıldı |
+| Gizlilik politikası | `Systemcel.Web/src/auth/legalTexts.ts` / `privacy` | Hukuk onayı bildirildi; taslak ibaresi kaldırıldı |
+| KVKK aydınlatma | `Systemcel.Web/src/auth/legalTexts.ts` / `kvkk` | Hukuk onayı bildirildi; adres ve resmî iletişim alanları bekliyor |
+| Abonelik, yenileme, iptal ve iade | `Systemcel.Web/src/auth/legalTexts.ts` / `subscription` | Hukuk onayı bildirildi; hizmet sağlayıcı ayrıntıları bekliyor |
 | Çerez politikası | `/cerezler` ve bu dosyadaki envanter | Teknik envanter hazır |
 | Ödeme açık onayı | `BillingApi` sürüm `abonelik-onayi-2026-08-v2` | Metin/hash/IP-UA kanıtı veritabanında |
 

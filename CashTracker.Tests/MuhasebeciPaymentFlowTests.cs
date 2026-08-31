@@ -145,13 +145,31 @@ public sealed class MuhasebeciPaymentFlowTests
             new MuhasebeciAktarimTamamlaRequest { AktarimDonemi = CurrentPeriod, AktarimReferansi = "bank-ref-different" }));
     }
 
-    [Fact]
-    public async Task RefundAfterTransfer_CreatesNegativeCarryForwardAndNetsNextPayout()
+    [Theory]
+    [InlineData(2026, 8, 15)]
+    [InlineData(2026, 8, 30)]
+    [InlineData(2026, 8, 31)]
+    [InlineData(2026, 12, 31)]
+    [InlineData(2028, 2, 29)]
+    public async Task RefundAfterTransfer_CreatesNegativeCarryForwardAndNetsNextPayout(int year, int month, int day)
     {
         using var fixture = await PaymentFixture.CreateAsync();
         var checkout = await fixture.BeginCheckoutAsync("accountant-checkout-clawback");
-        var paidAt = DateTime.UtcNow;
-        await fixture.SendEventAsync("evt-clawback-paid", PaymentEventTypes.PaymentSucceeded, checkout.AylikHizmetBedeli, paidAt);
+        var paidAt = new DateTime(year, month, day, 12, 0, 0, DateTimeKind.Utc);
+        var refundedAt = paidAt.AddDays(1);
+        var nextPaidAt = paidAt.AddDays(2);
+        var paidPeriod = paidAt.ToString("yyyy-MM", System.Globalization.CultureInfo.InvariantCulture);
+        var refundPeriod = refundedAt.ToString("yyyy-MM", System.Globalization.CultureInfo.InvariantCulture);
+        var nextPeriod = nextPaidAt.ToString("yyyy-MM", System.Globalization.CultureInfo.InvariantCulture);
+        await using (var db = fixture.CreateDbContext())
+        {
+            var payment = await db.MuhasebeciHizmetOdemeleri.SingleAsync();
+            payment.HizmetDonemi = paidPeriod;
+            payment.VadeAt = new DateTime(year, month, 1, 0, 0, 0, DateTimeKind.Utc);
+            await db.SaveChangesAsync();
+        }
+        var paid = await fixture.SendEventAsync("evt-clawback-paid", PaymentEventTypes.PaymentSucceeded, checkout.AylikHizmetBedeli, paidAt);
+        Assert.True(paid.Accepted);
 
         var admin = new StaticCurrentUserContext("admin-user", "admin@systemcel.test");
         var management = new SystemcelYonetimService(
@@ -161,12 +179,13 @@ public sealed class MuhasebeciPaymentFlowTests
         await management.CompleteMuhasebeciAktarimiAsync(fixture.AccountantId,
             new MuhasebeciAktarimTamamlaRequest
             {
-                AktarimDonemi = CurrentPeriod,
+                AktarimDonemi = paidPeriod,
                 AktarimReferansi = "bank-ref-clawback-original"
             });
 
-        await fixture.SendEventAsync("evt-clawback-refund", PaymentEventTypes.PaymentRefunded,
-            checkout.AylikHizmetBedeli, paidAt.AddDays(1));
+        var refunded = await fixture.SendEventAsync("evt-clawback-refund", PaymentEventTypes.PaymentRefunded,
+            checkout.AylikHizmetBedeli, refundedAt);
+        Assert.True(refunded.Accepted);
 
         await using (var db = fixture.CreateDbContext())
         {
@@ -174,22 +193,24 @@ public sealed class MuhasebeciPaymentFlowTests
             var adjustment = await db.MuhasebeciAktarimAlacaklari.SingleAsync(x => x.AktarilacakTutar < 0m);
             Assert.Equal(MuhasebeciAktarimDurumlari.Aktarildi, original.Durum);
             Assert.Equal(MuhasebeciAktarimDurumlari.Bekliyor, adjustment.Durum);
-            Assert.Equal(-original.AktarilacakTutar, adjustment.AktarilacakTutar);
+            Assert.Equal(paidPeriod, original.AktarimDonemi);
+            Assert.Equal(refundPeriod, adjustment.AktarimDonemi);
+            Assert.Equal(-2_250m, adjustment.AktarilacakTutar);
 
             var nextPayment = new MuhasebeciHizmetOdemesi
             {
                 TalepId = fixture.RequestId + 500,
                 MuhasebeciIsletmeId = fixture.AccountantId,
                 MusteriIsletmeId = fixture.CustomerId,
-                HizmetDonemi = CurrentPeriod,
-                VadeAt = paidAt,
+                HizmetDonemi = nextPeriod,
+                VadeAt = new DateTime(nextPaidAt.Year, nextPaidAt.Month, 1, 0, 0, 0, DateTimeKind.Utc),
                 AylikHizmetBedeli = 3_000m,
                 PlatformKomisyonOrani = 10m,
                 Durum = MuhasebeciHizmetOdemeDurumlari.TahsilEdildi,
                 TahsilEdilenTutar = 3_000m,
                 PlatformKomisyonTutari = 300m,
                 AktarilacakTutar = 2_700m,
-                TahsilEdildiAt = paidAt.AddDays(2)
+                TahsilEdildiAt = nextPaidAt
             };
             db.MuhasebeciHizmetOdemeleri.Add(nextPayment);
             await db.SaveChangesAsync();
@@ -202,10 +223,10 @@ public sealed class MuhasebeciPaymentFlowTests
                 TahsilEdilenTutar = 3_000m,
                 PlatformKomisyonTutari = 300m,
                 AktarilacakTutar = 2_700m,
-                AktarimDonemi = CurrentPeriod,
+                AktarimDonemi = nextPeriod,
                 Durum = MuhasebeciAktarimDurumlari.Bekliyor,
                 AktarimReferansi = $"pending-{nextPayment.Id}",
-                TahakkukAt = paidAt.AddDays(2)
+                TahakkukAt = nextPaidAt
             });
             await db.SaveChangesAsync();
         }
@@ -213,21 +234,24 @@ public sealed class MuhasebeciPaymentFlowTests
         var netted = await management.CompleteMuhasebeciAktarimiAsync(fixture.AccountantId,
             new MuhasebeciAktarimTamamlaRequest
             {
-                AktarimDonemi = CurrentPeriod,
+                AktarimDonemi = nextPeriod,
                 AktarimReferansi = "bank-ref-clawback-netted"
             });
         var replay = await management.CompleteMuhasebeciAktarimiAsync(fixture.AccountantId,
             new MuhasebeciAktarimTamamlaRequest
             {
-                AktarimDonemi = CurrentPeriod,
+                AktarimDonemi = nextPeriod,
                 AktarimReferansi = "bank-ref-clawback-netted"
             });
 
         Assert.Equal(450m, netted.AktarilacakTutar);
         Assert.Equal(450m, replay.AktarilacakTutar);
+        Assert.Equal(nextPeriod, netted.AktarimDonemi);
+        Assert.Equal(nextPeriod, replay.AktarimDonemi);
         await using var verified = fixture.CreateDbContext();
         Assert.Equal(2, await verified.MuhasebeciAktarimAlacaklari.CountAsync(x =>
             x.AktarimReferansi == "bank-ref-clawback-netted" &&
+            x.AktarimDonemi == nextPeriod &&
             x.Durum == MuhasebeciAktarimDurumlari.Aktarildi));
     }
 

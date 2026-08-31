@@ -35,6 +35,7 @@ if (!builder.Environment.IsDevelopment() && !clerkAuthenticationOptions.Enabled)
 var systemcelEnvironmentName = ResolveEnvironmentName(builder.Configuration, builder.Environment);
 var allowedOrigins = ResolveAllowedOrigins(builder.Configuration, builder.Environment);
 var yonetimOptions = ResolveYonetimOptions(builder.Configuration);
+var clerkIdentityMigrationOptions = ResolveClerkIdentityMigrationOptions(builder.Configuration);
 var telegramSettings = ResolveTelegramSettings(builder.Configuration, appDataPath);
 var deepSeekSettings = ResolveDeepSeekSettings(builder.Configuration);
 var receiptOcrSettings = builder.Configuration.GetSection("ReceiptOcr").Get<ReceiptOcrSettings>() ?? new ReceiptOcrSettings();
@@ -125,6 +126,7 @@ builder.Services.AddDbContextFactory<CashTrackerDbContext>(options =>
 
 builder.Services.AddSingleton(telegramSettings);
 builder.Services.AddSingleton(yonetimOptions);
+builder.Services.AddSingleton(clerkIdentityMigrationOptions);
 builder.Services.AddSingleton(deepSeekSettings);
 builder.Services.AddSingleton(receiptOcrSettings);
 builder.Services.AddSingleton(paymentOptions);
@@ -789,6 +791,18 @@ static string[] SplitCsv(string? value)
 {
     return (value ?? string.Empty)
         .Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+}
+
+static ClerkIdentityMigrationOptions ResolveClerkIdentityMigrationOptions(IConfiguration configuration)
+{
+    var configuredLegacyUserIds = FirstNonEmpty(
+        Environment.GetEnvironmentVariable("SYSTEMCEL_CLERK_LEGACY_USER_IDS"),
+        configuration["Authentication:Clerk:LegacyUserIds"]);
+    var legacyUserIds = (configuredLegacyUserIds ?? string.Empty)
+        .Split(new[] { ',', ';', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+        .Where(x => x.StartsWith("user_", StringComparison.Ordinal));
+
+    return new ClerkIdentityMigrationOptions(legacyUserIds);
 }
 
 static string BuildRateLimitPartition(HttpContext context)

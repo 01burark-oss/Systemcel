@@ -43,7 +43,7 @@
 ### Şirket kuruluşundan sonra
 
 - [ ] Şirket unvanı, MERSİS/vergi bilgisi, adres, KEP/e-posta ve destek kanalını yasal metinlere ekle.
-- [ ] KVKK, gizlilik, kullanım, mesafeli hizmet, abonelik ve iptal/iade metinlerini hukuk onayından geçir.
+- [x] Hukuk onayı kullanıcı tarafından 31 Ağustos 2026'da bildirildi; yayıma alınacak kimlik ve iletişim alanları ayrı kapıda kalıyor.
 - [ ] PayTR başvuru/test mağazası/sandbox sözleşme testlerini tamamla.
 - [ ] Canlı checkout, imzalı webhook, yenileme, başarısız tahsilat, iade ve mutabakatı gerçek sağlayıcıda doğrula.
 - [ ] Fiyat artışı için 30 günlük bildirim snapshot'ı, teslim kanıtı ve bildirim başarısızsa zamlı tahsilatı durdurma kuralını uygula.

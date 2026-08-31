@@ -22,13 +22,13 @@ export const legalTexts: Record<AuthLanguage, Record<LegalTextKey, LegalTextCont
     terms: {
       linkLabel: "Kullanım Şartları",
       title: "Systemcel Kullanıcı Sözleşmesi ve Kullanım Şartları",
-      updatedAt: "24 Mayıs 2026",
+      updatedAt: "31 Ağustos 2026",
       updatedAtLabel: "Son güncelleme",
       closeLabel: "Yasal metni kapat",
       intro:
         "Bu metin, Systemcel web uygulamasından yararlanan kullanıcılar ile Systemcel arasındaki temel kullanım koşullarını düzenlemek amacıyla hazırlanmıştır.",
       note:
-        "Bu metinler taslak niteliğindedir. Canlı kullanıma geçmeden önce şirket bilgileri ve hukuki hükümler hukuk danışmanı tarafından gözden geçirilmelidir.",
+        "Hizmet sağlayıcı: Burak Özmen (şahıs işletmesi). İletişim: destek@systemcel.app.",
       sections: [
         {
           title: "1. Hizmetin Kapsamı",
@@ -65,13 +65,13 @@ export const legalTexts: Record<AuthLanguage, Record<LegalTextKey, LegalTextCont
     privacy: {
       linkLabel: "Gizlilik Politikası",
       title: "Systemcel Gizlilik Politikası",
-      updatedAt: "24 Mayıs 2026",
+      updatedAt: "31 Ağustos 2026",
       updatedAtLabel: "Son güncelleme",
       closeLabel: "Yasal metni kapat",
       intro:
         "Bu politika, Systemcel web uygulamasında işlenen kişisel veriler ve gizlilik yaklaşımı hakkında kullanıcıları bilgilendirmek amacıyla hazırlanmıştır.",
       note:
-        "Bu metinler taslak niteliğindedir. Canlı kullanıma geçmeden önce şirket bilgileri ve hukuki hükümler hukuk danışmanı tarafından gözden geçirilmelidir.",
+        "Hizmet sağlayıcı ve veri sorumlusu: Burak Özmen (şahıs işletmesi). Destek: destek@systemcel.app.",
       sections: [
         {
           title: "1. İşlenen Veri Kategorileri",
@@ -103,18 +103,18 @@ export const legalTexts: Record<AuthLanguage, Record<LegalTextKey, LegalTextCont
     kvkk: {
       linkLabel: "KVKK Aydınlatma Metni",
       title: "Kişisel Verilerin İşlenmesine İlişkin Aydınlatma Metni",
-      updatedAt: "24 Mayıs 2026",
+      updatedAt: "31 Ağustos 2026",
       updatedAtLabel: "Son güncelleme",
       closeLabel: "Yasal metni kapat",
       intro:
         "Bu aydınlatma metni, 6698 sayılı Kişisel Verilerin Korunması Kanunu kapsamında kişisel verilerin işlenmesine ilişkin temel bilgileri sunmak amacıyla hazırlanmıştır.",
       note:
-        "Bu metinler taslak niteliğindedir. Canlı kullanıma geçmeden önce şirket bilgileri ve hukuki hükümler hukuk danışmanı tarafından gözden geçirilmelidir.",
+        "Veri sorumlusu: Burak Özmen (şahıs işletmesi).",
       sections: [
         {
           title: "1. Veri Sorumlusu",
           text:
-            "Systemcel hizmetini sunan veri sorumlusuna ilişkin unvan, adres ve iletişim bilgileri canlı kullanım öncesinde şirket bilgileri kesinleştiğinde bu metne eklenecektir."
+            "Systemcel hizmetinin veri sorumlusu Burak Özmen'dir (şahıs işletmesi). Adres: [AÇIK ADRES]; resmî iletişim: [RESMÎ E-POSTA VE KEP]."
         },
         {
           title: "2. İşlenen Kişisel Veriler",
@@ -139,20 +139,20 @@ export const legalTexts: Record<AuthLanguage, Record<LegalTextKey, LegalTextCont
         {
           title: "6. İlgili Kişi Hakları",
           text:
-            "İlgili kişiler, KVKK'nın 11. maddesi kapsamındaki haklarını kullanmak için ileride ilan edilecek resmi iletişim kanalları üzerinden başvuru yapabilir."
+            "İlgili kişiler, KVKK'nın 11. maddesi kapsamındaki haklarını kullanmak için [RESMÎ E-POSTA VE KEP] üzerinden veri sorumlusuna başvuru yapabilir."
         }
       ]
     },
     subscription: {
       linkLabel: "Abonelik Koşulları",
       title: "Systemcel Abonelik, Yenileme, İptal ve İade Koşulları",
-      updatedAt: "10 Ağustos 2026",
+      updatedAt: "31 Ağustos 2026",
       updatedAtLabel: "Son güncelleme",
       closeLabel: "Yasal metni kapat",
       intro:
-        "Bu taslak, Systemcel ücretli planlarının tahsilat, otomatik yenileme, dönem sonu iptal ve iade yaklaşımını açıklar.",
+        "Bu metin, Systemcel ücretli planlarının tahsilat, otomatik yenileme, dönem sonu iptal ve iade koşullarını açıklar.",
       note:
-        "Şirket unvanı, vergi/adres bilgileri ve ödeme kuruluşu alanları şirket kuruluşundan sonra doldurulacak; metin canlı tahsilattan önce hukuk danışmanı tarafından onaylanacaktır.",
+        "Hizmet sağlayıcı: Burak Özmen (şahıs işletmesi). Abonelik desteği: destek@systemcel.app.",
       sections: [
         {
           title: "1. Plan, Fiyat ve Faturalama Dönemi",
@@ -180,9 +180,9 @@ export const legalTexts: Record<AuthLanguage, Record<LegalTextKey, LegalTextCont
             "Dönem sonu iptal geçmiş tahsilatı kendiliğinden iade etmez. Mükerrer veya hatalı tahsilat talepleri destek kanalı üzerinden incelenir. Emredici tüketici hükümleri ve kullanıcının vazgeçilemez yasal hakları saklıdır."
         },
         {
-          title: "6. Taslak Satıcı/Hizmet Sağlayıcı Bilgileri",
+          title: "6. Hizmet Sağlayıcı Bilgileri",
           text:
-            "Hizmet sağlayıcı: [ŞİRKET UNVANI]; vergi/MERSİS: [VERGİ VE MERSİS]; adres: [AÇIK ADRES]; e-posta/KEP: [RESMÎ E-POSTA VE KEP]; destek: destek@systemcel.app."
+            "Hizmet sağlayıcı: Burak Özmen (şahıs işletmesi); vergi/MERSİS: [VERGİ VE MERSİS]; adres: [AÇIK ADRES]; e-posta/KEP: [RESMÎ E-POSTA VE KEP]; destek: destek@systemcel.app."
         }
       ]
     }
@@ -191,13 +191,13 @@ export const legalTexts: Record<AuthLanguage, Record<LegalTextKey, LegalTextCont
     terms: {
       linkLabel: "Terms of Use",
       title: "Systemcel User Agreement and Terms of Use",
-      updatedAt: "May 24, 2026",
+      updatedAt: "August 31, 2026",
       updatedAtLabel: "Last updated",
       closeLabel: "Close legal text",
       intro:
         "This text sets out the basic terms of use between Systemcel and users who access the Systemcel web application.",
       note:
-        "These texts are drafts. Before production use, company information and legal clauses should be reviewed by legal counsel.",
+        "Service provider: Burak Özmen (sole proprietorship). Contact: destek@systemcel.app.",
       sections: [
         {
           title: "1. Scope of Service",
@@ -234,13 +234,13 @@ export const legalTexts: Record<AuthLanguage, Record<LegalTextKey, LegalTextCont
     privacy: {
       linkLabel: "Privacy Policy",
       title: "Systemcel Privacy Policy",
-      updatedAt: "May 24, 2026",
+      updatedAt: "August 31, 2026",
       updatedAtLabel: "Last updated",
       closeLabel: "Close legal text",
       intro:
         "This policy informs users about personal data processed in the Systemcel web application and Systemcel's privacy approach.",
       note:
-        "These texts are drafts. Before production use, company information and legal clauses should be reviewed by legal counsel.",
+        "Service provider and data controller: Burak Özmen (sole proprietorship). Support: destek@systemcel.app.",
       sections: [
         {
           title: "1. Data Categories",
@@ -272,18 +272,18 @@ export const legalTexts: Record<AuthLanguage, Record<LegalTextKey, LegalTextCont
     kvkk: {
       linkLabel: "KVKK Notice",
       title: "Notice on the Processing of Personal Data",
-      updatedAt: "May 24, 2026",
+      updatedAt: "August 31, 2026",
       updatedAtLabel: "Last updated",
       closeLabel: "Close legal text",
       intro:
         "This notice provides basic information about the processing of personal data under Turkish Personal Data Protection Law No. 6698.",
       note:
-        "These texts are drafts. Before production use, company information and legal clauses should be reviewed by legal counsel.",
+        "Data controller: Burak Özmen (sole proprietorship).",
       sections: [
         {
           title: "1. Data Controller",
           text:
-            "The title, address and contact details of the data controller providing the Systemcel service will be added to this text before production use once company details are finalized."
+            "The data controller providing the Systemcel service is Burak Özmen (sole proprietorship). Address: [FULL ADDRESS]; official contact: [OFFICIAL EMAIL AND KEP]."
         },
         {
           title: "2. Personal Data Processed",
@@ -308,20 +308,20 @@ export const legalTexts: Record<AuthLanguage, Record<LegalTextKey, LegalTextCont
         {
           title: "6. Data Subject Rights",
           text:
-            "Data subjects may exercise their rights under Article 11 of the KVKK through official contact channels to be announced later."
+            "Data subjects may exercise their rights under Article 11 of the KVKK by contacting the data controller through [OFFICIAL EMAIL AND KEP]."
         }
       ]
     },
     subscription: {
       linkLabel: "Subscription Terms",
       title: "Systemcel Subscription, Renewal, Cancellation and Refund Terms",
-      updatedAt: "August 10, 2026",
+      updatedAt: "August 31, 2026",
       updatedAtLabel: "Last updated",
       closeLabel: "Close legal text",
       intro:
-        "This draft describes charges, automatic renewal, end-of-period cancellation and refunds for paid Systemcel plans.",
+        "These terms describe charges, automatic renewal, end-of-period cancellation and refunds for paid Systemcel plans.",
       note:
-        "Company, tax/address and payment-provider details will be completed after incorporation, and legal counsel must approve this text before live charging.",
+        "Service provider: Burak Özmen (sole proprietorship). Subscription support: destek@systemcel.app.",
       sections: [
         {
           title: "1. Plan, Price and Billing Period",
@@ -349,9 +349,9 @@ export const legalTexts: Record<AuthLanguage, Record<LegalTextKey, LegalTextCont
             "End-of-period cancellation does not automatically refund a past charge. Duplicate or erroneous charges are reviewed through support. Mandatory statutory rights remain unaffected."
         },
         {
-          title: "6. Draft Provider Details",
+          title: "6. Service Provider Details",
           text:
-            "Provider: [COMPANY TITLE]; tax/registry: [TAX AND REGISTRY]; address: [FULL ADDRESS]; official email/KEP: [OFFICIAL EMAIL AND KEP]; support: destek@systemcel.app."
+            "Provider: Burak Özmen (sole proprietorship); tax/registry: [TAX AND REGISTRY]; address: [FULL ADDRESS]; official email/KEP: [OFFICIAL EMAIL AND KEP]; support: destek@systemcel.app."
         }
       ]
     }

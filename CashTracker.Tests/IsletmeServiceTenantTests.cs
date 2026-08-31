@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using CashTracker.Core.Entities;
+using CashTracker.Core.Models;
 using CashTracker.Core.Services;
 using CashTracker.Infrastructure.Persistence;
 using CashTracker.Infrastructure.Services;
@@ -74,13 +75,67 @@ namespace CashTracker.Tests
             Assert.Equal(other.Id, otherRows[0].Id);
         }
 
+        [Fact]
+        public async Task VerifiedProductionIdentity_RelinksAllowlistedLegacyUserAndPreservesBusiness()
+        {
+            using var fixture = await IsletmeFixture.CreateAsync();
+            var currentUser = new MutableCurrentUserContext();
+            var factory = new SingleDbContextFactory(fixture.Options);
+            var initialService = new IsletmeService(factory, currentUser);
+
+            currentUser.Set("user_development", "owner@example.com", "Development Owner");
+            var existingBusiness = await initialService.GetActiveAsync();
+            await initialService.RenameAsync(existingBusiness.Id, "Korunan İşletme");
+
+            currentUser.Set("user_production", "OWNER@example.com", "Production Owner", emailVerified: true);
+            var migrationService = new IsletmeService(
+                factory,
+                currentUser,
+                clerkIdentityMigrationOptions: new ClerkIdentityMigrationOptions(new[] { "user_development" }));
+
+            var migratedBusiness = await migrationService.GetActiveAsync();
+
+            Assert.Equal(existingBusiness.Id, migratedBusiness.Id);
+            Assert.Equal("Korunan İşletme", migratedBusiness.Ad);
+            await using var db = fixture.CreateDbContext();
+            var user = Assert.Single(await db.Kullanicilar.ToListAsync());
+            Assert.Equal("user_production", user.AuthProviderUserId);
+            Assert.Equal("OWNER@example.com", user.Eposta);
+            Assert.Equal("Production Owner", user.AdSoyad);
+            Assert.Single(await db.IsletmeUyelikleri.Where(x => x.KullaniciId == user.Id).ToListAsync());
+        }
+
+        [Fact]
+        public async Task UnverifiedProductionIdentity_DoesNotRelinkLegacyUser()
+        {
+            using var fixture = await IsletmeFixture.CreateAsync();
+            var currentUser = new MutableCurrentUserContext();
+            var factory = new SingleDbContextFactory(fixture.Options);
+            var initialService = new IsletmeService(factory, currentUser);
+
+            currentUser.Set("user_development", "owner@example.com", "Development Owner");
+            var existingBusiness = await initialService.GetActiveAsync();
+
+            currentUser.Set("user_production", "owner@example.com", "Production Owner", emailVerified: false);
+            var migrationService = new IsletmeService(
+                factory,
+                currentUser,
+                clerkIdentityMigrationOptions: new ClerkIdentityMigrationOptions(new[] { "user_development" }));
+
+            var newBusiness = await migrationService.GetActiveAsync();
+
+            Assert.NotEqual(existingBusiness.Id, newBusiness.Id);
+            await using var db = fixture.CreateDbContext();
+            Assert.Equal(2, await db.Kullanicilar.CountAsync());
+        }
+
         private sealed class MutableCurrentUserContext : ICurrentUserContext
         {
             private CurrentUserIdentity? _current;
 
-            public void Set(string providerUserId, string email, string fullName)
+            public void Set(string providerUserId, string email, string fullName, bool emailVerified = false)
             {
-                _current = new CurrentUserIdentity(providerUserId, email, fullName);
+                _current = new CurrentUserIdentity(providerUserId, email, fullName, emailVerified);
             }
 
             public CurrentUserIdentity? GetCurrentUser()

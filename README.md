@@ -40,6 +40,8 @@ SYSTEMCEL_CLERK_PUBLISHABLE_KEY=<clerk-publishable-key>
 SYSTEMCEL_CLERK_AUTHORIZED_PARTIES=https://systemcel.app,https://www.systemcel.app
 ```
 
+During a Clerk instance cutover, set `SYSTEMCEL_CLERK_LEGACY_USER_IDS` to the comma-separated development user IDs. A user from that allowlist is relinked to the new production identity only after signing in with the same verified email. Clear the variable after the cutover.
+
 Admin and integrations:
 
 ```text
