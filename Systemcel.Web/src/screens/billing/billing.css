@@ -6,6 +6,7 @@
   --billing-bg: var(--color-bg-page, #efede4);
   --billing-line: var(--color-border-soft, rgba(16, 17, 14, .14));
   --billing-lime: #c8ff00;
+  --billing-on-lime: #0b0b09;
   --billing-danger: var(--color-danger, #a63834);
   min-height: 100%;
   padding: clamp(20px, 3vw, 38px);
@@ -49,7 +50,7 @@
 
 .billing-button:active { transform: scale(.97); }
 
-.billing-button--primary { border-color: var(--billing-lime); background: var(--billing-lime); }
+.billing-button--primary { color: var(--billing-on-lime); border-color: var(--billing-lime); background: var(--billing-lime); }
 .billing-button--secondary { background: color-mix(in srgb, var(--billing-paper) 82%, transparent); }
 .billing-button--danger { border-color: var(--billing-danger); color: #fff; background: var(--billing-danger); }
 .billing-link-button { padding: 9px 4px; border: 0; color: var(--billing-muted); background: transparent; font-weight: 720; text-decoration: underline; text-underline-offset: 4px; }

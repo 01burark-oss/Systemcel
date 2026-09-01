@@ -17,6 +17,7 @@
   --sc-border: var(--sc-line);
   --sc-line-strong: rgba(11, 11, 9, .28);
   --sc-lime: #c8ff00;
+  --sc-on-lime: #0b0b09;
   --sc-primary: #0b0b09;
   --sc-input: #fbfaf5;
   --sc-text: #0b0b09;
@@ -296,7 +297,7 @@
 }
 
 :root[data-theme] :is(.segmented, .odeme-grid) button.aktif {
-  color: var(--sc-ink);
+  color: var(--sc-on-lime);
   border-color: var(--sc-lime);
   background: var(--sc-lime);
 }
@@ -310,7 +311,7 @@
 }
 
 :root[data-theme] .aksiyonlar .birincil {
-  color: var(--sc-ink);
+  color: var(--sc-on-lime);
   border-color: var(--sc-lime);
   background: var(--sc-lime);
 }
@@ -381,7 +382,7 @@
 }
 
 :root[data-theme] .cari-btn--primary {
-  color: var(--sc-ink);
+  color: var(--sc-on-lime);
   border-color: var(--sc-lime);
   background: var(--sc-lime);
 }
@@ -420,7 +421,7 @@
   width: 48px;
   height: 48px;
   flex-basis: 48px;
-  color: var(--sc-ink) !important;
+  color: var(--sc-on-lime) !important;
   background: var(--sc-lime) !important;
 }
 
@@ -441,7 +442,7 @@
 :root[data-theme] .stock-card--list { min-height: 500px; }
 
 :root[data-theme] .stock-card__header strong {
-  color: var(--sc-ink);
+  color: var(--sc-on-lime);
   background: var(--sc-lime);
 }
 
@@ -496,7 +497,7 @@
 }
 
 :root[data-theme] :is(.stock-btn--primary, .stock-btn--barcode) {
-  color: var(--sc-ink);
+  color: var(--sc-on-lime);
   border-color: var(--sc-lime);
   background: var(--sc-lime);
 }
@@ -549,7 +550,7 @@
 :root[data-theme] :is(.invoice-stat__icon, .payment-stat__icon) {
   width: 48px;
   height: 48px;
-  color: var(--sc-ink) !important;
+  color: var(--sc-on-lime) !important;
   background: var(--sc-lime) !important;
   box-shadow: none;
 }
@@ -674,7 +675,7 @@
 }
 
 :root[data-theme] :is(.invoice-btn--primary, .payment-btn--primary) {
-  color: var(--sc-ink);
+  color: var(--sc-on-lime);
   border-color: var(--sc-lime);
   background: var(--sc-lime);
 }
@@ -693,7 +694,7 @@
 
 :root[data-theme] :is(.invoice-filter-panel, .payment-filter-panel) button.active,
 :root[data-theme] :is(.invoice-btn--filter, .payment-btn--filter).active {
-  color: var(--sc-ink);
+  color: var(--sc-on-lime);
   border-color: var(--sc-lime);
   background: var(--sc-lime);
 }
@@ -756,7 +757,7 @@
 :root[data-theme] .payment-confirm-modal { position: fixed; inset: 0; z-index: 345; padding: 22px; display: grid; place-items: center; background: rgba(11, 11, 9, .56); backdrop-filter: blur(8px); }
 :root[data-theme] .payment-confirm-modal__panel { width: min(420px, 100%); padding: 24px; display: grid; justify-items: start; gap: 12px; border: 1px solid rgba(11, 11, 9, .12); border-radius: 18px; background: var(--sc-paper); box-shadow: 0 28px 80px rgba(11, 11, 9, .24); animation: payment-reminder-in 170ms cubic-bezier(.2, .8, .2, 1); }
 :root[data-theme] .payment-confirm-modal__icon { width: 42px; height: 42px; display: grid; place-items: center; color: var(--sc-danger); border-radius: 12px; background: var(--sc-danger-soft); }
-:root[data-theme] .payment-confirm-modal__icon--undo { color: var(--sc-ink); background: var(--sc-lime); }
+:root[data-theme] .payment-confirm-modal__icon--undo { color: var(--sc-on-lime); background: var(--sc-lime); }
 :root[data-theme] .payment-confirm-modal h2 { margin: 4px 0 0; font-size: 21px; letter-spacing: -.025em; }
 :root[data-theme] .payment-confirm-modal p { margin: 0; color: var(--sc-muted); font-size: 13px; line-height: 1.55; }
 :root[data-theme] .payment-confirm-modal p strong { color: var(--sc-ink); }
@@ -889,12 +890,12 @@
 }
 
 :root[data-theme] .reports-selection button.selected {
-  color: var(--sc-ink);
+  color: var(--sc-on-lime);
   border-color: var(--sc-lime);
   background: var(--sc-lime);
 }
 
-:root[data-theme] .reports-selection button.selected svg { color: var(--sc-ink); }
+:root[data-theme] .reports-selection button.selected svg { color: var(--sc-on-lime); }
 
 :root[data-theme] .reports-btn {
   min-height: 42px;
@@ -905,7 +906,7 @@
 }
 
 :root[data-theme] .reports-btn--primary {
-  color: var(--sc-ink);
+  color: var(--sc-on-lime);
   border-color: var(--sc-lime);
   background: var(--sc-lime);
 }
@@ -1225,7 +1226,7 @@
 }
 
 :root[data-theme] .admin-btn--success {
-  color: var(--sc-ink);
+  color: var(--sc-on-lime);
   border-color: var(--sc-lime);
   background: var(--sc-lime);
 }
@@ -1325,7 +1326,7 @@
 }
 
 :root[data-theme] .settings-btn--green {
-  color: var(--sc-ink);
+  color: var(--sc-on-lime);
   border-color: var(--sc-lime);
   background: var(--sc-lime);
 }
@@ -1381,7 +1382,7 @@
 }
 
 :root[data-theme] .settings-tabs button.active {
-  color: var(--sc-ink);
+  color: var(--sc-on-lime);
   border-color: var(--sc-lime);
   background: var(--sc-lime);
   box-shadow: none;
@@ -1422,7 +1423,7 @@
 :root[data-theme] .telegram-status.connected,
 :root[data-theme] .telegram-connected-hero__icon,
 :root[data-theme] .telegram-hero-icon {
-  color: var(--sc-ink);
+  color: var(--sc-on-lime);
   background: var(--sc-lime);
 }
 
@@ -1435,7 +1436,7 @@
 }
 
 :root[data-theme] .telegram-btn--primary {
-  color: var(--sc-ink);
+  color: var(--sc-on-lime);
   border-color: var(--sc-lime);
   background: var(--sc-lime);
 }
@@ -1453,7 +1454,7 @@
 }
 
 :root[data-theme] .telegram-steps-card li span {
-  color: var(--sc-ink);
+  color: var(--sc-on-lime);
   background: var(--sc-lime);
 }
 
@@ -1501,7 +1502,7 @@
 
 :root[data-theme] :is(.accountant-primary-link, .accountant-card__action, .accountant-section > button, .accountant-table button, .accountant-invite-strip a, .accountant-modal__primary) {
   min-height: 42px;
-  color: var(--sc-ink);
+  color: var(--sc-on-lime);
   border-color: var(--sc-lime);
   border-radius: 999px;
   background: var(--sc-lime);
@@ -1582,7 +1583,7 @@
 }
 
 :root[data-theme] .accountant-card__icon {
-  color: var(--sc-ink);
+  color: var(--sc-on-lime);
   background: var(--sc-lime);
 }
 
@@ -1612,7 +1613,7 @@
 }
 
 :root[data-theme] .accountant-permission button.active {
-  color: var(--sc-ink);
+  color: var(--sc-on-lime);
   border-color: var(--sc-lime);
   background: var(--sc-lime);
 }
@@ -1725,7 +1726,7 @@
 }
 
 :root[data-theme] .chat-center__list i {
-  color: var(--sc-ink);
+  color: var(--sc-on-lime);
   background: var(--sc-lime);
 }
 
@@ -1771,7 +1772,7 @@
 }
 
 :root[data-theme] :is(.chat-center__sidebar button, .chat-thread__header button, .chat-thread__tools button, .chat-thread__input button, .chat-thread__bottom-button) {
-  color: var(--sc-ink);
+  color: var(--sc-on-lime);
   border-color: var(--sc-lime);
   border-radius: 999px;
   background: var(--sc-lime);
@@ -1787,7 +1788,7 @@
 :root[data-theme] .chat-thread__input textarea::placeholder { color: #8d8b80; }
 
 :root[data-theme] .chat-thread__typing {
-  color: var(--sc-ink);
+  color: var(--sc-on-lime);
   background: var(--sc-lime);
 }
 
@@ -1845,7 +1846,7 @@
 }
 
 :root[data-theme] .pin-lock__badge {
-  color: var(--sc-ink);
+  color: var(--sc-on-lime);
   background: var(--sc-lime);
 }
 
@@ -1864,7 +1865,7 @@
 
 :root[data-theme] .setup-modal__icon,
 :root[data-theme] .setup-modal__primary {
-  color: var(--sc-ink);
+  color: var(--sc-on-lime);
   background: var(--sc-lime);
   box-shadow: none;
 }
@@ -1909,7 +1910,7 @@
 }
 
 :root[data-theme] .mobile-companion__actions a:first-child {
-  color: var(--sc-ink);
+  color: var(--sc-on-lime);
   border-color: var(--sc-lime);
   background: var(--sc-lime);
 }
@@ -1946,7 +1947,7 @@
 }
 
 :root[data-theme] .mobile-workspace-nav a.active {
-  color: var(--sc-ink);
+  color: var(--sc-on-lime);
   border-color: var(--sc-lime);
   background: var(--sc-lime);
 }
@@ -1980,7 +1981,7 @@
 }
 
 :root[data-theme] .accountant-mobile-filter-tabs button.active {
-  color: var(--sc-ink);
+  color: var(--sc-on-lime);
   border-color: var(--sc-lime);
   background: var(--sc-lime);
 }
@@ -2513,7 +2514,7 @@
 }
 
 :root[data-theme] .profile-cropper__actions .profile-cropper__primary {
-  color: var(--sc-ink);
+  color: var(--sc-on-lime);
   border-color: var(--sc-lime);
   background: var(--sc-lime);
 }
@@ -2766,7 +2767,7 @@
 :root[data-theme] .chat-thread__input > button {
   min-width: 96px;
   min-height: 44px;
-  color: var(--sc-ink);
+  color: var(--sc-on-lime);
   border-color: var(--sc-lime);
   background: var(--sc-lime);
 }
@@ -2791,7 +2792,7 @@
 }
 
 :root[data-theme] .chat-voice-recorder button {
-  color: var(--sc-ink);
+  color: var(--sc-on-lime);
   border-radius: 999px;
   background: var(--sc-lime);
 }
@@ -3191,7 +3192,7 @@
 }
 
 :root[data-theme] .telegram-manual__icon {
-  color: var(--sc-ink);
+  color: var(--sc-on-lime);
   background: var(--sc-lime);
 }
 
@@ -4190,7 +4191,7 @@
 }
 
 :root[data-theme] .snapshot-period-chip {
-  color: #1e201b;
+  color: var(--sc-on-lime);
   border: 1px solid rgba(200, 255, 0, .46);
   background: #d9ef83;
   box-shadow: none;
@@ -4448,7 +4449,7 @@
 }
 
 :root[data-theme] .cari-btn--primary {
-  color: var(--sc-ink);
+  color: var(--sc-on-lime);
   border-color: var(--sc-lime);
   background: var(--sc-lime);
 }
@@ -4956,7 +4957,7 @@
 }
 
 :root[data-theme] .setup-account-switch button.active {
-  color: var(--sc-ink);
+  color: var(--sc-on-lime);
   border-color: var(--sc-lime);
   background: var(--sc-lime);
   box-shadow: none;
@@ -5046,7 +5047,7 @@
 }
 
 :root[data-theme] .setup-accountant-choice button.active {
-  color: var(--sc-ink);
+  color: var(--sc-on-lime);
   border-color: var(--sc-lime);
   background: var(--sc-lime);
 }
@@ -5103,7 +5104,7 @@
 }
 
 :root[data-theme] .setup-modal__primary {
-  color: var(--sc-ink);
+  color: var(--sc-on-lime);
   border-color: var(--sc-lime);
   background: var(--sc-lime);
 }
@@ -5194,7 +5195,7 @@
   height: 40px;
   display: grid;
   place-items: center;
-  color: var(--sc-ink);
+  color: var(--sc-on-lime);
   border-radius: 12px;
   background: var(--sc-lime);
 }
@@ -5261,7 +5262,7 @@
   height: 38px;
   padding: 9px;
   border-radius: 50%;
-  color: var(--sc-ink);
+  color: var(--sc-on-lime);
   background: var(--sc-lime);
 }
 
@@ -5347,13 +5348,13 @@
 
 :root[data-theme] .mobile-workspace-nav .systemcel-user--compact .systemcel-user-button:hover,
 :root[data-theme] .mobile-workspace-nav .systemcel-user--compact .systemcel-user-button[aria-expanded="true"] {
-  color: var(--sc-ink);
-  border-color: var(--sc-ink);
+  color: var(--sc-on-lime);
+  border-color: var(--sc-on-lime);
   background: var(--sc-lime);
 }
 
 :root[data-theme] .mobile-workspace-nav .systemcel-user--compact .systemcel-user-avatar {
-  color: var(--sc-ink);
+  color: var(--sc-on-lime);
   background: var(--sc-lime);
 }
 
@@ -5571,7 +5572,7 @@
 
 :root[data-theme] .help-sidebar__group > a:hover,
 :root[data-theme] .help-sidebar__group.is-active > a {
-  color: var(--sc-ink);
+  color: var(--sc-on-lime);
   background: var(--sc-lime);
 }
 
@@ -5656,7 +5657,7 @@
 }
 
 :root[data-theme] .help-contact a {
-  color: var(--sc-ink);
+  color: var(--sc-on-lime);
   background: var(--sc-lime);
 }
 
@@ -5937,6 +5938,7 @@
 }
 
 :root[data-theme] .stock-empty button:hover {
+  color: var(--sc-on-lime);
   border-color: var(--sc-lime);
   background: var(--sc-lime);
 }
@@ -6590,7 +6592,7 @@
 }
 
 :root[data-theme] .accountant-permission button.active {
-  color: var(--sc-ink);
+  color: var(--sc-on-lime);
   border-color: #a6d900;
   background: var(--sc-lime);
   box-shadow:
@@ -6730,7 +6732,7 @@
 }
 
 :root[data-theme] .react-topbar__icon {
-  color: var(--sc-ink);
+  color: var(--sc-on-lime);
   background: var(--sc-lime);
 }
 
@@ -7404,6 +7406,7 @@
 }
 
 :root[data-theme] .chat-thread__input > .chat-thread__mic:hover {
+  color: var(--sc-on-lime);
   border-color: rgba(123, 170, 0, .4);
   background: var(--sc-lime);
 }
@@ -7684,6 +7687,7 @@
 }
 
 :root[data-theme] .chat-thread__composer-send {
+  color: var(--sc-on-lime);
   width: 44px;
   padding: 0;
   border-color: var(--sc-lime);
@@ -8078,7 +8082,7 @@
   }
 
   :root[data-theme] .chat-thread__composer-send {
-    color: var(--sc-ink);
+    color: var(--sc-on-lime);
     border-color: var(--sc-lime);
     background: var(--sc-lime);
   }
@@ -8371,6 +8375,7 @@
 }
 
 :root[data-theme] .chat-payment-gate__icon {
+  color: var(--sc-on-lime);
   width: 36px;
   height: 36px;
   display: inline-flex;
@@ -8936,7 +8941,8 @@
   border-radius: 0 !important;
   outline: 0;
   background: transparent !important;
-  color: inherit;
+  color: var(--sc-on-lime) !important;
+  -webkit-text-fill-color: var(--sc-on-lime);
   font: inherit;
   font-weight: 850;
   line-height: 1;
@@ -9421,7 +9427,7 @@
 }
 
 :root[data-theme] .finance-kpi--ink .finance-kpi__icon {
-  color: var(--sc-ink);
+  color: var(--sc-on-lime);
   background: var(--sc-lime);
 }
 
@@ -9697,7 +9703,7 @@
 :root[data-theme] .finance-plan-check input { width: 18px; min-height: 18px; height: 18px; padding: 0; accent-color: var(--sc-ink); }
 :root[data-theme] .finance-plan-form__actions { grid-column: 1 / -1; padding-top: 12px; display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid var(--sc-line); }
 :root[data-theme] .finance-button { min-height: 42px; padding: 0 15px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; border: 1px solid var(--sc-line); border-radius: 999px; color: var(--sc-ink); background: var(--sc-paper); font-size: 12px; font-weight: 850; }
-:root[data-theme] .finance-button--primary { border-color: var(--sc-lime); background: var(--sc-lime); }
+:root[data-theme] .finance-button--primary { color: var(--sc-on-lime); border-color: var(--sc-lime); background: var(--sc-lime); }
 
 :root[data-theme] .finance-plan-list { display: grid; gap: 8px; }
 :root[data-theme] .finance-plan-list > article { min-width: 0; min-height: 68px; padding: 9px 10px; display: grid; grid-template-columns: 40px minmax(0, 1fr) auto auto; align-items: center; gap: 10px; border: 1px solid var(--sc-line); border-radius: 13px; background: var(--sc-cream); }
@@ -10416,7 +10422,7 @@
 .settings-operation-card__header { display:flex; align-items:flex-start; gap:12px; }
 .settings-operation-card__header > div { min-width:0; }
 .settings-operation-card__header p { margin:4px 0 0; color:var(--sc-muted,#6d6b62); }
-.settings-operation-card__icon { display:grid; flex:0 0 40px; width:40px; height:40px; place-items:center; border-radius:12px; color:var(--sc-ink,#171812); background:var(--sc-lime,#c8ff00); }
+.settings-operation-card__icon { display:grid; flex:0 0 40px; width:40px; height:40px; place-items:center; border-radius:12px; color:var(--sc-on-lime,#0b0b09); background:var(--sc-lime,#c8ff00); }
 .settings-inline-notice,.settings-operation-feedback { display:flex; align-items:center; gap:8px; min-height:40px; padding:10px 12px; border:1px solid color-mix(in srgb,var(--sc-line,#dddcd2),transparent 15%); border-radius:11px; color:var(--sc-ink,#171812); background:color-mix(in srgb,var(--sc-surface,#fffef9),var(--sc-lime,#c8ff00) 7%); }
 .settings-inline-notice--warning { border-color:#e8bd58; background:#fff6db; }
 .settings-operation-feedback.error { border-color:#e6a5a0; color:#8c2520; background:#fff0ee; }
@@ -10456,11 +10462,11 @@
 .settings-accept-invite { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:end; gap:10px; padding-top:4px; }
 .settings-import-steps { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
 .settings-import-steps span { display:flex; align-items:center; gap:7px; color:var(--sc-muted,#6d6b62); font-size:12px; font-weight:700; }
-.settings-import-steps strong { display:grid; flex:0 0 24px; width:24px; height:24px; place-items:center; border-radius:50%; color:var(--sc-ink,#171812); background:color-mix(in srgb,var(--sc-lime,#c8ff00),transparent 20%); }
+.settings-import-steps strong { display:grid; flex:0 0 24px; width:24px; height:24px; place-items:center; border-radius:50%; color:var(--sc-on-lime,#0b0b09); background:color-mix(in srgb,var(--sc-lime,#c8ff00),transparent 20%); }
 .settings-import-form { display:grid; gap:10px; }
 .settings-migration-steps { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
 .settings-migration-steps span { display:flex; align-items:center; gap:7px; color:var(--sc-muted,#6d6b62); font-size:12px; font-weight:700; }
-.settings-migration-steps strong { display:grid; flex:0 0 24px; width:24px; height:24px; place-items:center; border-radius:50%; color:var(--sc-ink,#171812); background:color-mix(in srgb,var(--sc-lime,#c8ff00),transparent 20%); }
+.settings-migration-steps strong { display:grid; flex:0 0 24px; width:24px; height:24px; place-items:center; border-radius:50%; color:var(--sc-on-lime,#0b0b09); background:color-mix(in srgb,var(--sc-lime,#c8ff00),transparent 20%); }
 .settings-migration-form { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:end; gap:10px; }
 .settings-migration-form label { display:grid; gap:6px; min-width:0; }
 .settings-migration-form label > span { color:var(--sc-muted,#6d6b62); font-size:12px; font-weight:750; }
@@ -10554,7 +10560,7 @@
 .help-support__form :is(input,select,textarea):focus { outline:0; border-color:var(--sc-ink,#171812); box-shadow:0 0 0 3px rgba(200,255,0,.24); }
 .help-support__field--full { grid-column:1/-1; }
 .help-support__submit { grid-column:1/-1; display:flex; gap:12px; justify-content:space-between; align-items:center; color:var(--sc-muted,#6d6b62); font-size:12px; line-height:1.4; }
-.help-support__submit button { min-height:42px; padding:0 16px; display:inline-flex; gap:7px; align-items:center; justify-content:center; border:1px solid var(--sc-lime,#c8ff00); border-radius:999px; color:var(--sc-ink,#171812); background:var(--sc-lime,#c8ff00); font-weight:850; cursor:pointer; white-space:nowrap; }
+.help-support__submit button { min-height:42px; padding:0 16px; display:inline-flex; gap:7px; align-items:center; justify-content:center; border:1px solid var(--sc-lime,#c8ff00); border-radius:999px; color:var(--sc-on-lime,#0b0b09); background:var(--sc-lime,#c8ff00); font-weight:850; cursor:pointer; white-space:nowrap; }
 .help-support__submit button:disabled { opacity:.58; cursor:not-allowed; }
 .help-support__feedback { margin:16px 0 0; padding:10px 12px; border:1px solid rgba(79,102,0,.16); border-radius:10px; color:#405300; background:rgba(200,255,0,.16); font-size:13px; font-weight:700; }
 .help-support__feedback--error { border-color:rgba(164,81,72,.2); color:var(--sc-danger,#9c3831); background:var(--sc-danger-soft,#fff0ee); }
@@ -11047,6 +11053,10 @@
 
 :root[data-theme="dark"] .bank-table-wrap :is(td, td a, td button:not(.subtle)) {
   color: var(--sc-ink);
+}
+
+:root[data-theme="dark"] .bank-table-wrap .bank-row-actions button:not(.subtle) {
+  color: var(--sc-on-lime);
 }
 
 :root[data-theme="dark"] .bank-row-actions button.subtle {

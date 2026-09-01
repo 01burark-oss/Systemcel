@@ -6,7 +6,7 @@ import { promises as fs } from "node:fs";
 
 type Theme = "light" | "dark";
 type CaptureCase = { slug: string; path: string; ready: string };
-type ControlIssue = { theme: Theme; screen: string; label: string; kind: "overflow" | "off-center"; detail: string };
+type ControlIssue = { theme: Theme; screen: string; label: string; kind: "overflow" | "off-center" | "low-contrast"; detail: string };
 
 const webRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const artifactsRoot = path.resolve(webRoot, "..", "artifacts");
@@ -92,18 +92,74 @@ test("captures every application route in light and dark themes", async ({ brows
   await captureOverview(browser, "light");
   await captureOverview(browser, "dark");
   expect(manifest).toHaveLength(screens.length * 2);
+  expect(controlIssues, `UI denetiminde ${controlIssues.length} sorun bulundu; artifacts/ui-screenshots/ui-audit.json dosyasını inceleyin`).toEqual([]);
 });
 
 async function auditControls(page: Page): Promise<Array<Omit<ControlIssue, "theme" | "screen">>> {
-  return page.locator("button, a[role='button']").evaluateAll((controls) => {
-    const issues: Array<{ label: string; kind: "overflow" | "off-center"; detail: string }> = [];
+  return page.locator("button, a[role='button'], select, [class$='__icon']").evaluateAll((controls) => {
+    type Rgba = { r: number; g: number; b: number; a: number };
+    const issues: Array<{ label: string; kind: "overflow" | "off-center" | "low-contrast"; detail: string }> = [];
+    const parseColor = (value: string): Rgba | null => {
+      const parts = value.match(/[\d.]+/g)?.map(Number);
+      if (!parts || parts.length < 3) return null;
+      return { r: parts[0], g: parts[1], b: parts[2], a: parts[3] ?? 1 };
+    };
+    const blend = (front: Rgba, back: Rgba): Rgba => {
+      const alpha = front.a + back.a * (1 - front.a);
+      if (alpha === 0) return { r: 0, g: 0, b: 0, a: 0 };
+      return {
+        r: (front.r * front.a + back.r * back.a * (1 - front.a)) / alpha,
+        g: (front.g * front.a + back.g * back.a * (1 - front.a)) / alpha,
+        b: (front.b * front.a + back.b * back.a * (1 - front.a)) / alpha,
+        a: alpha
+      };
+    };
+    const effectiveBackground = (element: Element): Rgba => {
+      let result: Rgba = { r: 255, g: 255, b: 255, a: 0 };
+      let current: Element | null = element;
+      while (current && result.a < .999) {
+        const layer = parseColor(getComputedStyle(current).backgroundColor);
+        if (layer && layer.a > 0) result = blend(result, layer);
+        current = current.parentElement;
+      }
+      return result.a < .999 ? blend(result, { r: 255, g: 255, b: 255, a: 1 }) : result;
+    };
+    const luminance = ({ r, g, b }: Rgba) => {
+      const channel = (value: number) => {
+        const normalized = value / 255;
+        return normalized <= .04045 ? normalized / 12.92 : ((normalized + .055) / 1.055) ** 2.4;
+      };
+      return .2126 * channel(r) + .7152 * channel(g) + .0722 * channel(b);
+    };
+    const contrast = (foreground: Rgba, background: Rgba) => {
+      const front = foreground.a < .999 ? blend(foreground, background) : foreground;
+      const light = Math.max(luminance(front), luminance(background));
+      const dark = Math.min(luminance(front), luminance(background));
+      return (light + .05) / (dark + .05);
+    };
+    const colorText = ({ r, g, b }: Rgba) => `rgb(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)})`;
     for (const control of controls) {
       const element = control as HTMLElement;
       if (element.matches(".finance-chart__week-buttons button")) continue;
       const style = getComputedStyle(element);
       const rect = element.getBoundingClientRect();
-      if (style.display === "none" || style.visibility === "hidden" || rect.width < 1 || rect.height < 1) continue;
-      const label = (element.getAttribute("aria-label") || element.innerText || "isimsiz kontrol").replace(/\s+/g, " ").trim().slice(0, 90);
+      if (style.display === "none" || style.visibility === "hidden" || rect.width < 1 || rect.height < 1 || element.matches(":disabled")) continue;
+      const label = (element.getAttribute("aria-label") || element.innerText || element.className || element.tagName).replace(/\s+/g, " ").trim().slice(0, 90);
+      const background = effectiveBackground(element);
+      const limeSurface = background.r > 120 && background.g > 180 && background.b < 150;
+      if (limeSurface) {
+        const foreground = parseColor(style.color);
+        if (foreground) {
+          const ratio = contrast(foreground, background);
+          if (ratio < 4.5) issues.push({ label, kind: "low-contrast", detail: `${colorText(foreground)} / ${colorText(background)} = ${ratio.toFixed(2)}:1` });
+        }
+        element.querySelectorAll("svg").forEach((icon) => {
+          const iconColor = parseColor(getComputedStyle(icon).color);
+          if (!iconColor) return;
+          const ratio = contrast(iconColor, background);
+          if (ratio < 3) issues.push({ label: `${label} (ikon)`, kind: "low-contrast", detail: `${colorText(iconColor)} / ${colorText(background)} = ${ratio.toFixed(2)}:1` });
+        });
+      }
       if (element.scrollWidth > element.clientWidth + 1 || element.scrollHeight > element.clientHeight + 1) {
         issues.push({ label, kind: "overflow", detail: `${element.clientWidth}x${element.clientHeight} içinde ${element.scrollWidth}x${element.scrollHeight}` });
       }
