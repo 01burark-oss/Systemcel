@@ -4107,12 +4107,7 @@
 }
 
 :root[data-theme] .snapshot-card::before {
-  content: "";
-  position: absolute;
-  inset: 0 auto 0 0;
-  z-index: -1;
-  width: 5px;
-  background: var(--snapshot-accent);
+  content: none;
 }
 
 :root[data-theme] .snapshot-card--gelir {
@@ -4139,12 +4134,6 @@
     radial-gradient(circle at 90% 10%, rgba(200, 255, 0, .09), transparent 32%),
     linear-gradient(145deg, #171814 0%, #24261e 100%);
   box-shadow: 0 18px 40px -30px rgba(11, 11, 9, .8);
-}
-
-:root[data-theme] .snapshot-card--net::before {
-  inset: 0 0 auto;
-  width: auto;
-  height: 5px;
 }
 
 :root[data-theme] .snapshot-card__head h3 {
@@ -10887,6 +10876,12 @@
   .help-support
 ) {
   color: var(--sc-ink);
+  border-color: var(--sc-line);
+  background: var(--sc-paper);
+  box-shadow: var(--sc-shadow);
+}
+
+:root[data-theme="dark"] .react-shell__body .snapshot-grid .snapshot-card {
   border-color: var(--sc-line);
   background: var(--sc-paper);
   box-shadow: var(--sc-shadow);

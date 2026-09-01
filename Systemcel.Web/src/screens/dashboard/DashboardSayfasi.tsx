@@ -515,6 +515,7 @@ export function DashboardSayfasi({
         </div>
 
         <section className="snapshot-grid">
+          <OzetMetrik baslik="Toplam Gider" deger={ekran?.bugun.gider ?? 0} ton="gider" />
           <OzetMetrik baslik="Toplam Gelir" deger={ekran?.bugun.gelir ?? 0} ton="gelir" />
           <BrutKarKarti ozet={ekran?.brutKarMarji} />
           <OzetMetrik
@@ -526,7 +527,6 @@ export function DashboardSayfasi({
             donemSecenekleri={netDonemSecenekleri}
             onDonemChange={setNetDonem}
           />
-          <OzetMetrik baslik="Toplam Gider" deger={ekran?.bugun.gider ?? 0} ton="gider" />
         </section>
 
         {ekran?.belgeSagligi ? <BelgeSagligiKarti ozet={ekran.belgeSagligi} /> : null}

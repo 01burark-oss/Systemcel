@@ -96,6 +96,21 @@ describe("DashboardSayfasi belge sağlığı", () => {
     expect(within(kart).queryByRole("link", { name: "Belgeleri otomatik aktar" })).not.toBeInTheDocument();
   });
 
+  it("özet kartlarını gider ve gelir solda, kâr kartları sağda olacak şekilde sıralar", async () => {
+    const { container } = render(
+      <DashboardSayfasi
+        onIsletmeDegistir={vi.fn()}
+        ustBar={null}
+        ustBarIslemde={false}
+        yenileAnahtari={0}
+      />
+    );
+
+    await screen.findByText("Toplam Gider");
+    const basliklar = Array.from(container.querySelectorAll(".snapshot-grid > .snapshot-card h3"), (heading) => heading.textContent);
+    expect(basliklar).toEqual(["Toplam Gider", "Toplam Gelir", "Brüt kâr", "Net Kâr"]);
+  });
+
   it("bağlı muhasebeci için sohbet yolunu gösterir", async () => {
     vi.mocked(jsonOku).mockResolvedValue({
       ...dashboard,
