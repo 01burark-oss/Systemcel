@@ -35,7 +35,7 @@
 .marketing-page *, .marketing-page *::before, .marketing-page *::after { box-sizing: border-box; }
 .marketing-page a { color: inherit; text-decoration: none; }
 .marketing-page button { color: inherit; font: inherit; }
-.marketing-page :focus-visible { outline: 3px solid #8aad00; outline-offset: 4px; }
+.marketing-page :focus-visible { outline: 3px solid #536e00; outline-offset: 4px; }
 .marketing-wrap { width: min(1240px, calc(100% - 80px)); margin: 0 auto; }
 .marketing-grid-bg { background-image: linear-gradient(var(--mk-line-soft) 1px, transparent 1px), linear-gradient(90deg, var(--mk-line-soft) 1px, transparent 1px); background-size: 44px 44px; }
 .marketing-grid-bg--dark { background-image: linear-gradient(rgba(255,255,255,.045) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.045) 1px, transparent 1px); background-size: 44px 44px; }

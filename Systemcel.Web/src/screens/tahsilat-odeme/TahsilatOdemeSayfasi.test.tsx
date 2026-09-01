@@ -78,6 +78,8 @@ const preview: OdemeHatirlatmaOnizleme = {
 
 describe("TahsilatOdemeSayfasi ödeme hatırlatması", () => {
   beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-08-22T12:00:00+03:00"));
     vi.clearAllMocks();
     vi.mocked(jsonOku).mockImplementation(async (url, init) => {
       if (url === "/api/ekran/tahsilat-odeme" && !init) return screenData;
@@ -94,6 +96,7 @@ describe("TahsilatOdemeSayfasi ödeme hatırlatması", () => {
 
   afterEach(() => {
     cleanup();
+    vi.useRealTimers();
     vi.restoreAllMocks();
   });
 

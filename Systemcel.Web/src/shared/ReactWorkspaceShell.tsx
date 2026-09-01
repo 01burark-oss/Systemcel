@@ -17,6 +17,7 @@ import {
   LogOut,
   Menu,
   MessageCircle,
+  Moon,
   Package,
   ScanBarcode,
   Send,
@@ -24,6 +25,7 @@ import {
   Search,
   ShieldCheck,
   ShoppingCart,
+  Sun,
   UsersRound,
   Wallet,
   WalletCards,
@@ -31,11 +33,21 @@ import {
   type LucideIcon
 } from "lucide-react";
 import { AuthUserButton } from "../auth/AuthUserButton";
+import {
+  fallbackAccountantPlans,
+  fallbackPlans,
+  PricingPanel,
+  type PricingAudience,
+  type PricingBilling,
+  type PublicPlan,
+} from "../marketing/PricingPanel";
 import { AiAssistantPanel } from "./AiAssistantPanel";
 import { AktifSubeSecici } from "./AktifSubeSecici";
 import type { UstBarDurumu } from "./chrome";
 import { jsonOku, type EntitlementProblemDetail } from "./json";
 import { useI18n, type TranslationKey } from "./i18n";
+import { buildSubscriptionStartHref } from "./subscriptionIntent";
+import { useTheme } from "../theme/ThemeProvider";
 
 interface ReactWorkspaceShellProps {
   children: React.ReactNode;
@@ -318,6 +330,7 @@ function workspacePageMeta(path: string, settingsTab: string): WorkspacePageMeta
 
 export function ReactWorkspaceShell({ children, ustBar, baslik, sagAksiyon, onUstBarYenile }: ReactWorkspaceShellProps) {
   const { locale, t } = useI18n();
+  const { theme, toggleTheme } = useTheme();
   const [now, setNow] = React.useState(() => new Date());
   const [bildirimPaneliAcik, setBildirimPaneliAcik] = React.useState(false);
   const [bildirimler, setBildirimler] = React.useState<Bildirim[]>([]);
@@ -327,8 +340,17 @@ export function ReactWorkspaceShell({ children, ustBar, baslik, sagAksiyon, onUs
   const [baglamKapatiliyor, setBaglamKapatiliyor] = React.useState(false);
   const [mobilMenuAcik, setMobilMenuAcik] = React.useState(false);
   const [planUyarisi, setPlanUyarisi] = React.useState<EntitlementProblemDetail | null>(null);
+  const [planPenceresiAcik, setPlanPenceresiAcik] = React.useState(false);
+  const [planHedefKitle, setPlanHedefKitle] = React.useState<PricingAudience>(() => ustBar?.hesapTipi === "Muhasebeci" ? "accountant" : "business");
+  const [planFaturalama, setPlanFaturalama] = React.useState<PricingBilling>("Aylik");
+  const [isletmePlanlari, setIsletmePlanlari] = React.useState<PublicPlan[]>(fallbackPlans);
+  const [muhasebeciPlanlari, setMuhasebeciPlanlari] = React.useState<PublicPlan[]>(fallbackAccountantPlans);
+  const [planlarYukleniyor, setPlanlarYukleniyor] = React.useState(false);
   const sohbetPanelRef = React.useRef<HTMLDivElement | null>(null);
   const bildirimPanelRef = React.useRef<HTMLDivElement | null>(null);
+  const planPenceresiRef = React.useRef<HTMLElement | null>(null);
+  const planPenceresiKapatRef = React.useRef<HTMLButtonElement | null>(null);
+  const planPenceresiTetikleyiciRef = React.useRef<HTMLElement | null>(null);
   const rawPath = normalizePath(window.location.pathname);
   const currentPath = rawPath === "/app" ? "/" : rawPath.startsWith("/app/") ? rawPath.slice(4) : rawPath;
   const aktifAyarlarSekmesi = currentPath === "/abonelik"
@@ -348,12 +370,25 @@ export function ReactWorkspaceShell({ children, ustBar, baslik, sagAksiyon, onUs
     return () => window.clearInterval(handle);
   }, []);
 
+  const planPenceresiniKapat = React.useCallback(() => {
+    const tetikleyici = planPenceresiTetikleyiciRef.current;
+    planPenceresiTetikleyiciRef.current = null;
+    setPlanPenceresiAcik(false);
+    if (tetikleyici?.isConnected) window.requestAnimationFrame(() => tetikleyici.focus());
+  }, []);
+
   React.useEffect(() => {
     const planUyarisiGoster = (event: Event) => {
+      planPenceresiTetikleyiciRef.current = document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
       setPlanUyarisi((event as CustomEvent<EntitlementProblemDetail>).detail);
     };
     const escapeIleKapat = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setPlanUyarisi(null);
+      if (event.key === "Escape") {
+        setPlanUyarisi(null);
+        if (planPenceresiRef.current?.isConnected) planPenceresiniKapat();
+      }
     };
     window.addEventListener("systemcel:entitlement", planUyarisiGoster);
     window.addEventListener("keydown", escapeIleKapat);
@@ -361,7 +396,66 @@ export function ReactWorkspaceShell({ children, ustBar, baslik, sagAksiyon, onUs
       window.removeEventListener("systemcel:entitlement", planUyarisiGoster);
       window.removeEventListener("keydown", escapeIleKapat);
     };
+  }, [planPenceresiniKapat]);
+
+  React.useEffect(() => {
+    if (!planPenceresiAcik) return undefined;
+    const oncekiOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    window.requestAnimationFrame(() => planPenceresiKapatRef.current?.focus());
+    return () => {
+      document.body.style.overflow = oncekiOverflow;
+    };
+  }, [planPenceresiAcik]);
+
+  const planPenceresiTusKontrolu = React.useCallback((event: KeyboardEvent) => {
+    if (event.key !== "Tab" || !planPenceresiRef.current) return;
+    const odaklanabilir = Array.from(planPenceresiRef.current.querySelectorAll<HTMLElement>(
+      ':is(a[href], button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"]))'
+    )).filter((element) => !element.hasAttribute("hidden") && element.getAttribute("aria-hidden") !== "true");
+    if (odaklanabilir.length === 0) return;
+
+    const ilk = odaklanabilir[0];
+    const son = odaklanabilir[odaklanabilir.length - 1];
+    if (!planPenceresiRef.current.contains(document.activeElement)) {
+      event.preventDefault();
+      ilk.focus();
+    } else if (event.shiftKey && document.activeElement === ilk) {
+      event.preventDefault();
+      son.focus();
+    } else if (!event.shiftKey && document.activeElement === son) {
+      event.preventDefault();
+      ilk.focus();
+    }
   }, []);
+
+  React.useEffect(() => {
+    if (!planPenceresiAcik) return undefined;
+    document.addEventListener("keydown", planPenceresiTusKontrolu, true);
+    return () => document.removeEventListener("keydown", planPenceresiTusKontrolu, true);
+  }, [planPenceresiAcik, planPenceresiTusKontrolu]);
+
+  const planPenceresiniAc = React.useCallback(async (suggestedPlanCode?: string | null) => {
+    setPlanUyarisi(null);
+    setPlanHedefKitle(suggestedPlanCode?.startsWith("muhasebeci_") || (!suggestedPlanCode && ustBar?.hesapTipi === "Muhasebeci") ? "accountant" : "business");
+    setPlanPenceresiAcik(true);
+    setPlanlarYukleniyor(true);
+    try {
+      const data = await jsonOku<PublicPlan[]>("/api/public/planlar");
+      if (!Array.isArray(data)) return;
+      const gelenIsletmePlanlari = data.filter((plan) => plan.hesapTipi === "Isletme");
+      const gelenMuhasebeciPlanlari = data.filter((plan) => plan.hesapTipi === "Muhasebeci");
+      if (gelenIsletmePlanlari.length > 0) setIsletmePlanlari(gelenIsletmePlanlari);
+      if (gelenMuhasebeciPlanlari.length > 0) setMuhasebeciPlanlari(gelenMuhasebeciPlanlari);
+    } catch {
+      // Canlı fiyatlar yüklenemezse kullanıcıyı boş bırakmamak için yerleşik planlar gösterilir.
+    } finally {
+      setPlanlarYukleniyor(false);
+    }
+  }, [ustBar?.hesapTipi]);
+
+  const kurucuKampanyasi = [...isletmePlanlari, ...muhasebeciPlanlari]
+    .find((plan) => plan.kurucuKontenjanToplam > 0);
 
   React.useEffect(() => {
     const menuyuKapat = () => {
@@ -573,6 +667,17 @@ export function ReactWorkspaceShell({ children, ustBar, baslik, sagAksiyon, onUs
 
             <span className="react-topbar__divider" />
 
+            <button
+              className="react-topbar__theme"
+              type="button"
+              aria-label={theme === "dark" ? "Açık temaya geç" : "Koyu temaya geç"}
+              aria-pressed={theme === "dark"}
+              title={theme === "dark" ? "Açık tema" : "Koyu tema"}
+              onClick={toggleTheme}
+            >
+              {theme === "dark" ? <Sun size={21} aria-hidden="true" /> : <Moon size={21} aria-hidden="true" />}
+            </button>
+
             <div ref={sohbetPanelRef} className="react-topbar__chat-wrap">
               <button
                 className="react-topbar__bell react-topbar__chat-button"
@@ -727,9 +832,57 @@ export function ReactWorkspaceShell({ children, ustBar, baslik, sagAksiyon, onUs
             </div>
             <div className="entitlement-modal__actions">
               <button type="button" onClick={() => setPlanUyarisi(null)}>Şimdi değil</button>
-              <a href={`/app/abonelik${planUyarisi.suggestedPlanCode ? `?plan=${encodeURIComponent(planUyarisi.suggestedPlanCode)}` : ""}`}>
+              <button
+                className="entitlement-modal__primary"
+                type="button"
+                onClick={() => void planPenceresiniAc(planUyarisi.suggestedPlanCode)}
+              >
                 Planları incele
-              </a>
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
+      {planPenceresiAcik ? (
+        <div className="pricing-modal-backdrop" role="presentation" onMouseDown={planPenceresiniKapat}>
+          <section
+            ref={planPenceresiRef}
+            className="pricing-modal marketing-page"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="pricing-modal-title"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <header className="pricing-modal__header">
+              <div>
+                <span>PLANLAR</span>
+                <h2 id="pricing-modal-title">Planını seç</h2>
+              </div>
+              <button ref={planPenceresiKapatRef} type="button" aria-label="Plan penceresini kapat" onClick={planPenceresiniKapat}>
+                <X size={21} />
+              </button>
+            </header>
+            <div className="pricing-modal__body">
+              {planlarYukleniyor ? <span className="sr-only" role="status">Planlar güncelleniyor.</span> : null}
+              <div className="marketing-pricing pricing-modal__pricing">
+                <PricingPanel
+                  language="tr"
+                  billing={planFaturalama}
+                  onBillingChange={setPlanFaturalama}
+                  audience={planHedefKitle}
+                  onAudienceChange={setPlanHedefKitle}
+                  plans={isletmePlanlari}
+                  accountantPlans={muhasebeciPlanlari}
+                  founderProgress={kurucuKampanyasi ? {
+                    total: kurucuKampanyasi.kurucuKontenjanToplam,
+                    won: kurucuKampanyasi.kurucuKontenjanKazanilan,
+                    percentage: kurucuKampanyasi.kurucuKontenjanYuzdesi,
+                  } : null}
+                  businessHref={(planCode) => buildSubscriptionStartHref({ signedIn: true, accountType: "Isletme", planCode, billing: planFaturalama })}
+                  accountantHref={(planCode) => buildSubscriptionStartHref({ signedIn: true, accountType: "Muhasebeci", planCode, billing: planFaturalama })}
+                  className="is-visible"
+                />
+              </div>
             </div>
           </section>
         </div>

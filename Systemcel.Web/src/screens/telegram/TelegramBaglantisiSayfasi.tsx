@@ -227,7 +227,7 @@ export function TelegramBaglantisiSayfasi({ onTelegramDurumuDegisti }: TelegramB
                 <div className="telegram-code-box">
                   <span>Eşleştirme Kodu <Info size={17} /></span>
                   <strong>{data.eslestirmeKodu}</strong>
-                  <button type="button" onClick={() => kopyala(data.eslestirmeKodu, "Eşleştirme kodu")}>
+                  <button aria-label="Eşleştirme kodunu kopyala" type="button" onClick={() => kopyala(data.eslestirmeKodu, "Eşleştirme kodu")}>
                     <Copy size={18} />
                   </button>
                 </div>

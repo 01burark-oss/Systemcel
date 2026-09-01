@@ -719,6 +719,105 @@
   }
 }
 
+:root[data-theme="dark"] .pos-page {
+  color: var(--sc-ink);
+}
+
+:root[data-theme="dark"] .pos-page :is(.pos-summary, .pos-catalog, .pos-cart, .pos-product-card) {
+  color: var(--sc-ink);
+  border-color: var(--sc-line);
+  background: var(--sc-paper);
+  box-shadow: var(--sc-shadow);
+}
+
+:root[data-theme="dark"] .pos-page :is(.pos-summary article, .pos-section-header, .pos-cart__lines article, .pos-checkout, .pos-checkout__total) {
+  border-color: var(--sc-line);
+}
+
+:root[data-theme="dark"] .pos-page :is(.pos-summary article > span, .pos-product-card__icon) {
+  color: #0b0b09;
+  border-color: rgba(200, 255, 0, .34);
+  background: var(--sc-lime);
+}
+
+:root[data-theme="dark"] .pos-page :is(.pos-summary__total, .pos-search button, .pos-receipt-form__save) {
+  color: var(--sc-ink);
+  border-color: var(--sc-line);
+  background: var(--sc-canvas);
+}
+
+:root[data-theme="dark"] .pos-page :is(.pos-summary small, .pos-section-header > div > span, .pos-section-header p, .pos-capture-actions small, .pos-capture-help, .pos-product-card__body small, .pos-cart__line-title small, .pos-checkout legend, .pos-checkout__total span, .pos-checkout > small, .pos-empty, .pos-cart__empty) {
+  color: var(--sc-muted);
+}
+
+:root[data-theme="dark"] .pos-page :is(.pos-section-header > b, .pos-search, .pos-capture-actions button, .pos-receipt-preview, .pos-receipt-form__fields input, .pos-receipt-form__fields select, .pos-receipt-form__fields textarea, .pos-product-card__add, .pos-cart__quantity button, .pos-cart__remove, .pos-payment-options button) {
+  color: var(--sc-ink);
+  border-color: var(--sc-line);
+  background: var(--sc-cream-deep);
+}
+
+:root[data-theme="dark"] .pos-page .pos-search input {
+  color: var(--sc-ink);
+}
+
+:root[data-theme="dark"] .pos-page .pos-search input::placeholder {
+  color: var(--sc-muted);
+}
+
+:root[data-theme="dark"] .pos-page .pos-capture-actions button:disabled {
+  color: var(--sc-muted);
+  border-color: var(--sc-line);
+  background: color-mix(in srgb, var(--sc-cream-deep), var(--sc-canvas) 28%);
+}
+
+:root[data-theme="dark"] .pos-page :is(.pos-notice, .pos-scan-feedback, .pos-receipt-preview) {
+  color: var(--sc-success);
+  border-color: color-mix(in srgb, var(--sc-success) 34%, transparent);
+  background: var(--sc-success-soft);
+}
+
+:root[data-theme="dark"] .pos-page :is(.pos-notice.error, .pos-scan-feedback.error) {
+  color: var(--sc-danger);
+  border-color: color-mix(in srgb, var(--sc-danger) 34%, transparent);
+  background: var(--sc-danger-soft);
+}
+
+:root[data-theme="dark"] .pos-page .pos-scan-feedback.unsupported {
+  color: var(--sc-warning);
+  background: var(--sc-warning-soft);
+}
+
+:root[data-theme="dark"] .pos-page :is(.pos-receipt-preview small, .pos-receipt-preview p, .pos-receipt-form__fields label) {
+  color: var(--sc-muted);
+}
+
+:root[data-theme="dark"] .pos-page :is(.pos-product-card.selected, .pos-product-card:hover) {
+  border-color: var(--sc-lime);
+}
+
+:root[data-theme="dark"] .pos-page :is(.pos-product-card.selected .pos-product-card__add, .pos-payment-options button.active, .pos-checkout__submit) {
+  color: #0b0b09;
+  border-color: var(--sc-lime);
+  background: var(--sc-lime);
+}
+
+:root[data-theme="dark"] .pos-page .pos-checkout {
+  background: var(--sc-cream-deep);
+}
+
+:root[data-theme="dark"] .pos-page :is(.pos-empty strong, .pos-cart__empty strong) {
+  color: var(--sc-ink);
+}
+
+:root[data-theme="dark"] .pos-page .pos-empty a,
+:root[data-theme="dark"] .pos-page .pos-product-card__stock {
+  color: var(--sc-success);
+}
+
+:root[data-theme="dark"] .pos-page :is(.pos-cart__clear, .pos-cart__remove, .pos-product-card__stock.critical) {
+  color: var(--sc-danger);
+}
+
 @media (max-width: 860px) {
   .pos-page {
     padding: 15px;

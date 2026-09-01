@@ -155,7 +155,7 @@ describe("HizliSatisSayfasi mobil tarama", () => {
     }));
   });
 
-  it("OCR anahtarı yoksa yapılandırma mesajı gösterir", async () => {
+  it("OCR hazır değilse teknik yapılandırma ayrıntısını kullanıcıdan gizler", async () => {
     vi.mocked(jsonOku).mockImplementation(async (url) => {
       if (url === "/api/ekran/urun-stok") return stockScreen as never;
       if (url === "/api/ekran/mobil-tarama/durum") return { fisOcrHazir: false } as never;
@@ -164,7 +164,10 @@ describe("HizliSatisSayfasi mobil tarama", () => {
 
     render(<HizliSatisSayfasi yenileAnahtari={0} />);
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(/ReceiptOcr API anahtarını yapılandırmalı/);
-    expect(screen.getByRole("button", { name: /Fiş oku/ })).toBeDisabled();
+    const fisOku = await screen.findByRole("button", { name: /Fiş oku/ });
+    expect(fisOku).toBeDisabled();
+    expect(fisOku).toHaveTextContent("Şu anda kullanılamıyor");
+    expect(screen.queryByText(/ReceiptOcr|API anahtar/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 });

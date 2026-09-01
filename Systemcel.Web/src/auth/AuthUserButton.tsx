@@ -1,6 +1,7 @@
 import React from "react";
-import { ChevronUp, LogOut, Mail, User, X } from "lucide-react";
+import { ChevronUp, LogOut, Mail, Moon, Sun, User, X } from "lucide-react";
 import { useSystemcelAuth } from "./SystemcelAuthProvider";
+import { useTheme } from "../theme/ThemeProvider";
 
 function getInitials(name?: string | null, email?: string | null) {
   const source = (name || email || "S").trim();
@@ -14,6 +15,7 @@ function getInitials(name?: string | null, email?: string | null) {
 
 export function AuthUserButton({ compact = false }: { compact?: boolean }) {
   const auth = useSystemcelAuth();
+  const { theme, toggleTheme } = useTheme();
   const [menuOpen, setMenuOpen] = React.useState(false);
   const [profileOpen, setProfileOpen] = React.useState(false);
   const rootRef = React.useRef<HTMLDivElement | null>(null);
@@ -110,6 +112,10 @@ export function AuthUserButton({ compact = false }: { compact?: boolean }) {
           >
             <User size={17} />
             <span>Hesap bilgileri</span>
+          </button>
+          <button type="button" role="menuitem" onClick={toggleTheme}>
+            {theme === "dark" ? <Sun size={17} /> : <Moon size={17} />}
+            <span>{theme === "dark" ? "Açık temaya geç" : "Koyu temaya geç"}</span>
           </button>
           <button type="button" role="menuitem" onClick={signOut}>
             <LogOut size={17} />

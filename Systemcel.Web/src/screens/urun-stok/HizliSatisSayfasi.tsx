@@ -437,13 +437,12 @@ export function HizliSatisSayfasi({ yenileAnahtari, onKayitOlusturuldu }: HizliS
               <input ref={fisKameraRef} type="file" accept="image/jpeg,image/png,image/webp" capture="environment" onChange={fisFotografiSecildi} aria-label="Fiş fotoğrafı" hidden />
               <button type="button" onClick={() => fisKameraRef.current?.click()} disabled={fisOcrHazir !== true || fisIslemde}>
                 {fisIslemde ? <Loader2 size={18} className="spin" /> : <Camera size={18} />}
-                <span><strong>Fiş oku</strong><small>{fisOcrHazir === null ? "Servis kontrol ediliyor" : fisOcrHazir ? "Gider fişini fotoğraflayın" : "OCR yapılandırması gerekli"}</small></span>
+                <span><strong>Fiş oku</strong><small>{fisOcrHazir === null ? "Servis kontrol ediliyor" : fisOcrHazir ? "Gider fişini fotoğraflayın" : "Şu anda kullanılamıyor"}</small></span>
               </button>
             </div>
             <p className="pos-capture-help">Kamera izni reddedilirse tarayıcı ayarlarından izin verin veya galeriden net bir fotoğraf seçin.</p>
 
             {taramaMesaji ? <p className={`pos-scan-feedback ${taramaDurumu}`} role={taramaDurumu === "error" ? "alert" : "status"}>{taramaMesaji}</p> : null}
-            {fisOcrHazir === false ? <p className="pos-scan-feedback error" role="alert">Fiş okuma servisi hazır değil. Yönetici ReceiptOcr API anahtarını yapılandırmalı.</p> : null}
             {fisSonucu && giderTaslagi ? (
               <article className="pos-receipt-preview pos-receipt-form" aria-label="Okunan fiş">
                 <span><ReceiptText size={19} /></span>

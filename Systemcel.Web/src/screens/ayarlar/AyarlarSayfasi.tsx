@@ -4,19 +4,23 @@ import {
   FileText,
   Globe2,
   Info,
+  Moon,
   MoreVertical,
   Search,
-  Store
+  Store,
+  Sun
 } from "lucide-react";
 import { GibPortalSayfasi } from "../gib-portal/GibPortalSayfasi";
 import { TelegramBaglantisiSayfasi } from "../telegram/TelegramBaglantisiSayfasi";
 import type { UstBarDurumu } from "../../shared/chrome";
 import { jsonOku } from "../../shared/json";
 import { setAppLanguage } from "../../shared/i18n";
+import { useTheme } from "../../theme/ThemeProvider";
 import type { AyarKalem, AyarlarEkranVerisi } from "./types";
 import { AyarlarOperasyonPanelleri } from "./AyarlarOperasyonPanelleri";
 import { BildirimTercihleriPaneli } from "./BildirimTercihleriPaneli";
 import { SubeKurPaneli } from "./SubeKurPaneli";
+import "./gorunum.css";
 
 interface AyarlarSayfasiProps {
   onIsletmeDegistir: (id: number) => void | Promise<void>;
@@ -43,6 +47,12 @@ const settingsText = {
     working: "İşlem yapılıyor...",
     businessTitle: "İşletme Ayarları",
     businessSubtitle: "İşletmenize ait temel bilgileri güncelleyin ve yeni işletme ekleyin.",
+    appearanceTitle: "Görünüm",
+    appearanceSubtitle: "Uygulamanın renk temasını seçin. Tercihiniz bu cihazda kaydedilir.",
+    themeChoice: "Tema seçimi",
+    lightTheme: "Açık",
+    darkTheme: "Koyu",
+    selected: "Seçili",
     language: "Uygulama Dili",
     applyLanguage: "Dili Uygula",
     activeBusiness: "Aktif İşletme",
@@ -87,6 +97,12 @@ const settingsText = {
     working: "Working...",
     businessTitle: "Business Settings",
     businessSubtitle: "Update core business information and add a new business.",
+    appearanceTitle: "Appearance",
+    appearanceSubtitle: "Choose the application's color theme. Your preference is saved on this device.",
+    themeChoice: "Theme selection",
+    lightTheme: "Light",
+    darkTheme: "Dark",
+    selected: "Selected",
     language: "Application Language",
     applyLanguage: "Apply Language",
     activeBusiness: "Active Business",
@@ -131,6 +147,12 @@ const settingsText = {
     working: "Vorgang läuft...",
     businessTitle: "Unternehmenseinstellungen",
     businessSubtitle: "Aktualisieren Sie Basisdaten und fügen Sie ein neues Unternehmen hinzu.",
+    appearanceTitle: "Darstellung",
+    appearanceSubtitle: "Wählen Sie das Farbschema der Anwendung. Ihre Auswahl wird auf diesem Gerät gespeichert.",
+    themeChoice: "Farbschema auswählen",
+    lightTheme: "Hell",
+    darkTheme: "Dunkel",
+    selected: "Ausgewählt",
     language: "Anwendungssprache",
     applyLanguage: "Sprache Anwenden",
     activeBusiness: "Aktives Unternehmen",
@@ -163,6 +185,39 @@ const settingsText = {
 
 function textForLanguage(language: string) {
   return settingsText[language as keyof typeof settingsText] ?? settingsText.tr;
+}
+
+export function GorunumAyari({ language = "tr" }: { language?: string }) {
+  const { theme, setTheme } = useTheme();
+  const L = textForLanguage(language);
+  const titleId = React.useId();
+
+  return (
+    <section className="settings-appearance settings-card" aria-labelledby={titleId}>
+      <div className="settings-appearance__intro">
+        <span className="settings-appearance__icon" aria-hidden="true">
+          {theme === "light" ? <Sun size={22} /> : <Moon size={22} />}
+        </span>
+        <div>
+          <h2 id={titleId}>{L.appearanceTitle}</h2>
+          <p>{L.appearanceSubtitle}</p>
+        </div>
+      </div>
+
+      <div className="settings-appearance__choices" role="group" aria-label={L.themeChoice}>
+        <button type="button" aria-pressed={theme === "light"} onClick={() => setTheme("light")}>
+          <Sun size={19} aria-hidden="true" />
+          <span>{L.lightTheme}</span>
+          <small aria-hidden="true">{theme === "light" ? L.selected : ""}</small>
+        </button>
+        <button type="button" aria-pressed={theme === "dark"} onClick={() => setTheme("dark")}>
+          <Moon size={19} aria-hidden="true" />
+          <span>{L.darkTheme}</span>
+          <small aria-hidden="true">{theme === "dark" ? L.selected : ""}</small>
+        </button>
+      </div>
+    </section>
+  );
 }
 
 type AyarlarSekmesi = "isletme" | "gib" | "telegram";
@@ -357,6 +412,7 @@ export function AyarlarSayfasi({ onIsletmeDegistir, onUstBarYenile, ustBar, yeni
     <main className={`settings-page settings-page--tabbed ${aktifSekme !== "isletme" ? "settings-page--wide" : ""}`}>
       {aktifSekme === "isletme" ? (
       <>
+      <GorunumAyari language={dil} />
       <div className="settings-grid">
         <section className="settings-card settings-card--business">
           <header className="settings-card__header">

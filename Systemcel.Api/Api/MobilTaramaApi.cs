@@ -50,7 +50,7 @@ internal static class MobilTaramaApi
             CancellationToken ct) =>
         {
             if (!settings.IsConfigured)
-                return Results.Json(new ApiHata("Fiş okuma servisi yapılandırılmamış. Yönetici ReceiptOcr API anahtarını eklemeli."), statusCode: StatusCodes.Status503ServiceUnavailable);
+                return Results.Json(new ApiHata("Fiş okuma şu anda kullanılamıyor."), statusCode: StatusCodes.Status503ServiceUnavailable);
 
             try
             {

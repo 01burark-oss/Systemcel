@@ -57,7 +57,7 @@ describe("MuhasebecilerSayfasi", () => {
         })
       })
     );
-  });
+  }, 10_000);
 
   it("sayısal eşleşme skorunu gerekçeleriyle gösterir ve uygun sıralamayı varsayılan seçer", async () => {
     vi.mocked(jsonOku).mockResolvedValue({

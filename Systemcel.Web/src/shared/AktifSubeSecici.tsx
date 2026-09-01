@@ -1,5 +1,5 @@
 import React from "react";
-import { Building2, Loader2 } from "lucide-react";
+import { Building2, ChevronDown, Loader2 } from "lucide-react";
 import { jsonOku } from "./json";
 import type { SubeKurDurumu } from "./subeKur";
 import "./aktif-sube.css";
@@ -60,6 +60,7 @@ export function AktifSubeSecici({ onDegisti }: AktifSubeSeciciProps) {
         >
           {aktifSubeler.map((row) => <option key={row.id} value={row.id}>{row.ad}</option>)}
         </select>
+        <ChevronDown className="active-branch__chevron" size={14} aria-hidden="true" />
       </label>
       {islemde ? <Loader2 className="spin" size={15} aria-label="Şube değiştiriliyor" /> : null}
       {hata ? <span className="sr-only" role="alert">{hata}</span> : null}

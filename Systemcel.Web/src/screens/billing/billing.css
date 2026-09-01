@@ -282,3 +282,52 @@
   .billing-button { transition-duration: 0ms; }
   .spin { animation-duration: 1.8s; }
 }
+
+:root[data-theme="dark"] .billing-page {
+  --billing-ink: var(--sc-ink);
+  --billing-muted: var(--sc-muted);
+  --billing-paper: var(--sc-paper);
+  --billing-paper-soft: var(--sc-cream-deep);
+  --billing-bg: var(--sc-cream);
+  --billing-line: var(--sc-line);
+  --billing-lime: var(--sc-lime);
+  --billing-danger: var(--sc-danger);
+}
+
+:root[data-theme="dark"] .billing-page :is(.billing-notice--danger, .billing-expired, .billing-inline-error, .billing-modal__icon--danger) {
+  color: var(--sc-danger);
+  border-color: color-mix(in srgb, var(--sc-danger) 32%, transparent);
+  background: var(--sc-danger-soft);
+}
+
+:root[data-theme="dark"] .billing-page .billing-status--success {
+  color: var(--sc-success);
+  background: var(--sc-success-soft);
+}
+
+:root[data-theme="dark"] .billing-page .billing-status--danger {
+  color: var(--sc-danger);
+  background: var(--sc-danger-soft);
+}
+
+:root[data-theme="dark"] .billing-page .billing-status--warning {
+  color: var(--sc-warning);
+  background: var(--sc-warning-soft);
+}
+
+:root[data-theme="dark"] .billing-page .billing-consent:has(input:checked) {
+  border-color: color-mix(in srgb, var(--sc-success) 42%, transparent);
+  background: var(--sc-success-soft);
+}
+
+:root[data-theme="dark"] .billing-page .billing-button--danger {
+  color: #0b0b09;
+}
+
+:root[data-theme="dark"] .billing-page :is(.billing-feedback--success > span, .billing-period-status, .billing-cancel-list svg) {
+  color: var(--sc-success);
+}
+
+:root[data-theme="dark"] .billing-page .billing-feedback--warning > span {
+  color: var(--sc-warning);
+}

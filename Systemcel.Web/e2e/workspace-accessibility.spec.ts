@@ -32,6 +32,40 @@ test.describe("workspace accessibility", () => {
     await expect(page.getByRole("heading", { name: "Bir destek talebi oluştur" })).toBeVisible();
     await expectNoSeriousOrCriticalViolations(page);
   });
+
+  test("plan penceresi klavye odağını içeride tutar ve kapatılınca geri verir", async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== "desktop-chromium", "Desktop keyboard flow");
+
+    await page.goto("/app/hizli-satis");
+    const tetikleyici = page.getByRole("button", { name: "Barkodu ekle" });
+    await expect(tetikleyici).toBeVisible();
+    await tetikleyici.focus();
+    await page.evaluate(() => {
+      window.dispatchEvent(new CustomEvent("systemcel:entitlement", {
+        detail: {
+          code: "feature_not_available",
+          detail: "Bu özellik mevcut planınızda kullanılamaz.",
+          suggestedPlanCode: "isletme_buyume"
+        }
+      }));
+    });
+
+    await page.getByRole("button", { name: "Planları incele" }).click();
+    const planPenceresi = page.getByRole("dialog", { name: "Planını seç" });
+    const kapat = page.getByRole("button", { name: "Plan penceresini kapat" });
+    const sonPlan = planPenceresi.getByRole("link", { name: "Planı incele: Kurumsal planı" });
+    await expect(planPenceresi).toBeVisible();
+    await expect(kapat).toBeFocused();
+
+    await page.keyboard.press("Shift+Tab");
+    await expect(sonPlan).toBeFocused();
+    await page.keyboard.press("Tab");
+    await expect(kapat).toBeFocused();
+
+    await page.keyboard.press("Escape");
+    await expect(planPenceresi).toBeHidden();
+    await expect(tetikleyici).toBeFocused();
+  });
 });
 
 async function expectNoSeriousOrCriticalViolations(page: Page) {
@@ -45,7 +79,11 @@ async function expectNoSeriousOrCriticalViolations(page: Page) {
       id,
       impact,
       help,
-      targets: nodes.map((node) => node.target.join(" "))
+      nodes: nodes.map((node) => ({
+        target: node.target.join(" "),
+        html: node.html,
+        summary: node.failureSummary
+      }))
     }));
   expect(violations).toEqual([]);
 }

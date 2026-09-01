@@ -117,6 +117,21 @@ describe("DashboardSayfasi belge sağlığı", () => {
     expect(within(kart).queryByRole("link", { name: "Muhasebecini bağla" })).not.toBeInTheDocument();
   });
 
+  it("skor hesaplanmadığında sayı çubuğu yerine açıklayıcı boş durum gösterir", async () => {
+    vi.mocked(jsonOku).mockResolvedValue({
+      ...dashboard,
+      belgeSagligi: { ...dashboard.belgeSagligi!, skor: null, durum: "VeriYok" }
+    });
+
+    render(<DashboardSayfasi onIsletmeDegistir={vi.fn()} ustBar={null} ustBarIslemde={false} yenileAnahtari={0} />);
+
+    const kart = await screen.findByRole("region", { name: "Belgeler hazır mı?" });
+    expect(within(kart).getByText("Henüz hesaplanmadı")).toBeVisible();
+    expect(within(kart).getByText("Belge eklenince skor burada görünür.")).toBeVisible();
+    expect(within(kart).queryByText("/100")).not.toBeInTheDocument();
+    expect(within(kart).queryByRole("progressbar")).not.toBeInTheDocument();
+  });
+
   it("maliyeti eksik satışlarda brüt kâr tutarı göstermez", async () => {
     vi.mocked(jsonOku).mockResolvedValue({
       ...dashboard,

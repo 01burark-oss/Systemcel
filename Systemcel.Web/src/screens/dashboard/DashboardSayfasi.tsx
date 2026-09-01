@@ -261,24 +261,29 @@ function BelgeSagligiKarti({ ozet }: { ozet: BelgeSaglikOzeti }) {
       </header>
 
       <div className="document-health__body">
-        <div className="document-health__score" aria-label={skor === null ? "Belge skoru hesaplanmadı" : `Belge skoru ${skor}`}>
-          <div>
-            <strong>{skor ?? "—"}</strong>
-            <span>/100</span>
-          </div>
+        <div className={`document-health__score${skor === null ? " document-health__score--empty" : ""}`} aria-label={skor === null ? "Belge skoru hesaplanmadı" : `Belge skoru ${skor}`}>
           {skor === null ? (
-            <small>Henüz hesaplanmadı</small>
-          ) : (
-            <div
-              className="document-health__meter"
-              role="progressbar"
-              aria-label="Belge hazırlık skoru"
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-valuenow={skor}
-            >
-              <span style={{ width: `${skor}%` }} />
+            <div className="document-health__score-empty">
+              <strong>Henüz hesaplanmadı</strong>
+              <small>Belge eklenince skor burada görünür.</small>
             </div>
+          ) : (
+            <>
+              <div>
+                <strong>{skor}</strong>
+                <span>/100</span>
+              </div>
+              <div
+                className="document-health__meter"
+                role="progressbar"
+                aria-label="Belge hazırlık skoru"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={skor}
+              >
+                <span style={{ width: `${skor}%` }} />
+              </div>
+            </>
           )}
         </div>
 

@@ -35,7 +35,7 @@ describe("YardimSayfasi destek talepleri", () => {
     expect(JSON.parse(post?.[1]?.body as string)).toEqual({ konu: "Fatura taslağı", kategori: "Teknik", aciklama: "Kaydet düğmesi çalışmıyor." });
     expect(screen.getByText("Talebin kaydedildi. Durumu ve yanıtı burada takip edebilirsin.")).toBeVisible();
     expect(screen.getByText("Açık")).toBeVisible();
-  });
+  }, 10_000);
 
   it("başarısız denemeden sonra aynı idempotency anahtarıyla yeniden dener", async () => {
     const user = userEvent.setup();

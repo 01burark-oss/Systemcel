@@ -57,6 +57,8 @@ const teyit: FaturaMusteriOnayDurumu = {
 
 describe("FaturalarSayfasi toplu seçim", () => {
   beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-08-22T12:00:00+03:00"));
     Object.defineProperty(HTMLElement.prototype, "scrollTo", { configurable: true, value: vi.fn() });
     vi.mocked(jsonOku).mockImplementation(async (url) => {
       if (url === "/api/ekran/faturalar") return ekran;
@@ -68,6 +70,7 @@ describe("FaturalarSayfasi toplu seçim", () => {
 
   afterEach(() => {
     cleanup();
+    vi.useRealTimers();
     vi.clearAllMocks();
   });
 

@@ -13,6 +13,18 @@
     <meta name="twitter:image" content="/systemcel-social-preview.png" />
     <title>Systemcel — Ön Muhasebe ve Nakit Akışı</title>
     <script>
+      try {
+        const savedTheme = window.localStorage.getItem("systemcel.theme");
+        const theme = savedTheme === "light" || savedTheme === "dark"
+          ? savedTheme
+          : window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+        document.documentElement.dataset.theme = theme;
+        document.documentElement.style.colorScheme = theme;
+        document.querySelector('meta[name="theme-color"]')?.setAttribute("content", theme === "dark" ? "#11120e" : "#f2f0e7");
+      } catch {
+        document.documentElement.dataset.theme = "light";
+      }
+
       if (/^\/(sign-in|sign-up)(?:\/|$)/.test(window.location.pathname)) {
         document.documentElement.dataset.authRoute = "true";
       }
@@ -28,6 +40,12 @@
       html:not([data-auth-route="true"]) body,
       html:not([data-auth-route="true"]) #root {
         background: #f2f0e7;
+      }
+
+      html[data-theme="dark"],
+      html[data-theme="dark"] body,
+      html[data-theme="dark"] #root {
+        background: #11120e;
       }
     </style>
   </head>

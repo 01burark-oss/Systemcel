@@ -20,8 +20,8 @@ import {
 } from "lucide-react";
 import { useSystemcelAuth } from "../auth/SystemcelAuthProvider";
 import accountantAyseAvatar from "../assets/accountant-ayse-demirtas.jpg";
-import { buildPricingPresentation } from "./pricingPresentation";
-import { FounderCampaignProgress, type FounderCampaignProgressProps } from "./FounderCampaignProgress";
+import type { FounderCampaignProgressProps } from "./FounderCampaignProgress";
+import { PricingPanel } from "./PricingPanel";
 import "./marketing.css";
 
 type Language = "tr" | "en";
@@ -483,10 +483,6 @@ export function LandingPage() {
   const pricingCta = hasActiveFounderCampaign
     ? t.trial
     : language === "tr" ? "Planla başla" : "Choose a plan";
-  const annualBillingBadge = hasActiveFounderCampaign
-    ? t.discount
-    : language === "tr" ? "Yıllık avantaj" : "Annual savings";
-
   return (
     <div className="marketing-page" ref={pageRef}>
       <a className="marketing-skip" href="#main">{language === "tr" ? "İçeriğe geç" : "Skip to content"}</a>
@@ -624,17 +620,19 @@ export function LandingPage() {
         </section>
 
         <section id="fiyat" className="marketing-pricing">
-          <div className="marketing-wrap marketing-reveal" data-reveal>
-            <div className="marketing-pricing__head"><span className="marketing-eyebrow"><i />{t.pricing}</span><h2>{pricingAudience === "business" ? t.pricingTitle : (language === "tr" ? "Muhasebe ofisin büyüdükçe planın da büyüsün." : "A plan that grows with your accounting practice.")}</h2>
-              <div className="marketing-pricing-audience" role="group" aria-label={language === "tr" ? "Plan türü" : "Plan type"}>
-                <button type="button" className={pricingAudience === "business" ? "active" : ""} aria-pressed={pricingAudience === "business"} onClick={() => setPricingAudience("business")}><Building2 size={17} />{language === "tr" ? "İşletmeler" : "Businesses"}</button>
-                <button type="button" className={pricingAudience === "accountant" ? "active" : ""} aria-pressed={pricingAudience === "accountant"} onClick={() => setPricingAudience("accountant")}><Users size={17} />{language === "tr" ? "Muhasebeciler" : "Accountants"}</button>
-              </div>
-            </div>
-            <div className="marketing-pricing__billing"><div className="marketing-billing"><span>{t.monthly}</span><button type="button" aria-label={language === "tr" ? "Faturalama dönemini değiştir" : "Change billing period"} aria-pressed={billing === "Yillik"} onClick={() => setBilling((value) => value === "Aylik" ? "Yillik" : "Aylik")}><i className={billing === "Yillik" ? "yearly" : ""} /></button><span>{t.yearly} <b>{annualBillingBadge}</b></span></div></div>
-            {founderProgress ? <FounderCampaignProgress {...founderProgress} language={language} /> : null}
-            <div className={`marketing-plan-grid${pricingAudience === "accountant" ? " marketing-plan-grid--accountant" : ""}`} key={`${pricingAudience}-${billing}`}>{pricingAudience === "business" ? plans.map((plan) => <PlanCard key={plan.kod} plan={plan} billing={billing} language={language} popular={plan.kod === "isletme_buyume"} href={trialHref(plan.kod)} />) : accountantPlans.map((plan) => <AccountantPlanCard key={plan.kod} plan={plan} billing={billing} language={language} popular={plan.kod === "muhasebeci_standart"} href={accountantHref(plan.kod)} />)}</div>
-          </div>
+          <PricingPanel
+            language={language}
+            billing={billing}
+            onBillingChange={setBilling}
+            audience={pricingAudience}
+            onAudienceChange={setPricingAudience}
+            plans={plans}
+            accountantPlans={accountantPlans}
+            founderProgress={founderProgress}
+            businessHref={trialHref}
+            accountantHref={accountantHref}
+            reveal
+          />
         </section>
 
         <section className="marketing-final-cta"><div className="marketing-wrap"><h2>{t.finalTitle}</h2><div><a className="marketing-button marketing-button--lime marketing-button--large" href={trialHref()}>{pricingCta}<ArrowRight size={18} /></a><a className="marketing-button marketing-button--dark-ghost marketing-button--large" href="mailto:satis@systemcel.app?subject=Systemcel%20Satış%20Görüşmesi">{t.sales}</a></div></div></section>
@@ -1000,40 +998,6 @@ function HeroLedger({
 function Trust({ icon, title, text }: { icon: React.ReactNode; title: string; text: string }) { return <article>{icon}<div><strong>{title}</strong><span>{text}</span></div></article>; }
 function SectionCopy({ number, label, title, text, dark = false }: { number: string; label: string; title: string; text: string; dark?: boolean }) { return <div className={`marketing-section-copy${dark ? " dark" : ""}`}><span className="marketing-section-number">{number}</span><span className="marketing-eyebrow"><i />{label}</span><h2>{title}</h2><p>{text}</p></div>; }
 function FeatureRow({ icon, title, text }: { icon: React.ReactNode; title: string; text: string }) { return <article><span>{icon}</span><div><strong>{title}</strong><p>{text}</p></div></article>; }
-
-function PlanCard({ plan, billing, language, popular, href }: { plan: PublicPlan; billing: Billing; language: Language; popular: boolean; href: string }) {
-  const t = copy[language];
-  const pricing = buildPricingPresentation(plan, billing, language);
-  const features = planFeatures(plan, language);
-  const planName = language === "tr" ? plan.ad : plan.kod === "isletme_baslangic" ? "Starter" : plan.kod === "isletme_buyume" ? "Growth" : "Enterprise";
-  const cta = plan.kampanyaKodu ? t.planCta : language === "tr" ? "Planı incele" : "View plan";
-  return <article className={`marketing-plan${popular ? " marketing-plan--popular" : ""}`}><div className="marketing-plan__top"><span>{planName}</span>{popular ? <b>{t.popular}</b> : null}</div><div className="marketing-plan__price"><strong key={`${billing}-${pricing.price}`}>₺{pricing.price.toLocaleString("tr-TR")}</strong><span>{pricing.unit}</span></div><small>{pricing.note}</small><ul>{features.map((feature) => <li key={feature}><Check size={16} />{feature}</li>)}</ul><a className={`marketing-button ${popular ? "marketing-button--lime" : "marketing-button--ghost"}`} href={href}>{cta}<ArrowRight size={16} /></a></article>;
-}
-
-function AccountantPlanCard({ plan, billing, language, popular, href }: { plan: PublicPlan; billing: Billing; language: Language; popular: boolean; href: string }) {
-  const tr = language === "tr";
-  const features = accountantPlanFeatures(plan, language);
-  const planName = tr ? plan.ad : plan.kod === "muhasebeci_standart" ? "Standard" : "Pro";
-  const cta = tr ? `${planName} ile başla` : `Start with ${planName}`;
-  const monthlyFallbackNote = plan.kod === "muhasebeci_standart"
-    ? (tr ? "10 müşteri dahil" : "10 clients included")
-    : (tr ? "Sabit aylık ücret" : "Flat monthly fee");
-  const pricing = buildPricingPresentation(plan, billing, language, 0.84, monthlyFallbackNote);
-  return <article className={`marketing-plan marketing-plan--accountant${popular ? " marketing-plan--popular" : ""}`}><div className="marketing-plan__top"><span>{planName}</span>{popular ? <b>{tr ? "En çok tercih edilen" : "Most popular"}</b> : null}</div><div className="marketing-plan__price"><strong key={`${billing}-${pricing.price}`}>₺{pricing.price.toLocaleString("tr-TR")}</strong><span>{pricing.unit}</span></div><small>{pricing.note}</small><ul>{features.map((feature) => <li key={feature}><Check size={16} />{feature}</li>)}</ul><a className={`marketing-button ${popular ? "marketing-button--lime" : "marketing-button--ghost"}`} href={href}>{cta}<ArrowRight size={16} /></a></article>;
-}
-
-function planFeatures(plan: PublicPlan, language: Language) {
-  const tr = language === "tr";
-  if (plan.kod === "isletme_baslangic") return [tr ? "Gelir-gider ve cari takibi" : "Income, expenses and accounts", tr ? "Ayda 50 e-Arşiv fatura" : "50 e-Archive invoices/month", tr ? "AI asistan · 100 soru/ay" : "AI assistant · 100 questions/month", tr ? "Tek kullanıcı" : "One user"];
-  if (plan.kod === "isletme_buyume") return [tr ? "Sınırsız fatura" : "Unlimited invoices", tr ? "Sınırsız AI" : "Unlimited AI", tr ? "3 kullanıcı + muhasebeci erişimi" : "3 users + accountant access", tr ? "Stok ve raporlar" : "Inventory and reports"];
-  return [tr ? "Öncelikli destek" : "Priority support", tr ? "Sınırsız kullanıcı" : "Unlimited users", tr ? "Büyüme planındaki her şey" : "Everything in Growth"];
-}
-
-function accountantPlanFeatures(plan: PublicPlan, language: Language) {
-  const tr = language === "tr";
-  if (plan.kod === "muhasebeci_standart") return [tr ? "10 müşteri dahil" : "10 clients included", tr ? "Sonraki müşteri +₺50/ay" : "₺50/mo per extra client", tr ? "AI asistan · 100 soru/ay" : "AI assistant · 100 questions/month", tr ? "Müşteri çalışma alanları" : "Client workspaces", tr ? "Pazaryeri profili" : "Marketplace profile"];
-  return [tr ? "Sınırsız müşteri" : "Unlimited clients", tr ? "Müşteri belge sağlık skoru" : "Client document readiness score", tr ? "Sınırsız AI asistan" : "Unlimited AI assistant", tr ? "Pazaryerinde öne çıkma" : "Featured marketplace placement"];
-}
 
 function FooterGroup({ title, links, soonTitle, soonItems = [] }: { title: string; links: Array<[string, string]>; soonTitle?: string; soonItems?: string[] }) {
   return <div className="marketing-footer__group"><strong>{title}</strong>{links.map(([label, href]) => <a key={href} href={href}>{label}</a>)}{soonTitle && soonItems.length > 0 ? <div className="marketing-footer__soon" role="group" aria-label={soonTitle}><strong>{soonTitle}</strong><ul>{soonItems.map((item) => <li key={item}>{item}</li>)}</ul></div> : null}</div>;
