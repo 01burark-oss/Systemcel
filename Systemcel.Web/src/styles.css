@@ -6597,11 +6597,11 @@ select:disabled {
 }
 
 :root[data-theme="dark"] .document-health {
-  --document-health-surface: #081d47;
-  --document-health-subtle: #0d2858;
-  --document-health-line: rgba(126, 163, 220, .3);
-  --document-health-ink: #f4f7ff;
-  --document-health-muted: #a9b9d4;
+  --document-health-surface: var(--sc-paper);
+  --document-health-subtle: var(--sc-soft);
+  --document-health-line: var(--sc-line);
+  --document-health-ink: var(--sc-ink);
+  --document-health-muted: var(--sc-muted);
   --document-health-tone: #ffd86e;
   --document-health-tone-soft: rgba(255, 205, 77, .13);
 }
@@ -6617,8 +6617,8 @@ select:disabled {
 }
 
 :root[data-theme="dark"] .document-health--veriyok {
-  --document-health-tone: #bac4d5;
-  --document-health-tone-soft: rgba(186, 196, 213, .12);
+  --document-health-tone: var(--sc-muted);
+  --document-health-tone-soft: var(--sc-soft);
 }
 
 .net-benchmark {

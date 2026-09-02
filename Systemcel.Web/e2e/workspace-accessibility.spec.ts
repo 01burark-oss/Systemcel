@@ -4,6 +4,28 @@ import { expect, test, type Page, type Route } from "@playwright/test";
 test.describe("workspace accessibility", () => {
   test.beforeEach(async ({ page }) => mockApi(page));
 
+  test("sliding theme switch persists and respects reduced motion", async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== "desktop-chromium", "Settings desktop route");
+    await page.goto("/app/ayarlar");
+    const control = page.getByRole("switch", { name: "Tema seçimi: Koyu" });
+    await control.focus();
+    await page.keyboard.press("ArrowRight");
+    await expect(control).toBeChecked();
+    await expect(page.locator(".settings-theme-switch__symbol")).toHaveCSS("color", "rgb(11, 11, 9)");
+    await control.screenshot({ path: testInfo.outputPath("theme-dark.png") });
+    await control.click();
+    await expect(control).not.toBeChecked();
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+    await control.screenshot({ path: testInfo.outputPath("theme-light.png") });
+    await page.reload();
+    await expect(control).not.toBeChecked();
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    const duration = await page.locator(".settings-theme-switch__thumb").evaluate(el => parseFloat(getComputedStyle(el).transitionDuration));
+    expect(duration).toBeLessThanOrEqual(0.00001);
+    const result = await new AxeBuilder({ page }).include(".settings-theme-switch").analyze();
+    expect(result.violations).toEqual([]);
+  });
+
   for (const theme of ["light", "dark"]) {
     test(`notification switches align and remain accessible in ${theme}`, async ({ page }, testInfo) => {
       test.skip(testInfo.project.name !== "desktop-chromium", "Mobile routing uses a separate companion screen without settings.");

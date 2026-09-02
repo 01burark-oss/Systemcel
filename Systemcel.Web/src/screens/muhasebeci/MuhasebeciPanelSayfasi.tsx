@@ -281,6 +281,7 @@ export function MuhasebeciPanelSayfasi({ onUstBarYenile }: MuhasebeciPanelSayfas
               <input
                 type="checkbox"
                 checked={profilFormu.yayinda}
+                role="switch" className="app-switch"
                 onChange={(event) => setProfilFormu((current) => ({ ...current, yayinda: event.target.checked }))}
               />
               <span>Yayında</span>

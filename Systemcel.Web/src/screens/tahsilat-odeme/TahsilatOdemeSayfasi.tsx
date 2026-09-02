@@ -577,6 +577,7 @@ export function TahsilatOdemeSayfasi({ yenileAnahtari }: TahsilatOdemeSayfasiPro
                 <label className="payment-check">
                   <input
                     checked={form.vadeVar}
+                    role="switch" className="app-switch"
                     onChange={(event) => formGuncelle("vadeVar", event.target.checked)}
                     type="checkbox"
                   />
@@ -646,6 +647,7 @@ export function TahsilatOdemeSayfasi({ yenileAnahtari }: TahsilatOdemeSayfasiPro
                 <label className="payment-check">
                   <input
                     checked={form.faturaIleEslestir}
+                    role="switch" className="app-switch"
                     onChange={(event) => faturaEslestirmeDegisti(event.target.checked)}
                     type="checkbox"
                   />

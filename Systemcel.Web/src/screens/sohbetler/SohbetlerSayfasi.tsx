@@ -816,7 +816,7 @@ export function SohbetlerSayfasi({ mobileMode = false, ustBar, onUstBarYenile }:
             <input value={arama} onChange={(event) => setArama(event.target.value)} placeholder="Sohbet ara" />
           </label>
           <label className="chat-center__archive-toggle">
-            <input type="checkbox" checked={includeArchived} onChange={(event) => setIncludeArchived(event.target.checked)} />
+            <input type="checkbox" role="switch" className="app-switch" checked={includeArchived} onChange={(event) => setIncludeArchived(event.target.checked)} />
             <span>{includeArchived ? "Arşiv görünümü" : "Arşivlenenleri göster"}</span>
           </label>
           <div className="chat-center__list">

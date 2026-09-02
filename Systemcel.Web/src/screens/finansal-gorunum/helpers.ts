@@ -99,7 +99,7 @@ export function projeksiyonOlcegi(weeks: NakitProjeksiyonHaftasi[]): Projeksiyon
   const min = Math.min(0, ...balances);
   const max = Math.max(0, ...balances);
   const range = Math.max(max - min, 1);
-  return { min, max, range, sifirYuzde: (max / range) * 100 };
+  return { min, max, range, sifirYuzde: max === 0 && min === 0 ? 100 : (max / range) * 100 };
 }
 
 /** Kapanış bakiyesi çizgisi; x konumları hafta sütunlarının ortasına hizalıdır. */

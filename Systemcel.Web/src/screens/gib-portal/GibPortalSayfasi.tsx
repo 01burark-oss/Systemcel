@@ -175,7 +175,7 @@ export function GibPortalSayfasi({ yenileAnahtari }: GibPortalSayfasiProps) {
               />
             </label>
             <label className="gib-toggle">
-              <input type="checkbox" checked={testModu} onChange={(event) => setTestModu(event.target.checked)} />
+              <input type="checkbox" role="switch" className="app-switch" checked={testModu} onChange={(event) => setTestModu(event.target.checked)} />
               <span>
                 Test portalını kullan
                 <small>Gerçek kesim yapmadan bağlantı akışını denemek için.</small>

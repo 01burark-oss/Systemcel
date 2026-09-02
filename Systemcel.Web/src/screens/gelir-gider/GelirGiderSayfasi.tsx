@@ -335,6 +335,7 @@ export function GelirGiderSayfasi({
                 <input
                   type="checkbox"
                   checked={stokKullanilabilir && form.stokAktif}
+                  role="switch" className="app-switch"
                   disabled={!stokKullanilabilir}
                   onChange={(e) => formGuncelle({ stokAktif: e.target.checked })}
                 />

@@ -16,6 +16,7 @@ import type { UstBarDurumu } from "../../shared/chrome";
 import { jsonOku } from "../../shared/json";
 import { setAppLanguage } from "../../shared/i18n";
 import { useTheme } from "../../theme/ThemeProvider";
+import { ThemeSwitch } from "./ThemeSwitch";
 import type { AyarKalem, AyarlarEkranVerisi } from "./types";
 import { AyarlarOperasyonPanelleri } from "./AyarlarOperasyonPanelleri";
 import { BildirimTercihleriPaneli } from "./BildirimTercihleriPaneli";
@@ -188,7 +189,7 @@ function textForLanguage(language: string) {
 }
 
 export function GorunumAyari({ language = "tr" }: { language?: string }) {
-  const { theme, setTheme } = useTheme();
+  const { theme } = useTheme();
   const L = textForLanguage(language);
   const titleId = React.useId();
 
@@ -204,18 +205,7 @@ export function GorunumAyari({ language = "tr" }: { language?: string }) {
         </div>
       </div>
 
-      <div className="settings-appearance__choices" role="group" aria-label={L.themeChoice}>
-        <button type="button" aria-pressed={theme === "light"} onClick={() => setTheme("light")}>
-          <Sun size={19} aria-hidden="true" />
-          <span>{L.lightTheme}</span>
-          <small aria-hidden="true">{theme === "light" ? L.selected : ""}</small>
-        </button>
-        <button type="button" aria-pressed={theme === "dark"} onClick={() => setTheme("dark")}>
-          <Moon size={19} aria-hidden="true" />
-          <span>{L.darkTheme}</span>
-          <small aria-hidden="true">{theme === "dark" ? L.selected : ""}</small>
-        </button>
-      </div>
+      <ThemeSwitch label={L.themeChoice} lightLabel={L.lightTheme} darkLabel={L.darkTheme} />
     </section>
   );
 }

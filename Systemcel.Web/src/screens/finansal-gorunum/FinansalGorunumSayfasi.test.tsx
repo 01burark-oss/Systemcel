@@ -213,7 +213,7 @@ describe("FinansalGorunumSayfasi", () => {
     await user.type(screen.getByLabelText("Bitiş tarihi"), "2027-02-05");
     await user.type(screen.getByRole("textbox", { name: "Kategori" }), "  Vergi  ");
     await user.type(screen.getByRole("textbox", { name: "Not" }), "  Tahmini ödeme  ");
-    expect(screen.getByRole("checkbox", { name: "Tahmine ekle" })).toBeChecked();
+    expect(screen.getByRole("switch", { name: "Tahmine ekle" })).toBeChecked();
     await user.click(screen.getByRole("button", { name: "Ekle" }));
 
     await waitFor(() => {

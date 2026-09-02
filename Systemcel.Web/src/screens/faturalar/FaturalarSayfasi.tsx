@@ -726,7 +726,7 @@ export function FaturalarSayfasi({
                   </select>
                 </label>
                 <label className="invoice-check">
-                  <input type="checkbox" checked={form.vadeVar} onChange={(event) => formGuncelle("vadeVar", event.target.checked)} />
+                  <input type="checkbox" role="switch" className="app-switch" checked={form.vadeVar} onChange={(event) => formGuncelle("vadeVar", event.target.checked)} />
                   <span>Vade var</span>
                 </label>
                 <label className="invoice-field">
@@ -774,7 +774,7 @@ export function FaturalarSayfasi({
                   <input inputMode="decimal" value={form.iskontoOrani} onChange={(event) => formGuncelle("iskontoOrani", event.target.value)} />
                 </label>
                 <label className="invoice-check">
-                  <input type="checkbox" checked={form.stokEtkilesin} onChange={(event) => formGuncelle("stokEtkilesin", event.target.checked)} />
+                  <input type="checkbox" role="switch" className="app-switch" checked={form.stokEtkilesin} onChange={(event) => formGuncelle("stokEtkilesin", event.target.checked)} />
                   <span>Stok etkilensin</span>
                 </label>
               </div>

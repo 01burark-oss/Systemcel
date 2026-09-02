@@ -28,26 +28,19 @@ describe("Görünüm ayarı", () => {
       </ThemeProvider>
     );
 
-    const group = screen.getByRole("group", { name: "Tema seçimi" });
-    const lightButton = screen.getByRole("button", { name: "Açık" });
-    const darkButton = screen.getByRole("button", { name: "Koyu" });
-
-    expect(group).toBeVisible();
-    expect(lightButton).toHaveAttribute("aria-pressed", "true");
-    expect(darkButton).toHaveAttribute("aria-pressed", "false");
+    const control = screen.getByRole("switch", { name: "Tema seçimi: Koyu" });
+    expect(control).toBeVisible();
+    expect(control).not.toBeChecked();
 
     await user.tab();
-    expect(lightButton).toHaveFocus();
-    await user.tab();
-    expect(darkButton).toHaveFocus();
+    expect(control).toHaveFocus();
     await user.keyboard("[Space]");
 
     expect(document.documentElement).toHaveAttribute("data-theme", "dark");
     expect(window.localStorage.getItem("systemcel.theme")).toBe("dark");
-    expect(lightButton).toHaveAttribute("aria-pressed", "false");
-    expect(darkButton).toHaveAttribute("aria-pressed", "true");
+    expect(control).toBeChecked();
 
-    await user.click(lightButton);
+    await user.click(control);
     expect(document.documentElement).toHaveAttribute("data-theme", "light");
     expect(window.localStorage.getItem("systemcel.theme")).toBe("light");
   });

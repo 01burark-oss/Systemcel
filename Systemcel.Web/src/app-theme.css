@@ -11115,6 +11115,124 @@
   background: color-mix(in srgb, var(--sc-paper), var(--sc-danger) 8%);
 }
 
+:root[data-theme="dark"] .active-branch select,
+:root[data-theme="dark"] .active-branch select:disabled {
+  color: var(--sc-ink);
+  -webkit-text-fill-color: var(--sc-ink);
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  opacity: 1;
+}
+
+:root[data-theme="dark"] .finance-warning--neutral {
+  color: var(--sc-ink);
+  background: var(--sc-paper);
+  border: 1px solid var(--sc-line);
+}
+
+:root[data-theme="dark"] .finance-chart__week-buttons button:is(:hover, .active) {
+  background: rgba(244, 243, 235, .055);
+  border-color: var(--sc-line);
+}
+
+:root[data-theme="dark"] .entitlement-modal-backdrop {
+  background: rgba(0, 0, 0, .58);
+}
+
+:root[data-theme="dark"] .entitlement-modal__actions button {
+  color: var(--sc-ink);
+  background: var(--sc-soft);
+  border-color: var(--sc-line);
+}
+
+:root[data-theme="dark"] .entitlement-modal__actions .entitlement-modal__primary {
+  color: #0b0b09;
+  background: var(--sc-lime);
+  border-color: var(--sc-lime);
+}
+
+:root[data-theme="dark"] .entitlement-modal__icon {
+  color: var(--sc-warning);
+  background: var(--sc-warning-soft);
+}
+
+:root[data-theme="dark"] .cari-field > span,
+:root[data-theme="dark"] .cari-page label {
+  color: var(--sc-ink);
+  text-shadow: none;
+}
+
+:root[data-theme] input[type="checkbox"].app-switch {
+  appearance: none;
+  -webkit-appearance: none;
+  flex: 0 0 44px;
+  width: 44px;
+  min-width: 44px;
+  max-width: 44px;
+  height: 26px;
+  min-height: 26px;
+  padding: 0;
+  margin: 0;
+  border: 1px solid var(--sc-line-strong);
+  border-radius: 99px;
+  background: radial-gradient(circle closest-side, #fff 95%, transparent) 3px center / 18px 18px no-repeat #73766b;
+  box-shadow: none;
+  vertical-align: middle;
+  cursor: pointer;
+  transition: background-position 160ms ease;
+}
+:root[data-theme] input[type="checkbox"].app-switch:checked {
+  background-color: var(--sc-lime);
+  background-image: radial-gradient(circle closest-side, #0b0b09 95%, transparent);
+  background-position: 21px center;
+}
+:root[data-theme] input[type="checkbox"].app-switch:focus-visible {
+  outline: 2px solid var(--sc-ink);
+  outline-offset: 3px;
+}
+:root[data-theme] input[type="checkbox"].app-switch:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+}
+@media (prefers-reduced-motion: reduce) {
+  :root[data-theme] input[type="checkbox"].app-switch { transition: none; }
+}
+
+:root[data-theme] :is(.billing-fact-icon, .billing-section-icon, .billing-right > span),
+:root[data-theme] :is(.billing-fact-icon, .billing-section-icon, .billing-right > span) svg { color: #0b0b09; }
+:root[data-theme="dark"] .react-sidebar__sublink { color: var(--sc-muted); }
+:root[data-theme="dark"] .react-sidebar__sublink.active { background: var(--sc-soft); border-color: var(--sc-line); color: var(--sc-ink); }
+:root[data-theme="dark"] .react-sidebar__sublink svg { color: inherit; }
+:root[data-theme] .gib-page .gib-log-card { width: 100%; margin: 0; }
+:root[data-theme] .gib-page .gib-status-grid--compact { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+:root[data-theme="dark"] .gib-field input { background: var(--sc-soft); color: var(--sc-ink); border-color: var(--sc-line); color-scheme: dark; }
+:root[data-theme="dark"] .gib-field input:autofill { -webkit-text-fill-color: var(--sc-ink); box-shadow: 0 0 0 1000px var(--sc-soft) inset; }
+:root[data-theme] .notification-preferences__hours input[type="time"] { padding-inline: 14px; min-width: 148px; text-align: center; }
+:root[data-theme] .notification-preferences__hours input::-webkit-datetime-edit { padding: 0 6px; }
+:root[data-theme] .accountant-filter-panel { padding: 20px; gap: 18px; }
+:root[data-theme] .accountant-filter-field { padding: 14px 16px; gap: 10px; }
+:root[data-theme] .accountant-filter-field > svg { right: 16px; bottom: 21px; }
+:root[data-theme="dark"] .accountant-results__bar label { background: var(--sc-soft); color: var(--sc-ink); border-color: var(--sc-line); }
+:root[data-theme="dark"] .accountant-results__bar select { color: var(--sc-ink); background: transparent; -webkit-text-fill-color: var(--sc-ink); }
+:root[data-theme] .accountant-link-invite > button { position: relative; isolation: isolate; overflow: hidden; color: #0b0b09; background: #e0e7bd; border-color: transparent; }
+:root[data-theme] .accountant-link-invite > button::before { content: ""; position: absolute; inset: 0; z-index: -1; background: linear-gradient(110deg, #c8ff00, #a8e54b); opacity: 0; transition: opacity 220ms ease-out; }
+:root[data-theme] .accountant-link-invite > button svg { color: #0b0b09; }
+@media (hover: hover) and (pointer: fine) {
+  :root[data-theme] .accountant-toolbar.accountant-link-invite > button:hover:not(:disabled) { background: #e0e7bd; color: #0b0b09; }
+  :root[data-theme] .accountant-link-invite > button:hover::before { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  :root[data-theme] .accountant-link-invite > button::before { transition: none; }
+}
+@media (min-width: 1100px) {
+  :root[data-theme] .accountant-marketplace__body { grid-template-columns: 290px minmax(0, 1fr); gap: 20px; }
+}
+@media (max-width: 640px) {
+  :root[data-theme] .gib-page .gib-status-grid--compact { grid-template-columns: minmax(0, 1fr); }
+}
+
+:root[data-theme="dark"] .accountant-link-invite__icon { color: var(--sc-ink); background: var(--sc-soft); }
 :root[data-theme="dark"] .finance-skeleton i {
   background: linear-gradient(100deg, var(--sc-cream) 20%, var(--sc-cream-deep) 38%, var(--sc-cream) 56%);
 }

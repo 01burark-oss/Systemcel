@@ -315,7 +315,7 @@ export function FinansalGorunumSayfasi({ ustBar = null, yenileAnahtari }: Finans
                     {planFormu.tekrarTipi !== "TekSefer" ? <label><span>Tekrar aralığı</span><input type="number" min="1" max="52" step="1" inputMode="numeric" value={planFormu.tekrarAraligi} onChange={(event) => planFormunuGuncelle("tekrarAraligi", event.target.value)} /></label> : null}
                     {planFormu.tekrarTipi !== "TekSefer" ? <label><span>Bitiş tarihi</span><input type="date" min={planFormu.ilkTarih} value={planFormu.bitisTarihi} onChange={(event) => planFormunuGuncelle("bitisTarihi", event.target.value)} /></label> : null}
                     <label className="finance-plan-form__wide"><span>Not</span><textarea maxLength={500} value={planFormu.aciklama} onChange={(event) => planFormunuGuncelle("aciklama", event.target.value)} /></label>
-                    <label className="finance-plan-check"><input type="checkbox" checked={planFormu.aktif} onChange={(event) => planFormunuGuncelle("aktif", event.target.checked)} /><span>Tahmine ekle</span></label>
+                    <label className="finance-plan-check"><input type="checkbox" role="switch" className="app-switch" checked={planFormu.aktif} onChange={(event) => planFormunuGuncelle("aktif", event.target.checked)} /><span>Tahmine ekle</span></label>
                   </div>
                 </fieldset>
 

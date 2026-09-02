@@ -629,7 +629,7 @@ export function UrunStokSayfasi({ yenileAnahtari }: UrunStokSayfasiProps) {
                     <input inputMode="decimal" value={urunFormu.kritikStok} onChange={(event) => urunAlaniniGuncelle("kritikStok", event.target.value)} />
                   </label>
                   <label className="stock-check">
-                    <input type="checkbox" checked={urunFormu.aktif} onChange={(event) => urunAlaniniGuncelle("aktif", event.target.checked)} />
+                    <input type="checkbox" role="switch" className="app-switch" checked={urunFormu.aktif} onChange={(event) => urunAlaniniGuncelle("aktif", event.target.checked)} />
                     <span>
                       <strong>Aktif ürün</strong>
                       <small>Listelerde ve işlemlerde kullanılabilir.</small>

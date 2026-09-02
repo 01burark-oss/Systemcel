@@ -419,6 +419,7 @@ export function CariHesaplarSayfasi({
                 <input
                   type="checkbox"
                   checked={kartFormu.aktif}
+                  role="switch" className="app-switch"
                   onChange={(event) => kartAlaniniGuncelle("aktif", event.target.checked)}
                 />
                 Aktif
