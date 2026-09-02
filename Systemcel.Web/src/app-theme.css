@@ -6615,6 +6615,9 @@
 }
 
 /* Uygulama çalışma alanı — birleşik sayfa başlığı ve içerik sistemi */
+@media (min-width: 1101px) {
+  :root[data-theme] .react-sidebar { width: 252px; flex-basis: 252px; border-right: 1px solid var(--sc-line); }
+}
 :root[data-theme] .react-shell {
   background: var(--sc-cream);
 }
@@ -6743,6 +6746,7 @@
 :root[data-theme] .react-topbar__clock {
   min-width: 100px;
   gap: 1px;
+  font-family: var(--sc-mono);
 }
 
 :root[data-theme] .react-topbar__clock strong {
@@ -11233,6 +11237,22 @@
 }
 
 :root[data-theme="dark"] .accountant-link-invite__icon { color: var(--sc-ink); background: var(--sc-soft); }
+:root[data-theme] .react-shell__body :is(.pos-search, .stock-search, .stock-input-icon, .invoice-search, .invoice-date-range, .payment-search, .payment-date-range, .cari-input-icon, .chat-center__search, .accountant-filter-search label, .accountant-marketplace__search-row label) > input:not([type="checkbox"]):not([type="radio"]) {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+
+:root[data-theme] :is(.pos-search, .stock-search, .stock-input-icon, .invoice-search, .invoice-date-range, .payment-search, .payment-date-range, .cari-input-icon, .chat-center__search, .accountant-filter-search label, .accountant-marketplace__search-row label):focus-within {
+  outline: 2px solid var(--sc-lime);
+  outline-offset: 2px;
+}
+
+:root[data-theme] :is(.pos-search, .stock-search, .stock-input-icon, .invoice-search, .invoice-date-range, .payment-search, .payment-date-range, .cari-input-icon, .chat-center__search, .accountant-filter-search label, .accountant-marketplace__search-row label) > input:focus {
+  outline: none;
+  box-shadow: none;
+}
+
 :root[data-theme="dark"] .finance-skeleton i {
   background: linear-gradient(100deg, var(--sc-cream) 20%, var(--sc-cream-deep) 38%, var(--sc-cream) 56%);
 }

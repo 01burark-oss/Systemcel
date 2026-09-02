@@ -2,7 +2,7 @@ import React from "react";
 import { useTheme } from "../../theme/ThemeProvider";
 import "./theme-switch.css";
 
-export function ThemeSwitch({ lightLabel, darkLabel, label }: {
+export function ThemeSwitch({ darkLabel, label }: {
   lightLabel: string; darkLabel: string; label: string;
 }) {
   const { theme, setTheme } = useTheme();
@@ -28,8 +28,6 @@ export function ThemeSwitch({ lightLabel, darkLabel, label }: {
         }
       }}
     >
-      <span className="settings-theme-switch__label">{lightLabel}</span>
-      <span className="settings-theme-switch__label">{darkLabel}</span>
       <span className="settings-theme-switch__thumb" aria-hidden="true">
         <svg viewBox="0 0 24 24" className="settings-theme-switch__symbol">
           <defs>
@@ -43,7 +41,6 @@ export function ThemeSwitch({ lightLabel, darkLabel, label }: {
             <path d="M12 2v2m0 16v2M2 12h2m16 0h2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42" />
           </g>
         </svg>
-        <span>{dark ? darkLabel : lightLabel}</span>
       </span>
     </button>
   );

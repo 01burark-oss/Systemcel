@@ -91,7 +91,7 @@ internal sealed class ExternalDataMigrationService
         }
         catch (DecoderFallbackException)
         {
-            throw new MigrationValidationException("Dosya UTF-8 olarak kaydedilmelidir.");
+            throw new MigrationValidationException("Dosya okunamadı. Kullandığınız programdan yeniden dışa aktarıp tekrar deneyin.");
         }
         var draftId = Convert.ToHexString(RandomNumberGenerator.GetBytes(16));
         var businessId = await _isletmeService.GetActiveIdAsync();

@@ -8,7 +8,8 @@ vi.mock("../../shared/json", () => ({ jsonOku: vi.fn() }));
 describe("BankaEslesmeSayfasi CSV MVP akışı", () => {
   afterEach(() => {
     cleanup();
-    vi.clearAllMocks();
+    vi.restoreAllMocks();
+    vi.resetAllMocks();
   });
 
   it("CSV sınırını açıklar ve dosyayı kullanıcı eylemiyle içe aktarır", async () => {
@@ -19,16 +20,43 @@ describe("BankaEslesmeSayfasi CSV MVP akışı", () => {
 
     render(<BankaEslesmeSayfasi yenileAnahtari={0} />);
 
-    expect(await screen.findByText(/CSV ile çalışır; bankaya doğrudan bağlanmaz/i)).toBeVisible();
+    expect(await screen.findByText(/CSV dosyasıyla yükleyin. En fazla 2 MB/i)).toBeVisible();
+    const picker = screen.getByLabelText(/CSV dosyası/i);
+    expect(picker).not.toBeVisible();
+    const openPicker = vi.spyOn(picker as HTMLInputElement, "click");
+    expect(screen.getByRole("button", { name: "İçe aktar" })).toBeEnabled();
+    fireEvent.click(screen.getByRole("button", { name: "İçe aktar" }));
+    expect(openPicker).toHaveBeenCalledOnce();
+    expect(jsonOku).not.toHaveBeenCalledWith("/api/ekran/banka-mutabakat/import", expect.anything());
     const file = new File(["Tarih;Açıklama;Tutar\n24.08.2026;Müşteri;1.250,00"], "hareketler.csv", { type: "text/csv" });
     fireEvent.change(screen.getByLabelText(/CSV dosyası/i), { target: { files: [file] } });
-    fireEvent.click(screen.getByRole("button", { name: "İçe aktar" }));
 
     await waitFor(() => expect(jsonOku).toHaveBeenCalledWith(
       "/api/ekran/banka-mutabakat/import",
       expect.objectContaining({ method: "POST", body: expect.any(FormData) })
     ));
     expect(await screen.findByText(/1 hareket eklendi/i)).toBeVisible();
+    expect((picker as HTMLInputElement).value).toBe("");
+  });
+
+  it("dosya seçimi iptal edilince içe aktarma isteği göndermez", async () => {
+    vi.mocked(jsonOku).mockResolvedValueOnce([]);
+    render(<BankaEslesmeSayfasi yenileAnahtari={0} />);
+    await screen.findByText(/Henüz banka hareketi yok/);
+    fireEvent.change(screen.getByLabelText("CSV dosyası"), { target: { files: [] } });
+    expect(jsonOku).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("button", { name: "İçe aktar" })).toBeEnabled();
+  });
+
+  it("içe aktarma hatasını gösterir ve aynı dosyayı yeniden seçmeye izin verir", async () => {
+    vi.mocked(jsonOku).mockResolvedValueOnce([]).mockRejectedValueOnce(new Error("CSV dosyası 2 MB'den büyük olamaz."));
+    render(<BankaEslesmeSayfasi yenileAnahtari={0} />);
+    await screen.findByText(/Henüz banka hareketi yok/);
+    const picker = screen.getByLabelText("CSV dosyası");
+    fireEvent.change(picker, { target: { files: [new File(["CSV"], "buyuk.csv", { type: "text/csv" })] } });
+    expect(await screen.findByRole("status")).toHaveTextContent("CSV dosyası 2 MB'den büyük olamaz.");
+    expect(screen.getByRole("button", { name: "İçe aktar" })).toBeEnabled();
+    expect((picker as HTMLInputElement).value).toBe("");
   });
 
   it("eşleşmeyi açık kullanıcı onayı olmadan göndermez", async () => {
@@ -66,6 +94,7 @@ describe("BankaEslesmeSayfasi CSV MVP akışı", () => {
 
     expect(await screen.findByText(/okuma yetkiniz var/i)).toBeVisible();
     expect(screen.getByLabelText("CSV dosyası")).toBeDisabled();
+    expect(screen.getByRole("button", { name: "İçe aktar" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Yok say" })).toBeDisabled();
   });
 });

@@ -24,6 +24,20 @@ const ekran: RaporlarEkranVerisi = {
 };
 
 describe("RaporlarSayfasi dışa aktarımı", () => {
+  it("Türkçe ay ve yıl seçimini YYYY-MM dönem sözleşmesiyle gönderir", async () => {
+    const user = userEvent.setup();
+    render(<RaporlarSayfasi onIsletmeDegistir={vi.fn()} ustBar={null} ustBarIslemde={false} yenileAnahtari={0} />);
+    await user.selectOptions(await screen.findByRole("combobox", { name: "Dönem Ay" }), "09");
+    const year = screen.getByRole("textbox", { name: "Dönem Yıl" });
+    await user.clear(year);
+    await user.type(year, "2027");
+    expect(screen.getByRole("option", { name: "Eylül" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Oluştur" }));
+    expect(jsonOku).toHaveBeenCalledWith("/api/ekran/raporlar/paket", expect.objectContaining({
+      method: "POST", body: JSON.stringify({ donem: "2027-09", formatlar: ["zip"], icerikler: [] })
+    }));
+    expect(document.querySelector('input[type="month"]')).toBeNull();
+  });
   beforeEach(() => {
     vi.mocked(jsonOku).mockResolvedValue(ekran);
     vi.mocked(openAuthenticatedFile).mockResolvedValue(undefined);

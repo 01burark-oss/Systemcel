@@ -100,6 +100,23 @@ describe("TahsilatOdemeSayfasi ödeme hatırlatması", () => {
     vi.restoreAllMocks();
   });
 
+  it("collapsed form keeps a reopen control and preserves the unfinished transaction", async () => {
+    const user = userEvent.setup();
+    render(<TahsilatOdemeSayfasi onIsletmeDegistir={vi.fn()} ustBar={null} ustBarIslemde={false} yenileAnahtari={0} />);
+
+    const description = await screen.findByPlaceholderText("Açıklama giriniz...");
+    await user.type(description, "Yarım kalan işlem");
+    await user.click(screen.getByRole("button", { name: "Tahsilat ve ödeme panelini kapat" }));
+
+    expect(screen.queryByPlaceholderText("Açıklama giriniz...")).not.toBeInTheDocument();
+    const reopen = screen.getByRole("button", { name: "Tahsilat ve ödeme panelini aç" });
+    expect(reopen).toBeVisible();
+    expect(reopen).toHaveAttribute("aria-expanded", "false");
+    await user.click(reopen);
+    expect(screen.getByPlaceholderText("Açıklama giriniz...")).toHaveValue("Yarım kalan işlem");
+    expect(screen.getByRole("button", { name: "Tahsilat ve ödeme panelini kapat" })).toHaveAttribute("aria-expanded", "true");
+  });
+
   it("form eylemlerini aynı yerel düğme grubunda tutar", async () => {
     render(<TahsilatOdemeSayfasi onIsletmeDegistir={vi.fn()} ustBar={null} ustBarIslemde={false} yenileAnahtari={0} />);
 

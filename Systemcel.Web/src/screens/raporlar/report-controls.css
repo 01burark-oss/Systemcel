@@ -1,0 +1,24 @@
+:root[data-theme] .reports-period-picker {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 100px;
+  gap: 12px;
+  min-width: 0;
+  padding: 0;
+  margin: 0;
+  border: 0;
+}
+.reports-period-picker legend { margin-bottom: 10px; font-weight: 700; }
+.reports-period-picker label { display: grid; gap: 6px; min-width: 0; }
+.reports-period-picker label > span { font-size: 12px; }
+:root[data-theme] .reports-period-picker :is(input, select) {
+  width: 100%; min-width: 0; height: 44px; padding: 0 12px;
+  border: 1px solid var(--sc-line); border-radius: 10px;
+  color: var(--sc-ink); background: var(--sc-paper); font: inherit;
+}
+:root[data-theme] .reports-page .reports-btn--success,
+:root[data-theme] .reports-page .reports-btn--success svg { color: #0b0b09; }
+:root[data-theme] .reports-page .reports-btn--success { background: var(--sc-lime); border-color: var(--sc-lime); }
+:root[data-theme] .reports-page .reports-btn--success:disabled {
+  color: var(--sc-muted); background: var(--sc-soft); border-color: var(--sc-line); opacity: 1;
+}
+:root[data-theme] .reports-page .reports-btn--success:disabled svg { color: var(--sc-muted); }

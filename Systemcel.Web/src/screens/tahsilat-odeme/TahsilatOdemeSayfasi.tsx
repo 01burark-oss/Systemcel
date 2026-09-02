@@ -1,6 +1,7 @@
 import React from "react";
 import {
   CalendarDays,
+  ChevronDown,
   ChevronUp,
   Clock3,
   CreditCard,
@@ -18,6 +19,7 @@ import {
 } from "lucide-react";
 import type { UstBarDurumu } from "../../shared/chrome";
 import { jsonOku } from "../../shared/json";
+import "./payment-form.css";
 import type {
   OdemeHatirlatmaGonderimSonucu,
   OdemeHatirlatmaOnizleme,
@@ -432,7 +434,7 @@ export function TahsilatOdemeSayfasi({ yenileAnahtari }: TahsilatOdemeSayfasiPro
 
   return (
     <main className="payment-page">
-      <section className={`payment-layout ${formPaneliAcik ? "payment-layout--panel-open" : "payment-layout--panel-closed"}`}>
+      <section className="payment-layout payment-layout--panel-open">
         <div className="payment-left">
           <div className="payment-stats">
             <StatCard
@@ -522,21 +524,25 @@ export function TahsilatOdemeSayfasi({ yenileAnahtari }: TahsilatOdemeSayfasiPro
           </section>
         </div>
 
-        {formPaneliAcik ? <aside className="payment-side payment-side--drawer">
+        <aside className={`payment-side payment-side--drawer${formPaneliAcik ? "" : " payment-side--collapsed"}`}>
           <section className="payment-card payment-form-card">
             <div className="payment-card__header">
               <h2>{duzenlenenHareket ? "İşlemi düzenle" : "Yeni işlem"}</h2>
               <button
                 type="button"
                 className="side-panel-close"
-                onClick={() => setFormPaneliAcik(false)}
-                aria-label="Tahsilat ve ödeme panelini kapat"
-                title="Paneli kapat"
+                onClick={() => setFormPaneliAcik((current) => !current)}
+                aria-label={`Tahsilat ve ödeme panelini ${formPaneliAcik ? "kapat" : "aç"}`}
+                aria-expanded={formPaneliAcik}
+                aria-controls="payment-form-body"
+                title={formPaneliAcik ? "Paneli daralt" : "Paneli aç"}
               >
-                <ChevronUp size={21} />
+                {formPaneliAcik ? <ChevronUp size={21} /> : <ChevronDown size={21} />}
               </button>
             </div>
 
+            <div id="payment-form-body">
+            {formPaneliAcik && <>
             <FormSection title="İşlem bilgileri">
               <div className="payment-form-grid">
                 <label className="payment-field">
@@ -692,8 +698,10 @@ export function TahsilatOdemeSayfasi({ yenileAnahtari }: TahsilatOdemeSayfasiPro
                 </button>
               </div>
             </FormSection>
+            </>}
+            </div>
           </section>
-        </aside> : null}
+        </aside>
       </section>
 
       {hatirlatmaFaturaId ? (

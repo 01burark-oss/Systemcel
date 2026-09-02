@@ -61,7 +61,7 @@ public sealed class BankaMutabakatService : IBankaMutabakatService
         }
         catch (DecoderFallbackException)
         {
-            throw new ArgumentException("CSV dosyası geçerli UTF-8 metni olmalıdır.", nameof(csv));
+            throw new ArgumentException("Dosya okunamadı. Bankanızdan hareketleri yeniden indirip tekrar deneyin.", nameof(csv));
         }
 
         var parsed = ParseCsv(content);

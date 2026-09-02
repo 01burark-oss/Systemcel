@@ -298,7 +298,10 @@
   place-items: center;
   border-radius: 10px;
   background: #c8ff00;
+  color: #0b0b09;
 }
+
+:root[data-theme] .pos-receipt-preview > span svg { color: #0b0b09; }
 
 .pos-receipt-preview > div {
   min-width: 0;

@@ -32,6 +32,7 @@ interface ImportSonucu {
 export function BankaEslesmeSayfasi({ yenileAnahtari, saltOkunur = false }: { yenileAnahtari: number; saltOkunur?: boolean }) {
   const [hareketler, setHareketler] = React.useState<BankaHareketi[]>([]);
   const [dosya, setDosya] = React.useState<File | null>(null);
+  const dosyaSecici = React.useRef<HTMLInputElement>(null);
   const [adaylar, setAdaylar] = React.useState<EslesmeAdayi[]>([]);
   const [seciliHareket, setSeciliHareket] = React.useState<number | null>(null);
   const [seciliAday, setSeciliAday] = React.useState<EslesmeAdayi | null>(null);
@@ -55,12 +56,13 @@ export function BankaEslesmeSayfasi({ yenileAnahtari, saltOkunur = false }: { ye
 
   React.useEffect(() => { yukle().catch(() => undefined); }, [yukle, yenileAnahtari]);
 
-  const iceAktar = async () => {
-    if (!dosya) { setHata("Önce bir CSV dosyası seçin."); return; }
+  const iceAktar = async (secilenDosya: File) => {
+    if (islemde || saltOkunur) return;
+    setDosya(secilenDosya);
     try {
       setIslemde(true); setHata(""); setMesaj("");
       const form = new FormData();
-      form.append("dosya", dosya);
+      form.append("dosya", secilenDosya);
       const result = await jsonOku<ImportSonucu>("/api/ekran/banka-mutabakat/import", { method: "POST", body: form });
       setMesaj(`${result.eklenen} hareket eklendi${result.tekrar ? `, ${result.tekrar} tekrar atlandı` : ""}.`);
       setDosya(null);
@@ -106,7 +108,7 @@ export function BankaEslesmeSayfasi({ yenileAnahtari, saltOkunur = false }: { ye
   return (
     <main className="bank-page">
       <section className="bank-hero">
-        <div><h1>Banka hareketi eşleştirme</h1><p>Bu ilk sürüm yalnız CSV ile çalışır; bankaya doğrudan bağlanmaz.</p></div>
+        <div><h1>Banka hareketi eşleştirme</h1><p>Bankanızdan aldığınız hareketleri kayıtlarınızla eşleştirin.</p></div>
         <button type="button" className="bank-icon-button" onClick={yukle} disabled={islemde} aria-label="Banka hareketlerini yenile"><RefreshCw size={19} /></button>
       </section>
 
@@ -119,10 +121,14 @@ export function BankaEslesmeSayfasi({ yenileAnahtari, saltOkunur = false }: { ye
         <>
           <section className="bank-import" aria-labelledby="bank-import-title">
             <div><FileSpreadsheet size={25} /><h2 id="bank-import-title">CSV içe aktar</h2></div>
-            <p>UTF-8 CSV yükleyin. Tarih, açıklama, tutar veya borç/alacak; isteğe bağlı para birimi ve referans sütunları desteklenir. En fazla 2 MB.</p>
+            <p>Banka hareketlerinizi CSV dosyasıyla yükleyin. En fazla 2 MB.</p>
             <div className="bank-import-actions">
-              <label className="bank-file-field">CSV dosyası<input aria-label="CSV dosyası" type="file" accept=".csv,text/csv" disabled={saltOkunur} onChange={(event) => setDosya(event.target.files?.[0] ?? null)} /></label>
-              <button type="button" onClick={iceAktar} disabled={islemde || !dosya || saltOkunur}><Upload size={18} />İçe aktar</button>
+              <input ref={dosyaSecici} hidden aria-label="CSV dosyası" type="file" accept=".csv,text/csv" disabled={islemde || saltOkunur} onChange={(event) => {
+                const secilenDosya = event.target.files?.[0];
+                event.target.value = "";
+                if (secilenDosya) void iceAktar(secilenDosya);
+              }} />
+              <button type="button" onClick={() => dosyaSecici.current?.click()} disabled={islemde || saltOkunur}><Upload size={18} />{islemde && dosya ? "İçe aktarılıyor…" : "İçe aktar"}</button>
             </div>
             {saltOkunur ? <small>Bu müşteri çalışma alanında okuma yetkiniz var; içe aktarma ve durum değişiklikleri kapalıdır.</small> : null}
             {dosya ? <small>Seçilen: {dosya.name}</small> : null}
@@ -142,7 +148,7 @@ export function BankaEslesmeSayfasi({ yenileAnahtari, saltOkunur = false }: { ye
           </section>
 
           {seciliHareket ? <section className="bank-candidates" aria-labelledby="bank-candidates-title">
-            <div className="bank-section-title"><div><h2 id="bank-candidates-title">Eşleşme adayları</h2><p>Skor; tutar, tarih ve açıklama benzerliğinden deterministik hesaplanır.</p></div></div>
+            <div className="bank-section-title"><div><h2 id="bank-candidates-title">Eşleşme adayları</h2><p>Banka hareketine karşılık gelen kaydı seçin.</p></div></div>
             {adaylar.length === 0 ? <p>Yeterince güçlü bir aday bulunamadı.</p> : <div className="bank-candidate-grid">{adaylar.map((aday) => <label className={seciliAday?.kaynakTuru === aday.kaynakTuru && seciliAday.kaynakId === aday.kaynakId ? "selected" : ""} key={`${aday.kaynakTuru}-${aday.kaynakId}`}>
               <input type="radio" name="aday" checked={seciliAday?.kaynakTuru === aday.kaynakTuru && seciliAday.kaynakId === aday.kaynakId} onChange={() => setSeciliAday(aday)} />
               <span><strong>{aday.baslik}</strong><small>{new Date(aday.tarih).toLocaleDateString("tr-TR")} · {para(aday.tutar, "TRY")}</small><em>{aday.skor}/100 · {aday.nedenler.join(" · ")}</em></span>

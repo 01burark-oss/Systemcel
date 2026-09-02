@@ -124,8 +124,10 @@ public sealed class BankaMutabakatServiceTests : IDisposable
 
         var invalidUtf8 = new byte[] { 0x54, 0x61, 0x72, 0x69, 0x68, 0x3B, 0xFF };
         await using var invalid = new MemoryStream(invalidUtf8);
-        await Assert.ThrowsAsync<ArgumentException>(() => _service.CsvIceAktarAsync(
+        var error = await Assert.ThrowsAsync<ArgumentException>(() => _service.CsvIceAktarAsync(
             _tenantA, invalid, "hareketler.csv", invalidUtf8.Length));
+        Assert.Contains("Bankanızdan hareketleri yeniden indirip tekrar deneyin.", error.Message);
+        Assert.DoesNotContain("UTF", error.Message);
     }
 
     [Fact]

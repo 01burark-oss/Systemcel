@@ -27,13 +27,24 @@ export async function jsonOku<T>(url: string, init?: RequestInit): Promise<T> {
     headers.set("Authorization", `Bearer ${token}`);
   }
 
-  const response = await fetch(url, {
-    ...init,
-    headers
-  });
+  let response: Response;
+  let text: string;
+  try {
+    response = await fetch(url, { ...init, headers });
+    text = await response.text();
+  } catch (error) {
+    if (error && typeof error === "object" && "name" in error && error.name === "AbortError") throw error;
+    throw new Error("Bağlantı kurulamadı. İnternet bağlantınızı kontrol edip tekrar deneyin.");
+  }
 
-  const text = await response.text();
-  const payload = text ? JSON.parse(text) : null;
+  const fallback = "İşlem tamamlanamadı. Lütfen tekrar deneyin.";
+  if (response.status >= 500) throw new Error(fallback);
+  let payload;
+  try {
+    payload = text ? JSON.parse(text) : null;
+  } catch {
+    throw new Error(fallback);
+  }
   if (!response.ok) {
     if (payload?.code && entitlementCodes.has(payload.code)) {
       window.dispatchEvent(new CustomEvent<EntitlementProblemDetail>("systemcel:entitlement", {

@@ -50,6 +50,76 @@ test.skip(!process.env.SYSTEMCEL_CAPTURE, "Run with npm run capture:screens");
 test.describe.configure({ mode: "serial" });
 test.setTimeout(240_000);
 
+test("theme geometry is identical across application screens", async ({ browser }, testInfo) => {
+  test.skip(!process.env.SYSTEMCEL_GEOMETRY || testInfo.project.name !== "desktop-wide", "Explicit geometry audit");
+  const page = await createCapturePage(browser, "light");
+  if (process.env.SYSTEMCEL_GEOMETRY_WIDTH) await page.setViewportSize({ width: Number(process.env.SYSTEMCEL_GEOMETRY_WIDTH), height: 1080 });
+  await mockApplication(page);
+  const issues: unknown[] = [];
+  for (const screen of screens.filter(screen => screen.path.startsWith("/app"))) {
+    await page.goto(screen.path);
+    await expect(page.getByText(screen.ready, { exact: false }).first()).toBeVisible();
+    await page.waitForLoadState("networkidle");
+    await page.evaluate(() => document.fonts.ready);
+    const differences = await page.evaluate(() => {
+      const root = document.documentElement;
+      const elements = [...document.querySelectorAll<HTMLElement>(".react-shell main, .react-shell section, .react-shell article, .react-shell aside, .react-shell header, .react-shell button, .react-shell input, .react-shell select, .react-shell h1, .react-shell h2, .react-shell p, .react-shell div")];
+      const rect = (el: HTMLElement) => {
+        const r = el.getBoundingClientRect();
+        return [r.x, r.y, r.width, r.height];
+      };
+      root.dataset.theme = "light";
+      const before = elements.map(rect);
+      root.dataset.theme = "dark";
+      return elements.flatMap((el, i) => {
+        const after = rect(el);
+        if (!before[i][2] || !after[2] || !before[i].some((v, j) => Math.abs(v - after[j]) > .02)) return [];
+        return [{ element: el.tagName + "." + el.className, text: el.textContent?.trim().slice(0, 45), light: before[i], dark: after }];
+      });
+    });
+    if (differences.length) issues.push({ screen: screen.slug, differences });
+  }
+  await fs.mkdir(outputRoot, { recursive: true });
+  await fs.writeFile(path.join(outputRoot, "theme-geometry.json"), JSON.stringify(issues, null, 2));
+  await page.context().close();
+  expect(issues).toEqual([]);
+});
+
+test("repaired import, collapse and receipt controls", async ({ browser }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-wide");
+  for (const theme of ["light", "dark"] as const) {
+    const page = await createCapturePage(browser, theme);
+    await mockApplication(page);
+    await page.route("**/api/ekran/banka-mutabakat/import", route => json(route, { eklenen: 1, tekrar: 0, toplam: 1 }));
+    await page.goto("/app/banka-eslestirme");
+    const importer = page.getByRole("button", { name: "İçe aktar", exact: true });
+    await expect(importer).toBeEnabled();
+    const chooser = page.waitForEvent("filechooser");
+    await importer.click();
+    await (await chooser).setFiles({ name: "hareketler.csv", mimeType: "text/csv", buffer: Buffer.from("Tarih,Aciklama,Tutar\n2026-09-01,Test,100") });
+    await expect(page.getByText("1 hareket eklendi.")).toBeVisible();
+    await page.locator(".bank-import").screenshot({ path: testInfo.outputPath(`bank-${theme}.png`) });
+    await page.goto("/app/tahsilat-odeme");
+    await page.getByRole("button", { name: "Tahsilat ve ödeme panelini kapat" }).click();
+    const reopen = page.getByRole("button", { name: "Tahsilat ve ödeme panelini aç" });
+    await expect(reopen).toBeVisible();
+    await page.locator(".payment-form-card").screenshot({ path: testInfo.outputPath(`collapsed-${theme}.png`) });
+    await reopen.click();
+    await expect(page.locator("#payment-form-body")).toBeVisible();
+    await page.locator(".payment-form-card").screenshot({ path: testInfo.outputPath(`payment-${theme}.png`) });
+    await page.route("**/api/ekran/mobil-tarama/durum", route => json(route, { fisOcrHazir: true }));
+    await page.route("**/api/ekran/mobil-tarama/fis-ocr", route => json(route, { merchant: "Örnek Market", receiptDate: "2026-09-01", receiptTotal: 100, paymentMethod: "Nakit", items: [] }));
+    await page.goto("/app/hizli-satis");
+    await page.getByLabel("Fiş fotoğrafı").setInputFiles({ name: "fis.jpg", mimeType: "image/jpeg", buffer: Buffer.from("fixture") });
+    const date = page.getByLabel("Fiş tarihi");
+    await expect(date).toBeVisible();
+    await expect(date).toHaveCSS("border-top-width", "1px");
+    await expect(date).toHaveCSS("border-bottom-width", "1px");
+    await page.getByRole("article", { name: "Okunan fiş" }).screenshot({ path: testInfo.outputPath(`receipt-${theme}.png`) });
+    await page.context().close();
+  }
+});
+
 test("captures every application route in light and dark themes", async ({ browser }, testInfo) => {
   test.skip(testInfo.project.name !== "desktop-wide", "The capture command uses one deterministic desktop viewport");
   await fs.rm(outputRoot, { recursive: true, force: true });

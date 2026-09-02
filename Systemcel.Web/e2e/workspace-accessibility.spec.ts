@@ -4,6 +4,41 @@ import { expect, test, type Page, type Route } from "@playwright/test";
 test.describe("workspace accessibility", () => {
   test.beforeEach(async ({ page }) => mockApi(page));
 
+  test("theme changes preserve settings geometry", async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== "desktop-chromium", "Settings route");
+    await page.addInitScript(() => localStorage.setItem("systemcel.theme", "light"));
+    await page.goto("/app/ayarlar");
+    const control = page.getByRole("switch", { name: "Tema seçimi: Koyu" });
+    await expect(control).toBeVisible();
+    const geometry = () => page.locator(".settings-page, .settings-appearance, .settings-theme-switch, .settings-grid > .settings-card").evaluateAll(elements => elements.map(el => {
+      const { x, y, width, height } = el.getBoundingClientRect();
+      return { x, y, width, height };
+    }));
+    const light = await geometry();
+    await control.focus();
+    await page.keyboard.press("ArrowRight");
+    await expect(control).toBeChecked();
+    expect(await geometry()).toEqual(light);
+    await expect(page.locator("html")).not.toHaveAttribute("data-theme-transitioning");
+    expect(await geometry()).toEqual(light);
+    expect((await control.innerText()).trim()).toBe("");
+    await control.screenshot({ path: testInfo.outputPath("icon-only-dark.png") });
+    const duration = await control.evaluate(button => new Promise<number>(resolve => {
+      const panel = document.querySelector(".settings-appearance")!;
+      const onTransition = (event: Event) => {
+        if ((event as TransitionEvent).propertyName !== "background-color") return;
+        panel.removeEventListener("transitionrun", onTransition);
+        resolve(Number(getComputedStyle(panel).transitionDuration.split(",")[0].replace("s", "")) * 1000);
+      };
+      panel.addEventListener("transitionrun", onTransition);
+      (button as HTMLButtonElement).click();
+    }));
+    expect(duration).toBe(300);
+    await expect(page.locator("html")).not.toHaveAttribute("data-theme-transitioning");
+    expect(await geometry()).toEqual(light);
+    await control.screenshot({ path: testInfo.outputPath("icon-only-light.png") });
+  });
+
   test("sliding theme switch persists and respects reduced motion", async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== "desktop-chromium", "Settings desktop route");
     await page.goto("/app/ayarlar");
@@ -89,6 +124,7 @@ test.describe("workspace accessibility", () => {
     await page.goto("/app/hizli-satis");
     const tetikleyici = page.getByRole("button", { name: "Barkodu ekle" });
     await expect(tetikleyici).toBeVisible();
+    await expect(page.locator(".pos-search input")).toBeFocused();
     await tetikleyici.focus();
     await page.evaluate(() => {
       window.dispatchEvent(new CustomEvent("systemcel:entitlement", {

@@ -19131,27 +19131,27 @@ tbody tr.secili {
   border-bottom-color: var(--app-line);
 }
 
-:root[data-theme="light"] .react-sidebar__brand-mark {
+:root[data-theme] .react-sidebar__brand-mark {
   position: static;
   width: 36px;
   height: 36px;
   flex: 0 0 36px;
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  border: 1.5px solid var(--app-ink);
+  border: 1.5px solid var(--sc-ink);
   border-radius: 9px;
-  background: var(--app-paper);
+  background: var(--sc-paper);
 }
 
-:root[data-theme="light"] .react-sidebar__brand-mark i {
+:root[data-theme] .react-sidebar__brand-mark i {
   display: block;
-  border-right: 1px solid var(--app-line);
-  border-bottom: 1px solid var(--app-line);
+  border-right: 1px solid var(--sc-line);
+  border-bottom: 1px solid var(--sc-line);
 }
 
-:root[data-theme="light"] .react-sidebar__brand-mark i:nth-child(2n) { border-right: 0; }
-:root[data-theme="light"] .react-sidebar__brand-mark i:nth-child(n + 3) { border-bottom: 0; }
-:root[data-theme="light"] .react-sidebar__brand-mark i:last-child { background: var(--app-lime); }
+:root[data-theme] .react-sidebar__brand-mark i:nth-child(2n) { border-right: 0; }
+:root[data-theme] .react-sidebar__brand-mark i:nth-child(n + 3) { border-bottom: 0; }
+:root[data-theme] .react-sidebar__brand-mark i:last-child { background: var(--sc-lime); }
 
 :root[data-theme="light"] .react-sidebar__brand-text strong {
   color: var(--app-ink);
@@ -19257,7 +19257,7 @@ tbody tr.secili {
   backdrop-filter: blur(16px);
 }
 
-:root[data-theme="light"] .react-shell--page-title .react-topbar {
+:root[data-theme] .react-shell--page-title .react-topbar {
   min-height: 78px;
   padding: 12px 24px;
 }
@@ -19379,16 +19379,16 @@ tbody tr.secili {
   background-size: 44px 44px;
 }
 
-:root[data-theme="light"] :is(.dashboard-page, .gib-page, .settings-page, .cari-page, .stock-page, .invoice-page, .payment-page, .reports-page) :is(h1, h2, h3, h4, strong, label) {
+:root[data-theme] :is(.dashboard-page, .gib-page, .settings-page, .cari-page, .stock-page, .invoice-page, .payment-page, .reports-page) :is(h1, h2, h3, h4, strong, label) {
   overflow-wrap: anywhere;
 }
 
-:root[data-theme="light"] :is(.legacy-dashboard__header, .snapshot-grid, .legacy-panel, .legacy-summary-grid, .gib-layout, .gib-card, .gib-status-card, .settings-card, .cari-card, .stock-card, .invoice-card, .payment-card, .reports-card) > * {
+:root[data-theme] :is(.legacy-dashboard__header, .snapshot-grid, .legacy-panel, .legacy-summary-grid, .gib-layout, .gib-card, .gib-status-card, .settings-card, .cari-card, .stock-card, .invoice-card, .payment-card, .reports-card) > * {
   min-width: 0;
 }
 
-:root[data-theme="light"] .dashboard-page,
-:root[data-theme="light"] .gib-page {
+:root[data-theme] .dashboard-page,
+:root[data-theme] .gib-page {
   height: auto;
   min-height: 100%;
   overflow: visible;
@@ -19566,20 +19566,20 @@ tbody tr.secili {
   height: 18px;
 }
 
-:root[data-theme="light"] .gib-status-grid--compact .gib-status-card p {
+:root[data-theme] .gib-status-grid--compact .gib-status-card p {
   font-size: 11px;
   font-weight: 800;
   letter-spacing: .06em;
   text-transform: uppercase;
 }
 
-:root[data-theme="light"] .gib-status-grid--compact .gib-status-card strong {
-  color: var(--app-ink);
+:root[data-theme] .gib-status-grid--compact .gib-status-card strong {
+  color: var(--sc-ink);
   font-size: 15px;
   line-height: 1.2;
 }
 
-:root[data-theme="light"] .gib-status-grid--compact .gib-status-card small {
+:root[data-theme] .gib-status-grid--compact .gib-status-card small {
   font-size: 11px;
   line-height: 1.25;
 }
@@ -19624,7 +19624,7 @@ tbody tr.secili {
 
 :root[data-theme="light"] .gib-toggle input { accent-color: var(--app-ink); }
 
-:root[data-theme="light"] .gib-security-note {
+:root[data-theme] .gib-security-note {
   min-height: 54px;
   margin: 13px 2px 0;
   padding-right: 76px;
@@ -19648,21 +19648,21 @@ tbody tr.secili {
 }
 
 @media (max-width: 1500px) {
-  :root[data-theme="light"] .snapshot-grid {
+  :root[data-theme] .snapshot-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  :root[data-theme="light"] .snapshot-card--benchmark {
+  :root[data-theme] .snapshot-card--benchmark {
     grid-column: auto;
   }
 }
 
 @media (max-width: 1120px) {
-  :root[data-theme="light"] .snapshot-grid {
+  :root[data-theme] .snapshot-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  :root[data-theme="light"] .snapshot-card--benchmark {
+  :root[data-theme] .snapshot-card--benchmark {
     grid-column: auto;
   }
 }
@@ -19846,7 +19846,7 @@ tbody tr.secili {
 
   :root[data-theme="light"] .gib-btn { width: 100%; }
 
-  :root[data-theme="light"] .gib-security-note {
+  :root[data-theme] .gib-security-note {
     align-items: flex-start;
     justify-content: flex-start;
   }

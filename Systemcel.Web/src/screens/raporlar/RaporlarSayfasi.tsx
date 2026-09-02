@@ -13,6 +13,8 @@ import type { UstBarDurumu } from "../../shared/chrome";
 import { openAuthenticatedFile, printAuthenticatedHtml } from "../../shared/authenticatedFile";
 import { jsonOku } from "../../shared/json";
 import type { RaporlarEkranVerisi, RaporPaket, RaporYazdirFormu } from "./types";
+import { ReportPeriodPicker } from "./ReportPeriodPicker";
+import "./report-controls.css";
 
 interface RaporlarSayfasiProps {
   onIsletmeDegistir: (id: number) => void;
@@ -196,10 +198,7 @@ export function RaporlarSayfasi({ yenileAnahtari }: RaporlarSayfasiProps) {
             </div>
 
             <div className="reports-form-grid reports-form-grid--package reports-form-grid--period">
-              <label className="reports-field">
-                <span>Dönem</span>
-                <input value={donem} onChange={(event) => setDonem(event.target.value)} type="month" />
-              </label>
+              <ReportPeriodPicker value={donem} onChange={setDonem} />
             </div>
 
             <SelectionGroup
