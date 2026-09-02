@@ -4,6 +4,34 @@ import { expect, test, type Page, type Route } from "@playwright/test";
 test.describe("workspace accessibility", () => {
   test.beforeEach(async ({ page }) => mockApi(page));
 
+  for (const theme of ["light", "dark"]) {
+    test(`notification switches align and remain accessible in ${theme}`, async ({ page }, testInfo) => {
+      test.skip(testInfo.project.name !== "desktop-chromium", "Mobile routing uses a separate companion screen without settings.");
+      await page.addInitScript((value) => localStorage.setItem("systemcel.theme", value), theme);
+      await page.route("**/api/ekran/bildirim-tercihleri", (route) => json(route, {
+        uygulamaAktif: true, epostaAktif: false, telegramAktif: false, sessizSaatAktif: false,
+        sessizBaslangicDakika: 1320, sessizBitisDakika: 480, saatDilimi: "Europe/Istanbul"
+      }));
+      await page.goto("/app/ayarlar");
+      const panel = page.getByRole("region", { name: "Bildirim tercihleri" });
+      await expect(panel.getByRole("switch")).toHaveCount(4);
+      await panel.scrollIntoViewIfNeeded();
+      const email = panel.getByRole("switch", { name: "E-posta", exact: true });
+      await expect(email).not.toBeChecked();
+      await email.focus();
+      await page.keyboard.press("Space");
+      await expect(email).toBeChecked();
+      await page.keyboard.press("Space");
+      await expect(email).not.toBeChecked();
+      const bounds = await panel.boundingBox();
+      expect(bounds!.x).toBeGreaterThanOrEqual(0);
+      expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(page.viewportSize()!.width + 1);
+      const results = await new AxeBuilder({ page }).include(".notification-preferences").analyze();
+      expect(results.violations).toEqual([]);
+      await panel.screenshot({ path: testInfo.outputPath(`notifications-${theme}.png`) });
+    });
+  }
+
   test("settings, support and admin operations have no serious or critical axe violations", async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== "desktop-chromium", "Desktop accessibility matrix");
 

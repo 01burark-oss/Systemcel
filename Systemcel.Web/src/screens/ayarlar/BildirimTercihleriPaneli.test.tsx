@@ -15,8 +15,13 @@ describe("BildirimTercihleriPaneli", () => {
     vi.mocked(jsonOku).mockImplementation(async (_url, init) => init?.method === "PUT" ? JSON.parse(String(init.body)) : initial);
     render(<BildirimTercihleriPaneli />);
 
-    await user.click(await screen.findByRole("checkbox", { name: "E-posta" }));
-    await user.click(screen.getByRole("checkbox", { name: "Sessiz saatleri kullan" }));
+    expect(await screen.findByRole("switch", { name: "Uygulama içi" })).toBeChecked();
+    const email = screen.getByRole("switch", { name: "E-posta" });
+    expect(email).not.toBeChecked();
+    email.focus();
+    await user.keyboard(" ");
+    expect(email).toBeChecked();
+    await user.click(screen.getByRole("switch", { name: "Sessiz saatleri kullan" }));
     await user.clear(screen.getByLabelText("Başlangıç"));
     await user.type(screen.getByLabelText("Başlangıç"), "23:30");
     await user.click(screen.getByRole("button", { name: "Tercihleri kaydet" }));
