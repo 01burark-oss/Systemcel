@@ -19123,7 +19123,7 @@ tbody tr.secili {
   display: none;
 }
 
-:root[data-theme="light"] .react-sidebar__brand {
+:root[data-theme] .react-sidebar__brand {
   min-height: 58px;
   padding: 0 7px 15px;
   gap: 11px;
@@ -19153,14 +19153,14 @@ tbody tr.secili {
 :root[data-theme] .react-sidebar__brand-mark i:nth-child(n + 3) { border-bottom: 0; }
 :root[data-theme] .react-sidebar__brand-mark i:last-child { background: var(--sc-lime); }
 
-:root[data-theme="light"] .react-sidebar__brand-text strong {
+:root[data-theme] .react-sidebar__brand-text strong {
   color: var(--app-ink);
   font-size: 20px;
   font-weight: 850;
   letter-spacing: -.04em;
 }
 
-:root[data-theme="light"] .react-sidebar__brand-text small {
+:root[data-theme] .react-sidebar__brand-text small {
   color: var(--app-muted);
   font-family: Consolas, "Courier New", monospace;
   font-size: 8px;
@@ -19183,6 +19183,13 @@ tbody tr.secili {
 }
 
 :root[data-theme="light"] .react-sidebar__link svg { color: #77766b; }
+
+:root[data-theme] .react-sidebar__link {
+  padding: 0 12px;
+  gap: 11px;
+  font-size: 14px;
+  font-weight: 720;
+}
 
 :root[data-theme="light"] .react-sidebar__link:hover {
   color: var(--app-ink);
@@ -19453,13 +19460,13 @@ tbody tr.secili {
   background: var(--app-lime);
 }
 
-:root[data-theme="light"] .snapshot-grid {
+:root[data-theme] .snapshot-grid {
   grid-template-columns: repeat(4, minmax(0, 1fr));
   grid-auto-rows: 1fr;
   gap: 16px;
 }
 
-:root[data-theme="light"] .snapshot-card {
+:root[data-theme] .snapshot-card {
   min-height: 214px;
   padding: 23px;
   border-radius: 18px;
@@ -19471,7 +19478,7 @@ tbody tr.secili {
   background: var(--app-ink);
 }
 
-:root[data-theme="light"] .snapshot-card__head h3 {
+:root[data-theme] .snapshot-card__head h3 {
   color: var(--app-ink);
   font-size: clamp(19px, 2vw, 25px);
 }
@@ -19479,18 +19486,18 @@ tbody tr.secili {
 :root[data-theme="light"] .snapshot-card--net .snapshot-card__head h3,
 :root[data-theme="light"] .snapshot-card--net .net-benchmark__header span { color: rgba(251, 250, 245, .68); }
 
-:root[data-theme="light"] .snapshot-card__value {
+:root[data-theme] .snapshot-card__value {
   min-width: 0;
   margin-top: 24px;
   gap: 8px;
 }
 
-:root[data-theme="light"] .snapshot-card__value .currency {
+:root[data-theme] .snapshot-card__value .currency {
   color: var(--app-muted);
   font-size: clamp(25px, 3vw, 34px);
 }
 
-:root[data-theme="light"] .snapshot-card__value strong {
+:root[data-theme] .snapshot-card__value strong {
   min-width: 0;
   color: var(--app-ink);
   font-size: clamp(34px, 4.1vw, 62px);
@@ -20104,8 +20111,8 @@ tbody tr.secili {
 }
 
 :root[data-theme="light"] .systemcel-user-button__text strong { color: var(--app-ink); }
-:root[data-theme="light"] .systemcel-user-button__text small,
-:root[data-theme="light"] .systemcel-user-button__chevron { color: var(--app-muted); }
+:root[data-theme] .systemcel-user-button__text small,
+:root[data-theme] .systemcel-user-button__chevron { color: var(--app-muted); }
 
 :root[data-theme="light"] .systemcel-user-menu,
 :root[data-theme="light"] .systemcel-user-modal__panel {

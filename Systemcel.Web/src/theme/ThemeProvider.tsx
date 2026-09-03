@@ -35,7 +35,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       root.dataset.themeTransitioning = "true";
       // Commit the transition rules before swapping the theme's colors.
       void root.offsetWidth;
-      transitionTimer = setTimeout(() => delete root.dataset.themeTransitioning, 320);
+      transitionTimer = setTimeout(() => delete root.dataset.themeTransitioning, 170);
     }
     previousTheme.current = theme;
     document.documentElement.dataset.theme = theme;

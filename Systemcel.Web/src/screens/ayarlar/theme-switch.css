@@ -33,7 +33,7 @@
   color: #0b0b09;
   font-weight: 700;
   transform: translateX(0);
-  transition: transform 330ms cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 150ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 .settings-theme-switch[aria-checked="true"] .settings-theme-switch__thumb { transform: translateX(48px); }
 :root[data-theme] .settings-theme-switch__symbol {
@@ -45,13 +45,13 @@
 }
 .settings-theme-switch__cutout {
   transform: translate(9px, -9px);
-  transition: transform 330ms cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 150ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 .settings-theme-switch__rays {
   transform-origin: 12px 12px;
   transform: rotate(0deg);
   opacity: 1;
-  transition: transform 330ms cubic-bezier(0.4, 0, 0.2, 1), opacity 330ms ease;
+  transition: transform 150ms cubic-bezier(0.4, 0, 0.2, 1), opacity 150ms ease;
 }
 .settings-theme-switch[aria-checked="true"] .settings-theme-switch__cutout { transform: translate(-2px, 2px); }
 .settings-theme-switch[aria-checked="true"] .settings-theme-switch__rays { transform: rotate(45deg); opacity: 0; }

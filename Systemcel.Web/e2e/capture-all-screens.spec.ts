@@ -61,20 +61,34 @@ test("theme geometry is identical across application screens", async ({ browser 
     await expect(page.getByText(screen.ready, { exact: false }).first()).toBeVisible();
     await page.waitForLoadState("networkidle");
     await page.evaluate(() => document.fonts.ready);
-    const differences = await page.evaluate(() => {
+    const differences = await page.evaluate(async () => {
       const root = document.documentElement;
-      const elements = [...document.querySelectorAll<HTMLElement>(".react-shell main, .react-shell section, .react-shell article, .react-shell aside, .react-shell header, .react-shell button, .react-shell input, .react-shell select, .react-shell h1, .react-shell h2, .react-shell p, .react-shell div")];
+      const elements = [...document.querySelectorAll<HTMLElement>(".react-shell main, .react-shell section, .react-shell article, .react-shell aside, .react-shell header, .react-shell button, .react-shell input, .react-shell select, .react-shell textarea, .react-shell h1, .react-shell h2, .react-shell h3, .react-shell h4, .react-shell p, .react-shell div, .react-shell span, .react-shell small, .react-shell strong, .react-shell label, .react-shell a, .react-shell th, .react-shell td")];
+      const typography = (el: HTMLElement) => {
+        const style = getComputedStyle(el);
+        return Object.fromEntries(["font-family", "font-size", "font-weight", "font-style", "line-height", "letter-spacing", "text-transform"].map(key => [key, style.getPropertyValue(key)]));
+      };
       const rect = (el: HTMLElement) => {
         const r = el.getBoundingClientRect();
         return [r.x, r.y, r.width, r.height];
       };
       root.dataset.theme = "light";
+      void root.offsetWidth;
+      await new Promise(requestAnimationFrame);
+      await new Promise(requestAnimationFrame);
       const before = elements.map(rect);
+      const beforeType = elements.map(typography);
       root.dataset.theme = "dark";
+      void root.offsetWidth;
+      await new Promise(requestAnimationFrame);
+      await new Promise(requestAnimationFrame);
       return elements.flatMap((el, i) => {
         const after = rect(el);
-        if (!before[i][2] || !after[2] || !before[i].some((v, j) => Math.abs(v - after[j]) > .02)) return [];
-        return [{ element: el.tagName + "." + el.className, text: el.textContent?.trim().slice(0, 45), light: before[i], dark: after }];
+        if (!before[i][2] || !after[2]) return [];
+        const afterType = typography(el);
+        const typeChanges = Object.fromEntries(Object.entries(beforeType[i]).filter(([key, value]) => value !== afterType[key]).map(([key, value]) => [key, { light: value, dark: afterType[key] }]));
+        if (!Object.keys(typeChanges).length && !before[i].some((v, j) => Math.abs(v - after[j]) > .02)) return [];
+        return [{ element: el.tagName + "." + el.className, text: el.textContent?.trim().slice(0, 45), light: before[i], dark: after, typography: typeChanges }];
       });
     });
     if (differences.length) issues.push({ screen: screen.slug, differences });
@@ -118,6 +132,49 @@ test("repaired import, collapse and receipt controls", async ({ browser }, testI
     await page.getByRole("article", { name: "Okunan fiş" }).screenshot({ path: testInfo.outputPath(`receipt-${theme}.png`) });
     await page.context().close();
   }
+});
+
+test("home typography and positioning stay still throughout theme transitions", async ({ browser }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-wide");
+  const page = await createCapturePage(browser, "light");
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await mockApplication(page);
+  for (const width of [1920, 1366]) {
+    await page.setViewportSize({ width, height: 1080 });
+    await page.goto("/app");
+    await expect(page.locator(".snapshot-grid")).toBeVisible();
+    await page.waitForLoadState("networkidle");
+    await page.evaluate(() => document.fonts.ready);
+    for (const direction of ["dark", "light"]) {
+      const issues = await page.evaluate(async () => {
+        const elements = [...document.querySelectorAll(".react-sidebar *, .react-topbar *, .snapshot-grid *")].filter((el): el is HTMLElement => el instanceof HTMLElement);
+        const snapshot = (el: HTMLElement) => {
+          const r = el.getBoundingClientRect(), s = getComputedStyle(el);
+          return [r.x, r.y, r.width, r.height, s.fontSize, s.fontWeight, s.fontFamily, s.lineHeight, s.letterSpacing];
+        };
+        const before = elements.map(snapshot);
+        (document.querySelector(".react-topbar__theme") as HTMLButtonElement).click();
+        const issues: string[] = [];
+        const start = performance.now();
+        while (performance.now() - start < 250) {
+          await new Promise(requestAnimationFrame);
+          elements.forEach((el, index) => {
+            if (!el.isConnected || !before[index][2]) return;
+            const after = snapshot(el);
+            if (after.some((value, i) => typeof value === "number" ? Math.abs(value - Number(before[index][i])) > .02 : value !== before[index][i])) {
+              issues.push(`${el.tagName}.${el.className}: ${JSON.stringify(before[index])} => ${JSON.stringify(after)}`);
+            }
+          });
+        }
+        return [...new Set(issues)];
+      });
+      await fs.writeFile(testInfo.outputPath(`home-${width}-${direction}-issues.json`), JSON.stringify(issues, null, 2));
+      expect(issues).toEqual([]);
+      await expect(page.locator("html")).toHaveAttribute("data-theme", direction);
+      await page.screenshot({ path: testInfo.outputPath(`home-${width}-${direction}.png`) });
+    }
+  }
+  await page.context().close();
 });
 
 test("captures every application route in light and dark themes", async ({ browser }, testInfo) => {

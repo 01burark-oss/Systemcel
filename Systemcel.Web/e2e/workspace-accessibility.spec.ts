@@ -33,7 +33,7 @@ test.describe("workspace accessibility", () => {
       panel.addEventListener("transitionrun", onTransition);
       (button as HTMLButtonElement).click();
     }));
-    expect(duration).toBe(300);
+    expect(duration).toBe(150);
     await expect(page.locator("html")).not.toHaveAttribute("data-theme-transitioning");
     expect(await geometry()).toEqual(light);
     await control.screenshot({ path: testInfo.outputPath("icon-only-light.png") });
