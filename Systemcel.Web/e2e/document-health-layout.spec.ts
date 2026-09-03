@@ -85,8 +85,23 @@ test("belge durumu kartındaki üç panel dengeli genişlikte kalır", async ({ 
   const widths = await page.locator(".document-health__body > *").evaluateAll((elements) =>
     elements.map((element) => element.getBoundingClientRect().width)
   );
+  const layout = await page.locator(".document-health__score-empty").evaluate((element) => ({
+    display: getComputedStyle(element).display,
+    columns: getComputedStyle(element).gridTemplateColumns,
+    score: element.getBoundingClientRect().toJSON(),
+    children: Array.from(element.children).map((child) => child.getBoundingClientRect().toJSON()),
+    strongCenter: element.querySelector("strong")!.getBoundingClientRect().x + element.querySelector("strong")!.getBoundingClientRect().width / 2,
+    smallCenter: element.querySelector("small")!.getBoundingClientRect().x + element.querySelector("small")!.getBoundingClientRect().width / 2,
+    countTextAlignments: Array.from(document.querySelectorAll<HTMLElement>(".document-health__counts > div")).map((child) => getComputedStyle(child).textAlign),
+    countItemAlignments: Array.from(document.querySelectorAll<HTMLElement>(".document-health__counts > div")).map((child) => getComputedStyle(child).justifyItems)
+  }));
   const smallest = Math.min(...widths);
   const largest = Math.max(...widths);
 
   expect(largest / smallest).toBeLessThanOrEqual(1.15);
+  expect(layout.display).toBe("grid");
+  expect(layout.columns).not.toBe("none");
+  expect(Math.abs(layout.strongCenter - layout.smallCenter)).toBeLessThanOrEqual(1);
+  expect(layout.countTextAlignments).toEqual(["center", "center", "center"]);
+  expect(layout.countItemAlignments).toEqual(["center", "center", "center"]);
 });

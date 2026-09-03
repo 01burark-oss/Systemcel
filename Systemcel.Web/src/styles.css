@@ -6409,7 +6409,7 @@ select:disabled {
   gap: 12px;
 }
 
-.document-health__score > div:first-child {
+.document-health__score > div:first-child:not(.document-health__score-empty) {
   display: flex;
   align-items: baseline;
   gap: 5px;
@@ -6436,6 +6436,7 @@ select:disabled {
 
 .document-health__score .document-health__score-empty {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   justify-items: center;
   gap: 7px;
 }
@@ -6477,6 +6478,8 @@ select:disabled {
   min-width: 0;
   display: grid;
   gap: 5px;
+  justify-items: center;
+  text-align: center;
 }
 
 .document-health__counts dt {
