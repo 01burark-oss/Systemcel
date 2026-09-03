@@ -11775,17 +11775,18 @@ tbody tr.secili {
 
 :root[data-theme="dark"] .react-shell {
   background:
-    radial-gradient(circle at top left, rgba(14, 60, 132, 0.24), transparent 25%),
-    linear-gradient(180deg, #04153a 0%, #061a46 100%);
+    radial-gradient(circle at 12% 0%, rgba(200, 255, 0, .045), transparent 29%),
+    var(--color-bg-base);
 }
 
 :root[data-theme="dark"] .react-sidebar {
   color: var(--color-text-primary);
   background:
-    radial-gradient(circle at 92% 18%, rgba(22, 135, 255, 0.22), transparent 35%),
-    radial-gradient(circle at 84% 68%, rgba(0, 199, 244, 0.16), transparent 34%),
-    linear-gradient(180deg, #081d43 0%, #051631 100%);
-  box-shadow: inset -1px 0 0 rgba(116, 162, 226, 0.24);
+    linear-gradient(rgba(244, 243, 235, .025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(244, 243, 235, .025) 1px, transparent 1px),
+    #10110d;
+  background-size: 44px 44px;
+  box-shadow: inset -1px 0 0 var(--app-line);
 }
 
 :root[data-theme="dark"] .react-sidebar__brand {
@@ -11839,8 +11840,8 @@ tbody tr.secili {
 }
 
 :root[data-theme="dark"] .react-topbar {
-  background: rgba(8, 24, 56, 0.92);
-  border-bottom-color: rgba(74, 124, 198, 0.34);
+  background: color-mix(in srgb, var(--app-paper) 94%, transparent);
+  border-bottom-color: var(--app-line);
 }
 
 :root[data-theme="dark"] .react-topbar__page-title,
@@ -11940,9 +11941,7 @@ tbody tr.secili {
 :root[data-theme="dark"] .payment-page,
 :root[data-theme="dark"] .reports-page,
 :root[data-theme="dark"] .gib-page {
-  background:
-    radial-gradient(circle at top left, rgba(14, 60, 132, 0.2), transparent 28%),
-    linear-gradient(180deg, #071a43 0%, #06183e 100%);
+  background: var(--app-cream);
 }
 
 :root[data-theme="dark"] .settings-card,
@@ -18497,7 +18496,7 @@ tbody tr.secili {
   grid-template-columns: minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr) calc(64px + env(safe-area-inset-bottom));
   overflow: hidden;
-  background: #03122e;
+  background: var(--app-cream, #f2f0e7);
 }
 
 .mobile-workspace-nav {
@@ -18508,8 +18507,8 @@ tbody tr.secili {
   justify-content: center;
   gap: 10px;
   padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
-  border-top: 1px solid rgba(74, 139, 222, 0.34);
-  background: rgba(4, 18, 43, 0.98);
+  border-top: 1px solid var(--app-line, rgba(11, 11, 9, .14));
+  background: var(--app-paper, #fbfaf5);
 }
 
 .mobile-workspace-nav a {
@@ -18523,7 +18522,7 @@ tbody tr.secili {
   gap: 7px;
   border: 1px solid transparent;
   border-radius: 8px;
-  color: #9fb3d3;
+  color: var(--app-muted, #747368);
   font-size: 13px;
   font-weight: 900;
   text-decoration: none;
@@ -18541,9 +18540,9 @@ tbody tr.secili {
 .mobile-workspace-nav a.active {
   width: 168px;
   flex-basis: 168px;
-  border-color: rgba(33, 147, 255, 0.68);
-  background: rgba(31, 147, 255, 0.2);
-  color: #ffffff;
+  border-color: var(--app-ink, #0b0b09);
+  background: var(--app-ink, #0b0b09);
+  color: var(--app-lime, #c8ff00);
 }
 
 .mobile-workspace-nav a.active span {
@@ -18562,10 +18561,8 @@ tbody tr.secili {
 }
 
 .chat-center-page {
-  background:
-    radial-gradient(760px 360px at 78% 6%, rgba(31, 147, 255, 0.2), transparent 66%),
-    linear-gradient(180deg, #03122e 0%, #061a3f 46%, #04142f 100%);
-  color: #f5f8ff;
+  background: var(--app-cream, #f2f0e7);
+  color: var(--app-ink, #0b0b09);
 }
 
 .chat-center {
@@ -19091,6 +19088,46 @@ tbody tr.secili {
   --app-lime: #c8ff00;
   --app-danger: #b93838;
   --app-success: #517a00;
+}
+
+/* Koyu tema tokenları burada da hazır olur; ana tema dosyası yüklenirken mavi
+   yedek stillerin görünmesini ve mobildeki ilk-kare parlamasını engeller. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --app-ink: #f4f3eb;
+  --app-paper: #171812;
+  --app-cream: #0f100c;
+  --app-cream-deep: #202119;
+  --app-muted: #a9aa9f;
+  --app-line: rgba(244, 243, 235, .14);
+  --app-lime: #c8ff00;
+  --app-danger: #ff8f86;
+  --app-success: #b8e86a;
+  --color-bg-base: #0b0c09;
+  --color-bg-shell: #0f100c;
+  --color-bg-page: #0f100c;
+  --color-surface-1: #171812;
+  --color-surface-2: #202119;
+  --color-surface-3: #282a20;
+  --color-border-soft: var(--app-line);
+  --color-border-strong: rgba(244, 243, 235, .27);
+  --color-text-primary: var(--app-ink);
+  --color-text-secondary: var(--app-muted);
+  --color-text-tertiary: #85877d;
+  --color-accent-blue: var(--app-lime);
+  --color-accent-cyan: #dcff62;
+  --color-accent-teal: #a8d800;
+  --color-success: var(--app-success);
+  --color-danger: var(--app-danger);
+  --bg: var(--color-bg-base);
+  --surface: var(--color-surface-1);
+  --surface-alt: var(--color-surface-2);
+  --border: var(--app-line);
+  --line: var(--app-line);
+  --text: var(--app-ink);
+  --muted: var(--app-muted);
+  --navy: var(--app-lime);
+  --accent: var(--app-lime);
 }
 
 :root[data-theme="light"] body,
