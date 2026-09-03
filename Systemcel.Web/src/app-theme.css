@@ -9167,7 +9167,7 @@
   .settings-btn--green,
   .gib-btn--primary
 ):hover:not(:disabled) {
-  color: var(--sc-ink);
+  color: var(--sc-on-lime);
   border-color: var(--sc-ink);
   background: #dcff66;
   box-shadow: none;
