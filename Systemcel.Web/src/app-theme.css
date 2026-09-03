@@ -11347,6 +11347,15 @@
   color: var(--sc-ink);
 }
 
+/* Every non-destructive settings action shares the same readable lime hover state. */
+:root[data-theme] .settings-page .settings-btn.settings-btn:not(.settings-btn--danger):hover:not(:disabled),
+:root[data-theme] .settings-page .settings-btn.settings-btn:not(.settings-btn--danger):focus-visible:not(:disabled) {
+  color: var(--sc-on-lime);
+  border-color: var(--sc-lime);
+  background: #dcff66;
+  box-shadow: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   :root[data-theme] *,
   :root[data-theme] *::before,
