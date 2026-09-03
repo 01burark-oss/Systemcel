@@ -6387,7 +6387,7 @@ select:disabled {
 
 .document-health__body {
   display: grid;
-  grid-template-columns: minmax(150px, .48fr) minmax(250px, .8fr) minmax(320px, 1.35fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 18px;
   align-items: stretch;
 }

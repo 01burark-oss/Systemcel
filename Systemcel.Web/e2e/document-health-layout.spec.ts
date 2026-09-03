@@ -5,10 +5,7 @@ test("belge durumu kartı dar bir kapsayıcıda kırpılmaz", async ({ page }) =
   await page.setContent(`
     <!doctype html>
     <html data-theme="dark">
-      <head>
-        <link rel="stylesheet" href="/src/styles.css">
-        <link rel="stylesheet" href="/src/app-theme.css">
-      </head>
+      <head></head>
       <body>
         <section class="document-health document-health--veriyok" style="width: 280px">
           <header class="document-health__header">
@@ -32,6 +29,8 @@ test("belge durumu kartı dar bir kapsayıcıda kırpılmaz", async ({ page }) =
       </body>
     </html>
   `);
+  await page.addStyleTag({ path: "src/styles.css" });
+  await page.addStyleTag({ path: "src/app-theme.css" });
   await page.waitForLoadState("load");
 
   const metrics = await page.evaluate(() => {
@@ -56,4 +55,38 @@ test("belge durumu kartı dar bir kapsayıcıda kırpılmaz", async ({ page }) =
   expect(metrics.body.scrollWidth).toBeLessThanOrEqual(metrics.body.clientWidth);
   expect(metrics.heading.right).toBeLessThanOrEqual(metrics.card.right + 0.1);
   expect(metrics.scoreText.right).toBeLessThanOrEqual(metrics.score.right + 0.1);
+});
+
+test("belge durumu kartındaki üç panel dengeli genişlikte kalır", async ({ page }) => {
+  await page.setViewportSize({ width: 1800, height: 800 });
+  await page.setContent(`
+    <!doctype html>
+    <html data-theme="dark">
+      <head></head>
+      <body>
+        <section class="document-health document-health--veriyok" style="width: 1500px">
+          <header class="document-health__header">
+            <div><span class="document-health__eyebrow">Belge durumu</span><h2>Belgeler hazır mı?</h2></div>
+            <span class="document-health__status">Veri yok</span>
+          </header>
+          <div class="document-health__body">
+            <div class="document-health__score document-health__score--empty"><div class="document-health__score-empty"><strong>Henüz hesaplanmadı</strong><small>Belge eklenince skor burada görünür.</small></div></div>
+            <dl class="document-health__counts"><div><dt>Hazır</dt><dd>0</dd></div><div><dt>Eksik</dt><dd>0</dd></div><div><dt>Toplam</dt><dd>0</dd></div></dl>
+            <div class="document-health__issues"><h3>Öncelikli işler</h3><p>Belge hazırlığı için henüz veri yok.</p></div>
+          </div>
+        </section>
+      </body>
+    </html>
+  `);
+  await page.addStyleTag({ path: "src/styles.css" });
+  await page.addStyleTag({ path: "src/app-theme.css" });
+  await page.waitForLoadState("load");
+
+  const widths = await page.locator(".document-health__body > *").evaluateAll((elements) =>
+    elements.map((element) => element.getBoundingClientRect().width)
+  );
+  const smallest = Math.min(...widths);
+  const largest = Math.max(...widths);
+
+  expect(largest / smallest).toBeLessThanOrEqual(1.15);
 });
