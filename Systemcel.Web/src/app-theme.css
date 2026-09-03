@@ -11321,6 +11321,32 @@
   background: var(--sc-danger-soft);
 }
 
+/* Keep the migration step markers readable above the generic dark-theme text rules. */
+:root[data-theme] .react-shell__body :is(.settings-import-steps, .settings-migration-steps) > span > strong {
+  color: var(--sc-on-lime);
+}
+
+/* Sidebar sub-navigation follows the lime theme instead of the legacy blue hover state. */
+:root[data-theme] .react-sidebar__sublink {
+  transition: color .15s ease, background-color .15s ease, background-image .15s ease, border-color .15s ease;
+}
+
+:root[data-theme] .react-sidebar__sublink:hover:not(.active),
+:root[data-theme] .react-sidebar__sublink:focus-visible:not(.active) {
+  color: var(--sc-ink);
+  border-color: color-mix(in srgb, var(--sc-lime) 46%, var(--sc-line));
+  background: linear-gradient(
+    110deg,
+    color-mix(in srgb, var(--sc-lime) 22%, transparent),
+    color-mix(in srgb, var(--sc-lime) 8%, transparent)
+  );
+}
+
+:root[data-theme] .react-sidebar__sublink:hover:not(.active) svg,
+:root[data-theme] .react-sidebar__sublink:focus-visible:not(.active) svg {
+  color: var(--sc-ink);
+}
+
 @media (prefers-reduced-motion: reduce) {
   :root[data-theme] *,
   :root[data-theme] *::before,
