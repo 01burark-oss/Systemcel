@@ -1,5 +1,5 @@
 import React from "react";
-import { Building2, ChartNoAxesCombined, House, LogOut, MessageCircle, RefreshCw, Search } from "lucide-react";
+import { Building2, ChartNoAxesCombined, House, LogOut, MessageCircle, RefreshCw, Search, UsersRound } from "lucide-react";
 import { RequireAuth } from "./auth/AuthGate";
 import { AuthUserButton } from "./auth/AuthUserButton";
 import { useSystemcelAuth } from "./auth/SystemcelAuthProvider";
@@ -9,6 +9,7 @@ import type { UstBarDurumu } from "./shared/chrome";
 import { jsonOku } from "./shared/json";
 import type { KolayKurulumEkran } from "./shared/KolayKurulumModal";
 import { ReactWorkspaceShell } from "./shared/ReactWorkspaceShell";
+import { accountantMarketplaceEnabled } from "./shared/features";
 
 const KolayKurulumModal = React.lazy(() =>
   import("./shared/KolayKurulumModal").then((module) => ({ default: module.KolayKurulumModal }))
@@ -59,8 +60,14 @@ const MuhasebeciMusterilerSayfasi = React.lazy(() =>
 const MuhasebecilerSayfasi = React.lazy(() =>
   import("./screens/muhasebeciler/MuhasebecilerSayfasi").then((module) => ({ default: module.MuhasebecilerSayfasi }))
 );
+const MuhasebeciBaglantiSayfasi = React.lazy(() =>
+  import("./screens/muhasebeciler/MuhasebeciBaglantiSayfasi").then((module) => ({ default: module.MuhasebeciBaglantiSayfasi }))
+);
 const MuhasebeciDavetSayfasi = React.lazy(() =>
   import("./screens/muhasebeciler/MuhasebeciDavetSayfasi").then((module) => ({ default: module.MuhasebeciDavetSayfasi }))
+);
+const TedarikciPazaryeriSayfasi = React.lazy(() =>
+  import("./screens/tedarikci-pazaryeri/TedarikciPazaryeriSayfasi").then((module) => ({ default: module.TedarikciPazaryeriSayfasi }))
 );
 const PinKilitSayfasi = React.lazy(() =>
   import("./screens/pin/PinKilitSayfasi").then((module) => ({ default: module.PinKilitSayfasi }))
@@ -202,7 +209,7 @@ function AppRoutes() {
   }
 
   if (rawPath === "/muhasebeciler") {
-    return <MuhasebecilerSayfasi publicMode />;
+    return accountantMarketplaceEnabled ? <MuhasebecilerSayfasi publicMode /> : <PublicMarketplaceRedirect />;
   }
 
   if (path === "/yardim" || safeDecodePath(path) === "/yardım") {
@@ -591,7 +598,9 @@ function WorkspaceRoutes({ path }: { path: string }) {
   if (mobileWorkspace && routePath === "/muhasebeciler") {
     return (
       <MobileWorkspaceView active="muhasebeciler">
-        <MuhasebecilerSayfasi mobileMode ustBar={ustBar} onUstBarYenile={ustBarYukle} />
+        {accountantMarketplaceEnabled
+          ? <MuhasebecilerSayfasi mobileMode ustBar={ustBar} onUstBarYenile={ustBarYukle} />
+          : <MuhasebeciBaglantiSayfasi mobileMode ustBar={ustBar} onUstBarYenile={ustBarYukle} />}
       </MobileWorkspaceView>
     );
   }
@@ -725,7 +734,11 @@ function WorkspaceRoutes({ path }: { path: string }) {
         ) : routePath === "/yonetim/destek" ? (
           <DestekTalepleriYonetimSayfasi />
         ) : routePath === "/muhasebeciler" ? (
-          <MuhasebecilerSayfasi ustBar={ustBar} onUstBarYenile={ustBarYukle} />
+          accountantMarketplaceEnabled
+            ? <MuhasebecilerSayfasi ustBar={ustBar} onUstBarYenile={ustBarYukle} />
+            : <MuhasebeciBaglantiSayfasi ustBar={ustBar} onUstBarYenile={ustBarYukle} />
+        ) : routePath === "/tedarikci-pazaryeri" ? (
+          <TedarikciPazaryeriSayfasi />
         ) : routePath === "/sohbetler" ? (
           <SohbetlerSayfasi ustBar={ustBar} onUstBarYenile={ustBarYukle} />
         ) : routePath === "/gib-portal" ? (
@@ -774,6 +787,14 @@ function WorkspaceRoutes({ path }: { path: string }) {
   );
 }
 
+function PublicMarketplaceRedirect() {
+  React.useEffect(() => {
+    window.location.replace("/");
+  }, []);
+
+  return null;
+}
+
 function MobileCompanionScreen({
   hesapTipi,
   calismaAlani,
@@ -790,8 +811,8 @@ function MobileCompanionScreen({
   const isAccountant = hesapTipi === "Muhasebeci";
   const title = isAccountant ? "Muhasebeci Merkezi" : "Çalışma Alanı";
   const description = isAccountant
-    ? "Müşteri sohbetlerini yönetin ve pazaryerindeki işletme taleplerini görüntüleyin."
-    : "Muhasebecinizle konuşun veya ihtiyaçlarınıza uygun muhasebecileri karşılaştırın.";
+    ? accountantMarketplaceEnabled ? "Pazaryeri profilinizi ve müşteri taleplerinizi yönetin." : "Mevcut müşterilerinizi bağlayın ve ortak çalışma alanlarını yönetin."
+    : accountantMarketplaceEnabled ? "Muhasebecileri inceleyin ve çalışma talebi gönderin." : "Muhasebecinizi bağlayın; belgeleri ve görüşmeleri tek yerde yönetin.";
 
   return (
     <main className="mobile-companion">
@@ -816,8 +837,8 @@ function MobileCompanionScreen({
             {sohbetSayisi > 0 ? <i>{sohbetSayisi > 9 ? "9+" : sohbetSayisi}</i> : null}
           </a>
           <a href="/app/muhasebeciler">
-            <Search size={18} />
-            <span>Muhasebeci pazaryeri</span>
+            <UsersRound size={18} />
+            <span>{accountantMarketplaceEnabled ? "Muhasebeciler" : isAccountant ? "Müşteri bağlantıları" : "Muhasebeci bağlantısı"}</span>
           </a>
         </div>
 
@@ -878,9 +899,9 @@ function MobileWorkspaceView({
           <MessageCircle size={18} />
           <span>Sohbetler</span>
         </a>
-        <a className={active === "muhasebeciler" ? "active" : ""} href="/app/muhasebeciler" aria-label="Muhasebeciler">
-          <Search size={18} />
-          <span>Muhasebeciler</span>
+        <a className={active === "muhasebeciler" ? "active" : ""} href="/app/muhasebeciler" aria-label={accountantMarketplaceEnabled ? "Muhasebeciler" : "Muhasebeci bağlantısı"}>
+          {accountantMarketplaceEnabled ? <Search size={18} /> : <UsersRound size={18} />}
+          <span>{accountantMarketplaceEnabled ? "Muhasebeciler" : "Bağlantı"}</span>
         </a>
         <AuthUserButton compact />
       </nav>

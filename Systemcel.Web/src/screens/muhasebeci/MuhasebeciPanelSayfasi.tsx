@@ -9,6 +9,7 @@ import {
   X
 } from "lucide-react";
 import { jsonOku } from "../../shared/json";
+import { accountantMarketplaceEnabled } from "../../shared/features";
 import { MuhasebeciProfilOnizleme } from "../../shared/MuhasebeciProfilOnizleme";
 import { planAdiGoster } from "../../shared/planEtiketi";
 import { ProfilResmiYukleyici } from "../../shared/ProfilResmiYukleyici";
@@ -256,7 +257,7 @@ export function MuhasebeciPanelSayfasi({ onUstBarYenile }: MuhasebeciPanelSayfas
         <article>
           <span>Plan</span>
           <strong>{planAdiGoster(entitlement?.planAdi)}</strong>
-          <small>{entitlement?.oneCikmaAktif ? "Pazaryerinde öne çıkar" : "Profil yayınlanabilir"}</small>
+          <small>{accountantMarketplaceEnabled ? (entitlement?.oneCikmaAktif ? "Pazaryerinde öne çıkar" : "Profil yayınlanabilir") : "Müşteri çalışma alanları"}</small>
         </article>
         <article>
           <span>Müşteri limiti</span>
@@ -270,7 +271,7 @@ export function MuhasebeciPanelSayfasi({ onUstBarYenile }: MuhasebeciPanelSayfas
         </article>
       </section>
 
-      <section className="accountant-panel__grid accountant-panel__grid--single">
+      {accountantMarketplaceEnabled ? <section className="accountant-panel__grid accountant-panel__grid--single">
         <form className="accountant-section accountant-section--profile" onSubmit={profilKaydet}>
           <header>
             <div>
@@ -372,18 +373,18 @@ export function MuhasebeciPanelSayfasi({ onUstBarYenile }: MuhasebeciPanelSayfas
           </button>
         </form>
 
-      </section>
+      </section> : null}
 
       <section className="accountant-section accountant-section--full">
         <header>
           <div>
             <span className="accountant-eyebrow">Bekleyen talepler</span>
-            <h2>Pazaryeri talepleri</h2>
+            <h2>{accountantMarketplaceEnabled ? "Pazaryeri talepleri" : "Bağlantı talepleri"}</h2>
           </div>
           <strong className="accountant-count">{panel.bekleyenTalepler.length}</strong>
         </header>
         {panel.bekleyenTalepler.length === 0 ? (
-          <p className="accountant-empty-row">Bekleyen pazaryeri talebi yok.</p>
+          <p className="accountant-empty-row">{accountantMarketplaceEnabled ? "Bekleyen pazaryeri talebi yok." : "Bekleyen bağlantı talebi yok."}</p>
         ) : (
           <div className="accountant-request-list">
             {panel.bekleyenTalepler.map((talep) => (

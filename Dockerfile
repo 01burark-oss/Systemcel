@@ -1,6 +1,8 @@
 # syntax=docker/dockerfile:1
 
 FROM node:22-alpine AS web-build
+ARG VITE_ACCOUNTANT_MARKETPLACE_ENABLED=false
+ENV VITE_ACCOUNTANT_MARKETPLACE_ENABLED=$VITE_ACCOUNTANT_MARKETPLACE_ENABLED
 WORKDIR /src/Systemcel.Web
 COPY Systemcel.Web/package*.json ./
 RUN npm ci

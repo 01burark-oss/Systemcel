@@ -23,6 +23,8 @@ services:
     build:
       context: ../..
       dockerfile: Dockerfile
+      args:
+        VITE_ACCOUNTANT_MARKETPLACE_ENABLED: ${VITE_ACCOUNTANT_MARKETPLACE_ENABLED:-false}
     restart: unless-stopped
     env_file:
       - .env

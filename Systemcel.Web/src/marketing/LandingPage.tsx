@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { useSystemcelAuth } from "../auth/SystemcelAuthProvider";
 import accountantAyseAvatar from "../assets/accountant-ayse-demirtas.jpg";
+import { accountantMarketplaceEnabled } from "../shared/features";
 import type { FounderCampaignProgressProps } from "./FounderCampaignProgress";
 import { PricingPanel } from "./PricingPanel";
 import "./marketing.css";
@@ -160,6 +161,9 @@ export function LandingPage() {
   const [marketSide, setMarketSide] = React.useState<"business" | "accountant">("business");
   const [activeSection, setActiveSection] = React.useState("top");
   const t = copy[language];
+  const collaborationLabel = accountantMarketplaceEnabled
+    ? t.marketplace
+    : language === "tr" ? "Muhasebeciyle çalışma" : "Accountant collaboration";
   const signedIn = !auth.clerkEnabled || auth.isSignedIn;
   const tourSteps = language === "tr" ? [
     {
@@ -185,12 +189,12 @@ export function LandingPage() {
     {
       target: "pazaryeri",
       number: "03",
-      eyebrow: "Muhasebeci pazaryeri",
-      title: "İhtiyacına uygun uzmanla eşleş",
-      text: "Sektör, mükellefiyet türü, iş hacmi ve çalışma biçimine göre hesaplanan skoru karşılaştır; eşleşme nedenlerini gör.",
-      metricLabel: "Neden uygun",
-      metricValue: "0-100 uyum skoru",
-      chips: ["Sektör", "İşletme türü", "Online çalışma"],
+      eyebrow: accountantMarketplaceEnabled ? "Muhasebeci pazaryeri" : "Muhasebeciyle çalışma",
+      title: accountantMarketplaceEnabled ? "İhtiyacına uygun uzmanla eşleş" : "Çalıştığın muhasebeciyi davet et",
+      text: accountantMarketplaceEnabled ? "Sektör, mükellefiyet türü, iş hacmi ve çalışma biçimine göre hesaplanan skoru karşılaştır; eşleşme nedenlerini gör." : "İşletmeler muhasebecilerini, muhasebeciler mevcut müşterilerini güvenli bağlantıyla aynı çalışma alanına davet eder.",
+      metricLabel: accountantMarketplaceEnabled ? "Neden uygun" : "Bağlantı yöntemi",
+      metricValue: accountantMarketplaceEnabled ? "0-100 uyum skoru" : "Karşılıklı davet",
+      chips: accountantMarketplaceEnabled ? ["Sektör", "İşletme türü", "Online çalışma"] : ["Yetki seçimi", "Güvenli davet", "Ortak çalışma"],
     },
     {
       target: "fiyat",
@@ -226,12 +230,12 @@ export function LandingPage() {
     {
       target: "pazaryeri",
       number: "03",
-      eyebrow: "Accountant marketplace",
-      title: "Match with the right expert",
-      text: "Compare the score calculated from industry, taxpayer type, workload and work style, then review the matching reasons.",
-      metricLabel: "Why it fits",
-      metricValue: "0-100 fit score",
-      chips: ["Industry", "Business type", "Online work"],
+      eyebrow: accountantMarketplaceEnabled ? "Accountant marketplace" : "Accountant collaboration",
+      title: accountantMarketplaceEnabled ? "Match with the right expert" : "Invite the accountant you work with",
+      text: accountantMarketplaceEnabled ? "Compare the score calculated from industry, taxpayer type, workload and work style, then review the matching reasons." : "Businesses invite their accountant, and accountants invite existing clients into a shared workspace through a secure link.",
+      metricLabel: accountantMarketplaceEnabled ? "Why it fits" : "Connection method",
+      metricValue: accountantMarketplaceEnabled ? "0-100 fit score" : "Mutual invitation",
+      chips: accountantMarketplaceEnabled ? ["Industry", "Business type", "Online work"] : ["Permissions", "Secure invite", "Shared work"],
     },
     {
       target: "fiyat",
@@ -491,7 +495,7 @@ export function LandingPage() {
         <nav className="marketing-nav" aria-label={language === "tr" ? "Ana menü" : "Main navigation"}>
           <a className="marketing-brand" href="#top" aria-label="Systemcel ana sayfa"><BrandMark /><strong>systemcel</strong></a>
           <div className="marketing-nav__links">
-            <a className={activeSection === "on-muhasebe" ? "active" : ""} aria-current={activeSection === "on-muhasebe" ? "location" : undefined} href="#on-muhasebe">{t.accounting}</a><a className={activeSection === "ai" ? "active" : ""} aria-current={activeSection === "ai" ? "location" : undefined} href="#ai">{t.ai}</a><a className={activeSection === "pazaryeri" ? "active" : ""} aria-current={activeSection === "pazaryeri" ? "location" : undefined} href="#pazaryeri">{t.marketplace}</a><a className={activeSection === "fiyat" ? "active" : ""} aria-current={activeSection === "fiyat" ? "location" : undefined} href="#fiyat">{t.pricing}</a>
+            <a className={activeSection === "on-muhasebe" ? "active" : ""} aria-current={activeSection === "on-muhasebe" ? "location" : undefined} href="#on-muhasebe">{t.accounting}</a><a className={activeSection === "ai" ? "active" : ""} aria-current={activeSection === "ai" ? "location" : undefined} href="#ai">{t.ai}</a><a className={activeSection === "pazaryeri" ? "active" : ""} aria-current={activeSection === "pazaryeri" ? "location" : undefined} href="#pazaryeri">{collaborationLabel}</a><a className={activeSection === "fiyat" ? "active" : ""} aria-current={activeSection === "fiyat" ? "location" : undefined} href="#fiyat">{t.pricing}</a>
           </div>
           <div className="marketing-nav__actions">
             <button className="marketing-language" type="button" onClick={changeLanguage} aria-label="Change language">{language === "tr" ? "EN" : "TR"}</button>
@@ -503,7 +507,7 @@ export function LandingPage() {
         {mobileMenuOpen ? <div className="marketing-mobile-menu">
           <a href="#on-muhasebe" onClick={() => setMobileMenuOpen(false)}>{t.accounting}</a>
           <a href="#ai" onClick={() => setMobileMenuOpen(false)}>{t.ai}</a>
-          <a href="#pazaryeri" onClick={() => setMobileMenuOpen(false)}>{t.marketplace}</a>
+          <a href="#pazaryeri" onClick={() => setMobileMenuOpen(false)}>{collaborationLabel}</a>
           <a href="#fiyat" onClick={() => setMobileMenuOpen(false)}>{t.pricing}</a>
           <a href={signedIn ? "/app" : "/giris"}>{signedIn ? (language === "tr" ? "Uygulamaya Git" : "Open app") : t.signIn}</a>
           <a className="marketing-mobile-menu__cta" href={trialHref()}>{pricingCta}<ArrowRight size={18} /></a>
@@ -582,13 +586,27 @@ export function LandingPage() {
 
         <section id="pazaryeri" className="marketing-section">
           <div className="marketing-wrap marketing-market-grid marketing-reveal" data-reveal>
-            <SectionCopy number="03" label={t.marketplace} title={t.section3} text={marketSide === "business" ? t.section3Business : t.section3Accountant} />
+            <SectionCopy
+              number="03"
+              label={collaborationLabel}
+              title={accountantMarketplaceEnabled ? t.section3 : (language === "tr" ? "Muhasebecinle aynı çalışma alanında." : "Share one workspace with your accountant.")}
+              text={accountantMarketplaceEnabled
+                ? (marketSide === "business" ? t.section3Business : t.section3Accountant)
+                : (marketSide === "business"
+                  ? (language === "tr" ? "Çalıştığın muhasebeciyi davet et; erişim yetkisini belirle ve belgelerini güvenle paylaş." : "Invite your current accountant, choose their access and share your records securely.")
+                  : (language === "tr" ? "Mevcut müşterilerini davet et; belge, talep ve görüşmeleri tek yerden yönet." : "Invite existing clients and manage records, requests and conversations in one place."))}
+            />
             <div className="marketing-market-card">
-              <div className="marketing-segmented" role="group" aria-label={t.marketplace}>
+              <div className="marketing-segmented" role="group" aria-label={collaborationLabel}>
                 <button type="button" className={marketSide === "business" ? "active" : ""} onClick={() => setMarketSide("business")}>{t.forBusiness}</button>
                 <button type="button" className={marketSide === "accountant" ? "active" : ""} onClick={() => setMarketSide("accountant")}>{t.forAccountant}</button>
               </div>
-              {marketSide === "business" ? (
+              {!accountantMarketplaceEnabled ? (
+                <>
+                  <div className="marketing-market-profile" key={marketSide}><div><Users size={28} /></div><span>{marketSide === "business" ? (language === "tr" ? "Davet · Yetki · Ortak çalışma" : "Invite · Access · Collaboration") : (language === "tr" ? "Müşteriler · Belgeler · Talepler" : "Clients · Records · Requests")}</span><strong>{marketSide === "business" ? (language === "tr" ? "Kendi muhasebecini bağla" : "Connect your accountant") : (language === "tr" ? "Müşterilerini bağla" : "Connect your clients")}</strong></div>
+                  <a className="marketing-button marketing-button--ink" href={marketSide === "business" ? "/kayit?hesapTipi=Isletme&returnUrl=%2Fapp%2Fmuhasebeciler" : "/kayit?hesapTipi=Muhasebeci&returnUrl=%2Fapp%2Fmuhasebeci%2Fmusteriler"}>{language === "tr" ? "Başla" : "Get started"}<ArrowRight size={17} /></a>
+                </>
+              ) : marketSide === "business" ? (
                 <div className="marketing-market-accountant" key={marketSide}>
                   <div className="marketing-market-accountant__head">
                     <div className="marketing-market-accountant__avatar">
@@ -638,7 +656,7 @@ export function LandingPage() {
         <section className="marketing-final-cta"><div className="marketing-wrap"><h2>{t.finalTitle}</h2><div><a className="marketing-button marketing-button--lime marketing-button--large" href={trialHref()}>{pricingCta}<ArrowRight size={18} /></a><a className="marketing-button marketing-button--dark-ghost marketing-button--large" href="mailto:satis@systemcel.app?subject=Systemcel%20Satış%20Görüşmesi">{t.sales}</a></div></div></section>
       </main>
 
-      <footer className="marketing-footer"><div className="marketing-wrap marketing-footer__grid"><div><a className="marketing-brand marketing-brand--dark" href="#top"><BrandMark /><strong>systemcel</strong></a><p>{t.footerText}</p></div><FooterGroup title={t.product} links={[[t.accounting, "/#on-muhasebe"], [t.ai, "/#ai"], [t.marketplace, "/#pazaryeri"], [t.bankMatching, "/giris"], [t.pricing, "/#fiyat"]]} soonTitle={t.soon} soonItems={[t.multipleBranchesAndCurrencies, t.integrationApis, t.periodAutomation]} /><FooterGroup title={t.company} links={[[t.about, "/hakkimizda"], [t.careers, "/kariyer"], [t.blog, "/blog"], [t.contact, "/iletisim"]]} /><FooterGroup title={t.legal} links={[["KVKK", "/kvkk"], [t.privacy, "/gizlilik"], [t.terms, "/kullanim-sartlari"], [language === "tr" ? "Abonelik Koşulları" : "Subscription Terms", "/abonelik-kosullari"], [t.cookies, "/cerezler"]]} /></div><div className="marketing-wrap marketing-footer__bottom"><span>© 2026 SYSTEMCEL — İSTANBUL</span><button type="button" onClick={changeLanguage}>{language === "tr" ? "TR / EN" : "EN / TR"}</button></div></footer>
+      <footer className="marketing-footer"><div className="marketing-wrap marketing-footer__grid"><div><a className="marketing-brand marketing-brand--dark" href="#top"><BrandMark /><strong>systemcel</strong></a><p>{accountantMarketplaceEnabled ? t.footerText : (language === "tr" ? "Ön muhasebe, yapay zekâ ve muhasebeciyle ortak çalışma alanı." : "Accounting, AI and a shared workspace with your accountant.")}</p></div><FooterGroup title={t.product} links={[[t.accounting, "/#on-muhasebe"], [t.ai, "/#ai"], [collaborationLabel, "/#pazaryeri"], [t.bankMatching, "/giris"], [t.pricing, "/#fiyat"]]} soonTitle={t.soon} soonItems={[t.multipleBranchesAndCurrencies, t.integrationApis, t.periodAutomation]} /><FooterGroup title={t.company} links={[[t.about, "/hakkimizda"], [t.careers, "/kariyer"], [t.blog, "/blog"], [t.contact, "/iletisim"]]} /><FooterGroup title={t.legal} links={[["KVKK", "/kvkk"], [t.privacy, "/gizlilik"], [t.terms, "/kullanim-sartlari"], [language === "tr" ? "Abonelik Koşulları" : "Subscription Terms", "/abonelik-kosullari"], [t.cookies, "/cerezler"]]} /></div><div className="marketing-wrap marketing-footer__bottom"><span>© 2026 SYSTEMCEL — İSTANBUL</span><button type="button" onClick={changeLanguage}>{language === "tr" ? "TR / EN" : "EN / TR"}</button></div></footer>
 
       {tourOpen ? (
         <div className="marketing-modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setTourOpen(false)}>

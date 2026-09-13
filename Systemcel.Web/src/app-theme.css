@@ -3404,6 +3404,72 @@
 }
 
 /* Muhasebeciler pazaryeri — ekran denetimi */
+.accountant-connection-page {
+  display: grid;
+  gap: 20px;
+}
+
+.accountant-connection-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 18px;
+  padding: 28px;
+  border: 1px solid var(--border-subtle, #dfe3e8);
+  border-radius: 18px;
+  background: var(--surface, #fff);
+}
+
+.accountant-connection-card__icon {
+  display: grid;
+  width: 52px;
+  height: 52px;
+  place-items: center;
+  border-radius: 14px;
+  color: var(--ink, #172026);
+  background: var(--accent-soft, #e9f5d8);
+}
+
+.accountant-connection-card h2,
+.accountant-connection-card p,
+.accountant-connection-steps h3,
+.accountant-connection-steps p { margin: 0; }
+.accountant-connection-card p { margin-top: 6px; color: var(--text-muted, #667078); line-height: 1.55; }
+.accountant-connection-card .accountant-primary-link { border: 0; cursor: pointer; white-space: nowrap; }
+
+.accountant-connection-steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.accountant-connection-steps article {
+  display: flex;
+  gap: 12px;
+  padding: 18px;
+  border: 1px solid var(--border-subtle, #dfe3e8);
+  border-radius: 14px;
+  background: var(--surface, #fff);
+}
+
+.accountant-connection-steps article > strong {
+  display: grid;
+  flex: 0 0 30px;
+  height: 30px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--ink, #172026);
+  color: #fff;
+}
+.accountant-connection-steps h3 { font-size: 15px; }
+.accountant-connection-steps p { margin-top: 5px; color: var(--text-muted, #667078); font-size: 13px; line-height: 1.45; }
+
+@media (max-width: 760px) {
+  .accountant-connection-card { grid-template-columns: auto 1fr; padding: 20px; }
+  .accountant-connection-card .accountant-primary-link { grid-column: 1 / -1; justify-content: center; }
+  .accountant-connection-steps { grid-template-columns: 1fr; }
+}
+
 :root[data-theme] .accountant-public-shell {
   min-height: 100dvh;
   color: var(--sc-ink);
@@ -8879,36 +8945,76 @@
 }
 
 .notification-item__unread {
-  display: block;
-  margin-top: 4px;
-  color: var(--sc-ink);
-  font-size: 12px;
+  flex: 0 0 auto;
+  margin-top: 1px;
+  padding: 2px 6px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  color: var(--sc-muted);
+  background: var(--sc-soft);
+  font-size: 11px;
+  line-height: 1.35;
   font-style: normal;
   font-weight: 700;
 }
 
-.notification-action {
+.notification-item__content {
+  min-width: 0;
+}
+
+.notification-item__title {
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+}
+
+.notification-item__title strong {
+  min-width: 0;
+  flex: 1 1 190px;
+  overflow-wrap: anywhere;
+}
+
+:root[data-theme] .notification-action {
+  width: max-content;
+  max-width: 100%;
+  min-height: 32px;
   padding: 6px 0;
-  border: 0;
-  background: transparent;
+  display: inline-flex;
+  align-items: center;
+  border: 0 !important;
+  background: transparent !important;
   color: var(--sc-ink);
   font: inherit;
   font-size: 12px;
   font-weight: 700;
+  line-height: 1.2;
   text-align: left;
   text-decoration: underline;
   text-underline-offset: 3px;
+  white-space: nowrap;
   cursor: pointer;
 }
 
-.notification-action:disabled {
+:root[data-theme] .notification-action:disabled {
   color: var(--sc-muted);
   cursor: wait;
 }
 
-.notification-item > .notification-action {
+:root[data-theme] .notification-item > .notification-action {
   grid-column: 2;
   justify-self: start;
+}
+
+:root[data-theme] .react-topbar__panel-head {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+}
+
+:root[data-theme] .react-topbar__panel-head > .notification-action {
+  margin-left: auto;
 }
 
 :root[data-theme] .notification-item__icon,
@@ -8960,9 +9066,11 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 154px;
-  min-height: 60px;
-  padding: 0 36px 0 18px;
+  width: 118px;
+  height: 44px;
+  min-height: 44px;
+  padding: 0 32px 0 14px;
+  box-sizing: border-box;
 }
 
 :root[data-theme] .react-shell__body .snapshot-period-chip select {
@@ -8994,6 +9102,19 @@
   right: 14px;
   pointer-events: none;
   transform: translateY(-50%);
+}
+
+@media (max-width: 480px) {
+  :root[data-theme] .react-topbar__panel-head > .notification-action {
+    width: 100%;
+    margin-left: 0;
+  }
+}
+
+@media (min-width: 701px) and (max-width: 900px) {
+  :root[data-theme] .react-topbar__bell-wrap {
+    position: static;
+  }
 }
 
 :root[data-theme] .stock-search {
@@ -11409,3 +11530,61 @@
     transition-duration: .01ms !important;
   }
 }
+/* Tedarikçi pazaryeri */
+:root[data-theme] .supplier-marketplace { display:grid; gap:20px; padding:24px; color:var(--app-text); }
+:root[data-theme] .supplier-marketplace__hero { display:flex; align-items:flex-end; justify-content:space-between; gap:28px; min-height:250px; padding:38px; border:1px solid var(--app-border); border-radius:28px; background:linear-gradient(135deg, color-mix(in srgb, var(--app-surface) 88%, #dfff62), var(--app-surface)); overflow:hidden; }
+:root[data-theme] .supplier-marketplace__hero > div:first-child { max-width:720px; }
+:root[data-theme] .supplier-marketplace__eyebrow, :root[data-theme] .supplier-marketplace__results header span, :root[data-theme] .supplier-marketplace__roadmap > span { display:flex; align-items:center; gap:7px; color:var(--app-muted); font-size:11px; font-weight:800; letter-spacing:.14em; }
+:root[data-theme] .supplier-marketplace__hero h1 { max-width:680px; margin:16px 0 12px; font-size:clamp(34px,4vw,58px); line-height:.98; letter-spacing:-.055em; }
+:root[data-theme] .supplier-marketplace__hero p { max-width:650px; margin:0; color:var(--app-muted); font-size:16px; line-height:1.65; }
+:root[data-theme] .supplier-marketplace__metric { min-width:150px; padding:22px; border:1px solid var(--app-border); border-radius:20px; background:color-mix(in srgb,var(--app-surface) 82%,transparent); }
+:root[data-theme] .supplier-marketplace__metric strong { display:block; font-size:42px; letter-spacing:-.05em; }
+:root[data-theme] .supplier-marketplace__metric span { color:var(--app-muted); font-size:13px; }
+:root[data-theme] .supplier-marketplace__search { display:flex; align-items:center; gap:12px; padding:10px 12px 10px 18px; border:1px solid var(--app-border); border-radius:18px; background:var(--app-surface); }
+:root[data-theme] .supplier-marketplace__search input { flex:1; min-width:0; border:0; outline:0; background:transparent; color:var(--app-text); font:inherit; }
+:root[data-theme] .supplier-marketplace__search a { display:flex; align-items:center; gap:8px; padding:11px 15px; border-radius:12px; background:var(--app-text); color:var(--app-surface); font-weight:750; text-decoration:none; }
+:root[data-theme] .supplier-marketplace__layout { display:grid; grid-template-columns:minmax(0,1fr) 330px; gap:20px; }
+:root[data-theme] .supplier-marketplace__results, :root[data-theme] .supplier-marketplace__roadmap { padding:26px; border:1px solid var(--app-border); border-radius:24px; background:var(--app-surface); }
+:root[data-theme] .supplier-marketplace__results header { display:flex; justify-content:space-between; align-items:end; margin-bottom:20px; }
+:root[data-theme] .supplier-marketplace__results h2, :root[data-theme] .supplier-marketplace__roadmap h2 { margin:6px 0 0; font-size:24px; letter-spacing:-.03em; }
+:root[data-theme] .supplier-marketplace__results header small { color:var(--app-muted); }
+:root[data-theme] .supplier-marketplace__cards { display:grid; gap:10px; }
+:root[data-theme] .supplier-marketplace__cards article { display:grid; grid-template-columns:46px 1fr auto; align-items:center; gap:13px; padding:14px; border:1px solid var(--app-border); border-radius:16px; }
+:root[data-theme] .supplier-marketplace__cards h3, :root[data-theme] .supplier-marketplace__cards p { margin:0; }
+:root[data-theme] .supplier-marketplace__cards p { margin-top:4px; color:var(--app-muted); font-size:13px; }
+:root[data-theme] .supplier-marketplace__avatar { display:grid; place-items:center; width:46px; height:46px; border-radius:14px; background:color-mix(in srgb,#dfff62 55%,var(--app-surface)); color:#1d2600; font-weight:850; }
+:root[data-theme] .supplier-marketplace__cards article > a { display:grid; place-items:center; width:38px; height:38px; border:1px solid var(--app-border); border-radius:12px; color:var(--app-text); }
+:root[data-theme] .supplier-marketplace__empty { display:grid; justify-items:center; gap:8px; padding:44px 20px; border:1px dashed var(--app-border); border-radius:18px; color:var(--app-muted); text-align:center; }
+:root[data-theme] .supplier-marketplace__empty p { margin:0; }
+:root[data-theme] .supplier-marketplace__error { color:var(--app-danger,#b42318); }
+:root[data-theme] .supplier-marketplace__roadmap p { color:var(--app-muted); line-height:1.6; }
+:root[data-theme] .supplier-marketplace__roadmap ul { display:grid; gap:16px; margin:24px 0 0; padding:0; list-style:none; }
+:root[data-theme] .supplier-marketplace__roadmap li { display:flex; gap:11px; color:var(--app-muted); font-size:13px; line-height:1.45; }
+:root[data-theme] .supplier-marketplace__roadmap li svg { flex:none; color:var(--app-text); }
+:root[data-theme] .supplier-marketplace__roadmap li strong { display:block; color:var(--app-text); }
+:root[data-theme] .supplier-marketplace__hero-action, :root[data-theme] .supplier-marketplace__tabs button, :root[data-theme] .supplier-marketplace__request-grid button, :root[data-theme] .supplier-marketplace__offers button, :root[data-theme] .supplier-marketplace__submit { display:flex; align-items:center; justify-content:center; gap:8px; border:0; border-radius:12px; padding:12px 16px; background:var(--app-text); color:var(--app-surface); font-weight:750; cursor:pointer; }
+:root[data-theme] .supplier-marketplace__tabs { display:flex; gap:8px; overflow:auto; }
+:root[data-theme] .supplier-marketplace__tabs button { flex:none; border:1px solid var(--app-border); background:var(--app-surface); color:var(--app-muted); }
+:root[data-theme] .supplier-marketplace__tabs button.active { background:var(--app-text); color:var(--app-surface); }
+:root[data-theme] .supplier-marketplace__tabs button:last-child { margin-left:auto; }
+:root[data-theme] .supplier-marketplace__notice { display:flex; align-items:center; gap:8px; padding:12px 16px; border-radius:12px; background:color-mix(in srgb,#dfff62 35%,var(--app-surface)); }
+:root[data-theme] .supplier-marketplace__request-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; }
+:root[data-theme] .supplier-marketplace__request-grid article { display:flex; flex-direction:column; gap:10px; padding:22px; border:1px solid var(--app-border); border-radius:20px; background:var(--app-surface); }
+:root[data-theme] .supplier-marketplace__request-grid h3, :root[data-theme] .supplier-marketplace__request-grid p { margin:0; }
+:root[data-theme] .supplier-marketplace__request-grid small, :root[data-theme] .supplier-marketplace__request-grid span { color:var(--app-muted); }
+:root[data-theme] .supplier-marketplace__request-grid button { margin-top:auto; }
+:root[data-theme] .supplier-marketplace__request-grid button:disabled { opacity:.55; cursor:default; }
+:root[data-theme] .supplier-marketplace__offers { display:grid; gap:10px; }
+:root[data-theme] .supplier-marketplace__offers article { display:flex; align-items:center; gap:18px; padding:16px; border:1px solid var(--app-border); border-radius:16px; background:var(--app-surface); }
+:root[data-theme] .supplier-marketplace__offers article div { display:grid; flex:1; gap:4px; }
+:root[data-theme] .supplier-marketplace__offers article span { color:var(--app-muted); font-size:13px; }
+:root[data-theme] .supplier-marketplace__modal { position:fixed; inset:0; z-index:1000; display:grid; place-items:center; padding:20px; background:#10130bb8; }
+:root[data-theme] .supplier-marketplace__modal form { position:relative; display:grid; gap:14px; width:min(560px,100%); max-height:90vh; overflow:auto; padding:28px; border-radius:22px; background:var(--app-surface); box-shadow:0 24px 80px #0005; }
+:root[data-theme] .supplier-marketplace__modal form > button[aria-label="Kapat"] { position:absolute; right:15px; top:15px; border:0; background:transparent; color:var(--app-text); cursor:pointer; }
+:root[data-theme] .supplier-marketplace__modal label { display:grid; gap:6px; color:var(--app-muted); font-size:13px; }
+:root[data-theme] .supplier-marketplace__modal label:has(input[type="checkbox"]) { display:flex; align-items:center; }
+:root[data-theme] .supplier-marketplace__modal input:not([type="checkbox"]) { min-height:44px; padding:0 12px; border:1px solid var(--app-border); border-radius:10px; background:var(--app-bg); color:var(--app-text); }
+@media(max-width:900px){:root[data-theme] .supplier-marketplace__request-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:640px){:root[data-theme] .supplier-marketplace__request-grid{grid-template-columns:1fr}:root[data-theme] .supplier-marketplace__tabs button:last-child{margin-left:0}:root[data-theme] .supplier-marketplace__offers article{align-items:flex-start;flex-direction:column}}
+@media (max-width:900px) { :root[data-theme] .supplier-marketplace__layout { grid-template-columns:1fr; } }
+@media (max-width:640px) { :root[data-theme] .supplier-marketplace { padding:14px; } :root[data-theme] .supplier-marketplace__hero { align-items:flex-start; flex-direction:column; min-height:0; padding:25px; } :root[data-theme] .supplier-marketplace__hero h1 { font-size:36px; } :root[data-theme] .supplier-marketplace__metric { width:100%; } :root[data-theme] .supplier-marketplace__search { align-items:stretch; flex-wrap:wrap; } :root[data-theme] .supplier-marketplace__search input { min-height:42px; } :root[data-theme] .supplier-marketplace__search a { width:100%; justify-content:center; } }

@@ -2,6 +2,7 @@ import React from "react";
 import { ArrowRight, Building2, Check, Users } from "lucide-react";
 import { FounderCampaignProgress, type FounderCampaignProgressProps } from "./FounderCampaignProgress";
 import { buildPricingPresentation } from "./pricingPresentation";
+import { accountantMarketplaceEnabled } from "../shared/features";
 import "./marketing.css";
 
 export type PricingLanguage = "tr" | "en";
@@ -177,6 +178,6 @@ function planFeatures(plan: PublicPlan, language: PricingLanguage) {
 
 function accountantPlanFeatures(plan: PublicPlan, language: PricingLanguage) {
   const tr = language === "tr";
-  if (plan.kod === "muhasebeci_standart") return [tr ? "10 müşteri dahil" : "10 clients included", tr ? "Sonraki müşteri +₺50/ay" : "₺50/mo per extra client", tr ? "AI asistan · 100 soru/ay" : "AI assistant · 100 questions/month", tr ? "Müşteri çalışma alanları" : "Client workspaces", tr ? "Pazaryeri profili" : "Marketplace profile"];
-  return [tr ? "Sınırsız müşteri" : "Unlimited clients", tr ? "Müşteri belge sağlık skoru" : "Client document readiness score", tr ? "Sınırsız AI asistan" : "Unlimited AI assistant", tr ? "Pazaryerinde öne çıkma" : "Featured marketplace placement"];
+  if (plan.kod === "muhasebeci_standart") return [tr ? "10 müşteri dahil" : "10 clients included", tr ? "Sonraki müşteri +₺50/ay" : "₺50/mo per extra client", tr ? "AI asistan · 100 soru/ay" : "AI assistant · 100 questions/month", tr ? "Müşteri çalışma alanları" : "Client workspaces", accountantMarketplaceEnabled ? (tr ? "Pazaryeri profili" : "Marketplace profile") : (tr ? "Müşteri davetleri" : "Client invitations")];
+  return [tr ? "Sınırsız müşteri" : "Unlimited clients", tr ? "Müşteri belge sağlık skoru" : "Client document readiness score", tr ? "Sınırsız AI asistan" : "Unlimited AI assistant", accountantMarketplaceEnabled ? (tr ? "Pazaryerinde öne çıkma" : "Featured marketplace placement") : (tr ? "Sınırsız müşteri daveti" : "Unlimited client invitations")];
 }

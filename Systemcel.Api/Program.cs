@@ -407,6 +407,7 @@ app.MapDesktopImportApi();
 app.MapExternalDataMigrationApi();
 app.MapAiAssistantApi();
 app.MapMuhasebeciApi();
+app.MapTedarikciPazaryeriApi();
 app.MapSohbetMerkeziApi();
 app.MapDestekApi();
 app.MapMobilTaramaApi();

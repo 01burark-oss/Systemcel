@@ -19,6 +19,7 @@ import {
   MessageCircle,
   Moon,
   Package,
+  PackageSearch,
   ScanBarcode,
   Send,
   Settings,
@@ -48,6 +49,7 @@ import { jsonOku, type EntitlementProblemDetail } from "./json";
 import { useI18n, type TranslationKey } from "./i18n";
 import { buildSubscriptionStartHref } from "./subscriptionIntent";
 import { useTheme } from "../theme/ThemeProvider";
+import { accountantMarketplaceEnabled } from "./features";
 
 interface ReactWorkspaceShellProps {
   children: React.ReactNode;
@@ -84,6 +86,7 @@ const anaMenu: Array<{ href: string; label: string; icon: LucideIcon; adminOnly?
   { href: "/hizli-satis", label: "Hızlı satış", icon: ShoppingCart },
   { href: "/urun-stok", label: "Ürün ve stok", icon: Package },
   { href: "/stok-defteri", label: "Stok defteri", icon: Package },
+  { href: "/tedarikci-pazaryeri", label: "Tedarikçi pazaryeri", icon: PackageSearch },
   { href: "/cari-hesaplar", label: "Cari hesaplar", icon: CreditCard },
   { href: "/faturalar", label: "Faturalar", icon: FileText },
   { href: "/tahsilat-odeme", label: "Tahsilat ve ödeme", icon: WalletCards },
@@ -92,7 +95,7 @@ const anaMenu: Array<{ href: string; label: string; icon: LucideIcon; adminOnly?
   { href: "/sohbetler", label: "Sohbetler", icon: MessageCircle },
   { href: "/muhasebeci", label: "Muhasebeci paneli", icon: BriefcaseBusiness },
   { href: "/muhasebeci/musteriler", label: "Müşterilerim", icon: UsersRound },
-  { href: "/muhasebeciler", label: "Muhasebeciler", icon: Search },
+  { href: "/muhasebeciler", label: accountantMarketplaceEnabled ? "Muhasebeciler" : "Muhasebeci bağlantısı", icon: accountantMarketplaceEnabled ? Search : UsersRound },
   { href: "/yonetim/muhasebeci-basvurulari", label: "Yönetim", icon: ShieldCheck, adminOnly: true },
   { href: "/ayarlar", label: "Ayarlar", icon: Settings }
 ];
@@ -787,9 +790,11 @@ export function ReactWorkspaceShell({ children, ustBar, baslik, sagAksiyon, onUs
                             <span className={`notification-item__icon notification-item__icon--${item.tur}`}>
                               {bildirimIkonu(item.tur)}
                             </span>
-                            <div>
-                              <strong>{item.baslik}</strong>
-                              {!item.okundu ? <em className="notification-item__unread">Okunmadı</em> : null}
+                            <div className="notification-item__content">
+                              <div className="notification-item__title">
+                                <strong>{item.baslik}</strong>
+                                {!item.okundu ? <em className="notification-item__unread">Okunmadı</em> : null}
+                              </div>
                               <p>{item.mesaj}</p>
                               {item.aksiyon ? <small>{item.aksiyon}</small> : null}
                             </div>

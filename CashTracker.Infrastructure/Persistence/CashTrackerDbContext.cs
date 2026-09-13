@@ -66,6 +66,9 @@ namespace CashTracker.Infrastructure.Persistence
         public DbSet<AbonelikFiyatBildirimKaniti> AbonelikFiyatBildirimKanitlari => Set<AbonelikFiyatBildirimKaniti>();
         public DbSet<BankaHareketi> BankaHareketleri => Set<BankaHareketi>();
         public DbSet<GelistiriciApiAnahtari> GelistiriciApiAnahtarlari => Set<GelistiriciApiAnahtari>();
+        public DbSet<TedarikciProfil> TedarikciProfilleri => Set<TedarikciProfil>();
+        public DbSet<TedarikAlimTalebi> TedarikAlimTalepleri => Set<TedarikAlimTalebi>();
+        public DbSet<TedarikTeklifi> TedarikTeklifleri => Set<TedarikTeklifi>();
 
         public override int SaveChanges()
         {
@@ -95,6 +98,34 @@ namespace CashTracker.Infrastructure.Persistence
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
+            modelBuilder.Entity<TedarikciProfil>(e =>
+            {
+                e.ToTable("TedarikciProfil"); e.HasKey(x => x.Id);
+                e.Property(x => x.Unvan).IsRequired().HasMaxLength(180); e.Property(x => x.Kategoriler).IsRequired().HasMaxLength(500);
+                e.Property(x => x.Sehir).IsRequired().HasMaxLength(100); e.Property(x => x.Aciklama).IsRequired().HasMaxLength(1200);
+                e.HasIndex(x => x.IsletmeId).IsUnique(); e.HasIndex(x => new { x.Yayinda, x.Dogrulandi });
+                e.HasOne<Isletme>().WithMany().HasForeignKey(x => x.IsletmeId).OnDelete(DeleteBehavior.Cascade);
+            });
+            modelBuilder.Entity<TedarikAlimTalebi>(e =>
+            {
+                e.ToTable("TedarikAlimTalebi"); e.HasKey(x => x.Id);
+                e.Property(x => x.Baslik).IsRequired().HasMaxLength(180); e.Property(x => x.Kategori).IsRequired().HasMaxLength(120);
+                e.Property(x => x.UrunHizmet).IsRequired().HasMaxLength(240); e.Property(x => x.Miktar).HasColumnType("NUMERIC(18,3)");
+                e.Property(x => x.Birim).IsRequired().HasMaxLength(30); e.Property(x => x.TeslimatSehri).IsRequired().HasMaxLength(100);
+                e.Property(x => x.Aciklama).IsRequired().HasMaxLength(1200); e.Property(x => x.Durum).IsRequired().HasMaxLength(30);
+                e.HasIndex(x => new { x.AliciIsletmeId, x.Durum }); e.HasIndex(x => new { x.Durum, x.SonTeklifAt });
+                e.HasOne<Isletme>().WithMany().HasForeignKey(x => x.AliciIsletmeId).OnDelete(DeleteBehavior.Cascade);
+            });
+            modelBuilder.Entity<TedarikTeklifi>(e =>
+            {
+                e.ToTable("TedarikTeklifi"); e.HasKey(x => x.Id); e.Property(x => x.BirimFiyat).HasColumnType("NUMERIC(18,2)");
+                e.Property(x => x.MinimumSiparis).HasColumnType("NUMERIC(18,3)"); e.Property(x => x.ParaBirimi).IsRequired().HasMaxLength(3);
+                e.Property(x => x.Not).IsRequired().HasMaxLength(800); e.Property(x => x.Durum).IsRequired().HasMaxLength(30);
+                e.HasIndex(x => new { x.TalepId, x.TedarikciIsletmeId }).IsUnique();
+                e.HasOne<TedarikAlimTalebi>().WithMany().HasForeignKey(x => x.TalepId).OnDelete(DeleteBehavior.Cascade);
+                e.HasOne<Isletme>().WithMany().HasForeignKey(x => x.TedarikciIsletmeId).OnDelete(DeleteBehavior.Restrict);
+            });
+
             modelBuilder.Entity<Kasa>(e =>
             {
                 e.ToTable("Kasa");

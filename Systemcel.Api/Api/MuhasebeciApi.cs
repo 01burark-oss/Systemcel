@@ -14,11 +14,16 @@ internal static class MuhasebeciApi
 {
     public static void MapMuhasebeciApi(this WebApplication app)
     {
+        var marketplaceEnabled = app.Configuration.GetValue<bool>("Systemcel:Features:AccountantMarketplaceEnabled");
+
         app.MapGet("/api/public/muhasebeciler", async (
             string? arama,
             IMuhasebeciPortalService service,
             CancellationToken ct) =>
         {
+            if (!marketplaceEnabled)
+                return Results.NotFound();
+
             try
             {
                 return Results.Ok(await service.GetPublicMarketplaceAsync(arama, ct));
@@ -68,6 +73,9 @@ internal static class MuhasebeciApi
             IMuhasebeciPortalService service,
             CancellationToken ct) =>
         {
+            if (!marketplaceEnabled)
+                return Results.NotFound();
+
             try
             {
                 return Results.Ok(await service.GetMarketplaceAsync(arama, ct));
@@ -84,6 +92,9 @@ internal static class MuhasebeciApi
             IMuhasebeciPortalService service,
             CancellationToken ct) =>
         {
+            if (!marketplaceEnabled)
+                return Results.NotFound();
+
             try
             {
                 return Results.Ok(await service.SubmitMarketplaceRequestAsync(muhasebeciIsletmeId, request, ct));
@@ -238,6 +249,9 @@ internal static class MuhasebeciApi
             IMuhasebeciOdemeService paymentService,
             CancellationToken ct) =>
         {
+            if (!marketplaceEnabled)
+                return Results.NotFound(new ApiHata("Muhasebeci pazaryeri bu bölgede kullanılamıyor."));
+
             try
             {
                 var customer = await isletmeService.GetActiveAsync();
@@ -262,6 +276,9 @@ internal static class MuhasebeciApi
             PaymentRuntimeOptions paymentOptions,
             CancellationToken ct) =>
         {
+            if (!marketplaceEnabled)
+                return Results.NotFound(new ApiHata("Muhasebeci pazaryeri bu bölgede kullanılamıyor."));
+
             if (!request.Onaylandi)
                 return Results.BadRequest(new ApiHata("Muhasebeci hizmeti ödeme koşullarını onaylamalısınız."));
 
