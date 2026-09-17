@@ -217,6 +217,9 @@ public sealed class TedarikciPazaryeriService : ITedarikciPazaryeriService
         }
 
         var now = DateTime.UtcNow;
+        var initialState = request.Vadeli
+            ? PazaryeriSiparisDurumlari.SiparisVerildi
+            : PazaryeriSiparisDurumlari.OdemeBekliyor;
         var master = new PazaryeriAnaSiparis
         {
             AliciIsletmeId = buyerId,
@@ -224,7 +227,7 @@ public sealed class TedarikciPazaryeriService : ITedarikciPazaryeriService
             OlusturmaAnahtari = creationKey,
             TeslimatAdresi = request.TeslimatAdresi.Trim(),
             ParaBirimi = products[0].ParaBirimi,
-            Durum = PazaryeriSiparisDurumlari.OdemeBekliyor,
+            Durum = initialState,
             CreatedAt = now,
             UpdatedAt = now
         };
@@ -236,7 +239,7 @@ public sealed class TedarikciPazaryeriService : ITedarikciPazaryeriService
         foreach (var supplierGroup in products.GroupBy(x => x.TedarikciProfilId))
         {
             var profile = profiles[supplierGroup.Key];
-            var supplierOrder = BuildSupplierOrder(master, profile, supplierGroup.ToList(), requestedQuantities, ++supplierIndex);
+            var supplierOrder = BuildSupplierOrder(master, profile, supplierGroup.ToList(), requestedQuantities, ++supplierIndex, initialState);
             db.TedarikciSiparisleri.Add(supplierOrder);
             createdSupplierOrders.Add(supplierOrder);
             await db.SaveChangesAsync(ct);
@@ -270,6 +273,123 @@ public sealed class TedarikciPazaryeriService : ITedarikciPazaryeriService
         await db.SaveChangesAsync(ct);
         await transaction.CommitAsync(ct);
         return new PazaryeriIslemSonucu(master.Id, $"{supplierIndex} tedarikçiye sipariş oluşturuldu.");
+    }
+
+    public async Task<PazaryeriIslemSonucu> AcceptOfferAsync(
+        int offerId,
+        TedarikTeklifKabulRequest request,
+        CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(request.TeslimatAdresi))
+            throw new ArgumentException("Teslimat adresi gereklidir.");
+
+        var buyerId = await _isletmeService.GetActiveIdAsync();
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+        await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
+        var offer = await db.TedarikTeklifleri.SingleOrDefaultAsync(x => x.Id == offerId, ct)
+            ?? throw new KeyNotFoundException("Teklif bulunamadı.");
+        var purchaseRequest = await db.TedarikAlimTalepleri.SingleOrDefaultAsync(
+            x => x.Id == offer.TalepId && x.AliciIsletmeId == buyerId, ct)
+            ?? throw new KeyNotFoundException("Alım talebi bulunamadı.");
+        var creationKey = $"offer:{offer.Id}";
+        var existing = await db.PazaryeriAnaSiparisleri.SingleOrDefaultAsync(
+            x => x.AliciIsletmeId == buyerId && x.OlusturmaAnahtari == creationKey, ct);
+        if (existing is not null)
+            return new PazaryeriIslemSonucu(existing.Id, "Teklif daha önce siparişe dönüştürüldü.", true);
+        if (purchaseRequest.Durum != "Acik" || purchaseRequest.SonTeklifAt <= DateTime.UtcNow || offer.Durum != "Gonderildi")
+            throw new InvalidOperationException("Bu teklif artık kabul edilemez.");
+        if (purchaseRequest.Miktar < offer.MinimumSiparis)
+            throw new InvalidOperationException("Talep miktarı teklifin minimum sipariş miktarının altında.");
+
+        var profile = await db.TedarikciProfilleri.SingleOrDefaultAsync(
+            x => x.IsletmeId == offer.TedarikciIsletmeId && x.Dogrulandi && x.Yayinda, ct)
+            ?? throw new InvalidOperationException("Tedarikçi satışa açık değil.");
+        var now = DateTime.UtcNow;
+        var initialState = request.Vadeli
+            ? PazaryeriSiparisDurumlari.SiparisVerildi
+            : PazaryeriSiparisDurumlari.OdemeBekliyor;
+        var subtotal = Money(offer.BirimFiyat * purchaseRequest.Miktar);
+        var vat = Money(subtotal * offer.KdvOrani / 100m);
+        var total = subtotal + vat;
+        var sku = $"RFQ-{purchaseRequest.Id}";
+        var quotedProduct = new TedarikciUrun
+        {
+            TedarikciProfilId = profile.Id,
+            TedarikciIsletmeId = profile.IsletmeId,
+            Sku = sku,
+            Ad = purchaseRequest.UrunHizmet,
+            Aciklama = purchaseRequest.Aciklama,
+            Kategori = purchaseRequest.Kategori,
+            Birim = purchaseRequest.Birim,
+            BirimFiyat = offer.BirimFiyat,
+            KdvOrani = offer.KdvOrani,
+            ParaBirimi = offer.ParaBirimi,
+            StokMiktari = purchaseRequest.Miktar,
+            RezerveMiktar = purchaseRequest.Miktar,
+            MinimumSiparisMiktari = offer.MinimumSiparis,
+            TahminiTeslimatGun = offer.TerminGun,
+            Aktif = false,
+            CreatedAt = now,
+            UpdatedAt = now
+        };
+        db.TedarikciUrunleri.Add(quotedProduct);
+
+        var master = new PazaryeriAnaSiparis
+        {
+            AliciIsletmeId = buyerId,
+            SiparisNo = CreateOrderNumber(now),
+            OlusturmaAnahtari = creationKey,
+            TeslimatAdresi = request.TeslimatAdresi.Trim(),
+            ParaBirimi = offer.ParaBirimi,
+            AraToplam = subtotal,
+            KdvToplam = vat,
+            GenelToplam = total,
+            Durum = initialState,
+            CreatedAt = now,
+            UpdatedAt = now
+        };
+        db.PazaryeriAnaSiparisleri.Add(master);
+        await db.SaveChangesAsync(ct);
+
+        var supplierOrder = new TedarikciSiparis
+        {
+            AnaSiparisId = master.Id,
+            AliciIsletmeId = buyerId,
+            TedarikciIsletmeId = profile.IsletmeId,
+            TedarikciProfilId = profile.Id,
+            SiparisNo = $"{master.SiparisNo}-A",
+            ParaBirimi = offer.ParaBirimi,
+            AraToplam = subtotal,
+            KdvToplam = vat,
+            GenelToplam = total,
+            TedarikciHakEdisi = total,
+            Durum = initialState,
+            CreatedAt = now,
+            UpdatedAt = now
+        };
+        db.TedarikciSiparisleri.Add(supplierOrder);
+        await db.SaveChangesAsync(ct);
+        db.TedarikciSiparisKalemleri.Add(new TedarikciSiparisKalemi
+        {
+            TedarikciSiparisId = supplierOrder.Id,
+            TedarikciUrunId = quotedProduct.Id,
+            Sku = sku,
+            Ad = purchaseRequest.UrunHizmet,
+            Birim = purchaseRequest.Birim,
+            Miktar = purchaseRequest.Miktar,
+            BirimFiyat = offer.BirimFiyat,
+            KdvOrani = offer.KdvOrani,
+            NetTutar = subtotal,
+            KdvTutari = vat,
+            ToplamTutar = total
+        });
+        offer.Durum = "KabulEdildi";
+        purchaseRequest.Durum = "Sonuclandi";
+        await db.TedarikTeklifleri.Where(x => x.TalepId == purchaseRequest.Id && x.Id != offer.Id)
+            .ExecuteUpdateAsync(x => x.SetProperty(y => y.Durum, "Reddedildi"), ct);
+        await db.SaveChangesAsync(ct);
+        await transaction.CommitAsync(ct);
+        return new PazaryeriIslemSonucu(master.Id, "Teklif siparişe dönüştürüldü.");
     }
 
     public async Task<PazaryeriIslemSonucu> PayOrderAsync(
@@ -414,11 +534,38 @@ public sealed class TedarikciPazaryeriService : ITedarikciPazaryeriService
         {
             order.TeslimEdildiAt = DateTime.UtcNow;
             order.HakEdisTarihi = await ResolveSettlementDateAsync(db, order.TedarikciProfilId, ct);
-            var settlement = await db.TedarikciHakEdisleri.SingleAsync(x => x.TedarikciSiparisId == order.Id, ct);
-            settlement.PlanlananAt = order.HakEdisTarihi.Value;
-            settlement.UpdatedAt = DateTime.UtcNow;
-            await CreateAccountingRecordsAsync(db, order, ct);
-            AddStateHistory(db, order, PazaryeriSiparisDurumlari.HakEdisBekliyor, activeBusinessId, "Teslimat tamamlandı.");
+            var marketplacePayment = await db.PazaryeriOdemeleri.SingleOrDefaultAsync(
+                x => x.AnaSiparisId == order.AnaSiparisId && x.Durum == "Basarili", ct);
+            if (marketplacePayment is not null)
+            {
+                var settlement = await db.TedarikciHakEdisleri.SingleAsync(x => x.TedarikciSiparisId == order.Id, ct);
+                settlement.PlanlananAt = DateTime.UtcNow;
+                settlement.UpdatedAt = DateTime.UtcNow;
+                await CreateAccountingRecordsAsync(db, order, true, ct);
+                AddStateHistory(db, order, PazaryeriSiparisDurumlari.HakEdisBekliyor, activeBusinessId, "Teslimat tamamlandı.");
+                var payout = await _paymentGateway.ReleaseAsync(new MarketplacePayoutCommand(
+                    marketplacePayment.SaglayiciIslemId,
+                    $"settlement:{order.Id}",
+                    order.TedarikciIsletmeId,
+                    settlement.NetTutar,
+                    settlement.ParaBirimi), ct);
+                if (payout.Succeeded)
+                {
+                    settlement.Durum = "Tamamlandi";
+                    settlement.OdenenTutar = settlement.NetTutar;
+                    settlement.AktarimReferansi = payout.ProviderTransactionId;
+                    settlement.TamamlandiAt = DateTime.UtcNow;
+                    settlement.UpdatedAt = DateTime.UtcNow;
+                    AddStateHistory(db, order, PazaryeriSiparisDurumlari.Tamamlandi, activeBusinessId, "Teslimat onaylandı; tedarikçi hakedişi serbest bırakıldı.");
+                    AddLedgerEntry(db, order.Id, "TedarikciOdeme", "Borc", settlement.NetTutar, settlement.ParaBirimi, "Tedarikçi hakedişi");
+                }
+            }
+            else
+            {
+                await ConsumeReservedStockAsync(db, order.Id, ct);
+                await CreateAccountingRecordsAsync(db, order, false, ct);
+                AddStateHistory(db, order, PazaryeriSiparisDurumlari.CariOdemeBekliyor, activeBusinessId, "Teslimat onaylandı; borç ve alacak cariye işlendi.");
+            }
         }
 
         await SyncMasterStateAsync(db, order.AnaSiparisId, ct);
@@ -601,6 +748,46 @@ public sealed class TedarikciPazaryeriService : ITedarikciPazaryeriService
         await db.SaveChangesAsync(ct);
     }
 
+    public async Task ResolveDisputeAsync(
+        int supplierOrderId,
+        PazaryeriItirazCozRequest request,
+        CancellationToken ct = default)
+    {
+        if (!await _yonetimService.IsCurrentUserAdminAsync(ct))
+            throw new UnauthorizedAccessException("Bu işlem için yönetici yetkisi gerekir.");
+        if (string.IsNullOrWhiteSpace(request.Not))
+            throw new ArgumentException("İnceleme notu gereklidir.");
+
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+        await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
+        var order = await db.TedarikciSiparisleri.SingleOrDefaultAsync(x => x.Id == supplierOrderId, ct)
+            ?? throw new KeyNotFoundException("Tedarikçi siparişi bulunamadı.");
+        if (order.Durum != PazaryeriSiparisDurumlari.Itirazli)
+            throw new InvalidOperationException("Siparişte açık bir itiraz bulunmuyor.");
+        if (!request.DevamEt)
+            return;
+
+        var disputeHistory = await db.TedarikciSiparisDurumKayitlari
+            .Where(x => x.TedarikciSiparisId == order.Id && x.YeniDurum == PazaryeriSiparisDurumlari.Itirazli)
+            .OrderByDescending(x => x.CreatedAt)
+            .FirstOrDefaultAsync(ct);
+        var settlement = await db.TedarikciHakEdisleri.SingleOrDefaultAsync(x => x.TedarikciSiparisId == order.Id, ct);
+        var target = settlement is not null
+            ? PazaryeriSiparisDurumlari.HakEdisBekliyor
+            : disputeHistory?.OncekiDurum == PazaryeriSiparisDurumlari.CariOdemeBekliyor
+                ? PazaryeriSiparisDurumlari.CariOdemeBekliyor
+                : disputeHistory?.OncekiDurum ?? PazaryeriSiparisDurumlari.TeslimEdildi;
+        if (settlement is not null)
+        {
+            settlement.Durum = "Bekliyor";
+            settlement.UpdatedAt = DateTime.UtcNow;
+        }
+        AddStateHistory(db, order, target, order.AliciIsletmeId, request.Not.Trim());
+        await SyncMasterStateAsync(db, order.AnaSiparisId, ct);
+        await db.SaveChangesAsync(ct);
+        await transaction.CommitAsync(ct);
+    }
+
     public async Task MatchSupplierInvoiceAsync(
         int supplierOrderId,
         TedarikciBelgeEsleRequest request,
@@ -648,9 +835,21 @@ public sealed class TedarikciPazaryeriService : ITedarikciPazaryeriService
         if (settlement.Durum == "Tamamlandi")
             return;
 
+        var payment = await db.PazaryeriOdemeleri.SingleOrDefaultAsync(
+            x => x.AnaSiparisId == order.AnaSiparisId && x.Durum == "Basarili", ct)
+            ?? throw new InvalidOperationException("Başarılı pazaryeri ödemesi bulunamadı.");
+        var payout = await _paymentGateway.ReleaseAsync(new MarketplacePayoutCommand(
+            payment.SaglayiciIslemId,
+            $"settlement:{order.Id}",
+            order.TedarikciIsletmeId,
+            settlement.NetTutar,
+            settlement.ParaBirimi), ct);
+        if (!payout.Succeeded)
+            throw new InvalidOperationException(payout.Error);
+
         settlement.Durum = "Tamamlandi";
         settlement.OdenenTutar = settlement.NetTutar;
-        settlement.AktarimReferansi = request.AktarimReferansi.Trim();
+        settlement.AktarimReferansi = payout.ProviderTransactionId;
         settlement.TamamlandiAt = DateTime.UtcNow;
         settlement.UpdatedAt = DateTime.UtcNow;
         AddStateHistory(db, order, PazaryeriSiparisDurumlari.Tamamlandi, order.TedarikciIsletmeId, "Hakediş aktarıldı.");
@@ -660,12 +859,53 @@ public sealed class TedarikciPazaryeriService : ITedarikciPazaryeriService
         await transaction.CommitAsync(ct);
     }
 
+    public async Task<int> ExpirePendingOrdersAsync(DateTime nowUtc, CancellationToken ct = default)
+    {
+        var cutoff = nowUtc.AddMinutes(-Math.Max(1, _options.StokRezervasyonSuresiDakika));
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+        await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
+        var masters = await db.PazaryeriAnaSiparisleri
+            .Where(x => x.Durum == PazaryeriSiparisDurumlari.OdemeBekliyor && x.CreatedAt <= cutoff)
+            .ToListAsync(ct);
+        if (masters.Count == 0)
+        {
+            await transaction.CommitAsync(ct);
+            return 0;
+        }
+
+        var masterIds = masters.Select(x => x.Id).ToList();
+        var orders = await db.TedarikciSiparisleri.Where(x => masterIds.Contains(x.AnaSiparisId)).ToListAsync(ct);
+        var orderIds = orders.Select(x => x.Id).ToList();
+        var lines = await db.TedarikciSiparisKalemleri.Where(x => orderIds.Contains(x.TedarikciSiparisId)).ToListAsync(ct);
+        var productIds = lines.Select(x => x.TedarikciUrunId).Distinct().ToList();
+        var products = await db.TedarikciUrunleri.Where(x => productIds.Contains(x.Id)).ToDictionaryAsync(x => x.Id, ct);
+        foreach (var line in lines)
+        {
+            if (products.TryGetValue(line.TedarikciUrunId, out var product))
+            {
+                product.RezerveMiktar = Math.Max(0m, product.RezerveMiktar - line.Miktar);
+                product.UpdatedAt = nowUtc;
+            }
+        }
+        foreach (var order in orders)
+            AddStateHistory(db, order, PazaryeriSiparisDurumlari.IptalEdildi, order.AliciIsletmeId, "Ödeme süresi doldu; stok rezervasyonu kaldırıldı.");
+        foreach (var master in masters)
+        {
+            master.Durum = PazaryeriSiparisDurumlari.IptalEdildi;
+            master.UpdatedAt = nowUtc;
+        }
+        await db.SaveChangesAsync(ct);
+        await transaction.CommitAsync(ct);
+        return masters.Count;
+    }
+
     private TedarikciSiparis BuildSupplierOrder(
         PazaryeriAnaSiparis master,
         TedarikciProfil profile,
         IReadOnlyList<TedarikciUrun> products,
         IReadOnlyDictionary<int, decimal> quantities,
-        int sequence)
+        int sequence,
+        string initialState)
     {
         var subtotal = Money(products.Sum(x => x.BirimFiyat * quantities[x.Id]));
         var vat = Money(products.Sum(x => x.BirimFiyat * quantities[x.Id] * x.KdvOrani / 100m));
@@ -693,7 +933,7 @@ public sealed class TedarikciPazaryeriService : ITedarikciPazaryeriService
             TevkifatTutari = withholding,
             OdemeHizmetiBedeli = paymentFee,
             TedarikciHakEdisi = Money(total - commission - commissionVat - withholding - paymentFee),
-            Durum = PazaryeriSiparisDurumlari.OdemeBekliyor
+            Durum = initialState
         };
     }
 
@@ -721,9 +961,33 @@ public sealed class TedarikciPazaryeriService : ITedarikciPazaryeriService
         AddLedgerEntry(db, order.Id, "TedarikciHakEdisi", "Alacak", order.TedarikciHakEdisi, order.ParaBirimi, "Tedarikçi net hakedişi");
     }
 
+    private static async Task ConsumeReservedStockAsync(
+        CashTrackerDbContext db,
+        int supplierOrderId,
+        CancellationToken ct)
+    {
+        var lines = await db.TedarikciSiparisKalemleri
+            .Where(x => x.TedarikciSiparisId == supplierOrderId)
+            .ToListAsync(ct);
+        var productIds = lines.Select(x => x.TedarikciUrunId).Distinct().ToList();
+        var products = await db.TedarikciUrunleri
+            .Where(x => productIds.Contains(x.Id))
+            .ToDictionaryAsync(x => x.Id, ct);
+        foreach (var line in lines)
+        {
+            if (!products.TryGetValue(line.TedarikciUrunId, out var product) ||
+                product.RezerveMiktar < line.Miktar || product.StokMiktari < line.Miktar)
+                throw new InvalidOperationException($"{line.Ad} stok rezervasyonu bozulmuş.");
+            product.RezerveMiktar -= line.Miktar;
+            product.StokMiktari -= line.Miktar;
+            product.UpdatedAt = DateTime.UtcNow;
+        }
+    }
+
     private static async Task CreateAccountingRecordsAsync(
         CashTrackerDbContext db,
         TedarikciSiparis order,
+        bool paid,
         CancellationToken ct)
     {
         if (await db.TedarikciFaturaEslesmeleri.AnyAsync(x => x.TedarikciSiparisId == order.Id, ct))
@@ -737,8 +1001,8 @@ public sealed class TedarikciPazaryeriService : ITedarikciPazaryeriService
         var buyerCari = await EnsureCariAsync(db, order.AliciIsletmeId, order.TedarikciIsletmeId, supplier.Unvan, supplier.VergiNo, supplier.Adres, ct);
         var supplierCari = await EnsureCariAsync(db, order.TedarikciIsletmeId, order.AliciIsletmeId, buyer.Ad, string.Empty, buyer.Konum, ct);
         var now = DateTime.Now;
-        var buyerInvoice = CreateInvoice(order, order.AliciIsletmeId, buyerCari.Id, "Alis", $"PZ-ALI-{order.SiparisNo}", now);
-        var supplierInvoice = CreateInvoice(order, order.TedarikciIsletmeId, supplierCari.Id, "Satis", $"PZ-SAT-{order.SiparisNo}", now);
+        var buyerInvoice = CreateInvoice(order, order.AliciIsletmeId, buyerCari.Id, "Alis", $"PZ-ALI-{order.SiparisNo}", now, paid);
+        var supplierInvoice = CreateInvoice(order, order.TedarikciIsletmeId, supplierCari.Id, "Satis", $"PZ-SAT-{order.SiparisNo}", now, paid);
         db.Faturalar.AddRange(buyerInvoice, supplierInvoice);
         await db.SaveChangesAsync(ct);
 
@@ -797,8 +1061,16 @@ public sealed class TedarikciPazaryeriService : ITedarikciPazaryeriService
             }
         }
 
-        AddPaidAccountingEntries(db, buyerInvoice, buyerCari.Id, "Borc", "Odeme", order, now);
-        AddPaidAccountingEntries(db, supplierInvoice, supplierCari.Id, "Alacak", "Tahsilat", order, now);
+        if (paid)
+        {
+            AddPaidAccountingEntries(db, buyerInvoice, buyerCari.Id, "Borc", "Odeme", order, now);
+            AddPaidAccountingEntries(db, supplierInvoice, supplierCari.Id, "Alacak", "Tahsilat", order, now);
+        }
+        else
+        {
+            AddInvoiceCariEntry(db, buyerInvoice, buyerCari.Id, "Borc", order, now);
+            AddInvoiceCariEntry(db, supplierInvoice, supplierCari.Id, "Alacak", order, now);
+        }
         db.TedarikciFaturaEslesmeleri.Add(new TedarikciFaturaEslesmesi
         {
             TedarikciSiparisId = order.Id,
@@ -843,13 +1115,14 @@ public sealed class TedarikciPazaryeriService : ITedarikciPazaryeriService
         int cariId,
         string type,
         string invoiceNumber,
-        DateTime now) => new()
+        DateTime now,
+        bool paid) => new()
     {
         IsletmeId = businessId,
         CariKartId = cariId,
         Tarih = now,
         FaturaTipi = type,
-        Durum = FaturaDurum.Odendi,
+        Durum = paid ? FaturaDurum.Odendi : FaturaDurum.Kesildi,
         YerelFaturaNo = invoiceNumber,
         AraToplam = order.AraToplam,
         KdvToplam = order.KdvToplam,
@@ -857,8 +1130,9 @@ public sealed class TedarikciPazaryeriService : ITedarikciPazaryeriService
         ParaBirimi = order.ParaBirimi,
         KurSnapshot = 1m,
         GenelToplamTry = order.GenelToplam,
-        OdenenTutar = order.GenelToplam,
-        OdemeYontemi = "OnlineOdeme",
+        OdenenTutar = paid ? order.GenelToplam : 0m,
+        OdemeYontemi = paid ? "OnlineOdeme" : "Vadeli",
+        VadeTarihi = paid ? null : order.HakEdisTarihi,
         Aciklama = $"Pazaryeri siparişi {order.SiparisNo}",
         KesildiAt = now,
         CreatedAt = now,
@@ -925,10 +1199,34 @@ public sealed class TedarikciPazaryeriService : ITedarikciPazaryeriService
         });
     }
 
+    private static void AddInvoiceCariEntry(
+        CashTrackerDbContext db,
+        Fatura invoice,
+        int cariId,
+        string movementType,
+        TedarikciSiparis order,
+        DateTime now)
+    {
+        db.CariHareketleri.Add(new CariHareket
+        {
+            IsletmeId = invoice.IsletmeId,
+            CariKartId = cariId,
+            Tarih = now,
+            HareketTipi = movementType,
+            Tutar = order.GenelToplam,
+            ParaBirimi = order.ParaBirimi,
+            KurSnapshot = 1m,
+            TryKarsiligi = order.GenelToplam,
+            Kaynak = "Pazaryeri",
+            Aciklama = $"Sipariş {order.SiparisNo}"
+        });
+    }
+
     private static void EnsureStateTransitionAllowed(TedarikciSiparis order, int activeBusinessId, string target)
     {
         var supplierTransitions = new Dictionary<string, string>(StringComparer.Ordinal)
         {
+            [PazaryeriSiparisDurumlari.SiparisVerildi] = PazaryeriSiparisDurumlari.TedarikciOnayladi,
             [PazaryeriSiparisDurumlari.Odendi] = PazaryeriSiparisDurumlari.TedarikciOnayladi,
             [PazaryeriSiparisDurumlari.TedarikciOnayladi] = PazaryeriSiparisDurumlari.Hazirlaniyor,
             [PazaryeriSiparisDurumlari.Hazirlaniyor] = PazaryeriSiparisDurumlari.SevkEdildi
@@ -1005,6 +1303,8 @@ public sealed class TedarikciPazaryeriService : ITedarikciPazaryeriService
             master.Durum = PazaryeriSiparisDurumlari.Itirazli;
         else if (states.All(x => x is PazaryeriSiparisDurumlari.HakEdisBekliyor or PazaryeriSiparisDurumlari.Tamamlandi))
             master.Durum = PazaryeriSiparisDurumlari.HakEdisBekliyor;
+        else if (states.All(x => x is PazaryeriSiparisDurumlari.CariOdemeBekliyor or PazaryeriSiparisDurumlari.Tamamlandi))
+            master.Durum = PazaryeriSiparisDurumlari.CariOdemeBekliyor;
         else if (states.All(x => x == PazaryeriSiparisDurumlari.TeslimEdildi))
             master.Durum = PazaryeriSiparisDurumlari.TeslimEdildi;
         else if (states.Any(x => x == PazaryeriSiparisDurumlari.SevkEdildi))
@@ -1013,6 +1313,8 @@ public sealed class TedarikciPazaryeriService : ITedarikciPazaryeriService
             master.Durum = PazaryeriSiparisDurumlari.Hazirlaniyor;
         else if (states.All(x => x == PazaryeriSiparisDurumlari.TedarikciOnayladi))
             master.Durum = PazaryeriSiparisDurumlari.TedarikciOnayladi;
+        else if (states.All(x => x == PazaryeriSiparisDurumlari.SiparisVerildi))
+            master.Durum = PazaryeriSiparisDurumlari.SiparisVerildi;
         master.UpdatedAt = DateTime.UtcNow;
     }
 

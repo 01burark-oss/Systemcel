@@ -135,7 +135,7 @@ namespace CashTracker.Infrastructure.Persistence
             });
             modelBuilder.Entity<TedarikTeklifi>(e =>
             {
-                e.ToTable("TedarikTeklifi"); e.HasKey(x => x.Id); e.Property(x => x.BirimFiyat).HasColumnType("NUMERIC(18,2)");
+                e.ToTable("TedarikTeklifi"); e.HasKey(x => x.Id); e.Property(x => x.BirimFiyat).HasColumnType("NUMERIC(18,2)"); e.Property(x => x.KdvOrani).HasColumnType("NUMERIC(5,2)");
                 e.Property(x => x.MinimumSiparis).HasColumnType("NUMERIC(18,3)"); e.Property(x => x.ParaBirimi).IsRequired().HasMaxLength(3);
                 e.Property(x => x.Not).IsRequired().HasMaxLength(800); e.Property(x => x.Durum).IsRequired().HasMaxLength(30);
                 e.HasIndex(x => new { x.TalepId, x.TedarikciIsletmeId }).IsUnique();

@@ -112,13 +112,93 @@
 1. Hatırlatma ve bildirim omurgası: outbox, idempotency, retry/dead-letter, sessiz saat, e-posta/Telegram tercihleri.
 2. e-Belge sağlayıcı adapter'ı: UBL-TR, e-Fatura/e-Arşiv, webhook/polling, iptal/itiraz ve mutabakat.
 3. Stok hareket defteri: depo/konum, rezervasyon, transfer, sayım, ters kayıt, maliyet ve mutabakat.
-4. Pazaryeri iletişim güvenliği: iletişim tespiti, 30 dakika kısıt, yanlış pozitif ve insan incelemesi.
-5. Banka hareketleri ve insan onaylı cari/fatura eşleştirme.
-6. Kullanıcı/rol/sahiplik devri ve üyelik yönetimi.
-7. Eski veri aktarım sihirbazı ve imzalı masaüstü araç dağıtımı.
-8. Yapılandırılmış log, correlation ID, hata izleme ve ürün dönüşüm metrikleri.
-9. Frontend modülerleştirme, lazy-load, ortak durum bileşenleri ve CSS parçalama.
-10. Çoklu şube/para birimi, entegrasyon API'leri ve gerçek Pro muhasebeci otomasyonları.
+4. Tedarikçi zinciri: sevk/e-İrsaliye, depo mal kabulü, kısmi kabul, itiraz ve kabul edilen miktar kadar hakediş.
+5. Pazaryeri iletişim güvenliği: iletişim tespiti, 30 dakika kısıt, yanlış pozitif ve insan incelemesi.
+6. Banka hareketleri ve insan onaylı cari/fatura eşleştirme.
+7. Kullanıcı/rol/sahiplik devri ve üyelik yönetimi.
+8. Eski veri aktarım sihirbazı ve imzalı masaüstü araç dağıtımı.
+9. Yapılandırılmış log, correlation ID, hata izleme ve ürün dönüşüm metrikleri.
+10. Frontend modülerleştirme, lazy-load, ortak durum bileşenleri ve CSS parçalama.
+11. Çoklu şube/para birimi, entegrasyon API'leri ve gerçek Pro muhasebeci otomasyonları.
+
+### Tedarikçi zinciri — sevk, mal kabul ve hakediş
+
+#### Sabit ürün kararları
+
+- Klasik kargo takibi zorunlu olmayacak; tedarikçinin kendi aracı, distribütör, 3PL, soğuk zincir ve bölge deposu aynı sevk modeliyle desteklenir.
+- Tedarikçinin veya sürücünün “teslim ettim” beyanı tek başına hakediş açmaz; hakedişin kaynağı alıcının yetkili depo/şube kullanıcısının dijital mal kabul kaydıdır.
+- Mal kabul sipariş bazında değil kalem ve miktar bazında yapılır; kabul edilen miktar stok, fatura, cari ve hakedişe yansır.
+- Eksik, fazla, hasarlı, yanlış, kalite reddi ve sıcaklık/parti uyuşmazlığı ayrı nedenler olarak tutulur.
+- Güvenli ödeme yalnız lisanslı PSP'nin alt üye işyeri/blokeli hakediş modeliyle çalışır; para Systemcel hesabında tutulmaz.
+- PSP hazır değilse vadeli/cari akış açıkça ayrı bir ödeme seçeneğidir; güvenli ödeme gibi sunulmaz.
+
+#### Sipariş ve sevk modeli
+
+- [ ] Sipariş durumlarını `Sipariş verildi → Tedarikçi onayladı → Sevke hazır → Kısmen sevk edildi/Sevk edildi → Mal kabul bekliyor → Kısmen kabul/Tam kabul/İtirazlı → Tamamlandı` olarak kalem toplamlarından türet.
+- [ ] Tek siparişe birden fazla sevkiyat, farklı araç/depo ve farklı teslim tarihi bağlanabilmesini sağla.
+- [ ] Sevkiyat kaydına e-İrsaliye numarası/UUID, sevk tarihi, araç plakası, sürücü/taşıyıcı, çıkış ve varış deposu, randevu zamanı ve açıklama alanlarını ekle.
+- [ ] Seri/lot/parti, son kullanma tarihi, ağırlık, sıcaklık aralığı ve palet/koli bilgisini kategoriye göre isteğe bağlı destekle.
+- [ ] Sevkiyat QR'ı üret; QR yalnız sipariş/sevkiyat kimliği taşısın, fiyat veya hassas işletme verisi içermesin.
+- [ ] e-Belge adapter'ına e-İrsaliye gönderme, durum sorgulama ve e-İrsaliye yanıtı alma sözleşmesini ekle.
+- [ ] Kağıt irsaliye veya entegrasyonsuz tedarikçi için belge fotoğrafı/PDF ve manuel numara girişi yedeği bırak.
+
+#### Depo mal kabulü
+
+- [ ] `Depo sorumlusu` ve `Mal kabul onaylayıcısı` rollerini şube/depo kapsamıyla tanımla; sürücü ve tedarikçi alıcı adına kabul veremesin.
+- [ ] Mobil uyumlu mal kabul ekranında QR okutma, irsaliye eşleştirme ve beklenen/gelen/kabul/red miktarlarını yan yana göster.
+- [ ] Her kalem için tam kabul, kısmi kabul ve red işlemlerini; neden, not ve fotoğraf kanıtıyla kaydet.
+- [ ] Tartım, sıcaklık, lot/seri ve son kullanma tarihi kontrolünü ürün kategorisine göre açılabilir doğrulama adımları yap.
+- [ ] Kabul kaydına kullanıcı, işletme, şube/depo, cihaz, IP, tarih-saat ve belge karması ekleyerek değiştirilemez denetim izi oluştur.
+- [ ] Yüksek tutar/risk eşiğinde iki yetkili onayı; küçük ve düzenli teslimatlarda tek yetkili onayı uygula.
+- [ ] Çevrimdışı depolar için süreli ve imzalı taslak oluştur; ağ geldiğinde sunucu zamanıyla uzlaştır, çakışmayı manuel incelemeye düşür.
+- [ ] Kabul tamamlanmadan alıcı stoklarını artırma; yalnız kabul edilen miktar kadar stok girişi yap.
+
+#### Güvenli ödeme ve kısmi hakediş
+
+- [x] Siparişte ödeme alma, teslimata kadar hakedişi bloke tutma ve teslimat sonrası PSP serbest bırakma sözleşmesi hazırlandı; gerçek sağlayıcı adapter'ı kapalıdır.
+- [ ] Sipariş toplamı yerine her sevkiyat kaleminin kabul edilen miktarı üzerinden serbest bırakılabilir hakediş hesapla.
+- [ ] Kısmi kabulde kabul edilen tutarı aktar; eksik/hasarlı/reddedilen tutarı blokede bırak veya karar sonucunda iade et.
+- [ ] Komisyon, komisyon KDV'si, tevkifat, ödeme hizmeti bedeli ve tedarikçi net hakedişini her kısmi aktarımda oransal ve kuruş mutabakatlı dağıt.
+- [ ] `Blokede → Kısmen serbest → Serbest bırakıldı → İade edildi/Ters ibraz` durumlarını PSP işlem kimliği ve idempotency anahtarıyla sakla.
+- [ ] Tahsilat, hakediş, iade ve ters ibraz webhook'larını imza doğrulamalı, tekrar çalıştırılabilir ve tenant bağlı işle.
+- [ ] PSP bakiyesi ile Systemcel ödeme/hakediş kayıtlarını günlük otomatik mutabakata al; farkta yeni aktarımı durdurup yönetici uyarısı üret.
+- [ ] Serbest bırakma başarısızsa mal kabulü geri alma; siparişi `Hakediş bekliyor` durumunda tut ve güvenli yeniden deneme sağla.
+- [ ] PSP sözleşmesi, alt üye işyeri doğrulaması, koruma hesabı ve chargeback/rezerv şartları hukuk ve finans onayından geçmeden canlı ödeme açma.
+
+#### İtiraz, fark ve kötüye kullanım
+
+- [ ] İtiraz türlerini `teslim edilmedi`, `eksik`, `hasarlı`, `yanlış ürün`, `kalite`, `sıcaklık`, `belge uyuşmazlığı` olarak yapılandır.
+- [ ] İtiraz açıldığında yalnız ilgili sevkiyat/kalem tutarını bloke et; uyuşmazlık olmayan hakedişi gereksiz yere tutma.
+- [ ] İnceleme paketinde sipariş, sevkiyat, irsaliye/e-İrsaliye yanıtı, mal kabul kaydı, fotoğraflar, kullanıcı izi ve taraf açıklamalarını tek ekranda göster.
+- [ ] Yönetici kararlarını `tedarikçiye aktar`, `alıcıya iade`, `kısmi paylaş`, `yeniden teslim` olarak gerekçe ve denetim iziyle uygula.
+- [ ] Taraflara yanıt süresi ve yönetici inceleme SLA'sı tanımla; süre dolunca otomatik para aktarımı yerine risk kuralına göre üst inceleme veya sözleşmesel karar uygula.
+- [ ] Sürekli asılsız itiraz, sürekli eksik sevk ve olağandışı kabul/red örüntüleri için alıcı/tedarikçi risk puanı üret.
+- [ ] Riskli hesaplarda daha uzun bloke, çift onay, işlem limiti veya manuel inceleme uygula; otomatik kalıcı yaptırım verme.
+
+#### Muhasebe, belge ve stok bağlantıları
+
+- [ ] Alıcı stok girişini, alış faturasını ve borç carisini yalnız kabul edilen miktar/tutar üzerinden oluştur.
+- [ ] Tedarikçi stok çıkışını sevkte rezervasyondan düş; kabul farklarını kayıp, iade veya yeniden sevk kararıyla uzlaştır.
+- [ ] Kısmi kabul/red için e-İrsaliye yanıtı ve gerekiyorsa iade e-İrsaliyesi/e-Fatura süreçlerini e-Belge adapter'ına bağla.
+- [ ] Sonradan değişen kabul kararlarında silme yerine ters stok, cari, fatura ve hakediş kayıtları üret.
+- [ ] Aynı sipariş, irsaliye, fatura, cari, stok hareketi, PSP tahsilatı ve hakediş arasında izlenebilir referans zinciri kur.
+
+#### Ekranlar ve bildirimler
+
+- [ ] Alıcıya `Beklenen sevkiyatlar`, `Mal kabul`, `Fark/itiraz` ve `Blokedeki ödemeler` görünümlerini ekle.
+- [ ] Tedarikçiye sevk oluşturma, belge ekleme, kabul sonucu, bloke/serbest hakediş ve fark kapatma ekranlarını ekle.
+- [ ] Yöneticiye geciken mal kabul, açık itiraz, başarısız aktarım, mutabakat farkı ve riskli işlem kuyrukları ekle.
+- [ ] Sevk edildi, randevu yaklaştı, mal kabul bekliyor, kısmi kabul, red, itiraz, hakediş serbest ve aktarım başarısız olaylarını uygulama içi bildirim/outbox hattına bağla.
+- [ ] Operasyon raporlarına zamanında teslim, kabul oranı, eksik/hasar oranı, itiraz oranı, ortalama kabul süresi ve hakediş süresi metriklerini ekle.
+
+#### Test ve yayın kapıları
+
+- [ ] Tam kabul, çoklu sevkiyat, kısmi kabul, fazla teslim, eksik teslim, tam red, hasar, yeniden sevk ve iade senaryoları için servis/integrasyon testleri yaz.
+- [ ] Yetkisiz depo kullanıcısı, yabancı tenant, mükerrer QR, aynı kabulün iki kez gönderimi ve eşzamanlı kabul/itiraz yarışlarını regresyon testine al.
+- [ ] PSP tahsilat/serbest bırakma/iade webhook tekrarları, zaman aşımı ve günlük mutabakat farkını sağlayıcı sözleşme testleriyle doğrula.
+- [ ] Mobil mal kabul akışını kamera izni, çevrimdışı taslak, en küçük ekran ve depo eldiveniyle kullanılabilir hedef boyutlarıyla Playwright'ta doğrula.
+- [ ] Özelliği bayrak arkasında tek tedarik zinciri ve sınırlı depo pilotuyla aç; kısmi kabul ve muhasebe mutabakatı kanıtlanmadan genelleştirme.
+- [ ] Pilot çıkışında hukuk/finans, operasyon, muhasebe, güvenlik ve geri alma runbook onaylarını yayın kaydına ekle.
 
 ## 6. P2 — Sonraki ürün derinliği
 

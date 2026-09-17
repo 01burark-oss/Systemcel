@@ -3579,6 +3579,9 @@ namespace CashTracker.Infrastructure.Persistence.Migrations.PostgreSql
                     b.Property<decimal>("BirimFiyat")
                         .HasColumnType("NUMERIC(18,2)");
 
+                    b.Property<decimal>("KdvOrani")
+                        .HasColumnType("NUMERIC(5,2)");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp without time zone");
 

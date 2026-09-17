@@ -53,6 +53,7 @@ public sealed class TedarikTeklifi
     public int TalepId { get; set; }
     public int TedarikciIsletmeId { get; set; }
     public decimal BirimFiyat { get; set; }
+    public decimal KdvOrani { get; set; } = 20m;
     public string ParaBirimi { get; set; } = "TRY";
     public int TerminGun { get; set; }
     public decimal MinimumSiparis { get; set; }

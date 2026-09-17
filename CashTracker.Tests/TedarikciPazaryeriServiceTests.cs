@@ -73,7 +73,7 @@ public sealed class TedarikciPazaryeriServiceTests
         await f.Service(1).PayOrderAsync(order.Id, new PazaryeriOdemeRequest("payment-accounting"));
         await using (var db = f.Db()) { var id = await db.TedarikciSiparisleri.Select(x => x.Id).SingleAsync(); await f.Service(2).UpdateSupplierOrderStateAsync(id, new TedarikciSiparisDurumRequest(PazaryeriSiparisDurumlari.TedarikciOnayladi, null, null, null)); await f.Service(2).UpdateSupplierOrderStateAsync(id, new TedarikciSiparisDurumRequest(PazaryeriSiparisDurumlari.Hazirlaniyor, null, null, null)); await f.Service(2).UpdateSupplierOrderStateAsync(id, new TedarikciSiparisDurumRequest(PazaryeriSiparisDurumlari.SevkEdildi, "Kargo", "TRK", null)); await f.Service(1).UpdateSupplierOrderStateAsync(id, new TedarikciSiparisDurumRequest(PazaryeriSiparisDurumlari.TeslimEdildi, null, null, null)); }
         await using (var db = f.Db()) { Assert.Equal(1, await db.TedarikciFaturaEslesmeleri.CountAsync()); }
-        await using (var db = f.Db()) { Assert.Equal(2, await db.Faturalar.CountAsync()); Assert.Equal(1, await db.StokHareketleri.CountAsync(x => x.IsletmeId == 1)); }
+        await using (var db = f.Db()) { Assert.Equal(2, await db.Faturalar.CountAsync()); Assert.Equal(1, await db.StokHareketleri.CountAsync(x => x.IsletmeId == 1)); Assert.Equal(PazaryeriSiparisDurumlari.Tamamlandi, (await db.TedarikciSiparisleri.SingleAsync()).Durum); Assert.Equal("Tamamlandi", (await db.TedarikciHakEdisleri.SingleAsync()).Durum); }
     }
 
     [Fact]
@@ -122,6 +122,67 @@ public sealed class TedarikciPazaryeriServiceTests
         Assert.Equal(0m, await assertDb.PazaryeriOdemeDagitimlari
             .Where(x => x.TedarikciSiparisId != cancelledOrderId).Select(x => x.IadeTutari).SingleAsync());
         Assert.Equal("KismiIade", await assertDb.PazaryeriOdemeleri.Select(x => x.Durum).SingleAsync());
+    }
+
+    [Fact]
+    public async Task VadeliOrder_ConsumesOnDeliveryAndCreatesUnpaidAccountingWithoutPayment()
+    {
+        await using var f = await Fixture.CreateAsync();
+        await f.Service(1).CreateOrderAsync(new PazaryeriSiparisOlusturRequest("A", "credit-order", new[] { new PazaryeriSepetKalemiRequest(f.ProductA, 2) }, Vadeli: true));
+        await using (var db = f.Db())
+        {
+            Assert.Equal(PazaryeriSiparisDurumlari.SiparisVerildi, (await db.PazaryeriAnaSiparisleri.SingleAsync()).Durum);
+            Assert.Equal(2m, (await db.TedarikciUrunleri.SingleAsync(x => x.Id == f.ProductA)).RezerveMiktar);
+        }
+        int supplierOrderId;
+        await using (var db = f.Db()) supplierOrderId = await db.TedarikciSiparisleri.Select(x => x.Id).SingleAsync();
+        await f.Service(2).UpdateSupplierOrderStateAsync(supplierOrderId, new(PazaryeriSiparisDurumlari.TedarikciOnayladi, null, null, null));
+        await f.Service(2).UpdateSupplierOrderStateAsync(supplierOrderId, new(PazaryeriSiparisDurumlari.Hazirlaniyor, null, null, null));
+        await f.Service(2).UpdateSupplierOrderStateAsync(supplierOrderId, new(PazaryeriSiparisDurumlari.SevkEdildi, "Kargo", "TRK", null));
+        await f.Service(1).UpdateSupplierOrderStateAsync(supplierOrderId, new(PazaryeriSiparisDurumlari.TeslimEdildi, null, null, null));
+        await using var assertDb = f.Db();
+        Assert.Equal(PazaryeriSiparisDurumlari.CariOdemeBekliyor, (await assertDb.TedarikciSiparisleri.SingleAsync()).Durum);
+        Assert.Equal(8m, await assertDb.TedarikciUrunleri.Where(x => x.Id == f.ProductA).Select(x => x.StokMiktari).SingleAsync());
+        Assert.Equal(0m, await assertDb.TedarikciUrunleri.Where(x => x.Id == f.ProductA).Select(x => x.RezerveMiktar).SingleAsync());
+        Assert.Equal(2, await assertDb.Faturalar.CountAsync());
+        Assert.Equal(2, await assertDb.CariKartlari.CountAsync());
+        Assert.Equal(2, await assertDb.CariHareketleri.CountAsync());
+        Assert.Equal(1, await assertDb.StokHareketleri.CountAsync(x => x.IsletmeId == 1 && x.Miktar == 2));
+        Assert.Empty(await assertDb.PazaryeriOdemeleri.ToListAsync());
+        Assert.Empty(await assertDb.PazaryeriOdemeDagitimlari.ToListAsync());
+    }
+
+    [Fact]
+    public async Task AcceptOffer_CreatesSiparisVerildiOrderIdempotently()
+    {
+        await using var f = await Fixture.CreateAsync();
+        int offerId;
+        await using (var db = f.Db())
+        {
+            db.TedarikAlimTalepleri.Add(new TedarikAlimTalebi { Id = 20, AliciIsletmeId = 1, Baslik = "Talep", Kategori = "Genel", UrunHizmet = "Özel ürün", Miktar = 3, Birim = "Adet", TeslimatSehri = "Istanbul", SonTeklifAt = DateTime.UtcNow.AddDays(1) });
+            db.TedarikTeklifleri.Add(new TedarikTeklifi { Id = 30, TalepId = 20, TedarikciIsletmeId = 2, BirimFiyat = 15, KdvOrani = 20, MinimumSiparis = 1, TerminGun = 2 });
+            await db.SaveChangesAsync(); offerId = 30;
+        }
+        var first = await f.Service(1).AcceptOfferAsync(offerId, new("Adres", Vadeli: true));
+        var repeat = await f.Service(1).AcceptOfferAsync(offerId, new("Adres", Vadeli: true));
+        Assert.Equal(first.Id, repeat.Id); Assert.True(repeat.TekrarKullanildi);
+        await using var assertDb = f.Db();
+        Assert.Equal(PazaryeriSiparisDurumlari.SiparisVerildi, (await assertDb.PazaryeriAnaSiparisleri.SingleAsync()).Durum);
+        Assert.Equal(1, await assertDb.TedarikciSiparisleri.CountAsync());
+        Assert.Equal("KabulEdildi", (await assertDb.TedarikTeklifleri.SingleAsync()).Durum);
+    }
+
+    [Fact]
+    public async Task ExpirePendingPrepaidOrder_ReleasesReservationAndCancelsOrder()
+    {
+        await using var f = await Fixture.CreateAsync();
+        await f.Service(1).CreateOrderAsync(new PazaryeriSiparisOlusturRequest("A", "expire-order", new[] { new PazaryeriSepetKalemiRequest(f.ProductA, 1) }));
+        var expired = await f.Service(1).ExpirePendingOrdersAsync(DateTime.UtcNow.AddHours(1));
+        Assert.Equal(1, expired);
+        await using var db = f.Db();
+        Assert.Equal(PazaryeriSiparisDurumlari.IptalEdildi, (await db.PazaryeriAnaSiparisleri.SingleAsync()).Durum);
+        Assert.Equal(PazaryeriSiparisDurumlari.IptalEdildi, (await db.TedarikciSiparisleri.SingleAsync()).Durum);
+        Assert.Equal(0m, (await db.TedarikciUrunleri.SingleAsync(x => x.Id == f.ProductA)).RezerveMiktar);
     }
 
     private sealed class Fixture : IAsyncDisposable

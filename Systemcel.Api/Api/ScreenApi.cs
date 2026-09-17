@@ -1720,6 +1720,15 @@ namespace Systemcel.Api.Api
                 // Muhasebeci talepleri diğer bildirimlerin hazırlanmasını engellememeli.
             }
 
+            try
+            {
+                await AddSupplierMarketplaceNotificationsAsync(notifications);
+            }
+            catch
+            {
+                // Tedarikçi siparişleri diğer bildirimlerin hazırlanmasını engellememeli.
+            }
+
             if (_faturaService is null || _cariService is null)
                 return notifications;
 
@@ -1890,6 +1899,63 @@ namespace Systemcel.Api.Api
 
             var panel = await _muhasebeciPortalService.GetPanelAsync();
             notifications.AddRange(BuildAccountantRequestNotifications(panel));
+        }
+
+        private async Task AddSupplierMarketplaceNotificationsAsync(List<BildirimDto> notifications)
+        {
+            if (_dbFactory is null || _isletmeService is null)
+                return;
+
+            var businessId = await _isletmeService.GetActiveIdAsync();
+            await using var db = await _dbFactory.CreateDbContextAsync();
+            var rows = await (from order in db.TedarikciSiparisleri.AsNoTracking()
+                join profile in db.TedarikciProfilleri.AsNoTracking() on order.TedarikciProfilId equals profile.Id
+                where order.AliciIsletmeId == businessId || order.TedarikciIsletmeId == businessId
+                where order.Durum == PazaryeriSiparisDurumlari.SiparisVerildi ||
+                      order.Durum == PazaryeriSiparisDurumlari.SevkEdildi ||
+                      order.Durum == PazaryeriSiparisDurumlari.CariOdemeBekliyor ||
+                      order.Durum == PazaryeriSiparisDurumlari.HakEdisBekliyor ||
+                      order.Durum == PazaryeriSiparisDurumlari.Tamamlandi ||
+                      order.Durum == PazaryeriSiparisDurumlari.Itirazli
+                orderby order.UpdatedAt descending
+                select new { order.Id, order.SiparisNo, order.Durum, order.AliciIsletmeId, order.TedarikciIsletmeId, profile.Unvan })
+                .Take(8)
+                .ToListAsync();
+
+            foreach (var row in rows)
+            {
+                var isSupplier = row.TedarikciIsletmeId == businessId;
+                var (title, message, action) = row.Durum switch
+                {
+                    PazaryeriSiparisDurumlari.SiparisVerildi when isSupplier =>
+                        ("Yeni sipariş", $"{row.SiparisNo} numaralı sipariş onayınızı bekliyor.", "Siparişi aç"),
+                    PazaryeriSiparisDurumlari.SevkEdildi when !isSupplier =>
+                        ("Sipariş yolda", $"{row.Unvan}, {row.SiparisNo} numaralı siparişi kargoya verdi.", "Teslimatı izle"),
+                    PazaryeriSiparisDurumlari.CariOdemeBekliyor when !isSupplier =>
+                        ("Ödeme bekliyor", $"{row.SiparisNo} teslim alındı. Borç cari hesaba eklendi.", "Ödemeyi kaydet"),
+                    PazaryeriSiparisDurumlari.HakEdisBekliyor when isSupplier =>
+                        ("Hakediş bekliyor", $"{row.SiparisNo} için hakediş süreci başladı.", "Hakedişi gör"),
+                    PazaryeriSiparisDurumlari.Tamamlandi when isSupplier =>
+                        ("Hakediş aktarıldı", $"{row.SiparisNo} için tedarikçi hakedişi serbest bırakıldı.", "Hakedişi gör"),
+                    PazaryeriSiparisDurumlari.Tamamlandi =>
+                        ("Sipariş tamamlandı", $"{row.SiparisNo} teslimatı ve güvenli ödeme süreci tamamlandı.", "Siparişi aç"),
+                    PazaryeriSiparisDurumlari.Itirazli =>
+                        ("İtiraz açıldı", $"{row.SiparisNo} numaralı sipariş incelemede.", "Siparişi aç"),
+                    _ => (string.Empty, string.Empty, string.Empty)
+                };
+                if (title.Length == 0)
+                    continue;
+                notifications.Add(new BildirimDto
+                {
+                    id = $"tedarikci-siparis-{row.Id}-{row.Durum}",
+                    tur = "tedarikci",
+                    onem = row.Durum == PazaryeriSiparisDurumlari.Itirazli ? "yuksek" : "orta",
+                    baslik = title,
+                    mesaj = message,
+                    aksiyon = action,
+                    url = "/app/tedarikci-pazaryeri"
+                });
+            }
         }
 
         internal static IReadOnlyList<BildirimDto> BuildAccountantRequestNotifications(MuhasebeciPanelDto panel)

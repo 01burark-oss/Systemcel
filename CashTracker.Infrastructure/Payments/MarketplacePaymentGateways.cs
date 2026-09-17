@@ -35,6 +35,18 @@ public sealed class FakeMarketplacePaymentGateway : IMarketplacePaymentGateway
         return Task.FromResult(new MarketplacePaymentResult(Name, transactionId, true));
     }
 
+    public Task<MarketplacePaymentResult> ReleaseAsync(
+        MarketplacePayoutCommand command,
+        CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        if (string.IsNullOrWhiteSpace(command.ProviderTransactionId) || command.Amount <= 0m)
+            return Task.FromResult(new MarketplacePaymentResult(Name, string.Empty, false, "Hakediş bilgileri geçersiz."));
+
+        var transactionId = $"fake_payout_{Hash($"{command.ProviderTransactionId}:{command.IdempotencyKey}")[..24]}";
+        return Task.FromResult(new MarketplacePaymentResult(Name, transactionId, true));
+    }
+
     private static string Hash(string value) =>
         Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value))).ToLowerInvariant();
 }
@@ -54,4 +66,9 @@ public sealed class UnconfiguredMarketplacePaymentGateway : IMarketplacePaymentG
         string idempotencyKey,
         CancellationToken ct = default) =>
         Task.FromResult(new MarketplacePaymentResult(Name, string.Empty, false, "Kartla iade henüz kullanıma açılmadı."));
+
+    public Task<MarketplacePaymentResult> ReleaseAsync(
+        MarketplacePayoutCommand command,
+        CancellationToken ct = default) =>
+        Task.FromResult(new MarketplacePaymentResult(Name, string.Empty, false, "Tedarikçi hakediş aktarımı henüz kullanıma açılmadı."));
 }

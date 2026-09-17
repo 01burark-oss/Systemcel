@@ -188,6 +188,7 @@ builder.Services.AddSingleton<IMarketplacePaymentGateway>(_ => paymentOptions.Us
     ? new FakeMarketplacePaymentGateway()
     : new UnconfiguredMarketplacePaymentGateway());
 builder.Services.AddSingleton<ITedarikciPazaryeriService, TedarikciPazaryeriService>();
+builder.Services.AddHostedService<MarketplaceOrderExpiryHostedService>();
 builder.Services.AddSingleton<ISubscriptionLifecycleService, SubscriptionLifecycleService>();
 builder.Services.AddSingleton<ISubscriptionPriceProtectionService, SubscriptionPriceProtectionService>();
 builder.Services.AddSingleton<IMuhasebeciOdemeService, MuhasebeciOdemeService>();
@@ -307,7 +308,10 @@ using (var scope = app.Services.CreateScope())
     var dbFactory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<CashTrackerDbContext>>();
     await using var db = await dbFactory.CreateDbContextAsync();
     await PostgreSqlMigrationGuard.ApplyMigrationsAsync(db);
-    if (builder.Configuration.GetValue<bool>("Systemcel:Marketplace:SeedDemoData"))
+    var seedMarketplaceDemoData = builder.Configuration.GetValue<bool>("Systemcel:Marketplace:SeedDemoData");
+    if (seedMarketplaceDemoData && !builder.Environment.IsDevelopment())
+        app.Logger.LogWarning("Marketplace demo data setting was ignored outside Development.");
+    if (seedMarketplaceDemoData && builder.Environment.IsDevelopment())
     {
         var seedResult = await MarketplaceDemoDataSeeder.SeedAsync(db);
         if (seedResult.Seeded)

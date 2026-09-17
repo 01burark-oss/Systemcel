@@ -7,4 +7,5 @@ public sealed class PazaryeriOptions
     public decimal TevkifatOrani { get; init; } = 1m;
     public decimal OdemeHizmetiOrani { get; init; }
     public int VarsayilanOdemeVadesiGun { get; init; } = 7;
+    public int StokRezervasyonSuresiDakika { get; init; } = 30;
 }

@@ -3,12 +3,14 @@ namespace CashTracker.Core.Models;
 public static class PazaryeriSiparisDurumlari
 {
     public const string OdemeBekliyor = "OdemeBekliyor";
+    public const string SiparisVerildi = "SiparisVerildi";
     public const string Odendi = "Odendi";
     public const string TedarikciOnayladi = "TedarikciOnayladi";
     public const string Hazirlaniyor = "Hazirlaniyor";
     public const string SevkEdildi = "SevkEdildi";
     public const string TeslimEdildi = "TeslimEdildi";
     public const string HakEdisBekliyor = "HakEdisBekliyor";
+    public const string CariOdemeBekliyor = "CariOdemeBekliyor";
     public const string Tamamlandi = "Tamamlandi";
     public const string IptalEdildi = "IptalEdildi";
     public const string IadeBekliyor = "IadeBekliyor";
@@ -63,7 +65,8 @@ public sealed record PazaryeriSepetKalemiRequest(int UrunId, decimal Miktar);
 public sealed record PazaryeriSiparisOlusturRequest(
     string TeslimatAdresi,
     string IdempotencyKey,
-    IReadOnlyList<PazaryeriSepetKalemiRequest> Kalemler);
+    IReadOnlyList<PazaryeriSepetKalemiRequest> Kalemler,
+    bool Vadeli = false);
 
 public sealed record PazaryeriOdemeRequest(string IdempotencyKey);
 
@@ -76,6 +79,8 @@ public sealed record TedarikciSiparisDurumRequest(
 public sealed record PazaryeriIptalRequest(string Neden);
 
 public sealed record PazaryeriHakEdisTamamlaRequest(string AktarimReferansi);
+
+public sealed record PazaryeriItirazCozRequest(bool DevamEt, string Not);
 
 public sealed record TedarikciBelgeEsleRequest(string BelgeNo, string BelgeUuid);
 
@@ -97,5 +102,12 @@ public sealed record MarketplacePaymentResult(
     string ProviderTransactionId,
     bool Succeeded,
     string Error = "");
+
+public sealed record MarketplacePayoutCommand(
+    string ProviderTransactionId,
+    string IdempotencyKey,
+    int SupplierBusinessId,
+    decimal Amount,
+    string Currency);
 
 public sealed record PazaryeriIslemSonucu(int Id, string Mesaj, bool TekrarKullanildi = false);
