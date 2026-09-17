@@ -6,6 +6,7 @@ test("completed collection can be undone", async ({ page }, testInfo) => {
     "Collection undo smoke projects"
   );
 
+  await page.clock.setFixedTime(new Date("2026-09-17T12:00:00+03:00"));
   await mockWorkspace(page);
   await page.goto("/app/tahsilat-odeme");
 
@@ -63,7 +64,7 @@ function paymentResponse(undone: boolean) {
   const completed = {
     id: 9,
     no: "HRK-2026-00009",
-    tarih: "2026-08-21",
+    tarih: "2026-09-17",
     tip: "Tahsilat",
     cariKartId: 7,
     cariUnvan: "Atlas Yazılım",
@@ -76,7 +77,7 @@ function paymentResponse(undone: boolean) {
   const pending = {
     id: -42,
     no: "SAT-2026-0042",
-    tarih: "2026-08-21",
+    tarih: "2026-09-17",
     tip: "Tahsilat",
     cariKartId: 7,
     cariUnvan: "Atlas Yazılım",
@@ -116,7 +117,7 @@ function paymentResponse(undone: boolean) {
     odemeYontemleri: [{ deger: "Nakit", etiket: "Nakit" }, { deger: "Havale", etiket: "Havale" }],
     paraBirimleri: [{ deger: "TRY", etiket: "TL" }],
     kategoriler: [{ deger: "Genel", etiket: "Genel" }, { deger: "Fatura", etiket: "Fatura" }],
-    bugun: "2026-08-22"
+    bugun: "2026-09-17"
   };
 }
 
