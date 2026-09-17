@@ -8,6 +8,23 @@ public sealed class TedarikciProfil
     public string Kategoriler { get; set; } = string.Empty;
     public string Sehir { get; set; } = string.Empty;
     public string Aciklama { get; set; } = string.Empty;
+    public string VergiNo { get; set; } = string.Empty;
+    public string MersisNo { get; set; } = string.Empty;
+    public string KepAdresi { get; set; } = string.Empty;
+    public string Iban { get; set; } = string.Empty;
+    public string Adres { get; set; } = string.Empty;
+    public string YetkiliAdSoyad { get; set; } = string.Empty;
+    public string VergiDurumu { get; set; } = string.Empty;
+    public string SevkiyatBolgeleri { get; set; } = string.Empty;
+    public string IadeKosullari { get; set; } = string.Empty;
+    public string PazaryeriSozlesmeVersiyonu { get; set; } = string.Empty;
+    public string PspAltUyeIsyeriId { get; set; } = string.Empty;
+    public decimal KomisyonOrani { get; set; } = 8m;
+    public int OdemeVadesiGun { get; set; } = 7;
+    public bool TevkifatMuaf { get; set; }
+    public string DogrulamaDurumu { get; set; } = "Taslak";
+    public string DogrulamaNotu { get; set; } = string.Empty;
+    public DateTime? DogrulandiAt { get; set; }
     public bool Dogrulandi { get; set; }
     public bool Yayinda { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

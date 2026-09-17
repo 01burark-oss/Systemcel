@@ -24,8 +24,33 @@ internal static class TedarikciPazaryeriApi
                 .OrderBy(x => x.SonTeklifAt).Select(x => new { x.Id, x.Baslik, x.Kategori, x.UrunHizmet, x.Miktar, x.Birim, x.TeslimatSehri, x.SonTeklifAt, x.Aciklama, teklifVerildi = db.TedarikTeklifleri.Any(t => t.TalepId == x.Id && t.TedarikciIsletmeId == aktif.Id) }).ToListAsync(ct);
             var gelenTeklifler = await (from t in db.TedarikTeklifleri.AsNoTracking() join a in db.TedarikAlimTalepleri on t.TalepId equals a.Id join p in db.TedarikciProfilleri on t.TedarikciIsletmeId equals p.IsletmeId where a.AliciIsletmeId == aktif.Id select new { t.Id, t.TalepId, talepBasligi = a.Baslik, t.BirimFiyat, t.ParaBirimi, t.TerminGun, t.MinimumSiparis, t.Not, t.Durum, tedarikciUnvani = p.Unvan }).OrderBy(x => x.BirimFiyat).ToListAsync(ct);
             var profil = await db.TedarikciProfilleri.AsNoTracking().Where(x => x.IsletmeId == aktif.Id)
-                .Select(x => new { x.Id, x.Unvan, x.Kategoriler, x.Sehir, x.Aciklama, x.Dogrulandi, x.Yayinda }).SingleOrDefaultAsync(ct);
-            return Results.Ok(new { profiller, talepler, acikTalepler, gelenTeklifler, profil });
+                .Select(x => new { x.Id, x.Unvan, x.Kategoriler, x.Sehir, x.Aciklama, x.VergiNo, x.MersisNo, x.KepAdresi, x.Iban, x.Adres, x.YetkiliAdSoyad, x.VergiDurumu, x.SevkiyatBolgeleri, x.IadeKosullari, x.PazaryeriSozlesmeVersiyonu, x.PspAltUyeIsyeriId, x.KomisyonOrani, x.OdemeVadesiGun, x.TevkifatMuaf, x.DogrulamaDurumu, x.DogrulamaNotu, x.Dogrulandi, x.Yayinda }).SingleOrDefaultAsync(ct);
+            var urunler = await (from u in db.TedarikciUrunleri.AsNoTracking()
+                join p in db.TedarikciProfilleri.AsNoTracking() on u.TedarikciProfilId equals p.Id
+                where u.Aktif && p.Dogrulandi && p.Yayinda && u.StokMiktari > u.RezerveMiktar
+                orderby u.Kategori, u.Ad
+                select new { u.Id, u.TedarikciProfilId, tedarikciUnvani = p.Unvan, tedarikciSehri = p.Sehir, p.SevkiyatBolgeleri, p.IadeKosullari, u.Sku, u.Ad, u.Aciklama, u.Kategori, u.Birim, u.BirimFiyat, u.KdvOrani, u.ParaBirimi, kullanilabilirStok = u.StokMiktari - u.RezerveMiktar, u.MinimumSiparisMiktari, u.TahminiTeslimatGun }).ToListAsync(ct);
+            var benimUrunlerim = await db.TedarikciUrunleri.AsNoTracking().Where(x => x.TedarikciIsletmeId == aktif.Id)
+                .OrderBy(x => x.Ad).Select(x => new { x.Id, x.KaynakUrunHizmetId, x.Sku, x.Ad, x.Aciklama, x.Kategori, x.Birim, x.BirimFiyat, x.KdvOrani, x.ParaBirimi, x.StokMiktari, x.RezerveMiktar, x.MinimumSiparisMiktari, x.TahminiTeslimatGun, x.Aktif }).ToListAsync(ct);
+            var kaynakUrunler = await db.UrunHizmetleri.AsNoTracking().Where(x => x.IsletmeId == aktif.Id && x.Aktif && x.Tip == "Urun")
+                .OrderBy(x => x.Ad).Select(x => new { x.Id, x.Ad, x.Barkod, x.Birim, x.KdvOrani, x.SatisFiyati, x.ParaBirimi }).ToListAsync(ct);
+            var siparisRows = await (from s in db.TedarikciSiparisleri.AsNoTracking()
+                join a in db.PazaryeriAnaSiparisleri.AsNoTracking() on s.AnaSiparisId equals a.Id
+                join p in db.TedarikciProfilleri.AsNoTracking() on s.TedarikciProfilId equals p.Id
+                where s.AliciIsletmeId == aktif.Id || s.TedarikciIsletmeId == aktif.Id
+                orderby s.CreatedAt descending
+                select new { s.Id, s.AnaSiparisId, anaSiparisNo = a.SiparisNo, s.SiparisNo, a.TeslimatAdresi, s.AliciIsletmeId, s.TedarikciIsletmeId, tedarikciUnvani = p.Unvan, s.AraToplam, s.KdvToplam, s.GenelToplam, s.ParaBirimi, s.KomisyonTutari, s.KomisyonKdvTutari, s.TevkifatTutari, s.OdemeHizmetiBedeli, s.TedarikciHakEdisi, s.Durum, s.KargoFirmasi, s.KargoTakipNo, s.CreatedAt }).ToListAsync(ct);
+            var siparisIds = siparisRows.Select(x => x.Id).ToList();
+            var siparisKalemleri = await db.TedarikciSiparisKalemleri.AsNoTracking().Where(x => siparisIds.Contains(x.TedarikciSiparisId))
+                .OrderBy(x => x.Id).Select(x => new { x.Id, x.TedarikciSiparisId, x.TedarikciUrunId, x.Sku, x.Ad, x.Birim, x.Miktar, x.BirimFiyat, x.KdvOrani, x.NetTutar, x.KdvTutari, x.ToplamTutar }).ToListAsync(ct);
+            var anaSiparisler = await db.PazaryeriAnaSiparisleri.AsNoTracking().Where(x => x.AliciIsletmeId == aktif.Id)
+                .OrderByDescending(x => x.CreatedAt).Select(x => new { x.Id, x.SiparisNo, x.TeslimatAdresi, x.AraToplam, x.KdvToplam, x.GenelToplam, x.ParaBirimi, x.Durum, x.CreatedAt }).ToListAsync(ct);
+            var hakedisler = await (from h in db.TedarikciHakEdisleri.AsNoTracking()
+                join s in db.TedarikciSiparisleri.AsNoTracking() on h.TedarikciSiparisId equals s.Id
+                where h.TedarikciIsletmeId == aktif.Id
+                orderby h.CreatedAt descending
+                select new { h.Id, h.TedarikciSiparisId, s.SiparisNo, h.BrutTutar, h.KomisyonTutari, h.KomisyonKdvTutari, h.TevkifatTutari, h.OdemeHizmetiBedeli, h.IadeTutari, h.NetTutar, h.OdenenTutar, h.ParaBirimi, h.Durum, h.AktarimReferansi, h.PlanlananAt, h.TamamlandiAt }).ToListAsync(ct);
+            return Results.Ok(new { aktifIsletmeId = aktif.Id, profiller, talepler, acikTalepler, gelenTeklifler, profil, urunler, benimUrunlerim, kaynakUrunler, anaSiparisler, siparisler = siparisRows, siparisKalemleri, hakedisler });
         });
 
         app.MapPut("/api/ekran/tedarikci-pazaryeri/profil", async (TedarikciProfilKaydetRequest request, IIsletmeService isletmeler, IDbContextFactory<CashTrackerDbContext> factory, CancellationToken ct) =>
@@ -34,9 +59,105 @@ internal static class TedarikciPazaryeriApi
             var aktif = await isletmeler.GetActiveAsync(); await using var db = await factory.CreateDbContextAsync(ct);
             var profil = await db.TedarikciProfilleri.SingleOrDefaultAsync(x => x.IsletmeId == aktif.Id, ct);
             if (profil is null) { profil = new TedarikciProfil { IsletmeId = aktif.Id }; db.TedarikciProfilleri.Add(profil); }
-            profil.Unvan = request.Unvan.Trim(); profil.Kategoriler = request.Kategoriler.Trim(); profil.Sehir = request.Sehir.Trim(); profil.Aciklama = request.Aciklama.Trim(); profil.Yayinda = request.Yayinda; profil.UpdatedAt = DateTime.UtcNow;
+            profil.Unvan = request.Unvan.Trim(); profil.Kategoriler = request.Kategoriler.Trim(); profil.Sehir = request.Sehir.Trim(); profil.Aciklama = request.Aciklama.Trim(); profil.Yayinda = request.Yayinda && profil.Dogrulandi; profil.UpdatedAt = DateTime.UtcNow;
             await db.SaveChangesAsync(ct); return Results.Ok(new { profil.Id, mesaj = "Tedarikçi profili kaydedildi." });
         });
+
+        app.MapPut("/api/ekran/tedarikci-pazaryeri/profil/basvuru", async (TedarikciOnboardingRequest request, ITedarikciPazaryeriService service, CancellationToken ct) =>
+        {
+            try { var profile = await service.SaveSupplierProfileAsync(request, ct); return Results.Ok(new { profile.Id, profile.DogrulamaDurumu, profile.Dogrulandi, profile.Yayinda, mesaj = profile.Dogrulandi ? "Tedarikçi profili kaydedildi." : "Başvuru incelemeye gönderildi." }); }
+            catch (ArgumentException ex) { return Results.BadRequest(new ApiHata(ex.Message)); }
+            catch (InvalidOperationException ex) { return Results.BadRequest(new ApiHata(ex.Message)); }
+        }).RequireRateLimiting("sensitive");
+
+        app.MapPost("/api/ekran/tedarikci-pazaryeri/urunler", async (TedarikciUrunKaydetRequest request, ITedarikciPazaryeriService service, CancellationToken ct) =>
+        {
+            try { var product = await service.SaveProductAsync(null, request, ct); return Results.Ok(new { product.Id, mesaj = "Ürün yayınlandı." }); }
+            catch (ArgumentException ex) { return Results.BadRequest(new ApiHata(ex.Message)); }
+            catch (InvalidOperationException ex) { return Results.BadRequest(new ApiHata(ex.Message)); }
+        }).RequireRateLimiting("sensitive");
+
+        app.MapPut("/api/ekran/tedarikci-pazaryeri/urunler/{urunId:int}", async (int urunId, TedarikciUrunKaydetRequest request, ITedarikciPazaryeriService service, CancellationToken ct) =>
+        {
+            try { var product = await service.SaveProductAsync(urunId, request, ct); return Results.Ok(new { product.Id, mesaj = "Ürün güncellendi." }); }
+            catch (KeyNotFoundException ex) { return Results.NotFound(new ApiHata(ex.Message)); }
+            catch (ArgumentException ex) { return Results.BadRequest(new ApiHata(ex.Message)); }
+            catch (InvalidOperationException ex) { return Results.BadRequest(new ApiHata(ex.Message)); }
+        }).RequireRateLimiting("sensitive");
+
+        app.MapPost("/api/ekran/tedarikci-pazaryeri/siparisler", async (PazaryeriSiparisOlusturRequest request, ITedarikciPazaryeriService service, CancellationToken ct) =>
+        {
+            try { return Results.Ok(await service.CreateOrderAsync(request, ct)); }
+            catch (ArgumentException ex) { return Results.BadRequest(new ApiHata(ex.Message)); }
+            catch (InvalidOperationException ex) { return Results.Conflict(new ApiHata(ex.Message)); }
+        }).RequireRateLimiting("sensitive");
+
+        app.MapPost("/api/ekran/tedarikci-pazaryeri/siparisler/{siparisId:int}/odeme", async (int siparisId, PazaryeriOdemeRequest request, ITedarikciPazaryeriService service, CancellationToken ct) =>
+        {
+            try { return Results.Ok(await service.PayOrderAsync(siparisId, request, ct)); }
+            catch (KeyNotFoundException ex) { return Results.NotFound(new ApiHata(ex.Message)); }
+            catch (ArgumentException ex) { return Results.BadRequest(new ApiHata(ex.Message)); }
+            catch (InvalidOperationException ex) { return Results.Conflict(new ApiHata(ex.Message)); }
+        }).RequireRateLimiting("sensitive");
+
+        app.MapPost("/api/ekran/tedarikci-pazaryeri/siparisler/{siparisId:int}/iptal", async (int siparisId, PazaryeriIptalRequest request, ITedarikciPazaryeriService service, CancellationToken ct) =>
+        {
+            try { await service.CancelOrderAsync(siparisId, request, ct); return Results.Ok(new { mesaj = "Sipariş iptal edildi." }); }
+            catch (KeyNotFoundException ex) { return Results.NotFound(new ApiHata(ex.Message)); }
+            catch (InvalidOperationException ex) { return Results.Conflict(new ApiHata(ex.Message)); }
+        }).RequireRateLimiting("sensitive");
+
+        app.MapPost("/api/ekran/tedarikci-pazaryeri/tedarikci-siparisler/{siparisId:int}/iptal", async (int siparisId, PazaryeriIptalRequest request, ITedarikciPazaryeriService service, CancellationToken ct) =>
+        {
+            try { await service.CancelSupplierOrderAsync(siparisId, request, ct); return Results.Ok(new { mesaj = "Tedarikçi siparişi iptal edildi." }); }
+            catch (UnauthorizedAccessException ex) { return Results.Json(new ApiHata(ex.Message), statusCode: StatusCodes.Status403Forbidden); }
+            catch (KeyNotFoundException ex) { return Results.NotFound(new ApiHata(ex.Message)); }
+            catch (ArgumentException ex) { return Results.BadRequest(new ApiHata(ex.Message)); }
+            catch (InvalidOperationException ex) { return Results.Conflict(new ApiHata(ex.Message)); }
+        }).RequireRateLimiting("sensitive");
+
+        app.MapPost("/api/ekran/tedarikci-pazaryeri/tedarikci-siparisler/{siparisId:int}/durum", async (int siparisId, TedarikciSiparisDurumRequest request, ITedarikciPazaryeriService service, CancellationToken ct) =>
+        {
+            try { await service.UpdateSupplierOrderStateAsync(siparisId, request, ct); return Results.Ok(new { mesaj = "Sipariş durumu güncellendi." }); }
+            catch (KeyNotFoundException ex) { return Results.NotFound(new ApiHata(ex.Message)); }
+            catch (ArgumentException ex) { return Results.BadRequest(new ApiHata(ex.Message)); }
+            catch (InvalidOperationException ex) { return Results.Conflict(new ApiHata(ex.Message)); }
+        }).RequireRateLimiting("sensitive");
+
+        app.MapPost("/api/ekran/tedarikci-pazaryeri/tedarikci-siparisler/{siparisId:int}/itiraz", async (int siparisId, PazaryeriIptalRequest request, ITedarikciPazaryeriService service, CancellationToken ct) =>
+        {
+            try { await service.DisputeSupplierOrderAsync(siparisId, request.Neden, ct); return Results.Ok(new { mesaj = "İtiraz kaydedildi. Hakediş inceleme bitene kadar bekletilecek." }); }
+            catch (UnauthorizedAccessException ex) { return Results.Json(new ApiHata(ex.Message), statusCode: StatusCodes.Status403Forbidden); }
+            catch (KeyNotFoundException ex) { return Results.NotFound(new ApiHata(ex.Message)); }
+            catch (ArgumentException ex) { return Results.BadRequest(new ApiHata(ex.Message)); }
+            catch (InvalidOperationException ex) { return Results.Conflict(new ApiHata(ex.Message)); }
+        }).RequireRateLimiting("sensitive");
+
+        app.MapPost("/api/ekran/tedarikci-pazaryeri/tedarikci-siparisler/{siparisId:int}/fatura", async (int siparisId, TedarikciBelgeEsleRequest request, ITedarikciPazaryeriService service, CancellationToken ct) =>
+        {
+            try { await service.MatchSupplierInvoiceAsync(siparisId, request, ct); return Results.Ok(new { mesaj = "Fatura siparişle eşleştirildi." }); }
+            catch (KeyNotFoundException ex) { return Results.NotFound(new ApiHata(ex.Message)); }
+            catch (ArgumentException ex) { return Results.BadRequest(new ApiHata(ex.Message)); }
+            catch (InvalidOperationException ex) { return Results.Conflict(new ApiHata(ex.Message)); }
+        }).RequireRateLimiting("sensitive");
+
+        app.MapPost("/api/ekran/yonetim/tedarikci-profilleri/{profilId:int}/dogrula", async (int profilId, TedarikciDogrulamaRequest request, ITedarikciPazaryeriService service, CancellationToken ct) =>
+        {
+            try { var profile = await service.VerifySupplierAsync(profilId, request, ct); return Results.Ok(new { profile.Id, profile.DogrulamaDurumu, mesaj = request.Onaylandi ? "Tedarikçi doğrulandı." : "Başvuru reddedildi." }); }
+            catch (UnauthorizedAccessException ex) { return Results.Json(new ApiHata(ex.Message), statusCode: StatusCodes.Status403Forbidden); }
+            catch (KeyNotFoundException ex) { return Results.NotFound(new ApiHata(ex.Message)); }
+            catch (ArgumentException ex) { return Results.BadRequest(new ApiHata(ex.Message)); }
+            catch (InvalidOperationException ex) { return Results.Conflict(new ApiHata(ex.Message)); }
+        }).RequireRateLimiting("sensitive");
+
+        app.MapPost("/api/ekran/yonetim/tedarikci-siparisler/{siparisId:int}/hakedis", async (int siparisId, PazaryeriHakEdisTamamlaRequest request, ITedarikciPazaryeriService service, CancellationToken ct) =>
+        {
+            try { await service.CompleteSettlementAsync(siparisId, request, ct); return Results.Ok(new { mesaj = "Hakediş tamamlandı." }); }
+            catch (UnauthorizedAccessException ex) { return Results.Json(new ApiHata(ex.Message), statusCode: StatusCodes.Status403Forbidden); }
+            catch (KeyNotFoundException ex) { return Results.NotFound(new ApiHata(ex.Message)); }
+            catch (ArgumentException ex) { return Results.BadRequest(new ApiHata(ex.Message)); }
+            catch (InvalidOperationException ex) { return Results.Conflict(new ApiHata(ex.Message)); }
+        }).RequireRateLimiting("sensitive");
 
         app.MapPost("/api/ekran/tedarikci-pazaryeri/talepler", async (TedarikAlimTalebiOlusturRequest request, IIsletmeService isletmeler, IDbContextFactory<CashTrackerDbContext> factory, CancellationToken ct) =>
         {

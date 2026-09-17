@@ -134,6 +134,7 @@ builder.Services.AddSingleton(new MuhasebeciOdemeOptions
 {
     PlatformCommissionRate = paymentOptions.AccountantPlatformCommissionRate
 });
+builder.Services.AddSingleton(new PazaryeriOptions());
 builder.Services.AddSingleton(reminderEmailOptions);
 builder.Services.AddSingleton(musteriSmsSettings);
 builder.Services.AddHttpContextAccessor();
@@ -183,6 +184,10 @@ builder.Services.AddSingleton<IPaymentPricingService>(_ => new PaymentPricingSer
 builder.Services.AddSingleton<IPaymentProvider>(_ => paymentOptions.UsesFakeProvider
     ? new FakePaymentProvider(paymentOptions.FakeSecret)
     : new UnconfiguredPaymentProvider());
+builder.Services.AddSingleton<IMarketplacePaymentGateway>(_ => paymentOptions.UsesFakeProvider
+    ? new FakeMarketplacePaymentGateway()
+    : new UnconfiguredMarketplacePaymentGateway());
+builder.Services.AddSingleton<ITedarikciPazaryeriService, TedarikciPazaryeriService>();
 builder.Services.AddSingleton<ISubscriptionLifecycleService, SubscriptionLifecycleService>();
 builder.Services.AddSingleton<ISubscriptionPriceProtectionService, SubscriptionPriceProtectionService>();
 builder.Services.AddSingleton<IMuhasebeciOdemeService, MuhasebeciOdemeService>();
@@ -302,6 +307,17 @@ using (var scope = app.Services.CreateScope())
     var dbFactory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<CashTrackerDbContext>>();
     await using var db = await dbFactory.CreateDbContextAsync();
     await PostgreSqlMigrationGuard.ApplyMigrationsAsync(db);
+    if (builder.Configuration.GetValue<bool>("Systemcel:Marketplace:SeedDemoData"))
+    {
+        var seedResult = await MarketplaceDemoDataSeeder.SeedAsync(db);
+        if (seedResult.Seeded)
+        {
+            app.Logger.LogInformation(
+                "Marketplace demo data seeded with {SupplierCount} suppliers and {ProductCount} products.",
+                seedResult.SupplierCount,
+                seedResult.ProductCount);
+        }
+    }
     await db.Database.CloseConnectionAsync();
 }
 
