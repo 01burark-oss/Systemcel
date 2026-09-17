@@ -11,6 +11,7 @@ import {
   Menu,
   MessageCircle,
   Package,
+  PackageSearch,
   Play,
   ShieldCheck,
   Sparkles,
@@ -20,7 +21,6 @@ import {
 } from "lucide-react";
 import { useSystemcelAuth } from "../auth/SystemcelAuthProvider";
 import accountantAyseAvatar from "../assets/accountant-ayse-demirtas.jpg";
-import { accountantMarketplaceEnabled } from "../shared/features";
 import type { FounderCampaignProgressProps } from "./FounderCampaignProgress";
 import { PricingPanel } from "./PricingPanel";
 import "./marketing.css";
@@ -102,35 +102,35 @@ const fallbackAccountantPlans: PublicPlan[] = [
 const copy = {
   tr: {
     announcement: "Yeni — e-Arşiv fatura akışı Systemcel'de yayında",
-    accounting: "Ön Muhasebe", ai: "AI Asistan", marketplace: "Pazaryeri", pricing: "Fiyatlandırma",
-    signIn: "Giriş Yap", start: "Lansman fiyatıyla başla", eyebrow: "B2B FİNANS PLATFORMU — TR/2026",
-    titleA: "Ön muhasebe,", titleB: "yapay zekâ, muhasebecin.", titleC: "Hepsi tek yerde.",
-    lead: "Gelir-gider, cari, stok ve fatura akışını tek yerde yönet. Finansal verini anlayan AI asistanıyla çalış, ihtiyaç duyduğunda uzman muhasebecine ulaş.",
-    trial: "Lansman fiyatıyla başla", tour: "Canlı tur", setup: "5 dk kurulum", cancel: "İstediğin an iptal",
-    section1: "Defter seni değil, sen defteri yönet.", section1Text: "Kasa, cari hesap, stok ve faturalar tek akışta birleşir. Tekrarlayan işleri azaltır, karar vermen gereken noktaları görünür kılarız.",
-    section2: "Defterine soru sor, yanıtını al.", section2Text: "Systemcel AI, işletme verilerine göre gelir, gider, stok, cari, tahsilat ve rapor sorularına kısa ve uygulanabilir yanıtlar hazırlar.",
-    section3: "Muhasebecin bir tık uzağında.", section3Business: "Sektörünü, mükellefiyet türünü, iş hacmini ve çalışma tercihini belirt; Systemcel muhasebecileri 0-100 uyum skoruyla sıralar ve neden uygun olduklarını gösterir.",
-    section3Accountant: "Profilini oluştur, uzmanlığını göster, işletmelerden gelen talepleri yönet ve müşterilerinle güvenli biçimde çalış.",
-    forBusiness: "İşletmeler için", forAccountant: "Muhasebeciler için", findAccountant: "Muhasebecini bul", joinMarketplace: "Pazaryerine katıl",
+    accounting: "Ön muhasebe", ai: "Yapay zekâ asistanı", marketplace: "Tedarikçi pazaryeri", pricing: "Fiyatlandırma",
+    signIn: "Giriş yap", start: "Lansman fiyatıyla başla", eyebrow: "İşletme finansı",
+    titleA: "Ön muhasebe,", titleB: "muhasebecin, tedarikçilerin.", titleC: "Hepsi tek yerde.",
+    lead: "Gelir, gider, cari hesap, stok ve faturalarını tek yerde yönet. Muhasebecinle birlikte çalış, tedarikçilerden alım yap ve yapay zekâ asistanından destek al.",
+    trial: "Lansman fiyatıyla başla", tour: "Canlı tur", setup: "Kolay kurulum", cancel: "Dönem sonunda iptal",
+    section1: "Defter seni değil, sen defteri yönet.", section1Text: "Kasa, cari hesap, stok ve faturalarını tek yerde izle. Tekrarlayan işleri azalt, hangi ödeme ve tahsilatlara bakman gerektiğini gör.",
+    section2: "Defterine soru sor, yanıtını al.", section2Text: "Systemcel yapay zekâ asistanı; gelir, gider, stok, cari hesap, tahsilat ve rapor sorularına kısa yanıtlar verir.",
+    section3: "Muhasebecinle aynı çalışma alanında.", section3Business: "Çalıştığın muhasebeciyi davet et, erişim yetkisini seç ve belgelerinle görüşmelerini tek yerde yönet.",
+    section3Accountant: "Mevcut müşterilerini davet et, her müşterinin kayıtlarını ayrı izle ve ortak çalışma alanlarını yönet.",
+    forBusiness: "İşletmeler için", forAccountant: "Muhasebeciler için", findAccountant: "Muhasebecini davet et", joinMarketplace: "Tedarikçi hesabı aç",
     pricingTitle: "Şeffaf fiyat, sürpriz yok.", monthly: "Aylık", yearly: "Yıllık", discount: "Lansmana özel", popular: "Popüler", perMonth: "/ay", billedYearly: "yıllık ödemede", yearlyTotal: "Yıllık toplam", planCta: "Lansman fiyatıyla başla",
-    finalTitle: "İlk hücreni bugün doldur.", sales: "Satış ekibimizle görüş", footerText: "Ön muhasebe, yapay zekâ ve muhasebeci pazaryeri — işletmenin finansal çalışma alanı.",
+    finalTitle: "İlk kaydını bugün oluştur.", sales: "Satış ekibimizle görüş", footerText: "Ön muhasebe, muhasebeciyle ortak çalışma ve tedarikçi pazaryeri tek yerde.",
     product: "Ürün", soon: "Yakında", bankMatching: "Banka hareketi eşleştirme", multipleBranchesAndCurrencies: "Çoklu şube ve para birimi", integrationApis: "Entegrasyon API'leri", periodAutomation: "Muhasebeci dönem otomasyonu", clientHealthScore: "Müşteri belge sağlık skoru", company: "Şirket", legal: "Yasal", about: "Hakkımızda", careers: "Kariyer", blog: "Blog", contact: "İletişim", privacy: "Gizlilik", terms: "Kullanım Şartları", cookies: "Çerezler",
-    tourTitle: "Systemcel canlı tur", tourText: "Gelir-gider kaydı, cari ve stok takibi, fatura akışı, AI asistanı ve muhasebeci bağlantısı tek çalışma alanında buluşur.", tourAction: "Hesabını oluştur", close: "Kapat",
+    tourTitle: "Systemcel canlı tur", tourText: "Gelir-gider kaydı, cari ve stok takibi, fatura, yapay zekâ asistanı, muhasebeci bağlantısı ve tedarikçi pazaryeri tek yerde buluşur.", tourAction: "Hesabını oluştur", close: "Kapat",
   },
   en: {
     announcement: "New — e-Archive invoice flow is live in Systemcel",
-    accounting: "Accounting", ai: "AI Assistant", marketplace: "Marketplace", pricing: "Pricing",
+    accounting: "Accounting", ai: "AI Assistant", marketplace: "Supplier marketplace", pricing: "Pricing",
     signIn: "Sign in", start: "Start with launch pricing", eyebrow: "B2B FINANCE PLATFORM — TR/2026",
-    titleA: "Accounting,", titleB: "AI and your accountant.", titleC: "All in one place.",
-    lead: "Manage income, expenses, accounts, inventory and invoices in one place. Work with an AI assistant that understands your financial data and reach an expert accountant when needed.",
-    trial: "Start with launch pricing", tour: "Live tour", setup: "5-minute setup", cancel: "Cancel anytime",
+    titleA: "Accounting,", titleB: "your accountant and suppliers.", titleC: "All in one place.",
+    lead: "Manage income, expenses, accounts, inventory and invoices in one place. Work with your accountant, buy from suppliers and use an AI assistant for support.",
+    trial: "Start with launch pricing", tour: "Live tour", setup: "Easy setup", cancel: "Cancel at period end",
     section1: "You run the books — not the other way around.", section1Text: "Cash, accounts, inventory and invoices come together in one flow. Reduce repetitive work and make decisions visible.",
     section2: "Ask your books and get an answer.", section2Text: "Systemcel AI prepares concise, actionable answers about income, expenses, inventory, accounts, collections and reports.",
-    section3: "Your accountant is one click away.", section3Business: "Share your industry, taxpayer type, business scale and work preferences; Systemcel ranks accountants with a 0-100 fit score and explains each result.",
-    section3Accountant: "Create your profile, showcase your expertise, manage business requests and work securely with your clients.",
-    forBusiness: "For businesses", forAccountant: "For accountants", findAccountant: "Find an accountant", joinMarketplace: "Join marketplace",
+    section3: "Share one workspace with your accountant.", section3Business: "Invite your current accountant, choose their access and manage records and conversations in one place.",
+    section3Accountant: "Invite existing clients, keep each client's records separate and manage shared workspaces.",
+    forBusiness: "For businesses", forAccountant: "For accountants", findAccountant: "Invite your accountant", joinMarketplace: "Open a supplier account",
     pricingTitle: "Transparent pricing. No surprises.", monthly: "Monthly", yearly: "Yearly", discount: "Launch offer", popular: "Popular", perMonth: "/mo", billedYearly: "with annual billing", yearlyTotal: "Annual total", planCta: "Start with launch pricing",
-    finalTitle: "Fill your first cell today.", sales: "Talk to sales", footerText: "Accounting, AI and an accountant marketplace — your financial workspace.",
+    finalTitle: "Create your first record today.", sales: "Talk to sales", footerText: "Accounting, accountant collaboration and a supplier marketplace in one place.",
     product: "Product", soon: "Coming soon", bankMatching: "Bank transaction matching", multipleBranchesAndCurrencies: "Multiple branches and currencies", integrationApis: "Integration APIs", periodAutomation: "Accountant period automation", clientHealthScore: "Client document readiness score", company: "Company", legal: "Legal", about: "About", careers: "Careers", blog: "Blog", contact: "Contact", privacy: "Privacy", terms: "Terms", cookies: "Cookies",
     tourTitle: "Systemcel live tour", tourText: "Income and expense records, accounts, inventory, invoices, AI assistance and accountant collaboration meet in one workspace.", tourAction: "Create your account", close: "Close",
   },
@@ -161,9 +161,8 @@ export function LandingPage() {
   const [marketSide, setMarketSide] = React.useState<"business" | "accountant">("business");
   const [activeSection, setActiveSection] = React.useState("top");
   const t = copy[language];
-  const collaborationLabel = accountantMarketplaceEnabled
-    ? t.marketplace
-    : language === "tr" ? "Muhasebeciyle çalışma" : "Accountant collaboration";
+  const collaborationLabel = language === "tr" ? "Muhasebeciyle çalışma" : "Accountant collaboration";
+  const supplierMarketplaceLabel = t.marketplace;
   const signedIn = !auth.clerkEnabled || auth.isSignedIn;
   const tourSteps = language === "tr" ? [
     {
@@ -182,19 +181,19 @@ export function LandingPage() {
       eyebrow: "Systemcel AI",
       title: "Verini soruya ve aksiyona dönüştür",
       text: "Finansal verilerini anlayan asistan; nakit akışı, tahsilat riski ve stok hareketleri hakkında uygulanabilir yanıtlar üretir.",
-      metricLabel: "Örnek içgörü",
+      metricLabel: "Örnek sonuç",
       metricValue: "2 riskli cari",
       chips: ["Nakit akışı", "Tahsilat", "Stok riski"],
     },
     {
       target: "pazaryeri",
       number: "03",
-      eyebrow: accountantMarketplaceEnabled ? "Muhasebeci pazaryeri" : "Muhasebeciyle çalışma",
-      title: accountantMarketplaceEnabled ? "İhtiyacına uygun uzmanla eşleş" : "Çalıştığın muhasebeciyi davet et",
-      text: accountantMarketplaceEnabled ? "Sektör, mükellefiyet türü, iş hacmi ve çalışma biçimine göre hesaplanan skoru karşılaştır; eşleşme nedenlerini gör." : "İşletmeler muhasebecilerini, muhasebeciler mevcut müşterilerini güvenli bağlantıyla aynı çalışma alanına davet eder.",
-      metricLabel: accountantMarketplaceEnabled ? "Neden uygun" : "Bağlantı yöntemi",
-      metricValue: accountantMarketplaceEnabled ? "0-100 uyum skoru" : "Karşılıklı davet",
-      chips: accountantMarketplaceEnabled ? ["Sektör", "İşletme türü", "Online çalışma"] : ["Yetki seçimi", "Güvenli davet", "Ortak çalışma"],
+      eyebrow: "Muhasebeciyle çalışma",
+      title: "Çalıştığın muhasebeciyi davet et",
+      text: "İşletmeler muhasebecilerini, muhasebeciler mevcut müşterilerini davet bağlantısıyla aynı çalışma alanına ekler.",
+      metricLabel: "Bağlantı yöntemi",
+      metricValue: "Karşılıklı davet",
+      chips: ["Yetki seçimi", "Davet bağlantısı", "Ortak çalışma"],
     },
     {
       target: "fiyat",
@@ -203,7 +202,7 @@ export function LandingPage() {
       title: "Planını seç ve çalışma alanını aç",
       text: "İşletme veya muhasebeci planını seç, hesabını oluştur ve kurulum adımlarını tamamlayarak kullanmaya başla.",
       metricLabel: "Kurulum",
-      metricValue: "Yaklaşık 5 dk",
+      metricValue: "Kolay kurulum",
       chips: ["Plan seçimi", "Hesap oluşturma", "Kolay kurulum"],
     },
   ] : [
@@ -230,12 +229,12 @@ export function LandingPage() {
     {
       target: "pazaryeri",
       number: "03",
-      eyebrow: accountantMarketplaceEnabled ? "Accountant marketplace" : "Accountant collaboration",
-      title: accountantMarketplaceEnabled ? "Match with the right expert" : "Invite the accountant you work with",
-      text: accountantMarketplaceEnabled ? "Compare the score calculated from industry, taxpayer type, workload and work style, then review the matching reasons." : "Businesses invite their accountant, and accountants invite existing clients into a shared workspace through a secure link.",
-      metricLabel: accountantMarketplaceEnabled ? "Why it fits" : "Connection method",
-      metricValue: accountantMarketplaceEnabled ? "0-100 fit score" : "Mutual invitation",
-      chips: accountantMarketplaceEnabled ? ["Industry", "Business type", "Online work"] : ["Permissions", "Secure invite", "Shared work"],
+      eyebrow: "Accountant collaboration",
+      title: "Invite the accountant you work with",
+      text: "Businesses invite their accountant, and accountants invite existing clients into a shared workspace through an invitation link.",
+      metricLabel: "Connection method",
+      metricValue: "Mutual invitation",
+      chips: ["Permissions", "Invitation link", "Shared work"],
     },
     {
       target: "fiyat",
@@ -244,7 +243,7 @@ export function LandingPage() {
       title: "Choose a plan and open your workspace",
       text: "Choose a business or accountant plan, create your account and complete the setup steps.",
       metricLabel: "Setup",
-      metricValue: "About 5 min",
+      metricValue: "Easy setup",
       chips: ["Choose plan", "Create account", "Easy setup"],
     },
   ];
@@ -309,7 +308,7 @@ export function LandingPage() {
     const page = pageRef.current;
     if (!page) return undefined;
 
-    const sectionIds = ["top", "on-muhasebe", "ai", "pazaryeri", "fiyat"];
+    const sectionIds = ["top", "on-muhasebe", "ai", "muhasebeci", "pazaryeri", "fiyat"];
     let frame = 0;
     const updateScrollState = () => {
       frame = 0;
@@ -495,7 +494,7 @@ export function LandingPage() {
         <nav className="marketing-nav" aria-label={language === "tr" ? "Ana menü" : "Main navigation"}>
           <a className="marketing-brand" href="#top" aria-label="Systemcel ana sayfa"><BrandMark /><strong>systemcel</strong></a>
           <div className="marketing-nav__links">
-            <a className={activeSection === "on-muhasebe" ? "active" : ""} aria-current={activeSection === "on-muhasebe" ? "location" : undefined} href="#on-muhasebe">{t.accounting}</a><a className={activeSection === "ai" ? "active" : ""} aria-current={activeSection === "ai" ? "location" : undefined} href="#ai">{t.ai}</a><a className={activeSection === "pazaryeri" ? "active" : ""} aria-current={activeSection === "pazaryeri" ? "location" : undefined} href="#pazaryeri">{collaborationLabel}</a><a className={activeSection === "fiyat" ? "active" : ""} aria-current={activeSection === "fiyat" ? "location" : undefined} href="#fiyat">{t.pricing}</a>
+            <a className={activeSection === "on-muhasebe" ? "active" : ""} aria-current={activeSection === "on-muhasebe" ? "location" : undefined} href="#on-muhasebe">{t.accounting}</a><a className={activeSection === "ai" ? "active" : ""} aria-current={activeSection === "ai" ? "location" : undefined} href="#ai">{t.ai}</a><a className={activeSection === "muhasebeci" ? "active" : ""} aria-current={activeSection === "muhasebeci" ? "location" : undefined} href="#muhasebeci">{collaborationLabel}</a><a className={activeSection === "pazaryeri" ? "active" : ""} aria-current={activeSection === "pazaryeri" ? "location" : undefined} href="#pazaryeri">{supplierMarketplaceLabel}</a><a className={activeSection === "fiyat" ? "active" : ""} aria-current={activeSection === "fiyat" ? "location" : undefined} href="#fiyat">{t.pricing}</a>
           </div>
           <div className="marketing-nav__actions">
             <button className="marketing-language" type="button" onClick={changeLanguage} aria-label="Change language">{language === "tr" ? "EN" : "TR"}</button>
@@ -507,7 +506,8 @@ export function LandingPage() {
         {mobileMenuOpen ? <div className="marketing-mobile-menu">
           <a href="#on-muhasebe" onClick={() => setMobileMenuOpen(false)}>{t.accounting}</a>
           <a href="#ai" onClick={() => setMobileMenuOpen(false)}>{t.ai}</a>
-          <a href="#pazaryeri" onClick={() => setMobileMenuOpen(false)}>{collaborationLabel}</a>
+          <a href="#muhasebeci" onClick={() => setMobileMenuOpen(false)}>{collaborationLabel}</a>
+          <a href="#pazaryeri" onClick={() => setMobileMenuOpen(false)}>{supplierMarketplaceLabel}</a>
           <a href="#fiyat" onClick={() => setMobileMenuOpen(false)}>{t.pricing}</a>
           <a href={signedIn ? "/app" : "/giris"}>{signedIn ? (language === "tr" ? "Uygulamaya Git" : "Open app") : t.signIn}</a>
           <a className="marketing-mobile-menu__cta" href={trialHref()}>{pricingCta}<ArrowRight size={18} /></a>
@@ -584,55 +584,33 @@ export function LandingPage() {
           </div>
         </section>
 
-        <section id="pazaryeri" className="marketing-section">
+        <section id="muhasebeci" className="marketing-section">
           <div className="marketing-wrap marketing-market-grid marketing-reveal" data-reveal>
             <SectionCopy
               number="03"
               label={collaborationLabel}
-              title={accountantMarketplaceEnabled ? t.section3 : (language === "tr" ? "Muhasebecinle aynı çalışma alanında." : "Share one workspace with your accountant.")}
-              text={accountantMarketplaceEnabled
-                ? (marketSide === "business" ? t.section3Business : t.section3Accountant)
-                : (marketSide === "business"
-                  ? (language === "tr" ? "Çalıştığın muhasebeciyi davet et; erişim yetkisini belirle ve belgelerini güvenle paylaş." : "Invite your current accountant, choose their access and share your records securely.")
-                  : (language === "tr" ? "Mevcut müşterilerini davet et; belge, talep ve görüşmeleri tek yerden yönet." : "Invite existing clients and manage records, requests and conversations in one place."))}
+              title={t.section3}
+              text={marketSide === "business" ? t.section3Business : t.section3Accountant}
             />
             <div className="marketing-market-card">
               <div className="marketing-segmented" role="group" aria-label={collaborationLabel}>
-                <button type="button" className={marketSide === "business" ? "active" : ""} onClick={() => setMarketSide("business")}>{t.forBusiness}</button>
-                <button type="button" className={marketSide === "accountant" ? "active" : ""} onClick={() => setMarketSide("accountant")}>{t.forAccountant}</button>
+                <button type="button" className={marketSide === "business" ? "active" : ""} aria-pressed={marketSide === "business"} onClick={() => setMarketSide("business")}>{t.forBusiness}</button>
+                <button type="button" className={marketSide === "accountant" ? "active" : ""} aria-pressed={marketSide === "accountant"} onClick={() => setMarketSide("accountant")}>{t.forAccountant}</button>
               </div>
-              {!accountantMarketplaceEnabled ? (
-                <>
-                  <div className="marketing-market-profile" key={marketSide}><div><Users size={28} /></div><span>{marketSide === "business" ? (language === "tr" ? "Davet · Yetki · Ortak çalışma" : "Invite · Access · Collaboration") : (language === "tr" ? "Müşteriler · Belgeler · Talepler" : "Clients · Records · Requests")}</span><strong>{marketSide === "business" ? (language === "tr" ? "Kendi muhasebecini bağla" : "Connect your accountant") : (language === "tr" ? "Müşterilerini bağla" : "Connect your clients")}</strong></div>
-                  <a className="marketing-button marketing-button--ink" href={marketSide === "business" ? "/kayit?hesapTipi=Isletme&returnUrl=%2Fapp%2Fmuhasebeciler" : "/kayit?hesapTipi=Muhasebeci&returnUrl=%2Fapp%2Fmuhasebeci%2Fmusteriler"}>{language === "tr" ? "Başla" : "Get started"}<ArrowRight size={17} /></a>
-                </>
-              ) : marketSide === "business" ? (
-                <div className="marketing-market-accountant" key={marketSide}>
-                  <div className="marketing-market-accountant__head">
-                    <div className="marketing-market-accountant__avatar">
-                      <img src={accountantAyseAvatar} alt="Ayşe Demirtaş" />
-                      <span role="img" aria-label={language === "tr" ? "Yönetici onaylı profil" : "Admin-approved profile"}><Check size={15} strokeWidth={3} /></span>
-                    </div>
-                    <div className="marketing-market-accountant__identity">
-                      <strong>Ayşe Demirtaş</strong>
-                      <span>{language === "tr" ? "Muhasebe uzmanı" : "Accounting specialist"}</span>
-                    </div>
-                    <b className="marketing-market-accountant__score"><Check size={14} strokeWidth={3} />{language === "tr" ? "Skor + nedenler" : "Score + reasons"}</b>
-                  </div>
-                  <div className="marketing-market-accountant__facts">
-                    <span><ShieldCheck size={17} />{language === "tr" ? "12 yıl deneyim" : "12 years of experience"}</span>
-                    <span><WalletCards size={17} />{language === "tr" ? "E-ticaret" : "E-commerce"}</span>
-                    <span><FileText size={17} />KDV</span>
-                  </div>
-                  <p>{language === "tr" ? "E-ticaret tecrübesi, limited şirket uyumu ve online çalışma tercihiyle ihtiyaçlarına uygun." : "A good fit for your needs through e-commerce experience, limited-company expertise and online work."}</p>
-                  <a className="marketing-button marketing-button--ink" href="/muhasebeciler">{t.findAccountant}<ArrowRight size={17} /></a>
-                </div>
-              ) : (
-                <>
-                  <div className="marketing-market-profile" key={marketSide}><div><Users size={28} /></div><span>{language === "tr" ? "Profil · Talepler · Müşteri alanı" : "Profile · Requests · Client workspace"}</span><strong>{t.joinMarketplace}</strong></div>
-                  <a className="marketing-button marketing-button--ink" href="/kayit?hesapTipi=Muhasebeci&returnUrl=%2Fapp%2Fmuhasebeci">{t.joinMarketplace}<ArrowRight size={17} /></a>
-                </>
-              )}
+              <div className="marketing-market-profile" key={marketSide}><div><Users size={28} /></div><span>{marketSide === "business" ? (language === "tr" ? "Davet · Yetki · Ortak çalışma" : "Invite · Access · Collaboration") : (language === "tr" ? "Müşteriler · Belgeler · Talepler" : "Clients · Records · Requests")}</span><strong>{marketSide === "business" ? (language === "tr" ? "Muhasebecini bağla" : "Connect your accountant") : (language === "tr" ? "Müşterilerini bağla" : "Connect your clients")}</strong></div>
+              <a className="marketing-button marketing-button--ink" href={marketSide === "business" ? "/kayit?hesapTipi=Isletme&returnUrl=%2Fapp%2Fmuhasebeciler" : "/kayit?hesapTipi=Muhasebeci&returnUrl=%2Fapp%2Fmuhasebeci%2Fmusteriler"}>{language === "tr" ? "Başla" : "Get started"}<ArrowRight size={17} /></a>
+            </div>
+          </div>
+        </section>
+
+        <section id="pazaryeri" className="marketing-section marketing-section--dark">
+          <div className="marketing-wrap marketing-feature-grid marketing-reveal" data-reveal>
+            <SectionCopy number="04" label={supplierMarketplaceLabel} title={language === "tr" ? "Tek sepet. Birden fazla tedarikçi." : "One cart. Multiple suppliers."} text={language === "tr" ? "Ürünleri aynı sepette topla; her tedarikçinin siparişini, teslimatını ve faturasını ayrı takip et." : "Combine products in one cart, then track each supplier's order, delivery and invoice separately."} dark />
+            <div className="marketing-ledger-list">
+              <FeatureRow icon={<PackageSearch />} title={language === "tr" ? "Ürünleri karşılaştır" : "Compare products"} text={language === "tr" ? "Ürün, kategori veya tedarikçi adına göre ara." : "Search by product, category or supplier."} />
+              <FeatureRow icon={<WalletCards />} title={language === "tr" ? "Tek sepet, ayrı takip" : "One cart, separate tracking"} text={language === "tr" ? "Farklı tedarikçilerden al; teslimatları ve faturaları ayrı izle." : "Buy from multiple suppliers and track deliveries and invoices separately."} />
+              <FeatureRow icon={<FileText />} title={language === "tr" ? "Alım talebi ve teklifler" : "Purchase requests and quotes"} text={language === "tr" ? "İhtiyacını yayınla, gelen teklifleri karşılaştır." : "Publish what you need and compare incoming quotes."} />
+              <a className="marketing-button marketing-button--lime" href="/giris?returnUrl=%2Fapp%2Ftedarikci-pazaryeri">{language === "tr" ? "Tedarikçi pazaryerine git" : "Open supplier marketplace"}<ArrowRight size={17} /></a>
             </div>
           </div>
         </section>
@@ -656,7 +634,7 @@ export function LandingPage() {
         <section className="marketing-final-cta"><div className="marketing-wrap"><h2>{t.finalTitle}</h2><div><a className="marketing-button marketing-button--lime marketing-button--large" href={trialHref()}>{pricingCta}<ArrowRight size={18} /></a><a className="marketing-button marketing-button--dark-ghost marketing-button--large" href="mailto:satis@systemcel.app?subject=Systemcel%20Satış%20Görüşmesi">{t.sales}</a></div></div></section>
       </main>
 
-      <footer className="marketing-footer"><div className="marketing-wrap marketing-footer__grid"><div><a className="marketing-brand marketing-brand--dark" href="#top"><BrandMark /><strong>systemcel</strong></a><p>{accountantMarketplaceEnabled ? t.footerText : (language === "tr" ? "Ön muhasebe, yapay zekâ ve muhasebeciyle ortak çalışma alanı." : "Accounting, AI and a shared workspace with your accountant.")}</p></div><FooterGroup title={t.product} links={[[t.accounting, "/#on-muhasebe"], [t.ai, "/#ai"], [collaborationLabel, "/#pazaryeri"], [t.bankMatching, "/giris"], [t.pricing, "/#fiyat"]]} soonTitle={t.soon} soonItems={[t.multipleBranchesAndCurrencies, t.integrationApis, t.periodAutomation]} /><FooterGroup title={t.company} links={[[t.about, "/hakkimizda"], [t.careers, "/kariyer"], [t.blog, "/blog"], [t.contact, "/iletisim"]]} /><FooterGroup title={t.legal} links={[["KVKK", "/kvkk"], [t.privacy, "/gizlilik"], [t.terms, "/kullanim-sartlari"], [language === "tr" ? "Abonelik Koşulları" : "Subscription Terms", "/abonelik-kosullari"], [t.cookies, "/cerezler"]]} /></div><div className="marketing-wrap marketing-footer__bottom"><span>© 2026 SYSTEMCEL — İSTANBUL</span><button type="button" onClick={changeLanguage}>{language === "tr" ? "TR / EN" : "EN / TR"}</button></div></footer>
+      <footer className="marketing-footer"><div className="marketing-wrap marketing-footer__grid"><div><a className="marketing-brand marketing-brand--dark" href="#top"><BrandMark /><strong>systemcel</strong></a><p>{t.footerText}</p></div><FooterGroup title={t.product} links={[[t.accounting, "/#on-muhasebe"], [t.ai, "/#ai"], [collaborationLabel, "/#muhasebeci"], [supplierMarketplaceLabel, "/#pazaryeri"], [t.pricing, "/#fiyat"]]} soonTitle={t.soon} soonItems={[t.multipleBranchesAndCurrencies, t.integrationApis, t.periodAutomation]} /><FooterGroup title={t.company} links={[[t.about, "/hakkimizda"], [t.careers, "/kariyer"], [t.blog, "/blog"], [t.contact, "/iletisim"]]} /><FooterGroup title={t.legal} links={[["KVKK", "/kvkk"], [t.privacy, "/gizlilik"], [t.terms, "/kullanim-sartlari"], [language === "tr" ? "Abonelik Koşulları" : "Subscription Terms", "/abonelik-kosullari"], [t.cookies, "/cerezler"]]} /></div><div className="marketing-wrap marketing-footer__bottom"><span>© 2026 SYSTEMCEL — İSTANBUL</span><button type="button" onClick={changeLanguage}>{language === "tr" ? "TR / EN" : "EN / TR"}</button></div></footer>
 
       {tourOpen ? (
         <div className="marketing-modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setTourOpen(false)}>
@@ -879,16 +857,16 @@ function TourSceneVisual({
                 <strong>Ayşe Demirtaş</strong>
                 <span>{tr ? "Muhasebe uzmanı · İstanbul" : "Accounting expert · Istanbul"}</span>
               </div>
-              <b><Check size={13} strokeWidth={3} />{tr ? "Uyum skoru" : "Fit score"}</b>
+              <b><Check size={13} strokeWidth={3} />{tr ? "Davet bekliyor" : "Invite pending"}</b>
             </div>
             <div className="marketing-tour-accountant__facts">
               {step.chips.map((chip) => <span key={chip}>{chip}</span>)}
             </div>
             <div className="marketing-tour-accountant__meta">
-              <span><ShieldCheck size={15} />{tr ? "Yönetici onaylı profil" : "Admin-approved profile"}</span>
-              <span><Users size={15} />{tr ? "12 yıl deneyim" : "12 years experience"}</span>
+              <span><ShieldCheck size={15} />{tr ? "Okuma ve rapor yetkisi" : "View and report access"}</span>
+              <span><Users size={15} />{tr ? "Ortak çalışma alanı" : "Shared workspace"}</span>
             </div>
-            <div className="marketing-tour-accountant__action">{tr ? "Profili incele" : "View profile"}<ArrowRight size={16} /></div>
+            <div className="marketing-tour-accountant__action">{tr ? "Bağlantıyı yönet" : "Manage connection"}<ArrowRight size={16} /></div>
           </main>
         </div>
       ) : null}
