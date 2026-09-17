@@ -73,7 +73,7 @@ describe("TedarikciPazaryeriSayfasi", () => {
       profil: { id: 1, unvan: "Tedarikçi", kategoriler: "Gıda", sehir: "İstanbul", aciklama: "", dogrulandi: true },
       benimUrunlerim: [{ id: 42, sku: "KAHVE", ad: "Filtre Kahve", aciklama: "", kategori: "Gıda", birim: "Adet", birimFiyat: 100, kdvOrani: 20, paraBirimi: "TRY", stokMiktari: 8, minimumSiparisMiktari: 1, tahminiTeslimatGun: 2, rezerveMiktar: 1, aktif: true }],
       kaynakUrunler: [], urunler: [], anaSiparisler: [], siparisler: [], siparisKalemleri: [] };
-    vi.mocked(jsonOku).mockImplementation(async (url, init) => {
+    vi.mocked(jsonOku).mockImplementation(async (url) => {
       if (url === "/api/ekran/tedarikci-pazaryeri/urunler/42") return { mesaj: "Ürün güncellendi." } as never;
       return initial as never;
     });
