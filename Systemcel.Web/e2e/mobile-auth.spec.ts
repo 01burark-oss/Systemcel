@@ -214,6 +214,9 @@ async function mockClerk(page: Page, signedIn: boolean) {
 }
 
 async function mockWorkspace(page: Page) {
+  await page.addInitScript(() => {
+    window.localStorage.setItem("systemcel.analyticsConsent", "denied");
+  });
   await page.route("**/hubs/muhasebeci-sohbet/**", (route) => route.abort());
   await page.route("**/api/ekran/sohbetler?**", (route) => json(route, {
     sohbetler: [],
