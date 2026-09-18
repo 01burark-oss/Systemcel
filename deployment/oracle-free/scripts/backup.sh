@@ -63,9 +63,8 @@ docker run --rm --interactive postgres:18-alpine \
 
 docker run --rm \
   --volume systemcel_app_data:/data:ro \
-  --volume "${backup_dir}:/backup" \
   alpine:3.22 \
-  tar -C /data -czf "/backup/${appdata_archive_name}.partial" .
+  tar -C /data -czf - . > "${appdata_archive_partial}"
 
 chmod 600 "${db_dump_partial}" "${appdata_archive_partial}"
 tar -tzf "${appdata_archive_partial}" >/dev/null
