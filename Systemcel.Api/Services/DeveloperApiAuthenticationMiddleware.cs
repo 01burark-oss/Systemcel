@@ -111,7 +111,7 @@ public sealed class DeveloperApiAuthenticationEnforcementMiddleware
             status,
             detail,
             traceId = context.TraceIdentifier
-        }, contentType: "application/problem+json", cancellationToken: context.RequestAborted);
+        }, (System.Text.Json.JsonSerializerOptions?)null, "application/problem+json", context.RequestAborted);
     }
 }
 
