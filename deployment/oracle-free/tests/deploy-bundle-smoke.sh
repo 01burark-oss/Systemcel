@@ -105,8 +105,9 @@ if env \
   echo "Başarısız yedekten sonra dağıtım devam etti." >&2
   exit 1
 fi
-test "$(git -C "${backup_target}" rev-parse HEAD)" = "${base_sha}"
+test "$(git -C "${backup_target}" rev-parse HEAD)" = "${candidate_sha}"
 test "$(tr '\n' ',' <"${test_dir}/backup-failure.log")" = 'backup,'
+test ! -e "${backup_target}/state/last-success.json"
 
 if env \
   SYSTEMCEL_REPO_DIR="${success_target}" \

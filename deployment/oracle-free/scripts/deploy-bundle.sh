@@ -59,7 +59,6 @@ if ! git merge-base --is-ancestor "${previous_sha}" "${candidate_sha}"; then
   exit 7
 fi
 
-bash ./deployment/oracle-free/scripts/backup.sh --quiesce
 git checkout --detach "${candidate_sha}"
 
 if [[ "$(git rev-parse HEAD)" != "${candidate_sha}" ]]; then
@@ -67,6 +66,7 @@ if [[ "$(git rev-parse HEAD)" != "${candidate_sha}" ]]; then
   exit 8
 fi
 
+bash ./deployment/oracle-free/scripts/backup.sh --quiesce
 bash ./deployment/oracle-free/scripts/deploy.sh
 bash ./deployment/oracle-free/scripts/smoke.sh http://127.0.0.1:8080
 

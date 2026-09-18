@@ -34,7 +34,7 @@ A successful `CI` run caused by a push to the default branch triggers `Deploy pr
 
 The production SSH key is environment-scoped and forced to `/opt/systemcel/bin/systemcel-github-deploy-gateway`. It cannot open a general shell or enable port, agent, X11, or PTY forwarding. The gateway accepts only `status` and `deploy <40-character-sha>`.
 
-Before changing the checkout, Oracle verifies the bundle reference and ancestry, rejects tracked local changes, acquires a single-deploy lock, and runs a quiesced verified database/appdata backup. A failed backup stops the release. The exact candidate is then checked out detached, deployed, checked locally with readiness and smoke, and checked again from GitHub against `https://systemcel.app`.
+Oracle verifies the bundle reference and ancestry, rejects tracked local changes, acquires a single-deploy lock, and checks out the exact candidate detached. It then runs that candidate's quiesced verified database/appdata backup; a failed backup stops the release and leaves `last-success` unchanged. Only after the backup succeeds does Oracle deploy, check locally with readiness and smoke, and get checked again from GitHub against `https://systemcel.app`.
 
 Required `production` environment secrets:
 
