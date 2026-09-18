@@ -46,8 +46,19 @@ describe("ReactWorkspaceShell bildirim merkezi", () => {
     cleanup();
     vi.resetAllMocks();
     window.localStorage.clear();
+    window.history.replaceState({}, "", "/app");
     delete document.documentElement.dataset.theme;
     document.documentElement.style.removeProperty("color-scheme");
+  });
+
+  it("tedarikçi pazaryerini doğru menü ve sayfa başlığıyla gösterir", () => {
+    window.history.replaceState({}, "", "/app/tedarikci-pazaryeri");
+
+    render(shell());
+
+    expect(screen.getByRole("link", { name: "Tedarikçi pazaryeri" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("heading", { name: "Tedarikçi pazaryeri", level: 1 })).toBeVisible();
+    expect(screen.queryByRole("heading", { name: "Ana sayfa", level: 1 })).not.toBeInTheDocument();
   });
 
   it("keeps notifications available after a failed update and allows retry", async () => {

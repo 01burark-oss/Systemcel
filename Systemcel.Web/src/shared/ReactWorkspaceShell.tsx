@@ -179,7 +179,7 @@ function yetkiEtiketi(value?: string) {
 
 function navKey(href: string): TranslationKey {
   const keys: Record<string, TranslationKey> = {
-    "/": "nav.home", "/finansal-gorunum": "nav.finance", "/gelir-gider": "nav.incomeExpense", "/hizli-satis": "nav.quickSale", "/urun-stok": "nav.stock", "/stok-defteri": "nav.stockLedger", "/cari-hesaplar": "nav.accounts", "/faturalar": "nav.invoices", "/tahsilat-odeme": "nav.payments", "/banka-eslestirme": "nav.bank", "/raporlar": "nav.reports", "/sohbetler": "nav.chat", "/muhasebeci": "nav.accountant", "/muhasebeci/musteriler": "nav.clients", "/muhasebeciler": "nav.accountants", "/yonetim/muhasebeci-basvurulari": "nav.admin", "/ayarlar": "nav.settings"
+    "/": "nav.home", "/finansal-gorunum": "nav.finance", "/gelir-gider": "nav.incomeExpense", "/hizli-satis": "nav.quickSale", "/urun-stok": "nav.stock", "/stok-defteri": "nav.stockLedger", "/tedarikci-pazaryeri": "nav.marketplace", "/cari-hesaplar": "nav.accounts", "/faturalar": "nav.invoices", "/tahsilat-odeme": "nav.payments", "/banka-eslestirme": "nav.bank", "/raporlar": "nav.reports", "/sohbetler": "nav.chat", "/muhasebeci": "nav.accountant", "/muhasebeci/musteriler": "nav.clients", "/muhasebeciler": "nav.accountants", "/yonetim/muhasebeci-basvurulari": "nav.admin", "/ayarlar": "nav.settings"
   };
   return keys[href] ?? "nav.home";
 }
@@ -217,6 +217,13 @@ function workspacePageMeta(path: string, settingsTab: string): WorkspacePageMeta
     return {
       icon: Package,
       title: "Stok defteri"
+    };
+  }
+
+  if (path === "/tedarikci-pazaryeri") {
+    return {
+      icon: PackageSearch,
+      title: "Tedarikçi pazaryeri"
     };
   }
 

@@ -83,9 +83,9 @@ export function MuhasebeciBaglantiSayfasi({ ustBar }: { mobileMode?: boolean; us
       </section>
 
       <section className="accountant-connection-steps" aria-label="Bağlantı adımları">
-        <article><strong>1</strong><div><h3>Davet et</h3><p>Çalıştığın kişiye güvenli davet bağlantısını gönder.</p></div></article>
-        <article><strong>2</strong><div><h3>Kabul edilsin</h3><p>Karşı taraf hesabıyla giriş yapıp daveti onaylasın.</p></div></article>
-        <article><strong>3</strong><div><h3>Birlikte çalış</h3><p>Belgeleri ve görüşmeleri tek çalışma alanında yönet.</p></div></article>
+        <article><span className="accountant-connection-step__icon" aria-hidden="true"><Send size={17} /></span><div><h3>Davet et</h3><p>Çalıştığın kişiye güvenli davet bağlantısını gönder.</p></div></article>
+        <article><span className="accountant-connection-step__icon" aria-hidden="true"><Check size={17} /></span><div><h3>Kabul edilsin</h3><p>Karşı taraf hesabıyla giriş yapıp daveti onaylasın.</p></div></article>
+        <article><span className="accountant-connection-step__icon" aria-hidden="true"><UsersRound size={17} /></span><div><h3>Birlikte çalış</h3><p>Belgeleri ve görüşmeleri tek çalışma alanında yönet.</p></div></article>
       </section>
 
       {geriBildirim ? <p className="accountant-feedback accountant-feedback--success">{geriBildirim}</p> : null}
