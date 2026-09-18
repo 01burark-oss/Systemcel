@@ -28,6 +28,21 @@ This runbook covers the live Oracle VM deployment. It does not authorize live pa
 3. Watch `docker compose logs --tail=120 app` and confirm migrations complete before accepting traffic.
 4. Confirm Caddy serves `https://systemcel.app` and `/api/health/ready` returns 200.
 
+## Automatic production deploy
+
+A successful `CI` run caused by a push to the default branch triggers `Deploy production`. The workflow rechecks that the CI commit is still the current default-branch head, asks Oracle for its deployed SHA through a restricted SSH key, and sends only the incremental Git bundle between those two commits.
+
+The production SSH key is environment-scoped and forced to `/opt/systemcel/bin/systemcel-github-deploy-gateway`. It cannot open a general shell or enable port, agent, X11, or PTY forwarding. The gateway accepts only `status` and `deploy <40-character-sha>`.
+
+Before changing the checkout, Oracle verifies the bundle reference and ancestry, rejects tracked local changes, acquires a single-deploy lock, and runs a quiesced verified database/appdata backup. A failed backup stops the release. The exact candidate is then checked out detached, deployed, checked locally with readiness and smoke, and checked again from GitHub against `https://systemcel.app`.
+
+Required `production` environment secrets:
+
+- `ORACLE_SSH_PRIVATE_KEY`: dedicated restricted deploy key; never reuse a personal administration key.
+- `ORACLE_SSH_KNOWN_HOSTS`: verified Oracle host-key entry; runtime `ssh-keyscan` is not accepted.
+
+The workflow does not perform an automatic database downgrade or silent rollback. A failed deployment remains failed and requires the forward-fix or schema-compatible recovery procedure below.
+
 ## Post-deploy smoke
 
 Run the public checks with the exact candidate SHA and write a sanitized result file:

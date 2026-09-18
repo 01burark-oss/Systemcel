@@ -1,0 +1,120 @@
+name: Deploy production
+
+on:
+  workflow_run:
+    workflows:
+      - CI
+    types:
+      - completed
+
+permissions:
+  contents: read
+
+concurrency:
+  group: systemcel-production-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == github.event.repository.default_branch
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    environment:
+      name: production
+      url: https://systemcel.app
+    env:
+      CANDIDATE_SHA: ${{ github.event.workflow_run.head_sha }}
+      DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+      ORACLE_HOST: 89.168.102.124
+      ORACLE_USER: ubuntu
+
+    steps:
+      - name: Checkout exact CI candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 0
+
+      - name: Verify candidate is current default branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "${CANDIDATE_SHA}" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$(git rev-parse HEAD)" == "${CANDIDATE_SHA}" ]]
+          git fetch --no-tags origin "refs/heads/${DEFAULT_BRANCH}:refs/remotes/origin/${DEFAULT_BRANCH}"
+          [[ "$(git rev-parse "refs/remotes/origin/${DEFAULT_BRANCH}")" == "${CANDIDATE_SHA}" ]]
+
+      - name: Configure restricted SSH identity
+        shell: bash
+        env:
+          ORACLE_SSH_PRIVATE_KEY: ${{ secrets.ORACLE_SSH_PRIVATE_KEY }}
+          ORACLE_SSH_KNOWN_HOSTS: ${{ secrets.ORACLE_SSH_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          [[ -n "${ORACLE_SSH_PRIVATE_KEY}" ]]
+          [[ -n "${ORACLE_SSH_KNOWN_HOSTS}" ]]
+          umask 077
+          mkdir -p "${RUNNER_TEMP}/systemcel-ssh"
+          printf '%s\n' "${ORACLE_SSH_PRIVATE_KEY}" > "${RUNNER_TEMP}/systemcel-ssh/deploy-key"
+          printf '%s\n' "${ORACLE_SSH_KNOWN_HOSTS}" > "${RUNNER_TEMP}/systemcel-ssh/known-hosts"
+          ssh-keygen -y -f "${RUNNER_TEMP}/systemcel-ssh/deploy-key" >/dev/null
+          ssh-keygen -F "${ORACLE_HOST}" -f "${RUNNER_TEMP}/systemcel-ssh/known-hosts" >/dev/null
+
+      - name: Build incremental Git bundle
+        id: bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh_options=(
+            -i "${RUNNER_TEMP}/systemcel-ssh/deploy-key"
+            -o BatchMode=yes
+            -o IdentitiesOnly=yes
+            -o StrictHostKeyChecking=yes
+            -o UserKnownHostsFile="${RUNNER_TEMP}/systemcel-ssh/known-hosts"
+          )
+          remote_sha="$(ssh "${ssh_options[@]}" "${ORACLE_USER}@${ORACLE_HOST}" status)"
+          [[ "${remote_sha}" =~ ^[0-9a-f]{40}$ ]]
+          if [[ "${remote_sha}" == "${CANDIDATE_SHA}" ]]; then
+            printf 'required=false\n' >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+          git merge-base --is-ancestor "${remote_sha}" "${CANDIDATE_SHA}"
+
+          bundle_ref="refs/heads/systemcel-deploy-${CANDIDATE_SHA}"
+          bundle_path="${RUNNER_TEMP}/systemcel-${CANDIDATE_SHA}.bundle"
+          git update-ref "${bundle_ref}" "${CANDIDATE_SHA}"
+          trap 'git update-ref -d "${bundle_ref}"' EXIT
+          git bundle create "${bundle_path}" "${bundle_ref}" "^${remote_sha}"
+          git bundle verify "${bundle_path}"
+          printf 'required=true\n' >> "${GITHUB_OUTPUT}"
+          printf 'path=%s\n' "${bundle_path}" >> "${GITHUB_OUTPUT}"
+
+      - name: Deploy exact candidate on Oracle
+        if: steps.bundle.outputs.required == 'true'
+        shell: bash
+        env:
+          BUNDLE_PATH: ${{ steps.bundle.outputs.path }}
+        run: |
+          set -euo pipefail
+          ssh_options=(
+            -i "${RUNNER_TEMP}/systemcel-ssh/deploy-key"
+            -o BatchMode=yes
+            -o IdentitiesOnly=yes
+            -o StrictHostKeyChecking=yes
+            -o UserKnownHostsFile="${RUNNER_TEMP}/systemcel-ssh/known-hosts"
+          )
+          cat "${BUNDLE_PATH}" | ssh "${ssh_options[@]}" "${ORACLE_USER}@${ORACLE_HOST}" "deploy ${CANDIDATE_SHA}"
+          deployed_sha="$(ssh "${ssh_options[@]}" "${ORACLE_USER}@${ORACLE_HOST}" status)"
+          [[ "${deployed_sha}" == "${CANDIDATE_SHA}" ]]
+
+      - name: Run public production smoke
+        shell: pwsh
+        run: |
+          ./scripts/Test-SystemcelPublic.ps1 `
+            -BaseUrl https://systemcel.app `
+            -CandidateSha $env:CANDIDATE_SHA `
+            -EnvironmentName production `
+            -EvidencePath (Join-Path $env:RUNNER_TEMP "public-smoke.json")
