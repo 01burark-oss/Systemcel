@@ -102,7 +102,6 @@ public sealed class DeveloperApiAuthenticationEnforcementMiddleware
     private static async Task RejectAsync(HttpContext context, int status, string detail)
     {
         context.Response.StatusCode = status;
-        context.Response.ContentType = "application/problem+json";
         if (status == StatusCodes.Status401Unauthorized)
             context.Response.Headers.WWWAuthenticate = "ApiKey";
         await context.Response.WriteAsJsonAsync(new
@@ -112,7 +111,7 @@ public sealed class DeveloperApiAuthenticationEnforcementMiddleware
             status,
             detail,
             traceId = context.TraceIdentifier
-        }, context.RequestAborted);
+        }, contentType: "application/problem+json", cancellationToken: context.RequestAborted);
     }
 }
 

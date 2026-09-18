@@ -45,6 +45,7 @@ public sealed class DeveloperApiAuthenticationTests : IDisposable
         var missing = CreateContext();
         await middleware.InvokeAsync(missing, _keys, new EnabledGuard());
         Assert.Equal(StatusCodes.Status401Unauthorized, missing.Response.StatusCode);
+        Assert.Equal("application/problem+json", missing.Response.ContentType);
         Assert.False(nextCalled);
 
         var altered = CreateContext();
