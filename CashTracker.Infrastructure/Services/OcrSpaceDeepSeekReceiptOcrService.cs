@@ -61,7 +61,11 @@ namespace CashTracker.Infrastructure.Services
                 },
                 0.1,
                 1600,
-                ct);
+                request.BusinessId > 0
+                    ? request.BusinessId.ToString(CultureInfo.InvariantCulture)
+                    : request.BusinessName,
+                enableThinking: false,
+                ct: ct);
 
             var parsed = JsonSerializer.Deserialize<ReceiptPayload>(ExtractJsonObject(answer), JsonOptions)
                 ?? throw new InvalidOperationException("DeepSeek OCR JSON yaniti okunamadi.");
@@ -143,7 +147,6 @@ namespace CashTracker.Infrastructure.Services
                 : string.Join(", ", request.AvailableExpenseCategories.Where(x => !string.IsNullOrWhiteSpace(x)).Select(x => x.Trim()).Distinct(StringComparer.OrdinalIgnoreCase));
 
             return
-                "Isletme: " + (string.IsNullOrWhiteSpace(request.BusinessName) ? "Bilinmiyor" : request.BusinessName.Trim()) + "\n" +
                 (string.IsNullOrWhiteSpace(request.Caption) ? "" : "Kullanici notu: " + request.Caption.Trim() + "\n") +
                 "Mevcut gider kalemleri: " + categories + "\n\n" +
                 "OCR metni:\n" +

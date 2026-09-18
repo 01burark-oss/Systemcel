@@ -15,6 +15,8 @@ import {
   Package,
   ReceiptText,
   Send,
+  Store,
+  Users,
   WalletCards
 } from "lucide-react";
 import productHeroOverview from "../../assets/product-hero-overview.png";
@@ -37,18 +39,18 @@ const problemCards = [
   },
   {
     title: "Bugünü anında gör",
-    text: "Toplam gelir, gider, net kâr ve ödeme dağılımını dashboard üzerinden izle."
+    text: "Toplam gelir, gider, net kâr ve ödeme dağılımını ana ekrandan izle."
   },
   {
-    title: "Operasyonu hızlandır",
-    text: "Tekrarlayan finans işlerini daha az manuel işlemle yönet."
+    title: "Günlük işleri hızlandır",
+    text: "Tekrarlayan finans işlerini daha az elle takip et."
   }
 ];
 
 const modules = [
   {
     icon: CreditCard,
-    title: "Gelir / Gider Takibi",
+    title: "Gelir ve gider takibi",
     text: "Günlük kasa hareketlerini kalem, ödeme yöntemi ve açıklama bazında kaydet."
   },
   {
@@ -74,17 +76,27 @@ const modules = [
   {
     icon: BarChart3,
     title: "Raporlar",
-    text: "Finansal özetleri, dönemsel raporları ve çıktı akışlarını tek merkezden hazırla."
+    text: "Finansal özetleri, dönem raporlarını ve çıktıları tek yerden hazırla."
   },
   {
     icon: Landmark,
     title: "GİB e-Arşiv Portal",
-    text: "GİB bağlantı bilgilerini güvenli sakla, taslak ve SMS onay akışlarını yönet."
+    text: "Fatura taslağını hazırla ve GİB SMS koduyla gönderimi tamamla."
   },
   {
     icon: Send,
-    title: "Telegram Bildirimleri",
+    title: "Telegram bildirimleri",
     text: "Finansal özetleri ve önemli durumları Telegram üzerinden takip et."
+  },
+  {
+    icon: Users,
+    title: "Muhasebeciyle çalışma",
+    text: "Muhasebecini davet et, yetkisini seç ve belgelerle görüşmeleri tek yerde yönet."
+  },
+  {
+    icon: Store,
+    title: "Tedarikçi pazaryeri",
+    text: "Birden fazla tedarikçiden alım yap; teslimatları ve faturaları ayrı takip et."
   }
 ];
 
@@ -93,25 +105,25 @@ const workflow = [
   ["Gelir ve giderleri işle", "Kasa hareketlerini ödeme yöntemi ve kalem bazında kaydet."],
   ["Fatura oluştur", "Cari, ürün/hizmet ve ödeme bilgilerini faturaya bağla."],
   ["Tahsilat veya ödeme al", "Faturanın finansal karşılığını nakit akışına yansıt."],
-  ["Raporla ve karar al", "Dashboard ve raporlarla işletmenin durumunu net şekilde gör."]
+  ["Raporla ve karar al", "Ana ekran ve raporlarla işletmenin durumunu net şekilde gör."]
 ];
 
 const automationItems = [
   "Finansal özetleri anlaşılır hale getirir",
   "Dönemsel performansı karşılaştırmayı kolaylaştırır",
-  "Rapor ve bildirim akışlarını hızlandırır",
+  "Rapor ve bildirimleri daha hızlı hazırlar",
   "AI destekli öneriler için sağlam veri zemini oluşturur"
 ];
 
 const securityItems = [
-  "İşletme bazlı ayrım",
-  "Güvenli bağlantı bilgisi saklama",
-  "Yetkilendirmeye hazır mimari",
-  "Kontrollü veri erişimi"
+  "Her işletme için ayrı kayıtlar",
+  "Hesapla sınırlanan erişim",
+  "Muhasebeci için seçilebilir yetki",
+  "Müşteri kayıtlarının ayrılması"
 ];
 
 const pricingPlans = [
-  ["Başlangıç", "Temel kayıt, dashboard ve raporlama akışları."],
+  ["Başlangıç", "Temel kayıt, ana ekran ve raporlar."],
   ["Pro", "Fatura, stok, tahsilat ve gelişmiş bildirimler."],
   ["Muhasebeci", "Çoklu işletme ve müşteri portföyü yönetimi."],
   ["Kurumsal", "Ekip, yetki ve özel entegrasyon ihtiyaçları."]
@@ -202,10 +214,10 @@ export function ProductSayfasi() {
         <NoDragImage src={productHeroOverview} alt="" />
         <div className="product-hero__shade" />
         <div className="product-hero__copy">
-          <h1 id="product-title">Finansal operasyonlarını tek panelden yönet</h1>
+          <h1 id="product-title">İşletmenin finansını tek yerden yönet</h1>
           <p>
-            Systemcel; gelir, gider, fatura, cari hesap, stok, tahsilat ve raporlama süreçlerini sade
-            bir dashboard altında toplar.
+            Systemcel; gelir, gider, fatura, cari hesap, stok, tahsilat ve raporları tek ekranda toplar.
+            Muhasebecinle birlikte çalışmanı ve tedarikçilerden alım yapmanı kolaylaştırır.
           </p>
           <div className="product-hero__actions">
             <a className="product-btn product-btn--primary" href="/">
@@ -222,11 +234,11 @@ export function ProductSayfasi() {
 
       <section className="product-band product-problem" id="genel-bakis">
         <div className="product-section-heading">
-          <span>Genel Bakış</span>
+          <span>Genel bakış</span>
           <h2>Finans verisi dağınıksa karar almak zorlaşır</h2>
           <p>
             Gelirler ayrı yerde, giderler ayrı tabloda, faturalar başka bir sistemde ve tahsilatlar
-            manuel takip ediliyorsa işletmenin gerçek durumunu görmek zaman alır. Systemcel bu parçaları
+            elle takip ediliyorsa işletmenin gerçek durumunu görmek zaman alır. Systemcel bu parçaları
             birleştirir.
           </p>
         </div>
@@ -243,10 +255,10 @@ export function ProductSayfasi() {
 
       <section className="product-band product-dashboard" id="dashboard">
         <div className="product-section-heading">
-          <span>Dashboard</span>
+          <span>Ana ekran</span>
           <h2>Günün finansal fotoğrafı tek ekranda</h2>
           <p>
-            Dashboard, işletmenin anlık finans durumunu sade ve okunabilir kartlarla gösterir. Bugünkü
+            Ana ekran, işletmenin güncel finans durumunu sade kartlarla gösterir. Bugünkü
             gelir, gider, net kâr, ödeme yöntemleri ve dönemsel özetler aynı alanda görünür.
           </p>
         </div>
@@ -270,7 +282,7 @@ export function ProductSayfasi() {
           <span>Modüller</span>
           <h2>Finans yönetiminin temel modülleri hazır</h2>
           <p>
-            Kayıt, fatura, cari, stok, tahsilat ve rapor akışları aynı ürün deneyimi içinde birbirine bağlanır.
+            Kayıt, fatura, cari hesap, stok, tahsilat ve raporlar aynı verilerden beslenir.
           </p>
         </div>
         <div className="product-module-grid">
@@ -289,8 +301,8 @@ export function ProductSayfasi() {
 
       <section className="product-band product-workflow" id="is-akisi">
         <div className="product-section-heading">
-          <span>İş Akışı</span>
-          <h2>Kayıttan rapora kadar uçtan uca akış</h2>
+          <span>İş akışı</span>
+          <h2>Kayıttan rapora tüm süreç</h2>
         </div>
         <div className="product-workflow__steps">
           {workflow.map(([title, text], index) => (
@@ -305,12 +317,11 @@ export function ProductSayfasi() {
 
       <section className="product-band product-split" id="otomasyon">
         <div>
-          <span className="product-section-kicker">AI ve Otomasyon</span>
-          <h2>Daha az manuel takip, daha fazla içgörü</h2>
+          <span className="product-section-kicker">Yapay zekâ ve otomasyon</span>
+          <h2>Tekrarlayan işleri azalt, önemli değişiklikleri gör</h2>
           <p>
-            Systemcel’in hedefi yalnızca kayıt tutmak değil; işletmenin finansal ritmini daha okunabilir
-            hale getirmektir. Akıllı özetler, otomatik rapor akışları ve bildirimlerle ekibin neye
-            odaklanması gerektiğini daha hızlı görür.
+            Systemcel kayıtları özetler, raporları hazırlar ve önemli değişiklikleri gösterir. Böylece ekip
+            hangi ödeme, tahsilat veya stok hareketine bakması gerektiğini daha hızlı görür.
           </p>
         </div>
         <div className="product-check-list">
@@ -326,11 +337,10 @@ export function ProductSayfasi() {
       <section className="product-band product-split" id="guvenlik">
         <div>
           <span className="product-section-kicker">Güvenlik</span>
-          <h2>İşletme verileri güvenli ve düzenli tutulur</h2>
+          <h2>Her işletmenin kayıtları ayrı tutulur</h2>
           <p>
-            Systemcel, finans verilerini işletme bazlı ayrıştırır. Hassas bağlantı bilgileri güvenli
-            şekilde saklanır; kullanıcı, işletme ve yetki yapısı modern web mimarisine uygun genişletilebilir
-            bir temel üzerine kurulur.
+            Systemcel her işletmenin kayıtlarını kendi alanında tutar. Muhasebeci bağlantısında erişim
+            düzeyi seçilir; müşteri kayıtları birbirine karışmadan yönetilir.
           </p>
         </div>
         <div className="product-security-grid">
@@ -347,7 +357,7 @@ export function ProductSayfasi() {
         <div className="product-section-heading">
           <span>Fiyatlandırma</span>
           <h2>İşletmenin büyüklüğüne göre ölçeklenen planlar</h2>
-          <p>Başlangıçtan muhasebeci portföylerine kadar farklı kullanım seviyeleri için hazırlanır.</p>
+          <p>İşletmeler ve birden fazla müşteriyi yöneten muhasebeciler için ayrı planlar bulunur.</p>
         </div>
         <div className="product-pricing__grid">
           {pricingPlans.map(([title, text]) => (
@@ -363,10 +373,10 @@ export function ProductSayfasi() {
       <section className="product-band product-resources" id="yardim">
         <div className="product-section-heading">
           <span>Yardım</span>
-          <h2>Kurulumdan günlük kullanıma kadar yanında</h2>
+          <h2>Kurulum ve kullanım yardımı</h2>
           <p>
-            İlk kurulum, GİB e-Arşiv, Telegram bildirimleri, abonelik ve günlük kullanım soruları için
-            hızlı destek alanları hazırlanır.
+            İlk kurulum, GİB e-Arşiv, Telegram bildirimleri, abonelik ve günlük kullanım konularında
+            yardım alın.
           </p>
         </div>
         <div className="product-resource-row">

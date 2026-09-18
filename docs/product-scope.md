@@ -12,7 +12,7 @@ Kurucu kampanyası katalogdaki `kurucu-100-2026` koduyla ilk 50 işletme hesabı
 
 Aktif kapsam işletme ve muhasebeci çalışma alanları, tenant izolasyonu, gelir-gider ve cari akışları, ürün/stok, hızlı satış, fatura taslağı, raporlar, muhasebeci eşleşmesi, abonelik özeti, ödeme geçmişi, dönem sonu iptal, Fake ödeme ve katalogdan çözülen plan haklarıdır.
 
-Şirket öncesi teknik kapanış; yeni Clerk kimliğiyle kayıt ve kurulum, gerçek SMTP teslim kanıtı, canlı AI yanıtı, sınırlı gerçek kullanıcı pilotu, fiziksel iOS/Safari kontrolü ve taşınabilir sunucu dışı yedektir. Gerçek PayTR tahsilatı ile şirket/vergi/adres/KEP bilgilerinin yayımlanması şirket kuruluşundan sonraki kapıdır. Gerçek GİB veya Telegram işlemleri yalnız kullanıcı tarafından açıkça yetkilendirilen kontrollü pilotta yapılır.
+Teknik kapanış; yeni Clerk kimliğiyle kayıt ve kurulum, gerçek SMTP teslim kanıtı, canlı AI yanıtı, sınırlı gerçek kullanıcı pilotu, fiziksel iOS/Safari kontrolü ve taşınabilir sunucu dışı yedektir. Hizmet sağlayıcının doğrulanan vergi ve adres bilgileri yasal metinlerde yayımlanır; MERSİS/ticaret sicil ve KEP gerekliliği ile gerçek PayTR tahsilatı ayrı yayın kapılarıdır. Gerçek GİB veya Telegram işlemleri yalnız kullanıcı tarafından açıkça yetkilendirilen kontrollü pilotta yapılır.
 
 ## Yayın ortamı
 

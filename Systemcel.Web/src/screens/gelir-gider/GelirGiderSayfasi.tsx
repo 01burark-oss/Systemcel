@@ -167,7 +167,7 @@ export function GelirGiderSayfasi({
 
       await yenile();
       formuTemizle();
-      setDurum("Kayıt başarıyla kaydedildi.");
+      setDurum("Kaydedildi.");
     } catch (error) {
       setHata(error instanceof Error ? error.message : "Kayıt kaydedilemedi.");
     } finally {

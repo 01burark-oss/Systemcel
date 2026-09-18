@@ -12,6 +12,13 @@ public interface ITedarikciPazaryeriService
     Task<PazaryeriIslemSonucu> AcceptOfferAsync(int offerId, TedarikTeklifKabulRequest request, CancellationToken ct = default);
     Task<PazaryeriIslemSonucu> PayOrderAsync(int masterOrderId, PazaryeriOdemeRequest request, CancellationToken ct = default);
     Task UpdateSupplierOrderStateAsync(int supplierOrderId, TedarikciSiparisDurumRequest request, CancellationToken ct = default);
+    Task<TedarikciSevkiyatSonucu> CreateShipmentAsync(int supplierOrderId, TedarikciSevkiyatOlusturRequest request, CancellationToken ct = default);
+    Task<TedarikciQrCozumDto> ResolveShipmentQrAsync(string code, CancellationToken ct = default);
+    Task<TedarikciMalKabulSonucu> ReceiveShipmentQrAsync(string code, TedarikciMalKabulRequest request, CancellationToken ct = default);
+    Task<TedarikciSiparisSikayeti> CreateComplaintAsync(int supplierOrderId, TedarikciSikayetOlusturRequest request, CancellationToken ct = default);
+    Task<TedarikciSiparisSikayeti> RespondToComplaintAsync(int complaintId, TedarikciSikayetYanitRequest request, CancellationToken ct = default);
+    Task<TedarikciSiparisSikayeti> CloseComplaintAsync(int complaintId, TedarikciSikayetKapatRequest request, CancellationToken ct = default);
+    Task<TedarikciDegerlendirmesi> SaveSupplierRatingAsync(int supplierOrderId, TedarikciDegerlendirmeKaydetRequest request, CancellationToken ct = default);
     Task CancelOrderAsync(int masterOrderId, PazaryeriIptalRequest request, CancellationToken ct = default);
     Task CancelSupplierOrderAsync(int supplierOrderId, PazaryeriIptalRequest request, CancellationToken ct = default);
     Task DisputeSupplierOrderAsync(int supplierOrderId, string reason, CancellationToken ct = default);

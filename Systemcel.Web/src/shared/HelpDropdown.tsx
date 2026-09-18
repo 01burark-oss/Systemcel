@@ -3,13 +3,15 @@ import { ChevronDown } from "lucide-react";
 
 export const helpTopics = [
   { title: "SSS", href: "/yardım#sss" },
-  { title: "İlk Kurulum", href: "/yardım#ilk-kurulum" },
-  { title: "Gelir / Gider Kayıtları", href: "/yardım#gelir-gider" },
+  { title: "İlk kurulum", href: "/yardım#ilk-kurulum" },
+  { title: "Gelir ve gider kayıtları", href: "/yardım#gelir-gider" },
   { title: "Faturalar", href: "/yardım#faturalar" },
   { title: "GİB e-Arşiv", href: "/yardım#gib-e-arsiv" },
-  { title: "Telegram Bildirimleri", href: "/yardım#telegram" },
+  { title: "Telegram bildirimleri", href: "/yardım#telegram" },
   { title: "Raporlar", href: "/yardım#raporlar" },
-  { title: "Abonelik ve Faturalandırma", href: "/yardım#abonelik" },
+  { title: "Muhasebeci bağlantısı", href: "/yardım#muhasebeci-baglantisi" },
+  { title: "Tedarikçi pazaryeri", href: "/yardım#tedarikci-pazaryeri" },
+  { title: "Abonelik ve faturalandırma", href: "/yardım#abonelik" },
   { title: "Güvenlik", href: "/yardım#guvenlik" }
 ];
 

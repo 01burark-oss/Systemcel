@@ -7,7 +7,9 @@ public static class PazaryeriSiparisDurumlari
     public const string Odendi = "Odendi";
     public const string TedarikciOnayladi = "TedarikciOnayladi";
     public const string Hazirlaniyor = "Hazirlaniyor";
+    public const string KismenSevkEdildi = "KismenSevkEdildi";
     public const string SevkEdildi = "SevkEdildi";
+    public const string KismenKabul = "KismenKabul";
     public const string TeslimEdildi = "TeslimEdildi";
     public const string HakEdisBekliyor = "HakEdisBekliyor";
     public const string CariOdemeBekliyor = "CariOdemeBekliyor";
@@ -83,6 +85,98 @@ public sealed record PazaryeriHakEdisTamamlaRequest(string AktarimReferansi);
 public sealed record PazaryeriItirazCozRequest(bool DevamEt, string Not);
 
 public sealed record TedarikciBelgeEsleRequest(string BelgeNo, string BelgeUuid);
+
+public sealed record TedarikciSevkiyatKalemiRequest(
+    int SiparisKalemiId,
+    decimal Miktar,
+    int EtiketSayisi,
+    string? LotNo,
+    DateTime? SonKullanmaTarihi,
+    decimal? SicaklikMin,
+    decimal? SicaklikMax);
+
+public sealed record TedarikciSevkiyatOlusturRequest(
+    string TasimaTipi,
+    string? Tasiyici,
+    string? BelgeNo,
+    string? AracPlaka,
+    string? SurucuAdi,
+    string? CikisDeposu,
+    DateTime? PlanlananTeslimAt,
+    string? Not,
+    IReadOnlyList<TedarikciSevkiyatKalemiRequest> Kalemler);
+
+public sealed record TedarikciSevkiyatEtiketiDto(
+    int Id,
+    string Kod,
+    string QrIcerigi,
+    decimal Miktar,
+    string UrunAdi,
+    string Sku,
+    string Birim,
+    string LotNo,
+    DateTime? SonKullanmaTarihi);
+
+public sealed record TedarikciSevkiyatSonucu(
+    int Id,
+    string SevkiyatNo,
+    string Durum,
+    IReadOnlyList<TedarikciSevkiyatEtiketiDto> Etiketler);
+
+public sealed record TedarikciQrCozumDto(
+    string Kod,
+    int SiparisId,
+    string SiparisNo,
+    string UrunAdi,
+    string Sku,
+    string Birim,
+    decimal Miktar,
+    string LotNo,
+    DateTime? SonKullanmaTarihi,
+    string Durum);
+
+public sealed record TedarikciMalKabulRequest(
+    string IdempotencyKey,
+    decimal KabulEdilenMiktar,
+    decimal ReddedilenMiktar,
+    string? RedNedeni,
+    string? Not);
+
+public sealed record TedarikciMalKabulSonucu(int Id, string SiparisDurumu, bool TekrarKullanildi = false);
+
+public static class TedarikciSikayetKategorileri
+{
+    public const string Eksik = "Eksik";
+    public const string Hasarli = "Hasarli";
+    public const string YanlisUrun = "YanlisUrun";
+    public const string Kalite = "Kalite";
+    public const string Diger = "Diger";
+}
+
+public static class TedarikciSikayetDurumlari
+{
+    public const string Acik = "Acik";
+    public const string Yanitlandi = "Yanitlandi";
+    public const string Cozuldu = "Cozuldu";
+    public const string Cozulemedi = "Cozulemedi";
+}
+
+public sealed record TedarikciSikayetOlusturRequest(
+    string Kategori,
+    string Aciklama,
+    string Talep);
+
+public sealed record TedarikciSikayetYanitRequest(string Yanit);
+
+public sealed record TedarikciSikayetKapatRequest(bool Cozuldu, string? Not);
+
+public sealed record TedarikciDegerlendirmeKaydetRequest(
+    int UrunUygunluguPuani,
+    int EksiksizTeslimatPuani,
+    int HasarsizTeslimatPuani,
+    int ZamanindaTeslimatPuani,
+    int? SorunCozmePuani,
+    string? Yorum);
 
 public sealed record MarketplacePaymentCommand(
     string OrderReference,

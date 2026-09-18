@@ -65,6 +65,7 @@ internal static class MobilTaramaApi
 
                 var result = await AnalyzeReceiptWithQuotaAsync(usageQuota, receiptOcr, new ReceiptOcrRequest
                 {
+                    BusinessId = business.Id,
                     BusinessName = business.Ad,
                     FileName = file.Inspection.DisplayFileName,
                     MimeType = file.Inspection.ContentType,

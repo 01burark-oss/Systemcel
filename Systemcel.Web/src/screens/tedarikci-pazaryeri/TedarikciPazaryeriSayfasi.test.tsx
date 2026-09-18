@@ -112,4 +112,61 @@ describe("TedarikciPazaryeriSayfasi", () => {
       expect.objectContaining({ method: "POST", body: JSON.stringify({ teslimatAdresi: "Kadıköy, İstanbul", vadeli: true }) })
     ));
   });
+
+  it("hazırlanan satış için ürün QR etiketleri oluşturur", async () => {
+    const initial = { aktifIsletmeId: 2, profiller: [], talepler: [], acikTalepler: [], gelenTeklifler: [],
+      profil: { id: 10, unvan: "Tedarikçi", kategoriler: "Gıda", sehir: "İstanbul", aciklama: "", dogrulandi: true },
+      benimUrunlerim: [], kaynakUrunler: [], urunler: [], anaSiparisler: [],
+      siparisler: [{ id: 8, anaSiparisId: 7, anaSiparisNo: "PZ-7", siparisNo: "PZ-7-1", teslimatAdresi: "Depo", aliciIsletmeId: 1, tedarikciIsletmeId: 2, tedarikciUnvani: "Tedarikçi", araToplam: 100, kdvToplam: 20, genelToplam: 120, paraBirimi: "TRY", komisyonTutari: 0, komisyonKdvTutari: 0, tevkifatTutari: 0, odemeHizmetiBedeli: 0, tedarikciHakEdisi: 120, durum: "Hazirlaniyor", kargoFirmasi: "", kargoTakipNo: "", createdAt: "2026-09-18" }],
+      siparisKalemleri: [{ id: 12, tedarikciSiparisId: 8, tedarikciUrunId: 20, sku: "KAHVE", ad: "Filtre Kahve", birim: "Adet", miktar: 2, sevkEdilenMiktar: 0, kabulEdilenMiktar: 0, reddedilenMiktar: 0, birimFiyat: 50, kdvOrani: 20, toplamTutar: 120 }] };
+    vi.mocked(jsonOku).mockImplementation(async (url, init) => {
+      if (url === "/api/ekran/tedarikci-pazaryeri/tedarikci-siparisler/8/sevkiyatlar" && init?.method === "POST")
+        return { etiketler: [{ id: 1, kod: "scq1_test", qrIcerigi: "systemcel:sevkiyat:scq1_test", miktar: 2, urunAdi: "Filtre Kahve", sku: "KAHVE", birim: "Adet", lotNo: "" }] } as never;
+      return initial as never;
+    });
+    const user = userEvent.setup();
+    render(<TedarikciPazaryeriSayfasi />);
+    await user.click(await screen.findByRole("button", { name: "Satışlarım" }));
+    await user.click(screen.getByRole("button", { name: /Sevkiyat ve QR oluştur/ }));
+    expect(screen.getByRole("dialog", { name: "Sevkiyat ve QR etiketi oluştur" })).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "QR etiketlerini oluştur" }));
+    await waitFor(() => expect(jsonOku).toHaveBeenCalledWith(
+      "/api/ekran/tedarikci-pazaryeri/tedarikci-siparisler/8/sevkiyatlar",
+      expect.objectContaining({ method: "POST" })
+    ));
+    expect(await screen.findByAltText("Filtre Kahve sevkiyat QR kodu")).toBeVisible();
+  });
+
+  it("teslimat sorunu bildirir ve tedarikçiyi sipariş üzerinden değerlendirir", async () => {
+    const initial = {
+      aktifIsletmeId: 1, profiller: [], talepler: [], acikTalepler: [], gelenTeklifler: [], profil: null,
+      benimUrunlerim: [], kaynakUrunler: [], urunler: [], sikayetler: [], degerlendirmeler: [], tedarikciPerformanslari: [],
+      anaSiparisler: [{ id: 7, siparisNo: "PZ-7", teslimatAdresi: "Depo", araToplam: 100, kdvToplam: 20, genelToplam: 120, paraBirimi: "TRY", durum: "CariOdemeBekliyor", createdAt: "2026-09-18" }],
+      siparisler: [{ id: 8, anaSiparisId: 7, anaSiparisNo: "PZ-7", siparisNo: "PZ-7-1", teslimatAdresi: "Depo", aliciIsletmeId: 1, tedarikciIsletmeId: 2, tedarikciUnvani: "Tedarikçi", araToplam: 100, kdvToplam: 20, genelToplam: 120, paraBirimi: "TRY", komisyonTutari: 0, komisyonKdvTutari: 0, tevkifatTutari: 0, odemeHizmetiBedeli: 0, tedarikciHakEdisi: 120, durum: "CariOdemeBekliyor", kargoFirmasi: "", kargoTakipNo: "", createdAt: "2026-09-18", malKabulVar: true }],
+      siparisKalemleri: [{ id: 12, tedarikciSiparisId: 8, tedarikciUrunId: 20, sku: "KAHVE", ad: "Filtre Kahve", birim: "Adet", miktar: 2, sevkEdilenMiktar: 2, kabulEdilenMiktar: 2, reddedilenMiktar: 0, birimFiyat: 50, kdvOrani: 20, toplamTutar: 120 }]
+    };
+    vi.mocked(jsonOku).mockImplementation(async (url) => {
+      if (url === "/api/ekran/tedarikci-pazaryeri/tedarikci-siparisler/8/sikayetler") return { mesaj: "Sorun tedarikçiye iletildi." } as never;
+      if (url === "/api/ekran/tedarikci-pazaryeri/tedarikci-siparisler/8/degerlendirme") return { mesaj: "Değerlendirmeniz kaydedildi." } as never;
+      return initial as never;
+    });
+    const user = userEvent.setup();
+    render(<TedarikciPazaryeriSayfasi />);
+    await user.click(await screen.findByRole("button", { name: "Siparişler" }));
+    await user.click(screen.getByRole("button", { name: "Sorun bildir" }));
+    await user.type(screen.getByRole("textbox", { name: "Açıklama" }), "Kolide bir ürün eksik geldi.");
+    await user.click(screen.getByRole("button", { name: "Tedarikçiye ilet" }));
+    await waitFor(() => expect(jsonOku).toHaveBeenCalledWith(
+      "/api/ekran/tedarikci-pazaryeri/tedarikci-siparisler/8/sikayetler",
+      expect.objectContaining({ method: "POST" })
+    ));
+
+    await user.click(screen.getByRole("button", { name: "Tedarikçiyi değerlendir" }));
+    expect(screen.getByRole("dialog", { name: "Tedarikçi değerlendirmesi" })).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Değerlendirmeyi kaydet" }));
+    await waitFor(() => expect(jsonOku).toHaveBeenCalledWith(
+      "/api/ekran/tedarikci-pazaryeri/tedarikci-siparisler/8/degerlendirme",
+      expect.objectContaining({ method: "PUT" })
+    ));
+  });
 });

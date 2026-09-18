@@ -83,6 +83,102 @@ public sealed class TedarikciSiparisKalemi
     public decimal NetTutar { get; set; }
     public decimal KdvTutari { get; set; }
     public decimal ToplamTutar { get; set; }
+    public decimal SevkEdilenMiktar { get; set; }
+    public decimal KabulEdilenMiktar { get; set; }
+    public decimal ReddedilenMiktar { get; set; }
+}
+
+public sealed class TedarikciSevkiyat
+{
+    public int Id { get; set; }
+    public int TedarikciSiparisId { get; set; }
+    public int AliciIsletmeId { get; set; }
+    public int TedarikciIsletmeId { get; set; }
+    public string SevkiyatNo { get; set; } = string.Empty;
+    public string TasimaTipi { get; set; } = string.Empty;
+    public string Tasiyici { get; set; } = string.Empty;
+    public string BelgeNo { get; set; } = string.Empty;
+    public string AracPlaka { get; set; } = string.Empty;
+    public string SurucuAdi { get; set; } = string.Empty;
+    public string CikisDeposu { get; set; } = string.Empty;
+    public string Not { get; set; } = string.Empty;
+    public string Durum { get; set; } = "Hazir";
+    public DateTime? PlanlananTeslimAt { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+}
+
+public sealed class TedarikciSevkiyatKalemi
+{
+    public int Id { get; set; }
+    public int TedarikciSevkiyatId { get; set; }
+    public int TedarikciSiparisKalemiId { get; set; }
+    public decimal Miktar { get; set; }
+    public int EtiketSayisi { get; set; }
+    public string LotNo { get; set; } = string.Empty;
+    public DateTime? SonKullanmaTarihi { get; set; }
+    public decimal? SicaklikMin { get; set; }
+    public decimal? SicaklikMax { get; set; }
+}
+
+public sealed class TedarikciSevkiyatEtiketi
+{
+    public int Id { get; set; }
+    public int TedarikciSevkiyatKalemiId { get; set; }
+    public string KodHash { get; set; } = string.Empty;
+    public decimal Miktar { get; set; }
+    public string Durum { get; set; } = "Hazir";
+    public DateTime? OkutulduAt { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+}
+
+public sealed class TedarikciMalKabul
+{
+    public int Id { get; set; }
+    public int TedarikciSevkiyatEtiketiId { get; set; }
+    public int TedarikciSiparisId { get; set; }
+    public int AliciIsletmeId { get; set; }
+    public string IdempotencyAnahtari { get; set; } = string.Empty;
+    public decimal KabulEdilenMiktar { get; set; }
+    public decimal ReddedilenMiktar { get; set; }
+    public string RedNedeni { get; set; } = string.Empty;
+    public string Not { get; set; } = string.Empty;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+}
+
+public sealed class TedarikciSiparisSikayeti
+{
+    public int Id { get; set; }
+    public int TedarikciSiparisId { get; set; }
+    public int AliciIsletmeId { get; set; }
+    public int TedarikciIsletmeId { get; set; }
+    public string Kategori { get; set; } = string.Empty;
+    public string Aciklama { get; set; } = string.Empty;
+    public string Talep { get; set; } = string.Empty;
+    public string Durum { get; set; } = "Acik";
+    public string TedarikciYaniti { get; set; } = string.Empty;
+    public string KapanisNotu { get; set; } = string.Empty;
+    public DateTime? YanitlandiAt { get; set; }
+    public DateTime? KapatildiAt { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+}
+
+public sealed class TedarikciDegerlendirmesi
+{
+    public int Id { get; set; }
+    public int TedarikciSiparisId { get; set; }
+    public int AliciIsletmeId { get; set; }
+    public int TedarikciIsletmeId { get; set; }
+    public int UrunUygunluguPuani { get; set; }
+    public int EksiksizTeslimatPuani { get; set; }
+    public int HasarsizTeslimatPuani { get; set; }
+    public int ZamanindaTeslimatPuani { get; set; }
+    public int? SorunCozmePuani { get; set; }
+    public decimal OrtalamaPuan { get; set; }
+    public string Yorum { get; set; } = string.Empty;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 }
 
 public sealed class PazaryeriOdeme

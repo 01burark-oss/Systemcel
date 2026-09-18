@@ -32,6 +32,68 @@ test.describe("workspace accessibility", () => {
     });
   }
 
+  test("notification content remains separated at a narrow workspace width", async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== "desktop-chromium", "Narrow desktop workspace regression");
+    await page.setViewportSize({ width: 820, height: 800 });
+    await page.route("**/api/ekran/ust-bar", route => json(route, {
+      aktifIsletmeId: 42, aktifIsletme: "Örnek İşletme", hesapTipi: "Isletme",
+      muhasebeciMusteriBaglami: false, muhasebeciAdi: "", muhasebeciYetkiSeviyesi: "Tam",
+      bildirimVar: true, bildirimSayisi: 3, sohbet: { okunmamisMesajSayisi: 0, sohbetler: [] },
+      telegramAktif: false, isletmeler: [{ id: 42, ad: "Örnek İşletme", aktif: true }]
+    }));
+    await page.route("**/api/ekran/bildirimler", route => json(route, [{
+      id: 41,
+      tur: "odeme",
+      onem: "yuksek",
+      baslik: "Anadolu Tedarik Ltd. [TEST] ödemen gecikti",
+      mesaj: "₺3.600,00 ödeme 08.10.2025 vadesinden beri açık.",
+      aksiyon: "Ödemeyi kapat",
+      okundu: false
+    }]));
+
+    await page.goto("/app/hizli-satis");
+    await page.getByRole("button", { name: "Bildirimleri göster" }).click();
+    const panel = page.getByRole("dialog", { name: "Bildirimler", exact: true });
+    const title = panel.getByText("Anadolu Tedarik Ltd. [TEST] ödemen gecikti");
+    const unread = panel.getByText("Okunmadı", { exact: true });
+    const action = panel.getByRole("button", { name: "Okundu işaretle", exact: true });
+
+    await expect(panel).toBeVisible();
+    await expect(panel.locator(".notification-item__title")).toBeVisible();
+    await expect(action).toHaveCSS("white-space", "nowrap");
+
+    const [titleBox, unreadBox, actionBox, panelBox] = await Promise.all([
+      title.boundingBox(), unread.boundingBox(), action.boundingBox(), panel.boundingBox()
+    ]);
+    expect(titleBox && unreadBox && (
+      titleBox.x + titleBox.width + 6 <= unreadBox.x ||
+      titleBox.y + titleBox.height + 4 <= unreadBox.y
+    )).toBeTruthy();
+    expect(actionBox!.height).toBeLessThanOrEqual(40);
+    expect(panelBox!.x).toBeGreaterThanOrEqual(12);
+    expect(panelBox!.x + panelBox!.width).toBeLessThanOrEqual(page.viewportSize()!.width - 12);
+    expect(actionBox!.x + actionBox!.width).toBeLessThanOrEqual(panelBox!.x + panelBox!.width);
+    await page.screenshot({ path: testInfo.outputPath("notification-narrow.png") });
+  });
+
+  test("dashboard net period selector stays compact at tablet workspace width", async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== "desktop-chromium", "Tablet workspace regression");
+    await page.setViewportSize({ width: 1024, height: 900 });
+    await page.goto("/app");
+
+    const cards = page.locator(".snapshot-grid > .snapshot-card");
+    await expect(cards).toHaveCount(4);
+    const [grossProfitBox, netProfitBox, periodBox] = await Promise.all([
+      cards.nth(2).boundingBox(), cards.nth(3).boundingBox(), page.getByLabel("Net kâr dönemi").locator("..").boundingBox()
+    ]);
+
+    expect(Math.abs(grossProfitBox!.y - netProfitBox!.y)).toBeLessThanOrEqual(1);
+    expect(netProfitBox!.x).toBeGreaterThan(grossProfitBox!.x);
+    expect(periodBox!.width).toBeLessThanOrEqual(128);
+    expect(periodBox!.height).toBeLessThanOrEqual(46);
+    await page.locator(".snapshot-grid").screenshot({ path: testInfo.outputPath("dashboard-tablet.png") });
+  });
+
   test("theme changes preserve settings geometry", async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== "desktop-chromium", "Settings route");
     await page.addInitScript(() => localStorage.setItem("systemcel.theme", "light"));
@@ -220,6 +282,25 @@ async function mockApi(page: Page) {
       isletmeTuru: "Genel", konum: "İstanbul", muhasebeciVarMi: false, mesaj: "", turler: []
     });
     if (path === "/api/ekran/sohbetler") return json(route, { sohbetler: [], okunmamisMesajSayisi: 0 });
+    if (path === "/api/ekran/anasayfa") return json(route, {
+      aktifIsletme: "Örnek İşletme",
+      bugun: { etiket: "Bugün", aralik: "11.09.2026", gelir: 91_143.02, gider: 35_600, net: 55_543.02, gelirAdet: 8, giderAdet: 5 },
+      paneller: [
+        { etiket: "Bugun", gelir: 91_143.02, gider: 35_600, net: 55_543.02 },
+        { etiket: "Son 30 Gun", gelir: 920_000, gider: 610_000, net: 310_000 }
+      ],
+      gelirDegisim: { yuzde: 12, etiket: "Geçen aya göre", olumlu: true },
+      giderDegisim: { yuzde: 4, etiket: "Geçen aya göre", olumlu: false },
+      odemeDagilimi: [],
+      netTrend: [
+        { gun: "Pzt", net: -200, islemVar: true },
+        { gun: "Sal", net: -100, islemVar: true },
+        { gun: "Çar", net: 0, islemVar: true },
+        { gun: "Per", net: -50, islemVar: true },
+        { gun: "Cum", net: 0, islemVar: true }
+      ],
+      brutKarMarji: { durum: "Hazir", guvenilir: true, satisGeliri: 91_143.02, satisMaliyeti: 35_600, brutKar: 55_543.02, brutKarOrani: 70.8, satisSatiri: 22, eksikMaliyetliSatisSatiri: 0, aciklama: "Satış maliyetleri güncel." }
+    });
     if (path === "/api/ekran/urun-stok") return json(route, {
       aktifIsletme: "Örnek İşletme",
       urunler: [{ id: 7, ad: "Filtre kahve", barkod: "869000000007", satisFiyati: 120, stokMiktari: 8, kdvOrani: 20 }],

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
@@ -32,27 +33,37 @@ namespace CashTracker.Infrastructure.Services
             IEnumerable<DeepSeekChatMessage> messages,
             double temperature,
             int maxTokens,
+            string userIsolationKey,
+            bool enableThinking,
+            string reasoningEffort = "low",
             CancellationToken ct = default)
         {
             if (!_settings.IsConfigured)
                 throw new InvalidOperationException("DeepSeek API anahtari eksik.");
 
-            var payload = new
+            if (string.IsNullOrWhiteSpace(userIsolationKey))
+                throw new ArgumentException("AI kullanıcı izolasyon anahtarı eksik.", nameof(userIsolationKey));
+
+            var payload = new Dictionary<string, object?>
             {
-                model,
-                messages = messages.Select(x => new
+                ["model"] = model,
+                ["messages"] = messages.Select(x => new
                 {
                     role = x.Role,
                     content = x.Content
                 }).ToArray(),
-                thinking = new
+                ["thinking"] = new
                 {
-                    type = "disabled"
+                    type = enableThinking ? "enabled" : "disabled"
                 },
-                temperature,
-                max_tokens = Math.Max(256, maxTokens),
-                stream = false
+                ["max_tokens"] = Math.Clamp(maxTokens, 256, 2400),
+                ["stream"] = false,
+                ["user_id"] = CreateAnonymousUserId(userIsolationKey)
             };
+            if (enableThinking)
+                payload["reasoning_effort"] = NormalizeReasoningEffort(reasoningEffort);
+            else
+                payload["temperature"] = Math.Clamp(temperature, 0d, 1d);
 
             using var request = new HttpRequestMessage(
                 HttpMethod.Post,
@@ -67,8 +78,11 @@ namespace CashTracker.Infrastructure.Services
             var body = await response.Content.ReadAsStringAsync(ct);
             if (!response.IsSuccessStatusCode)
             {
-                var safeBody = body.Length > 800 ? body[..800] : body;
-                throw new InvalidOperationException($"DeepSeek yaniti basarisiz: {(int)response.StatusCode} {response.ReasonPhrase}. {safeBody}");
+                var requestId = response.Headers.TryGetValues("x-request-id", out var values)
+                    ? values.FirstOrDefault()
+                    : null;
+                var suffix = string.IsNullOrWhiteSpace(requestId) ? string.Empty : $" RequestId={requestId}.";
+                throw new HttpRequestException($"DeepSeek isteği {(int)response.StatusCode} durumuyla başarısız oldu.{suffix}");
             }
 
             var content = ExtractAssistantContent(body);
@@ -76,6 +90,20 @@ namespace CashTracker.Infrastructure.Services
                 throw new InvalidOperationException("DeepSeek bos yanit dondu.");
 
             return content.Trim();
+        }
+
+        private string CreateAnonymousUserId(string isolationKey)
+        {
+            var digest = HMACSHA256.HashData(
+                Encoding.UTF8.GetBytes(_settings.EffectiveApiKey),
+                Encoding.UTF8.GetBytes($"systemcel-tenant:{isolationKey.Trim()}"));
+            return $"tenant-{Convert.ToHexString(digest)[..32].ToLowerInvariant()}";
+        }
+
+        private static string NormalizeReasoningEffort(string value)
+        {
+            var normalized = value?.Trim().ToLowerInvariant();
+            return normalized is "high" or "max" ? normalized : "low";
         }
 
         private static string ExtractAssistantContent(string body)

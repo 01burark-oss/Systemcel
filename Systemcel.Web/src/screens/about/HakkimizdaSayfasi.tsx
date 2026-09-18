@@ -16,7 +16,7 @@ const aboutLines = [
   {
     icon: Building2,
     title: "KOBİ ve muhasebeci odağı",
-    text: "Günlük finans operasyonunu yöneten işletmeler ve birden fazla müşteriyi takip eden muhasebeciler için sade, güvenilir ve hızlı bir çalışma alanı kuruyoruz."
+    text: "Kendi finansını yöneten işletmeler ve birden fazla müşteriyi takip eden muhasebeciler için sade bir çalışma alanı geliştiriyoruz."
   },
   {
     icon: CheckCircle2,
@@ -26,12 +26,12 @@ const aboutLines = [
   {
     icon: Bot,
     title: "AI destekli kullanım",
-    text: "Finansal veriyi sadece saklamak yerine özetleyen, yorumlayan ve kullanıcıyı doğru aksiyona yönlendiren bir yardımcı deneyim hedefliyoruz."
+    text: "Systemcel kayıtları özetler ve hangi ödeme, tahsilat veya stok hareketine bakmanız gerektiğini gösterir."
   },
   {
     icon: ShieldCheck,
-    title: "Güvenli ve düzenli temel",
-    text: "İşletme bazlı veri ayrımı, kontrollü erişim ve hassas bağlantı bilgilerinin dikkatli yönetimi Systemcel'in temel yaklaşımıdır."
+    title: "Ayrı işletme kayıtları",
+    text: "Her işletmenin ve muhasebeciye bağlı her müşterinin kayıtları ayrı çalışma alanlarında tutulur."
   }
 ];
 
@@ -83,26 +83,26 @@ export function HakkimizdaSayfasi() {
 
       <section className="about-hero" aria-labelledby="about-title">
         <span>Hakkımızda</span>
-        <h1 id="about-title">Finans yönetimini daha anlaşılır hale getirmek için geliştiriyoruz</h1>
+        <h1 id="about-title">İşletmelerin finansını daha kolay yönetmesi için geliştiriyoruz</h1>
         <p>
-          Systemcel; KOBİ'lerin ve muhasebecilerin gelir, gider, fatura, cari hesap, stok, tahsilat ve rapor
-          süreçlerini tek çalışma alanında yönetebilmesi için geliştirilen yerli bir finans yönetimi platformudur.
+          Systemcel; gelir, gider, fatura, cari hesap, stok ve raporları tek yerde toplar. İşletmelerin
+          muhasebecileriyle çalışmasını ve tedarikçilerden alım yapmasını kolaylaştırır.
         </p>
       </section>
 
       <section className="about-story" aria-label="Systemcel yaklaşımı">
         <div>
           <span>Neden</span>
-          <h2>Dağınık finans akışlarını tek ekranda okunabilir hale getiriyoruz</h2>
+          <h2>Dağınık finans kayıtlarını tek ekranda topluyoruz</h2>
         </div>
         <div>
           <p>
             Birçok işletmede gelirler, giderler, faturalar, tahsilatlar ve raporlar farklı dosya, mesaj ya da sistemlerde
-            takip ediliyor. Bu da karar almayı yavaşlatıyor ve nakit akışındaki kritik sinyallerin geç fark edilmesine yol açıyor.
+            takip ediliyor. Bu da karar almayı yavaşlatıyor ve önemli ödeme ya da tahsilatların geç fark edilmesine yol açıyor.
           </p>
           <p>
-            Systemcel'in amacı bu parçaları sade bir ürün deneyiminde birleştirmek: kayıtlar düzenli tutulsun, raporlar
-            anlaşılır olsun, kullanıcı neye bakması gerektiğini hızlıca görebilsin.
+            Systemcel bu parçaları tek yerde birleştirir. Kayıtlar düzenli tutulur, raporlar anlaşılır biçimde
+            hazırlanır ve kullanıcı hangi konuya bakması gerektiğini hızlıca görür.
           </p>
         </div>
       </section>

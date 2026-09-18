@@ -173,6 +173,128 @@ public sealed class TedarikciPazaryeriServiceTests
     }
 
     [Fact]
+    public async Task ShipmentQr_IsTenantScopedAndReceiptFinalizesStockOnce()
+    {
+        await using var f = await Fixture.CreateAsync();
+        await f.Service(1).CreateOrderAsync(new PazaryeriSiparisOlusturRequest(
+            "Depo", "qr-order", new[] { new PazaryeriSepetKalemiRequest(f.ProductA, 2) }, Vadeli: true));
+        int supplierOrderId;
+        int lineId;
+        await using (var db = f.Db())
+        {
+            supplierOrderId = await db.TedarikciSiparisleri.Select(x => x.Id).SingleAsync();
+            lineId = await db.TedarikciSiparisKalemleri.Select(x => x.Id).SingleAsync();
+        }
+        await f.Service(2).UpdateSupplierOrderStateAsync(supplierOrderId, new(PazaryeriSiparisDurumlari.TedarikciOnayladi, null, null, null));
+        await f.Service(2).UpdateSupplierOrderStateAsync(supplierOrderId, new(PazaryeriSiparisDurumlari.Hazirlaniyor, null, null, null));
+        var shipment = await f.Service(2).CreateShipmentAsync(supplierOrderId, new(
+            "Tedarikçi aracı", "Tedarikçi", "IRS-1", "34 ABC 1", "Sürücü", "Ana depo", null, null,
+            new[] { new TedarikciSevkiyatKalemiRequest(lineId, 2, 1, "LOT-1", null, null, null) }));
+        var label = Assert.Single(shipment.Etiketler);
+        Assert.StartsWith("https://systemcel.app/app/tedarikci-pazaryeri?qr=scq1_", label.QrIcerigi);
+
+        await Assert.ThrowsAsync<KeyNotFoundException>(() => f.Service(3).ResolveShipmentQrAsync(label.QrIcerigi));
+        var resolved = await f.Service(1).ResolveShipmentQrAsync(label.QrIcerigi);
+        Assert.Equal("A", resolved.Sku);
+        var first = await f.Service(1).ReceiveShipmentQrAsync(label.QrIcerigi, new("receipt-1", 2, 0, null, "Eksiksiz"));
+        var repeated = await f.Service(1).ReceiveShipmentQrAsync(label.QrIcerigi, new("receipt-1", 2, 0, null, "Eksiksiz"));
+        Assert.Equal(first.Id, repeated.Id);
+        Assert.True(repeated.TekrarKullanildi);
+
+        await using var assertDb = f.Db();
+        Assert.Equal(PazaryeriSiparisDurumlari.CariOdemeBekliyor, (await assertDb.TedarikciSiparisleri.SingleAsync()).Durum);
+        Assert.Equal(8m, await assertDb.TedarikciUrunleri.Where(x => x.Id == f.ProductA).Select(x => x.StokMiktari).SingleAsync());
+        Assert.Equal(1, await assertDb.StokHareketleri.CountAsync(x => x.IsletmeId == 1 && x.Miktar == 2));
+        Assert.Single(await assertDb.TedarikciMalKabulleri.ToListAsync());
+        var storedLabel = await assertDb.TedarikciSevkiyatEtiketleri.SingleAsync();
+        Assert.NotEqual(label.Kod, storedLabel.KodHash);
+        Assert.Equal(64, storedLabel.KodHash.Length);
+    }
+
+    [Fact]
+    public async Task ShipmentQr_RejectedQuantityBlocksSettlementAndOpensDispute()
+    {
+        await using var f = await Fixture.CreateAsync();
+        var master = await f.Service(1).CreateOrderAsync(new PazaryeriSiparisOlusturRequest(
+            "Depo", "qr-reject", new[] { new PazaryeriSepetKalemiRequest(f.ProductA, 1) }));
+        await f.Service(1).PayOrderAsync(master.Id, new PazaryeriOdemeRequest("qr-reject-payment"));
+        int supplierOrderId;
+        int lineId;
+        await using (var db = f.Db())
+        {
+            supplierOrderId = await db.TedarikciSiparisleri.Select(x => x.Id).SingleAsync();
+            lineId = await db.TedarikciSiparisKalemleri.Select(x => x.Id).SingleAsync();
+        }
+        await f.Service(2).UpdateSupplierOrderStateAsync(supplierOrderId, new(PazaryeriSiparisDurumlari.TedarikciOnayladi, null, null, null));
+        await f.Service(2).UpdateSupplierOrderStateAsync(supplierOrderId, new(PazaryeriSiparisDurumlari.Hazirlaniyor, null, null, null));
+        var shipment = await f.Service(2).CreateShipmentAsync(supplierOrderId, new(
+            "Dağıtım ağı", "Bölgesel dağıtıcı", "IRS-2", null, null, "Dağıtım merkezi", null, null,
+            new[] { new TedarikciSevkiyatKalemiRequest(lineId, 1, 1, "LOT-2", null, 2, 8) }));
+        await f.Service(1).ReceiveShipmentQrAsync(shipment.Etiketler[0].QrIcerigi, new("receipt-reject", 0, 1, "Hasarlı", "Ambalaj yırtık"));
+
+        await using var assertDb = f.Db();
+        Assert.Equal(PazaryeriSiparisDurumlari.Itirazli, (await assertDb.TedarikciSiparisleri.SingleAsync()).Durum);
+        Assert.Equal("Bloke", (await assertDb.TedarikciHakEdisleri.SingleAsync()).Durum);
+        var complaint = await assertDb.TedarikciSiparisSikayetleri.SingleAsync();
+        Assert.Equal(TedarikciSikayetKategorileri.Hasarli, complaint.Kategori);
+        Assert.Equal(TedarikciSikayetDurumlari.Acik, complaint.Durum);
+        Assert.Empty(await assertDb.Faturalar.ToListAsync());
+        Assert.Empty(await assertDb.StokHareketleri.Where(x => x.IsletmeId == 1).ToListAsync());
+    }
+
+    [Fact]
+    public async Task DeliveryComplaint_AllowsSupplierResponseBuyerOutcomeAndOneVerifiedRating()
+    {
+        await using var f = await Fixture.CreateAsync();
+        await f.Service(1).CreateOrderAsync(new PazaryeriSiparisOlusturRequest(
+            "Depo", "complaint-order", new[] { new PazaryeriSepetKalemiRequest(f.ProductA, 1) }, Vadeli: true));
+        int supplierOrderId;
+        int lineId;
+        await using (var db = f.Db())
+        {
+            supplierOrderId = await db.TedarikciSiparisleri.Select(x => x.Id).SingleAsync();
+            lineId = await db.TedarikciSiparisKalemleri.Select(x => x.Id).SingleAsync();
+        }
+        await f.Service(2).UpdateSupplierOrderStateAsync(supplierOrderId, new(PazaryeriSiparisDurumlari.TedarikciOnayladi, null, null, null));
+        await f.Service(2).UpdateSupplierOrderStateAsync(supplierOrderId, new(PazaryeriSiparisDurumlari.Hazirlaniyor, null, null, null));
+        var shipment = await f.Service(2).CreateShipmentAsync(supplierOrderId, new(
+            "Tedarikçi aracı", null, "IRS-3", null, null, null, null, null,
+            new[] { new TedarikciSevkiyatKalemiRequest(lineId, 1, 1, null, null, null, null) }));
+        await f.Service(1).ReceiveShipmentQrAsync(
+            shipment.Etiketler[0].QrIcerigi,
+            new("complaint-receipt", 0, 1, "Eksik", "Koli içeriği eksik"));
+
+        int complaintId;
+        await using (var db = f.Db())
+            complaintId = await db.TedarikciSiparisSikayetleri.Select(x => x.Id).SingleAsync();
+
+        await Assert.ThrowsAsync<KeyNotFoundException>(() =>
+            f.Service(3).RespondToComplaintAsync(complaintId, new("Bu sipariş bize ait değil.")));
+        var answered = await f.Service(2).RespondToComplaintAsync(
+            complaintId, new("Eksik ürün için tamamlayıcı sevkiyat planlandı."));
+        Assert.Equal(TedarikciSikayetDurumlari.Yanitlandi, answered.Durum);
+        var closed = await f.Service(1).CloseComplaintAsync(
+            complaintId, new(true, "Tamamlayıcı sevkiyat teslim edildi."));
+        Assert.Equal(TedarikciSikayetDurumlari.Cozuldu, closed.Durum);
+
+        var rating = await f.Service(1).SaveSupplierRatingAsync(
+            supplierOrderId, new(4, 2, 3, 5, 1, "Eksik ürün nedeniyle sorun yaşandı."));
+        Assert.Equal(3m, rating.OrtalamaPuan);
+        var updated = await f.Service(1).SaveSupplierRatingAsync(
+            supplierOrderId, new(4, 3, 3, 5, 2, "Tedarikçi dönüş yaptı."));
+        Assert.Equal(3.40m, updated.OrtalamaPuan);
+        await Assert.ThrowsAsync<KeyNotFoundException>(() =>
+            f.Service(2).SaveSupplierRatingAsync(supplierOrderId, new(5, 5, 5, 5, null, null)));
+
+        await using var assertDb = f.Db();
+        Assert.Single(await assertDb.TedarikciDegerlendirmeleri.ToListAsync());
+        Assert.Equal(PazaryeriSiparisDurumlari.SevkEdildi,
+            await assertDb.TedarikciSiparisleri.Select(x => x.Durum).SingleAsync());
+        Assert.Equal(TedarikciSikayetDurumlari.Cozuldu,
+            await assertDb.TedarikciSiparisSikayetleri.Select(x => x.Durum).SingleAsync());
+    }
+
+    [Fact]
     public async Task ExpirePendingPrepaidOrder_ReleasesReservationAndCancelsOrder()
     {
         await using var f = await Fixture.CreateAsync();

@@ -48,7 +48,7 @@ export function StokDefteriSayfasi() {
 
   if (upgrade) return <main className="stock-ledger" ><section className="stock-ledger__upgrade" role="status"><h1>Stok defteri planınızda açık değil</h1><p>{upgrade}</p><a href="/app/abonelik">Planları incele</a></section></main>;
   return <main className="stock-ledger">
-    <header className="stock-ledger__hero"><div><span>Stok operasyonları</span><h1>Stok defteri</h1><p>Depo, transfer ve sayım kayıtlarını hareket geçmişi üzerinden izleyin.</p></div>{defter?.negatifStokEngelli ? <strong>Negatif stok engeli açık</strong> : null}</header>
+    <header className="stock-ledger__hero"><div><span>Stok işlemleri</span><h1>Stok defteri</h1><p>Depo, transfer ve sayım kayıtlarını geçmiş hareketlerde izleyin.</p></div>{defter?.negatifStokEngelli ? <strong>Negatif stok engeli açık</strong> : null}</header>
     {hata ? <p className="stock-ledger__feedback error" role="alert">{hata}</p> : null}{mesaj ? <p className="stock-ledger__feedback" role="status">{mesaj}</p> : null}
     {yukleniyor ? <p className="stock-ledger__state" role="status"><Loader2 className="spin" size={18} /> Stok defteri yükleniyor…</p> : <>
       <section className="stock-ledger__grid">

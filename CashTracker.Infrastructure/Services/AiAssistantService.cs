@@ -3,11 +3,13 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using CashTracker.Core.Entities;
 using CashTracker.Core.Models;
 using CashTracker.Core.Services;
+using Microsoft.Extensions.Logging;
 
 namespace CashTracker.Infrastructure.Services
 {
@@ -27,6 +29,7 @@ namespace CashTracker.Infrastructure.Services
         private readonly IFinansalGorunumService _finansalGorunumService;
         private readonly IBrutKarMarjiService? _brutKarMarjiService;
         private readonly IAiUsageQuotaService _usageQuotaService;
+        private readonly ILogger<AiAssistantService>? _logger;
 
         public AiAssistantService(
             DeepSeekSettings settings,
@@ -40,7 +43,8 @@ namespace CashTracker.Infrastructure.Services
             IFaturaService faturaService,
             IFinansalGorunumService finansalGorunumService,
             IAiUsageQuotaService usageQuotaService,
-            IBrutKarMarjiService? brutKarMarjiService = null)
+            IBrutKarMarjiService? brutKarMarjiService = null,
+            ILogger<AiAssistantService>? logger = null)
         {
             _settings = settings;
             _deepSeek = deepSeek;
@@ -54,6 +58,7 @@ namespace CashTracker.Infrastructure.Services
             _finansalGorunumService = finansalGorunumService;
             _brutKarMarjiService = brutKarMarjiService;
             _usageQuotaService = usageQuotaService;
+            _logger = logger;
         }
 
         public async Task<AiAssistantStatus> GetStatusAsync(CancellationToken ct = default)
@@ -77,6 +82,7 @@ namespace CashTracker.Infrastructure.Services
             var model = mode == "task" ? _settings.EffectiveFlashModel : _settings.EffectiveProModel;
             var usage = await _usageQuotaService.GetStatusAsync(ct);
             var context = await BuildBusinessContextAsync(ct);
+            var privacy = PromptPrivacyMap.Create(context);
             var suggestions = BuildRuleBasedSuggestions(context).Select(x => x.Baslik).Take(3).ToList();
 
             if (string.IsNullOrWhiteSpace(message))
@@ -130,32 +136,35 @@ namespace CashTracker.Infrastructure.Services
                     new[]
                     {
                         new DeepSeekChatMessage("system", BuildChatSystemPrompt()),
-                        new DeepSeekChatMessage("user", BuildChatUserPrompt(message, context, mode))
+                        new DeepSeekChatMessage("user", BuildChatUserPrompt(privacy.Redact(message), context, mode, privacy))
                     },
                     mode == "task" ? 0.25 : 0.35,
-                    mode == "task" ? 1200 : 2200,
-                    ct);
+                    mode == "task" ? 500 : 2000,
+                    context.BusinessId.ToString(CultureInfo.InvariantCulture),
+                    enableThinking: mode != "task",
+                    reasoningEffort: "low",
+                    ct: ct);
 
                 return new AiAssistantChatResponse
                 {
                     Configured = true,
                     Mode = mode,
                     Model = model,
-                    Answer = CleanAssistantText(answer),
+                    Answer = privacy.Restore(CleanAssistantText(answer)),
                     Suggestions = suggestions,
                     Usage = usage
                 };
             }
             catch (Exception ex)
             {
+                _logger?.LogWarning(ex, "AI chat request failed. BusinessId={BusinessId} Model={Model}", context.BusinessId, model);
                 return new AiAssistantChatResponse
                 {
                     Configured = true,
                     Mode = mode,
                     Model = model,
-                    Answer = "DeepSeek yanıtı alınamadı. Şimdilik yerel analizle devam ediyorum.\n\n" +
-                             BuildOfflineAnswer(message, context) +
-                             $"\n\nTeknik durum: {ex.Message}",
+                    Answer = "AI yanıtı şu anda alınamadı. Yerel analizle devam ediyorum.\n\n" +
+                             BuildOfflineAnswer(message, context),
                     Suggestions = suggestions,
                     Usage = usage
                 };
@@ -166,6 +175,7 @@ namespace CashTracker.Infrastructure.Services
         {
             var context = await BuildBusinessContextAsync(ct);
             var suggestions = BuildRuleBasedSuggestions(context);
+            var privacy = PromptPrivacyMap.Create(context);
             var model = _settings.EffectiveProModel;
             var usage = await _usageQuotaService.GetStatusAsync(ct);
             EnsureAiUsageAllowed(usage);
@@ -192,28 +202,31 @@ namespace CashTracker.Infrastructure.Services
                     new[]
                     {
                         new DeepSeekChatMessage("system", BuildSuggestionSystemPrompt()),
-                        new DeepSeekChatMessage("user", BuildSuggestionUserPrompt(context, suggestions))
+                        new DeepSeekChatMessage("user", BuildSuggestionUserPrompt(context, suggestions, privacy))
                     },
                     0.3,
-                    2200,
-                    ct);
+                    700,
+                    context.BusinessId.ToString(CultureInfo.InvariantCulture),
+                    enableThinking: false,
+                    ct: ct);
 
                 return new AiBusinessSuggestionsResponse
                 {
                     Configured = true,
                     Model = model,
-                    Summary = CleanAssistantText(summary),
+                    Summary = privacy.Restore(CleanAssistantText(summary)),
                     Suggestions = suggestions,
                     Usage = usage
                 };
             }
             catch (Exception ex)
             {
+                _logger?.LogWarning(ex, "AI suggestion request failed. BusinessId={BusinessId} Model={Model}", context.BusinessId, model);
                 return new AiBusinessSuggestionsResponse
                 {
                     Configured = true,
                     Model = model,
-                    Summary = "DeepSeek öneri özeti alınamadı; yerel öneriler gösteriliyor. Teknik durum: " + ex.Message,
+                    Summary = "AI özeti şu anda alınamadı. Yerel öneriler gösteriliyor.",
                     Suggestions = suggestions,
                     Usage = usage
                 };
@@ -286,6 +299,7 @@ namespace CashTracker.Infrastructure.Services
 
             return new BusinessContext
             {
+                BusinessId = isletme.Id,
                 BusinessName = isletme.Ad,
                 Today = today,
                 CurrentFrom = currentFrom,
@@ -320,6 +334,7 @@ namespace CashTracker.Infrastructure.Services
                 FinancialView = financialView,
                 GrossMargin = grossMargin,
                 CariCount = cariCards.Count,
+                CariNames = cariCards.Select(x => x.Unvan).Where(x => !string.IsNullOrWhiteSpace(x)).Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
                 ProductCount = products.Count(x => x.Aktif),
                 StockWarnings = stockWarnings
                     .OrderBy(x => x.CurrentStock - x.CriticalStock)
@@ -469,12 +484,16 @@ namespace CashTracker.Infrastructure.Services
                 "Türkçe yaz; veri yetersizse bunu belirt.";
         }
 
-        private static string BuildChatUserPrompt(string message, BusinessContext context, string mode)
+        private static string BuildChatUserPrompt(
+            string message,
+            BusinessContext context,
+            string mode,
+            PromptPrivacyMap privacy)
         {
             return
                 $"Mod: {mode}\n" +
                 "İşletme bağlamı:\n" +
-                BuildContextText(context) +
+                BuildContextText(context, privacy) +
                 "\n\nKullanıcı sorusu:\n" +
                 message +
                 "\n\nYanıt sınırı: en fazla 180 kelime.";
@@ -482,50 +501,51 @@ namespace CashTracker.Infrastructure.Services
 
         private static string BuildSuggestionUserPrompt(
             BusinessContext context,
-            IReadOnlyCollection<AiBusinessSuggestion> suggestions)
+            IReadOnlyCollection<AiBusinessSuggestion> suggestions,
+            PromptPrivacyMap privacy)
         {
             var sb = new StringBuilder();
             sb.AppendLine("İşletme bağlamı:");
-            sb.AppendLine(BuildContextText(context));
+            sb.AppendLine(BuildContextText(context, privacy));
             sb.AppendLine();
             sb.AppendLine("Yerel kural önerileri:");
             foreach (var suggestion in suggestions)
             {
                 sb.Append("- ")
-                    .Append(suggestion.Baslik)
+                    .Append(privacy.Redact(suggestion.Baslik))
                     .Append(" | ")
                     .Append(suggestion.Metrik)
                     .Append(" | ")
-                    .AppendLine(suggestion.Aciklama);
+                    .AppendLine(privacy.Redact(suggestion.Aciklama));
             }
 
             return sb.ToString();
         }
 
-        private static string BuildContextText(BusinessContext context)
+        private static string BuildContextText(BusinessContext context, PromptPrivacyMap privacy)
         {
             var sb = new StringBuilder();
-            sb.AppendLine($"İşletme: {context.BusinessName}");
+            sb.AppendLine($"İşletme: {privacy.Redact(context.BusinessName)}");
             sb.AppendLine($"Bugün: {context.Today:yyyy-MM-dd}");
             sb.AppendLine($"Analiz aralığı: {context.CurrentFrom:yyyy-MM-dd} - {context.CurrentTo:yyyy-MM-dd}");
             sb.AppendLine($"Gelir: {FormatMoney(context.CurrentSummary.IncomeTotal)} ({context.CurrentSummary.IncomeCount} kayıt)");
             sb.AppendLine($"Gider: {FormatMoney(context.CurrentSummary.ExpenseTotal)} ({context.CurrentSummary.ExpenseCount} kayıt)");
             sb.AppendLine($"Net: {FormatMoney(context.CurrentSummary.Net)}");
             sb.AppendLine($"Önceki 30 gün gider: {FormatMoney(context.PreviousSummary.ExpenseTotal)}, net: {FormatMoney(context.PreviousSummary.Net)}");
-            AppendGroups(sb, "En büyük gider kalemleri", context.ExpenseGroups);
-            AppendGroups(sb, "En büyük gelir kalemleri", context.IncomeGroups);
-            AppendGroups(sb, "Ödeme yöntemleri", context.PaymentGroups);
+            AppendGroups(sb, "En büyük gider kalemleri", context.ExpenseGroups, privacy);
+            AppendGroups(sb, "En büyük gelir kalemleri", context.IncomeGroups, privacy);
+            AppendGroups(sb, "Ödeme yöntemleri", context.PaymentGroups, privacy);
             sb.AppendLine($"Fatura sayısı: {context.InvoiceCount}, açık fatura bakiyesi: {FormatMoney(context.OutstandingInvoiceTotal)}");
             if (context.OverdueInvoices.Count > 0)
             {
                 sb.AppendLine("Vadesi geçen faturalar:");
                 foreach (var invoice in context.OverdueInvoices)
                 {
-                    sb.AppendLine($"- {invoice.YerelFaturaNo}: {FormatMoney(GetRemainingInvoiceAmount(invoice))}, vade {invoice.VadeTarihi:yyyy-MM-dd}, durum {invoice.Durum}");
+                    sb.AppendLine($"- {privacy.Redact(invoice.YerelFaturaNo)}: {FormatMoney(GetRemainingInvoiceAmount(invoice))}, vade {invoice.VadeTarihi:yyyy-MM-dd}, durum {invoice.Durum}");
                 }
             }
 
-            AppendFinancialView(sb, context.FinancialView);
+            AppendFinancialView(sb, context.FinancialView, privacy);
             if (context.GrossMargin?.Guvenilir == true)
             {
                 sb.AppendLine($"Son 30 gün brüt kâr: {FormatMoney(context.GrossMargin.BrutKarTry)}, marj %{context.GrossMargin.BrutKarOrani?.ToString("N1", TrCulture) ?? "—"}; KDV hariç hareketli ortalama stok maliyetiyle hesaplandı.");
@@ -536,7 +556,7 @@ namespace CashTracker.Infrastructure.Services
             {
                 sb.AppendLine("Kritik stok uyarıları:");
                 foreach (var stock in context.StockWarnings)
-                    sb.AppendLine($"- {stock.Name}: {stock.CurrentStock.ToString("N2", TrCulture)} {stock.Unit}, kritik {stock.CriticalStock.ToString("N2", TrCulture)}");
+                    sb.AppendLine($"- {privacy.Redact(stock.Name)}: {stock.CurrentStock.ToString("N2", TrCulture)} {stock.Unit}, kritik {stock.CriticalStock.ToString("N2", TrCulture)}");
             }
 
             if (context.RecentTransactions.Count > 0)
@@ -544,24 +564,29 @@ namespace CashTracker.Infrastructure.Services
                 sb.AppendLine("Son işlemler:");
                 foreach (var row in context.RecentTransactions)
                 {
-                    sb.AppendLine($"- {row.Tarih:yyyy-MM-dd} {row.Tip} {FormatMoney(row.Tutar)} | {NormalizeLabel(row.Kalem, row.GiderTuru ?? "Belirsiz")} | {row.OdemeYontemi}");
+                    var label = NormalizeLabel(row.Kalem, row.GiderTuru ?? "Belirsiz");
+                    sb.AppendLine($"- {row.Tarih:yyyy-MM-dd} {row.Tip} {FormatMoney(row.Tutar)} | {privacy.Redact(label)} | {privacy.Redact(row.OdemeYontemi)}");
                 }
             }
 
             return sb.ToString();
         }
 
-        private static void AppendGroups(StringBuilder sb, string title, IReadOnlyCollection<CashGroup> groups)
+        private static void AppendGroups(
+            StringBuilder sb,
+            string title,
+            IReadOnlyCollection<CashGroup> groups,
+            PromptPrivacyMap privacy)
         {
             if (groups.Count == 0)
                 return;
 
             sb.AppendLine(title + ":");
             foreach (var group in groups)
-                sb.AppendLine($"- {group.Name}: {FormatMoney(group.Amount)} ({group.Count} kayıt)");
+                sb.AppendLine($"- {privacy.Redact(group.Name)}: {FormatMoney(group.Amount)} ({group.Count} kayıt)");
         }
 
-        private static void AppendFinancialView(StringBuilder sb, FinansalGorunum view)
+        private static void AppendFinancialView(StringBuilder sb, FinansalGorunum view, PromptPrivacyMap privacy)
         {
             sb.AppendLine("Finansal görünüm:");
             sb.AppendLine($"- Kasa bakiyesi: {FormatMoney(view.KasaBakiyesi)}");
@@ -579,7 +604,7 @@ namespace CashTracker.Infrastructure.Services
                     var onTimeRate = customer.ZamanindaOdemeOrani.HasValue
                         ? $", zamanında ödeme %{customer.ZamanindaOdemeOrani.Value.ToString("N0", TrCulture)}"
                         : string.Empty;
-                    sb.AppendLine($"- {customer.Unvan}: risk {customer.RiskSeviyesi}, ritim {customer.RitimDurumu}, açık {FormatMoney(customer.AcikAlacak)}, gecikmiş {FormatMoney(customer.VadesiGecmisAlacak)}, en uzun gecikme {customer.EnUzunGecikmeGunu} gün{medianDelay}{onTimeRate}, tamamlanan ödeme {customer.TamamlananOdemeAdedi}");
+                    sb.AppendLine($"- {privacy.Redact(customer.Unvan)}: risk {customer.RiskSeviyesi}, ritim {customer.RitimDurumu}, açık {FormatMoney(customer.AcikAlacak)}, gecikmiş {FormatMoney(customer.VadesiGecmisAlacak)}, en uzun gecikme {customer.EnUzunGecikmeGunu} gün{medianDelay}{onTimeRate}, tamamlanan ödeme {customer.TamamlananOdemeAdedi}");
                 }
             }
 
@@ -725,6 +750,7 @@ namespace CashTracker.Infrastructure.Services
 
         private sealed class BusinessContext
         {
+            public int BusinessId { get; set; }
             public string BusinessName { get; set; } = string.Empty;
             public DateTime Today { get; set; }
             public DateTime CurrentFrom { get; set; }
@@ -743,8 +769,78 @@ namespace CashTracker.Infrastructure.Services
             public FinansalGorunum FinancialView { get; set; } = new();
             public BrutKarMarjiOzeti? GrossMargin { get; set; }
             public int CariCount { get; set; }
+            public List<string> CariNames { get; set; } = [];
             public int ProductCount { get; set; }
             public List<StockWarning> StockWarnings { get; set; } = [];
+        }
+
+        private sealed class PromptPrivacyMap
+        {
+            private static readonly Regex EmailPattern = new(
+                @"\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b",
+                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+            private static readonly Regex IbanPattern = new(
+                @"\bTR(?:\s?\d){24}\b",
+                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+            private readonly List<KeyValuePair<string, string>> _replacements = [];
+
+            public static PromptPrivacyMap Create(BusinessContext context)
+            {
+                var map = new PromptPrivacyMap();
+                map.Add(context.BusinessName, "[ISLETME]");
+
+                var index = 1;
+                foreach (var name in context.CariNames)
+                    map.Add(name, $"[CARI_{index++}]");
+
+                index = 1;
+                foreach (var invoice in context.OverdueInvoices)
+                    map.Add(invoice.YerelFaturaNo, $"[FATURA_{index++}]");
+
+                index = 1;
+                foreach (var stock in context.StockWarnings)
+                    map.Add(stock.Name, $"[URUN_{index++}]");
+
+                index = 1;
+                foreach (var label in context.ExpenseGroups.Select(x => x.Name)
+                             .Concat(context.IncomeGroups.Select(x => x.Name))
+                             .Concat(context.RecentTransactions.Select(x => NormalizeLabel(x.Kalem, x.GiderTuru ?? "Belirsiz")))
+                             .Distinct(StringComparer.OrdinalIgnoreCase))
+                {
+                    map.Add(label, $"[KALEM_{index++}]");
+                }
+
+                return map;
+            }
+
+            public string Redact(string? value)
+            {
+                var result = value ?? string.Empty;
+                foreach (var replacement in _replacements.OrderByDescending(x => x.Key.Length))
+                    result = result.Replace(replacement.Key, replacement.Value, StringComparison.OrdinalIgnoreCase);
+                result = EmailPattern.Replace(result, "[EPOSTA]");
+                return IbanPattern.Replace(result, "[IBAN]");
+            }
+
+            public string Restore(string value)
+            {
+                var result = value;
+                foreach (var replacement in _replacements)
+                    result = result.Replace(replacement.Value, replacement.Key, StringComparison.OrdinalIgnoreCase);
+                return result;
+            }
+
+            private void Add(string? original, string alias)
+            {
+                var normalized = original?.Trim();
+                if (string.IsNullOrWhiteSpace(normalized) ||
+                    _replacements.Any(x => string.Equals(x.Key, normalized, StringComparison.OrdinalIgnoreCase)))
+                {
+                    return;
+                }
+                _replacements.Add(new KeyValuePair<string, string>(normalized, alias));
+            }
         }
 
         private sealed record CashGroup(string Name, decimal Amount, int Count);

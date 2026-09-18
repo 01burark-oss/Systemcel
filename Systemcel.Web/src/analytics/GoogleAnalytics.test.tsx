@@ -29,14 +29,14 @@ describe("Google Analytics consent", () => {
 
     expect(window.localStorage.getItem(CONSENT_KEY)).toBe("denied");
     expect(document.getElementById(SCRIPT_ID)).toBeNull();
-    expect(screen.queryByRole("complementary", { name: "Analitik çerez tercihi" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("complementary", { name: "Çerez ve analiz tercihi" })).not.toBeInTheDocument();
   });
 
   it("loads analytics and records a page view only after approval", async () => {
     const user = userEvent.setup();
     render(<><GoogleAnalytics /><AnalyticsConsentBanner /></>);
 
-    await user.click(screen.getByRole("button", { name: "Analitiğe izin ver" }));
+    await user.click(screen.getByRole("button", { name: "Çerezlere izin ver" }));
 
     const script = document.getElementById(SCRIPT_ID) as HTMLScriptElement | null;
     expect(window.localStorage.getItem(CONSENT_KEY)).toBe("granted");

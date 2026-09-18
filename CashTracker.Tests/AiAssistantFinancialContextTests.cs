@@ -1,4 +1,6 @@
 using System.Net;
+using System.Text;
+using System.Text.Json;
 using CashTracker.Core.Entities;
 using CashTracker.Core.Models;
 using CashTracker.Core.Services;
@@ -56,10 +58,68 @@ public sealed class AiAssistantFinancialContextTests
         Assert.Contains("Tamamlanan ödeme örneği: 8", result.Answer);
     }
 
-    private static AiAssistantService CreateService(FinansalGorunum view)
+    [Fact]
+    public async Task OnlineAssistant_MasksBusinessDataAndUsesTenantScopedFlashRequest()
     {
-        var settings = new DeepSeekSettings();
-        var client = new DeepSeekChatClient(new HttpClient(new NoopHandler()), settings);
+        var handler = new CapturingHandler(
+            HttpStatusCode.OK,
+            "{\"choices\":[{\"message\":{\"content\":\"[CARI_1] değerlendirmesi hazır.\"}}]}");
+        var service = CreateService(
+            BuildFinancialView(),
+            new DeepSeekSettings { ApiKey = "test-api-key" },
+            handler);
+
+        var result = await service.ChatAsync(new AiAssistantChatRequest
+        {
+            Mesaj = "Örnek Market cari kaydını test@example.com ve TR12 3456 7890 1234 5678 9012 34 ile değerlendir."
+        });
+
+        Assert.Equal("deepseek-flash", result.Model);
+        Assert.Contains("Örnek Market", result.Answer);
+        Assert.NotNull(handler.Body);
+        Assert.DoesNotContain("Örnek Market", handler.Body);
+        Assert.DoesNotContain("Örnek İşletme", handler.Body);
+        Assert.DoesNotContain("test@example.com", handler.Body);
+        Assert.DoesNotContain("TR12 3456", handler.Body);
+
+        using var request = JsonDocument.Parse(handler.Body!);
+        var root = request.RootElement;
+        Assert.Equal("deepseek-flash", root.GetProperty("model").GetString());
+        Assert.Equal("enabled", root.GetProperty("thinking").GetProperty("type").GetString());
+        Assert.Equal("low", root.GetProperty("reasoning_effort").GetString());
+        Assert.Equal(2000, root.GetProperty("max_tokens").GetInt32());
+        Assert.StartsWith("tenant-", root.GetProperty("user_id").GetString());
+        Assert.False(root.TryGetProperty("temperature", out _));
+        Assert.Contains(
+            "Kullanıcı sorusu",
+            root.GetProperty("messages")[1].GetProperty("content").GetString());
+    }
+
+    [Fact]
+    public async Task DeepSeekClient_DoesNotExposeUpstreamErrorBody()
+    {
+        var handler = new CapturingHandler(HttpStatusCode.BadRequest, "sensitive-upstream-detail");
+        var settings = new DeepSeekSettings { ApiKey = "test-api-key" };
+        var client = new DeepSeekChatClient(new HttpClient(handler), settings);
+
+        var exception = await Assert.ThrowsAsync<HttpRequestException>(() => client.CompleteAsync(
+            settings.EffectiveFlashModel,
+            [new DeepSeekChatMessage("user", "test")],
+            0.2,
+            256,
+            "1",
+            enableThinking: false));
+
+        Assert.DoesNotContain("sensitive-upstream-detail", exception.Message);
+    }
+
+    private static AiAssistantService CreateService(
+        FinansalGorunum view,
+        DeepSeekSettings? settings = null,
+        HttpMessageHandler? handler = null)
+    {
+        settings ??= new DeepSeekSettings();
+        var client = new DeepSeekChatClient(new HttpClient(handler ?? new NoopHandler()), settings);
         return new AiAssistantService(
             settings,
             client,
@@ -183,5 +243,23 @@ public sealed class AiAssistantFinancialContextTests
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
             Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK));
+    }
+
+    private sealed class CapturingHandler(HttpStatusCode statusCode, string responseBody) : HttpMessageHandler
+    {
+        public string? Body { get; private set; }
+
+        protected override async Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            Body = request.Content is null
+                ? null
+                : await request.Content.ReadAsStringAsync(cancellationToken);
+            return new HttpResponseMessage(statusCode)
+            {
+                Content = new StringContent(responseBody, Encoding.UTF8, "application/json")
+            };
+        }
     }
 }

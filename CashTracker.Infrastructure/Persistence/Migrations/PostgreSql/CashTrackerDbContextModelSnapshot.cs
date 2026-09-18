@@ -3579,9 +3579,6 @@ namespace CashTracker.Infrastructure.Persistence.Migrations.PostgreSql
                     b.Property<decimal>("BirimFiyat")
                         .HasColumnType("NUMERIC(18,2)");
 
-                    b.Property<decimal>("KdvOrani")
-                        .HasColumnType("NUMERIC(5,2)");
-
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp without time zone");
 
@@ -3589,6 +3586,9 @@ namespace CashTracker.Infrastructure.Persistence.Migrations.PostgreSql
                         .IsRequired()
                         .HasMaxLength(30)
                         .HasColumnType("character varying(30)");
+
+                    b.Property<decimal>("KdvOrani")
+                        .HasColumnType("NUMERIC(5,2)");
 
                     b.Property<decimal>("MinimumSiparis")
                         .HasColumnType("NUMERIC(18,3)");
@@ -3620,6 +3620,64 @@ namespace CashTracker.Infrastructure.Persistence.Migrations.PostgreSql
                         .IsUnique();
 
                     b.ToTable("TedarikTeklifi", (string)null);
+                });
+
+            modelBuilder.Entity("CashTracker.Core.Entities.TedarikciDegerlendirmesi", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AliciIsletmeId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<int>("EksiksizTeslimatPuani")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("HasarsizTeslimatPuani")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("OrtalamaPuan")
+                        .HasColumnType("NUMERIC(3,2)");
+
+                    b.Property<int?>("SorunCozmePuani")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TedarikciIsletmeId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TedarikciSiparisId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<int>("UrunUygunluguPuani")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Yorum")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<int>("ZamanindaTeslimatPuani")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TedarikciSiparisId")
+                        .IsUnique();
+
+                    b.HasIndex("AliciIsletmeId", "CreatedAt");
+
+                    b.HasIndex("TedarikciIsletmeId", "CreatedAt");
+
+                    b.ToTable("TedarikciDegerlendirmesi", (string)null);
                 });
 
             modelBuilder.Entity("CashTracker.Core.Entities.TedarikciFaturaEslesmesi", b =>
@@ -3739,6 +3797,60 @@ namespace CashTracker.Infrastructure.Persistence.Migrations.PostgreSql
                     b.HasIndex("TedarikciIsletmeId", "Durum", "PlanlananAt");
 
                     b.ToTable("TedarikciHakEdis", (string)null);
+                });
+
+            modelBuilder.Entity("CashTracker.Core.Entities.TedarikciMalKabul", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AliciIsletmeId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("IdempotencyAnahtari")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<decimal>("KabulEdilenMiktar")
+                        .HasColumnType("NUMERIC(18,3)");
+
+                    b.Property<string>("Not")
+                        .IsRequired()
+                        .HasMaxLength(800)
+                        .HasColumnType("character varying(800)");
+
+                    b.Property<string>("RedNedeni")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<decimal>("ReddedilenMiktar")
+                        .HasColumnType("NUMERIC(18,3)");
+
+                    b.Property<int>("TedarikciSevkiyatEtiketiId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TedarikciSiparisId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TedarikciSevkiyatEtiketiId")
+                        .IsUnique();
+
+                    b.HasIndex("AliciIsletmeId", "IdempotencyAnahtari")
+                        .IsUnique();
+
+                    b.HasIndex("TedarikciSiparisId", "CreatedAt");
+
+                    b.ToTable("TedarikciMalKabul", (string)null);
                 });
 
             modelBuilder.Entity("CashTracker.Core.Entities.TedarikciProfil", b =>
@@ -3869,6 +3981,174 @@ namespace CashTracker.Infrastructure.Persistence.Migrations.PostgreSql
                     b.HasIndex("Yayinda", "Dogrulandi");
 
                     b.ToTable("TedarikciProfil", (string)null);
+                });
+
+            modelBuilder.Entity("CashTracker.Core.Entities.TedarikciSevkiyat", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AliciIsletmeId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("AracPlaka")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)");
+
+                    b.Property<string>("BelgeNo")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("CikisDeposu")
+                        .IsRequired()
+                        .HasMaxLength(180)
+                        .HasColumnType("character varying(180)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("Durum")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<string>("Not")
+                        .IsRequired()
+                        .HasMaxLength(800)
+                        .HasColumnType("character varying(800)");
+
+                    b.Property<DateTime?>("PlanlananTeslimAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("SevkiyatNo")
+                        .IsRequired()
+                        .HasMaxLength(48)
+                        .HasColumnType("character varying(48)");
+
+                    b.Property<string>("SurucuAdi")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<string>("TasimaTipi")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("Tasiyici")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<int>("TedarikciIsletmeId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TedarikciSiparisId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AliciIsletmeId");
+
+                    b.HasIndex("SevkiyatNo")
+                        .IsUnique();
+
+                    b.HasIndex("TedarikciIsletmeId");
+
+                    b.HasIndex("TedarikciSiparisId", "CreatedAt");
+
+                    b.ToTable("TedarikciSevkiyat", (string)null);
+                });
+
+            modelBuilder.Entity("CashTracker.Core.Entities.TedarikciSevkiyatEtiketi", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("Durum")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<string>("KodHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<decimal>("Miktar")
+                        .HasColumnType("NUMERIC(18,3)");
+
+                    b.Property<DateTime?>("OkutulduAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<int>("TedarikciSevkiyatKalemiId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("KodHash")
+                        .IsUnique();
+
+                    b.HasIndex("TedarikciSevkiyatKalemiId");
+
+                    b.ToTable("TedarikciSevkiyatEtiketi", (string)null);
+                });
+
+            modelBuilder.Entity("CashTracker.Core.Entities.TedarikciSevkiyatKalemi", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("EtiketSayisi")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("LotNo")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<decimal>("Miktar")
+                        .HasColumnType("NUMERIC(18,3)");
+
+                    b.Property<decimal?>("SicaklikMax")
+                        .HasColumnType("NUMERIC(8,2)");
+
+                    b.Property<decimal?>("SicaklikMin")
+                        .HasColumnType("NUMERIC(8,2)");
+
+                    b.Property<DateTime?>("SonKullanmaTarihi")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<int>("TedarikciSevkiyatId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TedarikciSiparisKalemiId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TedarikciSevkiyatId");
+
+                    b.HasIndex("TedarikciSiparisKalemiId");
+
+                    b.ToTable("TedarikciSevkiyatKalemi", (string)null);
                 });
 
             modelBuilder.Entity("CashTracker.Core.Entities.TedarikciSiparis", b =>
@@ -4042,6 +4322,9 @@ namespace CashTracker.Infrastructure.Persistence.Migrations.PostgreSql
                     b.Property<decimal>("BirimFiyat")
                         .HasColumnType("NUMERIC(18,2)");
 
+                    b.Property<decimal>("KabulEdilenMiktar")
+                        .HasColumnType("NUMERIC(18,3)");
+
                     b.Property<decimal>("KdvOrani")
                         .HasColumnType("NUMERIC(7,4)");
 
@@ -4053,6 +4336,12 @@ namespace CashTracker.Infrastructure.Persistence.Migrations.PostgreSql
 
                     b.Property<decimal>("NetTutar")
                         .HasColumnType("NUMERIC(18,2)");
+
+                    b.Property<decimal>("ReddedilenMiktar")
+                        .HasColumnType("NUMERIC(18,3)");
+
+                    b.Property<decimal>("SevkEdilenMiktar")
+                        .HasColumnType("NUMERIC(18,3)");
 
                     b.Property<string>("Sku")
                         .IsRequired()
@@ -4075,6 +4364,77 @@ namespace CashTracker.Infrastructure.Persistence.Migrations.PostgreSql
                     b.HasIndex("TedarikciUrunId");
 
                     b.ToTable("TedarikciSiparisKalemi", (string)null);
+                });
+
+            modelBuilder.Entity("CashTracker.Core.Entities.TedarikciSiparisSikayeti", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Aciklama")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<int>("AliciIsletmeId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("Durum")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<string>("KapanisNotu")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<DateTime?>("KapatildiAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("Kategori")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("Talep")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<int>("TedarikciIsletmeId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TedarikciSiparisId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("TedarikciYaniti")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime?>("YanitlandiAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TedarikciSiparisId")
+                        .IsUnique();
+
+                    b.HasIndex("AliciIsletmeId", "CreatedAt");
+
+                    b.HasIndex("TedarikciIsletmeId", "Durum");
+
+                    b.ToTable("TedarikciSiparisSikayeti", (string)null);
                 });
 
             modelBuilder.Entity("CashTracker.Core.Entities.TedarikciUrun", b =>
@@ -4502,6 +4862,27 @@ namespace CashTracker.Infrastructure.Persistence.Migrations.PostgreSql
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("CashTracker.Core.Entities.TedarikciDegerlendirmesi", b =>
+                {
+                    b.HasOne("CashTracker.Core.Entities.Isletme", null)
+                        .WithMany()
+                        .HasForeignKey("AliciIsletmeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CashTracker.Core.Entities.Isletme", null)
+                        .WithMany()
+                        .HasForeignKey("TedarikciIsletmeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CashTracker.Core.Entities.TedarikciSiparis", null)
+                        .WithMany()
+                        .HasForeignKey("TedarikciSiparisId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("CashTracker.Core.Entities.TedarikciFaturaEslesmesi", b =>
                 {
                     b.HasOne("CashTracker.Core.Entities.Fatura", null)
@@ -4538,12 +4919,78 @@ namespace CashTracker.Infrastructure.Persistence.Migrations.PostgreSql
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("CashTracker.Core.Entities.TedarikciMalKabul", b =>
+                {
+                    b.HasOne("CashTracker.Core.Entities.Isletme", null)
+                        .WithMany()
+                        .HasForeignKey("AliciIsletmeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CashTracker.Core.Entities.TedarikciSevkiyatEtiketi", null)
+                        .WithMany()
+                        .HasForeignKey("TedarikciSevkiyatEtiketiId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CashTracker.Core.Entities.TedarikciSiparis", null)
+                        .WithMany()
+                        .HasForeignKey("TedarikciSiparisId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("CashTracker.Core.Entities.TedarikciProfil", b =>
                 {
                     b.HasOne("CashTracker.Core.Entities.Isletme", null)
                         .WithMany()
                         .HasForeignKey("IsletmeId")
                         .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CashTracker.Core.Entities.TedarikciSevkiyat", b =>
+                {
+                    b.HasOne("CashTracker.Core.Entities.Isletme", null)
+                        .WithMany()
+                        .HasForeignKey("AliciIsletmeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CashTracker.Core.Entities.Isletme", null)
+                        .WithMany()
+                        .HasForeignKey("TedarikciIsletmeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CashTracker.Core.Entities.TedarikciSiparis", null)
+                        .WithMany()
+                        .HasForeignKey("TedarikciSiparisId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CashTracker.Core.Entities.TedarikciSevkiyatEtiketi", b =>
+                {
+                    b.HasOne("CashTracker.Core.Entities.TedarikciSevkiyatKalemi", null)
+                        .WithMany()
+                        .HasForeignKey("TedarikciSevkiyatKalemiId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CashTracker.Core.Entities.TedarikciSevkiyatKalemi", b =>
+                {
+                    b.HasOne("CashTracker.Core.Entities.TedarikciSevkiyat", null)
+                        .WithMany()
+                        .HasForeignKey("TedarikciSevkiyatId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CashTracker.Core.Entities.TedarikciSiparisKalemi", null)
+                        .WithMany()
+                        .HasForeignKey("TedarikciSiparisKalemiId")
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });
 
@@ -4601,6 +5048,27 @@ namespace CashTracker.Infrastructure.Persistence.Migrations.PostgreSql
                         .WithMany()
                         .HasForeignKey("TedarikciUrunId")
                         .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CashTracker.Core.Entities.TedarikciSiparisSikayeti", b =>
+                {
+                    b.HasOne("CashTracker.Core.Entities.Isletme", null)
+                        .WithMany()
+                        .HasForeignKey("AliciIsletmeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CashTracker.Core.Entities.Isletme", null)
+                        .WithMany()
+                        .HasForeignKey("TedarikciIsletmeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CashTracker.Core.Entities.TedarikciSiparis", null)
+                        .WithMany()
+                        .HasForeignKey("TedarikciSiparisId")
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
 

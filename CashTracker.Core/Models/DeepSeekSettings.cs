@@ -4,8 +4,8 @@ namespace CashTracker.Core.Models
     {
         public string ApiKey { get; set; } = string.Empty;
         public string BaseUrl { get; set; } = "https://api.deepseek.com";
-        public string ProModel { get; set; } = "deepseek-v4-pro";
-        public string FlashModel { get; set; } = "deepseek-v4-flash";
+        public string ProModel { get; set; } = "deepseek-flash";
+        public string FlashModel { get; set; } = "deepseek-flash";
         public int TimeoutSeconds { get; set; } = 60;
 
         public bool IsConfigured => !string.IsNullOrWhiteSpace(ApiKey);
@@ -17,11 +17,11 @@ namespace CashTracker.Core.Models
             : BaseUrl.Trim().TrimEnd('/');
 
         public string EffectiveProModel => string.IsNullOrWhiteSpace(ProModel)
-            ? "deepseek-v4-pro"
+            ? "deepseek-flash"
             : ProModel.Trim();
 
         public string EffectiveFlashModel => string.IsNullOrWhiteSpace(FlashModel)
-            ? "deepseek-v4-flash"
+            ? "deepseek-flash"
             : FlashModel.Trim();
 
         public int EffectiveTimeoutSeconds => TimeoutSeconds <= 0 ? 60 : TimeoutSeconds;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { legalTexts } from "./legalTexts";
+import { legalTexts, publicBusinessIdentity } from "./legalTexts";
 
 describe("subscription legal text", () => {
   it.each(["tr", "en"] as const)("keeps the cancellation and renewal terms explicit in %s", (language) => {
@@ -17,5 +17,14 @@ describe("subscription legal text", () => {
       expect(searchable).toContain("paid period ends");
       expect(searchable).toContain("mandatory");
     }
+  });
+
+  it("uses the verified public business identity without stale placeholders", () => {
+    const searchable = JSON.stringify(legalTexts);
+
+    expect(searchable).toContain(publicBusinessIdentity.tr.tax);
+    expect(searchable).toContain(publicBusinessIdentity.tr.address);
+    expect(searchable).not.toContain("Cemalbey");
+    expect(searchable).not.toMatch(/\[(?:VERGİ|AÇIK ADRES|RESMÎ|FULL ADDRESS|TAX AND REGISTRY|OFFICIAL EMAIL)/);
   });
 });

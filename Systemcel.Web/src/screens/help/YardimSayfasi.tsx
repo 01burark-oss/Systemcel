@@ -21,7 +21,7 @@ const helpContent: Record<string, HelpArticle> = {
     subsections: [
       {
         title: "Systemcel neyi çözer?",
-        body: "Systemcel; gelir, gider, fatura, cari hesap, stok, tahsilat ve rapor akışlarını aynı çalışma alanında toplar. Amaç tek tek dosya, mesaj ve tablo kovalamadan finansal görünürlüğü tek ekrandan sağlamaktır."
+        body: "Systemcel; gelir, gider, fatura, cari hesap, stok, tahsilat ve raporları tek yerde toplar. Böylece dosya, mesaj ve tablolar arasında aramadan finans durumunuzu tek ekranda görürsünüz."
       },
       {
         title: "Deneme süresi nasıl işler?",
@@ -29,7 +29,7 @@ const helpContent: Record<string, HelpArticle> = {
       },
       {
         title: "AI mesaj hakkı ne anlama gelir?",
-        body: "AI hakkı, asistanla yapılan otomatik yorumlama, özetleme ve işlem hazırlama isteklerini ifade eder. Örneğin dönem özeti, kayıt açıklaması veya finansal yorum üretimi bu haklardan düşebilir."
+        body: "Yapay zekâ mesaj hakkı, asistana gönderdiğiniz soruları ve özet isteklerini ifade eder. Dönem özeti, kayıt açıklaması veya finans yorumu hazırlatmak bu haktan düşebilir."
       },
       {
         title: "GİB bilgisi olmadan kullanabilir miyim?",
@@ -50,11 +50,11 @@ const helpContent: Record<string, HelpArticle> = {
     ]
   },
   "ilk-kurulum": {
-    lead: "İlk kurulumun amacı işletme alanını doğru bilgilerle açmak ve ilk kayıtları güvenli şekilde denemektir.",
+    lead: "İlk kurulumda işletme bilgilerinizi ve günlük kullanım tercihlerinizi belirlersiniz.",
     subsections: [
       {
         title: "İşletme alanı oluşturma",
-        body: "Her şey işletme kaydıyla başlar. İşletme adı, iletişim bilgileri ve temel finans tercihleri girildiğinde Systemcel bu alanı gelir-gider, fatura, cari ve rapor modüllerinin merkezi olarak kullanır."
+        body: "Önce işletme adını, iletişim bilgilerini ve temel finans tercihlerini girin. Gelir-gider, fatura, cari hesap ve raporlar bu işletmeye bağlı tutulur."
       },
       {
         title: "İlk kullanıcı ve yetki mantığı",
@@ -66,7 +66,7 @@ const helpContent: Record<string, HelpArticle> = {
       },
       {
         title: "İlk test kaydı",
-        body: "Kurulumdan sonra küçük bir gelir veya gider kaydı açmak en iyi kontroldür. Bu kayıt dashboard, rapor ve nakit akışı ekranlarında görünüyorsa temel akış hazır demektir."
+        body: "Kurulumdan sonra deneme amaçlı bir gelir veya gider ekleyin. Kayıt ana ekranda, raporlarda ve nakit akışında görünüyorsa kurulumu tamamladınız."
       }
     ]
   },
@@ -79,7 +79,7 @@ const helpContent: Record<string, HelpArticle> = {
       },
       {
         title: "Gelir ve gider ayrımı",
-        body: "Gelir işletmeye para girişini, gider ise para çıkışını temsil eder. Dashboard üzerindeki toplam gelir, toplam gider ve net kar hesapları bu ayrıma göre oluşur."
+        body: "Gelir işletmeye para girişini, gider ise para çıkışını gösterir. Ana ekrandaki toplam gelir, toplam gider ve net kâr bu ayrıma göre hesaplanır."
       },
       {
         title: "Kategori ve ödeme yöntemi",
@@ -108,7 +108,7 @@ const helpContent: Record<string, HelpArticle> = {
       },
       {
         title: "Ödeme durumu",
-        body: "Fatura ödenmedi, bekliyor, ödendi veya vadesi geçti gibi durumlarla izlenir. Bu durumlar dashboard üzerinde bekleyen tahsilat ve yaklaşan ödeme görünürlüğünü besler."
+        body: "Fatura; bekliyor, ödendi veya vadesi geçti gibi durumlarla izlenir. Ana ekranda bekleyen tahsilatları ve yaklaşan ödemeleri görebilirsiniz."
       },
       {
         title: "Tahsilata bağlama",
@@ -121,7 +121,7 @@ const helpContent: Record<string, HelpArticle> = {
     ]
   },
   "gib-e-arsiv": {
-    lead: "GİB e-Arşiv akışı, portal işlemlerini uygulamadan yönetilebilir hale getirmek için tasarlanır.",
+    lead: "Systemcel'de e-Arşiv fatura taslağı hazırlayabilir ve gönderim adımlarını uygulamadan yönetebilirsiniz.",
     subsections: [
       {
         title: "Portal bilgileri",
@@ -150,7 +150,7 @@ const helpContent: Record<string, HelpArticle> = {
     ]
   },
   telegram: {
-    lead: "Telegram bildirimleri, uygulamaya girmeden önemli finans hareketlerini takip etmek için ek bir kanal sağlar.",
+    lead: "İsterseniz finans özetlerini ve önemli uyarıları Telegram'dan alabilirsiniz.",
     subsections: [
       {
         title: "Bağlantı mantığı",
@@ -158,7 +158,7 @@ const helpContent: Record<string, HelpArticle> = {
       },
       {
         title: "Hangi bildirimler gider?",
-        body: "Günlük özet, bekleyen tahsilat, vadesi yaklaşan fatura, kritik stok veya dönem raporu gibi önemli olaylar Telegram'a taşınabilir. Amaç kullanıcıyı sadece aksiyon gereken konularda uyarmaktır."
+        body: "Günlük özet, bekleyen tahsilat, vadesi yaklaşan fatura, kritik stok veya dönem raporu gibi bildirimleri Telegram'dan alabilirsiniz."
       },
       {
         title: "Fotoğraf ve belge akışı",
@@ -166,7 +166,7 @@ const helpContent: Record<string, HelpArticle> = {
       },
       {
         title: "Bildirim kalabalığını azaltma",
-        body: "Her hareket için bildirim göndermek yerine özet ve eşik mantığı kullanılmalıdır. Böylece kullanıcı önemli durumları kaçırmadan mesaj yorgunluğu yaşamaz."
+        body: "Bildirimleri yalnızca önemli durumlar için açarak gereksiz mesajları azaltabilirsiniz."
       },
       {
         title: "Bağlantı kesilirse",
@@ -175,7 +175,7 @@ const helpContent: Record<string, HelpArticle> = {
     ]
   },
   raporlar: {
-    lead: "Raporlar, girilen kayıtları dönemsel finansal kararlara dönüştürür.",
+    lead: "Raporlar, seçtiğiniz dönemde gelirlerinizi, giderlerinizi ve nakit durumunuzu gösterir.",
     subsections: [
       {
         title: "Dönem seçimi",
@@ -199,12 +199,50 @@ const helpContent: Record<string, HelpArticle> = {
       }
     ]
   },
+  "muhasebeci-baglantisi": {
+    lead: "Çalıştığınız muhasebeciyi Systemcel'e davet ederek kayıtları ve görüşmeleri aynı yerde yönetebilirsiniz.",
+    subsections: [
+      {
+        title: "Muhasebeciyi davet etme",
+        body: "Muhasebeci bağlantısı ekranından davet bağlantısı oluşturun ve çalıştığınız muhasebeciye gönderin. Muhasebeciniz kendi hesabıyla giriş yaparak daveti kabul eder."
+      },
+      {
+        title: "Yetki seçimi",
+        body: "Davet oluştururken Okuma ve rapor ya da Tam işlem yetkisini seçin. Okuma ve rapor yetkisi kayıtları görüntülemeyi; Tam işlem yetkisi kayıtları görüntüleyip düzenlemeyi sağlar."
+      },
+      {
+        title: "Birlikte çalışma",
+        body: "Bağlantı kurulduktan sonra belgeleri ve görüşmeleri aynı çalışma alanında yönetebilirsiniz. Muhasebeciniz bağlı müşterilerini kendi panelinde ayrı ayrı görür."
+      }
+    ]
+  },
+  "tedarikci-pazaryeri": {
+    lead: "Tedarikçi pazaryerinde farklı satıcılardan ürün alabilir ve her teslimatı ayrı takip edebilirsiniz.",
+    subsections: [
+      {
+        title: "Ürün arama ve sepet",
+        body: "Ürün, kategori veya tedarikçi adına göre arama yapın. Farklı tedarikçilerin ürünlerini aynı sepete ekleyebilirsiniz."
+      },
+      {
+        title: "Sipariş takibi",
+        body: "Siparişten sonra her tedarikçinin onay, hazırlama, kargo, teslimat ve fatura durumunu ayrı izleyebilirsiniz. Gerekirse yalnızca seçtiğiniz tedarikçinin siparişini iptal edebilirsiniz."
+      },
+      {
+        title: "Alım talebi ve teklifler",
+        body: "Aradığınız ürün katalogda yoksa alım talebi oluşturun. Tedarikçilerin fiyat, teslimat süresi ve minimum sipariş bilgilerini karşılaştırarak bir teklifi kabul edin."
+      },
+      {
+        title: "Tedarikçi hesabı",
+        body: "Tedarikçiler profil başvurusu yapabilir, ürünlerini yayınlayabilir, siparişleri hazırlayıp kargoya verebilir ve satış hakedişlerini takip edebilir."
+      }
+    ]
+  },
   abonelik: {
     lead: "Abonelik alanı, işletme veya muhasebeci kullanımına göre plan seçimini ve limitleri açık hale getirir.",
     subsections: [
       {
         title: "İşletme ve muhasebeci ayrımı",
-        body: "İşletme planları kendi finansını yöneten ekipler içindir. Muhasebeci planları ise birden fazla müşteri portföyünü aynı hesap altında yönetmek için tasarlanır."
+        body: "İşletme planları kendi finansını yöneten ekipler içindir. Muhasebeci planları birden fazla müşteriyi aynı hesaptan yönetmek içindir."
       },
       {
         title: "Plan limitleri",
@@ -220,7 +258,7 @@ const helpContent: Record<string, HelpArticle> = {
       },
       {
         title: "İptal ve erişim",
-        body: "İptal akışında kullanıcıya mevcut dönem, veri erişimi ve devam eden haklar net gösterilmelidir. Böylece ödeme durumu ile veri yönetimi birbirine karışmaz."
+        body: "Aboneliği dönem sonunda iptal edebilirsiniz. Erişiminizin biteceği tarih iptal ekranında gösterilir."
       }
     ]
   },

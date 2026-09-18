@@ -186,7 +186,7 @@ export function RaporlarSayfasi({ yenileAnahtari }: RaporlarSayfasiProps) {
         setDurum(`${aksiyon.toUpperCase()} raporu indirildi.`);
       }
     } catch (error) {
-      setHata(error instanceof Error ? error.message : "Rapor aksiyonu tamamlanamadı.");
+      setHata(error instanceof Error ? error.message : "Rapor hazırlanamadı.");
     } finally {
       setIslemde(false);
     }

@@ -1,8 +1,8 @@
 # Systemcel yasal metin yayım kaydı
 
-> Hukuk onayı kullanıcı tarafından 31 Ağustos 2026'da bildirildi. Hizmet sağlayıcı Burak Özmen (şahıs işletmesi) olarak doğrulandı. Kaynak metinlerdeki taslak ibareleri kaldırıldı; vergi, adres ve resmî iletişim alanları henüz sağlanmadığı için yayım hazırlığı tamamlanmış sayılmıyor.
+> Hukuk onayı kullanıcı tarafından 31 Ağustos 2026'da bildirildi. Vergi levhası ve noter belgeleri 17 Eylül 2026'da ürün kimlik alanları için kaynak olarak alındı. Yalnız kamuya açık hizmet sağlayıcı bilgileri ürüne işlendi; T.C. kimlik numarası, imza örnekleri ve vekil kişilerin kimlik bilgileri yayımlanmadı.
 >
-> Teknik sürüm tarihi: 8 Eylül 2026
+> Teknik sürüm tarihi: 17 Eylül 2026
 
 ## 1. Hizmet sağlayıcı bilgileri
 
@@ -10,13 +10,15 @@
 |---|---|
 | Hizmet sağlayıcı | Burak Özmen |
 | İşletme türü | Şahıs işletmesi |
-| Vergi dairesi / vergi numarası | `[VERGİ DAİRESİ / VERGİ NO]` |
-| MERSİS / ticaret sicil | `[MERSİS / SİCİL]` |
-| Açık adres | `[AÇIK ADRES]` |
-| KEP | `[KEP]` |
-| Resmî e-posta | `[RESMÎ E-POSTA]` |
-| Destek kanalı | `destek@systemcel.app` (kuruluş sonrası doğrulanacak) |
-| Ödeme kuruluşu | `[ÖDEME KURULUŞU VE ÜYE İŞYERİ BİLGİSİ]` |
+| Vergi dairesi / vergi numarası | Küçükyalı Vergi Dairesi / 7020714272 |
+| İşe başlama tarihi | 14 Eylül 2026 |
+| Ana faaliyet | 621000 — Bilgisayar programlama faaliyetleri |
+| MERSİS / ticaret sicil | Sunulan belgelerde yer almıyor; yayımdan önce gerekliyse ayrıca doğrulanacak |
+| Açık adres | Bağlarbaşı Mahallesi, Hür Sokak No: 2, İç Kapı No: 9, Maltepe/İstanbul |
+| KEP | Sunulan belgelerde yer almıyor; varsa ayrıca eklenecek |
+| Resmî e-posta | `destek@systemcel.app` |
+| Destek kanalı | `destek@systemcel.app` |
+| Ödeme kuruluşu | PayTR başvurusu henüz açılmadı; üye işyeri bilgisi başvuru sonrasında eklenecek |
 
 Üretim alan adı ve bütün kullanıcı iletişimleri için teknik tercih `systemcel.app` olarak tekleştirilmiştir.
 
@@ -24,10 +26,10 @@
 
 | Metin | Teknik kaynak | Durum |
 |---|---|---|
-| Kullanım şartları | `Systemcel.Web/src/auth/legalTexts.ts` / `terms` | Hukuk onayı bildirildi; taslak ibaresi kaldırıldı |
-| Gizlilik politikası | `Systemcel.Web/src/auth/legalTexts.ts` / `privacy` | Hukuk onayı bildirildi; taslak ibaresi kaldırıldı |
-| KVKK aydınlatma | `Systemcel.Web/src/auth/legalTexts.ts` / `kvkk` | Hukuk onayı bildirildi; adres ve resmî iletişim alanları bekliyor |
-| Abonelik, yenileme, iptal ve iade | `Systemcel.Web/src/auth/legalTexts.ts` / `subscription` | Hukuk onayı bildirildi; hizmet sağlayıcı ayrıntıları bekliyor |
+| Kullanım şartları | `Systemcel.Web/src/auth/legalTexts.ts` / `terms` | Hizmet sağlayıcı, vergi, adres ve iletişim bilgileri eklendi |
+| Gizlilik politikası | `Systemcel.Web/src/auth/legalTexts.ts` / `privacy` | Veri sorumlusu, vergi, adres ve iletişim bilgileri eklendi |
+| KVKK aydınlatma | `Systemcel.Web/src/auth/legalTexts.ts` / `kvkk` | Veri sorumlusu kimliği ve başvuru iletişimi eklendi |
+| Abonelik, yenileme, iptal ve iade | `Systemcel.Web/src/auth/legalTexts.ts` / `subscription` | Hizmet sağlayıcı, vergi, adres ve destek bilgileri eklendi |
 | Çerez politikası | `/cerezler` ve bu dosyadaki envanter | Teknik envanter hazır |
 | Ödeme açık onayı | `BillingApi` sürüm `abonelik-onayi-2026-08-v2` | Metin/hash/IP-UA kanıtı veritabanında |
 
@@ -63,9 +65,11 @@ Yeni reklam, A/B testi veya üçüncü taraf widget eklenmeden önce bu tablo g�
 6. Muhasebeci–işletme çalışma alanında veri sorumlusu/veri işleyen rollerinin sınırı.
 7. Destek, güvenlik olayı, veri sahibi başvurusu, hesap kapatma ve kayıt silme süreleri.
 
+DeepSeek canlı AI sağlayıcısı olarak seçildiğinde, genel “AI sağlayıcısı” ifadesi tek başına kapanış kanıtı sayılmaz. Sağlayıcının Çin'deki veri işleme/saklama açıklaması, model geliştirme veri kullanımını kapatma tercihi, veri işleyen sözleşmesi ve KVKK yurt dışı aktarım dayanağı hukuk danışmanıyla doğrulanmalı; onaylanan sağlayıcı adı ve amaç/sınır alt işleyen listesine eklenmelidir.
+
 ## 6. Canlı yayın kapısı
 
-- Tüm köşeli parantezli alanlar doldurulmadan metinler “nihai” işaretlenmez.
+- MERSİS/ticaret sicil ve KEP bilgisi gerekiyorsa resmî kaynaktan doğrulanmadan metinler “nihai” işaretlenmez.
 - Hukuk onayı, onaylanan dosyanın sürümü ve tarihiyle kayda geçirilir.
 - Canlı ödeme sağlayıcısının adı, tahsilat/iade yolu ve iletişim bilgileri checkout metniyle karşılaştırılır.
 - Test hesabında kayıt → yasal metin → ödeme onayı → iptal → kabul kanıtı uçtan uca doğrulanır.

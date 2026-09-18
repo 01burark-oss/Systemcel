@@ -17,18 +17,36 @@ export type LegalTextContent = {
   sections: LegalTextSection[];
 };
 
+export const publicBusinessIdentity = {
+  tr: {
+    provider: "Burak Özmen (şahıs işletmesi)",
+    tax: "Küçükyalı Vergi Dairesi, VKN 7020714272",
+    address: "Bağlarbaşı Mahallesi, Hür Sokak No: 2, İç Kapı No: 9, Maltepe/İstanbul",
+    contact: "destek@systemcel.app"
+  },
+  en: {
+    provider: "Burak Özmen (sole proprietorship)",
+    tax: "Küçükyalı Tax Office, tax number 7020714272",
+    address: "Bağlarbaşı Mahallesi, Hür Sokak No. 2, Apt. 9, Maltepe, Istanbul, Türkiye",
+    contact: "destek@systemcel.app"
+  }
+} as const;
+
+const trIdentity = publicBusinessIdentity.tr;
+const enIdentity = publicBusinessIdentity.en;
+
 export const legalTexts: Record<AuthLanguage, Record<LegalTextKey, LegalTextContent>> = {
   tr: {
     terms: {
       linkLabel: "Kullanım Şartları",
       title: "Systemcel Kullanıcı Sözleşmesi ve Kullanım Şartları",
-      updatedAt: "31 Ağustos 2026",
+      updatedAt: "17 Eylül 2026",
       updatedAtLabel: "Son güncelleme",
       closeLabel: "Yasal metni kapat",
       intro:
         "Bu metin, Systemcel web uygulamasından yararlanan kullanıcılar ile Systemcel arasındaki temel kullanım koşullarını düzenlemek amacıyla hazırlanmıştır.",
       note:
-        "Hizmet sağlayıcı: Burak Özmen (şahıs işletmesi). İletişim: destek@systemcel.app.",
+        `Hizmet sağlayıcı: ${trIdentity.provider}. ${trIdentity.tax}. Adres: ${trIdentity.address}. İletişim: ${trIdentity.contact}.`,
       sections: [
         {
           title: "1. Hizmetin Kapsamı",
@@ -65,13 +83,13 @@ export const legalTexts: Record<AuthLanguage, Record<LegalTextKey, LegalTextCont
     privacy: {
       linkLabel: "Gizlilik Politikası",
       title: "Systemcel Gizlilik Politikası",
-      updatedAt: "31 Ağustos 2026",
+      updatedAt: "17 Eylül 2026",
       updatedAtLabel: "Son güncelleme",
       closeLabel: "Yasal metni kapat",
       intro:
         "Bu politika, Systemcel web uygulamasında işlenen kişisel veriler ve gizlilik yaklaşımı hakkında kullanıcıları bilgilendirmek amacıyla hazırlanmıştır.",
       note:
-        "Hizmet sağlayıcı ve veri sorumlusu: Burak Özmen (şahıs işletmesi). Destek: destek@systemcel.app.",
+        `Hizmet sağlayıcı ve veri sorumlusu: ${trIdentity.provider}. ${trIdentity.tax}. Adres: ${trIdentity.address}. İletişim: ${trIdentity.contact}.`,
       sections: [
         {
           title: "1. İşlenen Veri Kategorileri",
@@ -103,18 +121,18 @@ export const legalTexts: Record<AuthLanguage, Record<LegalTextKey, LegalTextCont
     kvkk: {
       linkLabel: "KVKK Aydınlatma Metni",
       title: "Kişisel Verilerin İşlenmesine İlişkin Aydınlatma Metni",
-      updatedAt: "31 Ağustos 2026",
+      updatedAt: "17 Eylül 2026",
       updatedAtLabel: "Son güncelleme",
       closeLabel: "Yasal metni kapat",
       intro:
         "Bu aydınlatma metni, 6698 sayılı Kişisel Verilerin Korunması Kanunu kapsamında kişisel verilerin işlenmesine ilişkin temel bilgileri sunmak amacıyla hazırlanmıştır.",
       note:
-        "Veri sorumlusu: Burak Özmen (şahıs işletmesi).",
+        `Veri sorumlusu: ${trIdentity.provider}. ${trIdentity.tax}.`,
       sections: [
         {
           title: "1. Veri Sorumlusu",
           text:
-            "Systemcel hizmetinin veri sorumlusu Burak Özmen'dir (şahıs işletmesi). Adres: [AÇIK ADRES]; resmî iletişim: [RESMÎ E-POSTA VE KEP]."
+            `Systemcel hizmetinin veri sorumlusu ${trIdentity.provider}. ${trIdentity.tax}. Adres: ${trIdentity.address}. İletişim: ${trIdentity.contact}.`
         },
         {
           title: "2. İşlenen Kişisel Veriler",
@@ -139,20 +157,20 @@ export const legalTexts: Record<AuthLanguage, Record<LegalTextKey, LegalTextCont
         {
           title: "6. İlgili Kişi Hakları",
           text:
-            "İlgili kişiler, KVKK'nın 11. maddesi kapsamındaki haklarını kullanmak için [RESMÎ E-POSTA VE KEP] üzerinden veri sorumlusuna başvuru yapabilir."
+            "İlgili kişiler, KVKK'nın 11. maddesi kapsamındaki haklarını kullanmak için destek@systemcel.app üzerinden veri sorumlusuna başvuru yapabilir."
         }
       ]
     },
     subscription: {
       linkLabel: "Abonelik Koşulları",
       title: "Systemcel Abonelik, Yenileme, İptal ve İade Koşulları",
-      updatedAt: "31 Ağustos 2026",
+      updatedAt: "17 Eylül 2026",
       updatedAtLabel: "Son güncelleme",
       closeLabel: "Yasal metni kapat",
       intro:
         "Bu metin, Systemcel ücretli planlarının tahsilat, otomatik yenileme, dönem sonu iptal ve iade koşullarını açıklar.",
       note:
-        "Hizmet sağlayıcı: Burak Özmen (şahıs işletmesi). Abonelik desteği: destek@systemcel.app.",
+        `Hizmet sağlayıcı: ${trIdentity.provider}. ${trIdentity.tax}. Abonelik desteği: ${trIdentity.contact}.`,
       sections: [
         {
           title: "1. Plan, Fiyat ve Faturalama Dönemi",
@@ -182,7 +200,7 @@ export const legalTexts: Record<AuthLanguage, Record<LegalTextKey, LegalTextCont
         {
           title: "6. Hizmet Sağlayıcı Bilgileri",
           text:
-            "Hizmet sağlayıcı: Burak Özmen (şahıs işletmesi); vergi/MERSİS: [VERGİ VE MERSİS]; adres: [AÇIK ADRES]; e-posta/KEP: [RESMÎ E-POSTA VE KEP]; destek: destek@systemcel.app."
+            `Hizmet sağlayıcı: ${trIdentity.provider}. ${trIdentity.tax}. Adres: ${trIdentity.address}. İletişim ve destek: ${trIdentity.contact}.`
         }
       ]
     }
@@ -191,13 +209,13 @@ export const legalTexts: Record<AuthLanguage, Record<LegalTextKey, LegalTextCont
     terms: {
       linkLabel: "Terms of Use",
       title: "Systemcel User Agreement and Terms of Use",
-      updatedAt: "August 31, 2026",
+      updatedAt: "September 17, 2026",
       updatedAtLabel: "Last updated",
       closeLabel: "Close legal text",
       intro:
         "This text sets out the basic terms of use between Systemcel and users who access the Systemcel web application.",
       note:
-        "Service provider: Burak Özmen (sole proprietorship). Contact: destek@systemcel.app.",
+        `Service provider: ${enIdentity.provider}. ${enIdentity.tax}. Address: ${enIdentity.address}. Contact: ${enIdentity.contact}.`,
       sections: [
         {
           title: "1. Scope of Service",
@@ -234,13 +252,13 @@ export const legalTexts: Record<AuthLanguage, Record<LegalTextKey, LegalTextCont
     privacy: {
       linkLabel: "Privacy Policy",
       title: "Systemcel Privacy Policy",
-      updatedAt: "August 31, 2026",
+      updatedAt: "September 17, 2026",
       updatedAtLabel: "Last updated",
       closeLabel: "Close legal text",
       intro:
         "This policy informs users about personal data processed in the Systemcel web application and Systemcel's privacy approach.",
       note:
-        "Service provider and data controller: Burak Özmen (sole proprietorship). Support: destek@systemcel.app.",
+        `Service provider and data controller: ${enIdentity.provider}. ${enIdentity.tax}. Address: ${enIdentity.address}. Contact: ${enIdentity.contact}.`,
       sections: [
         {
           title: "1. Data Categories",
@@ -272,18 +290,18 @@ export const legalTexts: Record<AuthLanguage, Record<LegalTextKey, LegalTextCont
     kvkk: {
       linkLabel: "KVKK Notice",
       title: "Notice on the Processing of Personal Data",
-      updatedAt: "August 31, 2026",
+      updatedAt: "September 17, 2026",
       updatedAtLabel: "Last updated",
       closeLabel: "Close legal text",
       intro:
         "This notice provides basic information about the processing of personal data under Turkish Personal Data Protection Law No. 6698.",
       note:
-        "Data controller: Burak Özmen (sole proprietorship).",
+        `Data controller: ${enIdentity.provider}. ${enIdentity.tax}.`,
       sections: [
         {
           title: "1. Data Controller",
           text:
-            "The data controller providing the Systemcel service is Burak Özmen (sole proprietorship). Address: [FULL ADDRESS]; official contact: [OFFICIAL EMAIL AND KEP]."
+            `The data controller providing the Systemcel service is ${enIdentity.provider}. ${enIdentity.tax}. Address: ${enIdentity.address}. Contact: ${enIdentity.contact}.`
         },
         {
           title: "2. Personal Data Processed",
@@ -308,20 +326,20 @@ export const legalTexts: Record<AuthLanguage, Record<LegalTextKey, LegalTextCont
         {
           title: "6. Data Subject Rights",
           text:
-            "Data subjects may exercise their rights under Article 11 of the KVKK by contacting the data controller through [OFFICIAL EMAIL AND KEP]."
+            "Data subjects may exercise their rights under Article 11 of the KVKK by contacting the data controller at destek@systemcel.app."
         }
       ]
     },
     subscription: {
       linkLabel: "Subscription Terms",
       title: "Systemcel Subscription, Renewal, Cancellation and Refund Terms",
-      updatedAt: "August 31, 2026",
+      updatedAt: "September 17, 2026",
       updatedAtLabel: "Last updated",
       closeLabel: "Close legal text",
       intro:
         "These terms describe charges, automatic renewal, end-of-period cancellation and refunds for paid Systemcel plans.",
       note:
-        "Service provider: Burak Özmen (sole proprietorship). Subscription support: destek@systemcel.app.",
+        `Service provider: ${enIdentity.provider}. ${enIdentity.tax}. Subscription support: ${enIdentity.contact}.`,
       sections: [
         {
           title: "1. Plan, Price and Billing Period",
@@ -351,7 +369,7 @@ export const legalTexts: Record<AuthLanguage, Record<LegalTextKey, LegalTextCont
         {
           title: "6. Service Provider Details",
           text:
-            "Provider: Burak Özmen (sole proprietorship); tax/registry: [TAX AND REGISTRY]; address: [FULL ADDRESS]; official email/KEP: [OFFICIAL EMAIL AND KEP]; support: destek@systemcel.app."
+            `Provider: ${enIdentity.provider}. ${enIdentity.tax}. Address: ${enIdentity.address}. Contact and support: ${enIdentity.contact}.`
         }
       ]
     }

@@ -498,7 +498,7 @@ function veriUyarisiDetayBasligi(kod: string) {
   if (kod === "CariKaydiEksik") return "Cari kartı bulunamayan faturalar";
   if (kod === "GelecekTarihliKasaKaydi") return "İleri tarihli kasa hareketleri";
   if (kod === "KasaAcilisBakiyesiYok") return "Açılış bakiyesi";
-  return "Kontrol edilmesi gereken kayıtlar";
+  return "Kontrol gerektiren kayıtlar";
 }
 
 function veriUyarisiHedefi(kod: string) {

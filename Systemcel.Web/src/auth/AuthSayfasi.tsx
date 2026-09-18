@@ -57,7 +57,7 @@ const authCopy: Record<AuthLanguage, Record<AuthMode, AuthCopy>> = {
       headlineAccent: "akıllı ve hızlı",
       headlineEnd: "yönetin",
       lead:
-        "Gelişmiş analizler, otomatik raporlamalar ve gerçek zamanlı verilerle işletmenizin finansal gücünü artırın.",
+        "Gelir, gider ve raporlarınızı tek yerde görün; işletmenizin finansını daha kolay yönetin.",
       cardTitle: "Tekrar hoş geldiniz",
       cardText: "Hesabınıza giriş yaparak devam edin",
       switchText: "Hesabınız yok mu?",
@@ -72,7 +72,7 @@ const authCopy: Record<AuthLanguage, Record<AuthMode, AuthCopy>> = {
       headlineAccent: "hızlı",
       headlineEnd: "çalışma alanına taşıyın",
       lead:
-        "Systemcel hesabınızı oluşturun, masaüstündeki verilerinizi güvenli aktarım akışıyla web çalışma alanına bağlayın.",
+        "Systemcel hesabınızı oluşturun ve masaüstündeki verilerinizi web hesabınıza aktarın.",
       cardTitle: "Hesabınızı oluşturun",
       cardText: "Finans yönetimine güvenli web hesabınızla başlayın",
       switchText: "Zaten hesabınız var mı?",
@@ -118,17 +118,17 @@ const authCopy: Record<AuthLanguage, Record<AuthMode, AuthCopy>> = {
 
 const statusCopy = {
   tr: {
-    missingKeyTitle: "Oturum altyapısı bekleniyor",
-    missingKeyText: "Web hesabı ekranlarını açmak için Systemcel.Web/.env içinde oturum anahtarını tanımlayın.",
-    loadingTitle: "Oturum hazırlanıyor",
+    missingKeyTitle: "Giriş hizmeti hazır değil",
+    missingKeyText: "Giriş şu anda kullanılamıyor. Lütfen daha sonra yeniden deneyin.",
+    loadingTitle: "Giriş hazırlanıyor",
     loadingText: "Giriş ekranı hazırlanıyor.",
-    errorTitle: "Oturum servisi hazır değil",
-    errorFallback: "Oturum istemcisi başlatılamadı.",
+    errorTitle: "Giriş hizmeti hazır değil",
+    errorFallback: "Giriş başlatılamadı. Lütfen yeniden deneyin.",
     backText: "Tanıtım sayfasına dön"
   },
   en: {
-    missingKeyTitle: "Auth setup is pending",
-    missingKeyText: "Define the auth key in Systemcel.Web/.env to enable web account screens.",
+    missingKeyTitle: "Sign-in is not available",
+    missingKeyText: "Sign-in is currently unavailable. Please try again later.",
     loadingTitle: "Preparing sign-in",
     loadingText: "Preparing the sign-in screen.",
     errorTitle: "Auth service is not ready",
@@ -139,14 +139,14 @@ const statusCopy = {
 
 const proofItems = {
   tr: [
-    { icon: ShieldCheck, title: "Verileriniz güvende", text: "256-bit şifreleme" },
-    { icon: Cloud, title: "Bulut tabanlı erişim", text: "Her yerden erişin" },
-    { icon: Clock3, title: "Gerçek zamanlı analiz", text: "Anlık içgörüler" }
+    { icon: ShieldCheck, title: "İşletmene özel", text: "Kayıtlarını ayrı tut" },
+    { icon: Cloud, title: "Web ve masaüstü", text: "Tek hesapla kullan" },
+    { icon: Clock3, title: "Güncel finans özeti", text: "Gelir ve giderlerini izle" }
   ],
   en: [
-    { icon: ShieldCheck, title: "Data protected", text: "256-bit encryption" },
-    { icon: Cloud, title: "Cloud access", text: "Work from anywhere" },
-    { icon: Clock3, title: "Real-time analysis", text: "Live insights" }
+    { icon: ShieldCheck, title: "Your business space", text: "Keep records separate" },
+    { icon: Cloud, title: "Web and desktop", text: "Use one account" },
+    { icon: Clock3, title: "Current finance summary", text: "Track income and expenses" }
   ]
 } satisfies Record<AuthLanguage, Array<{ icon: typeof ShieldCheck; title: string; text: string }>>;
 
@@ -467,8 +467,8 @@ export function AuthSayfasi({ mode }: { mode: AuthMode }) {
             <p>
               {signUpCompleted
                 ? language === "tr"
-                  ? "Tam yönetim paneli masaüstü kullanım için hazırlanıyor; mobilde güvenli okuma ve mesajlaşma akışı sunulacak."
-                  : "The full workspace is designed for desktop; mobile will offer secure reading and messaging flows."
+                  ? "Finans araçlarını masaüstünde kullanabilirsiniz. Mobil erişim şimdilik sınırlıdır."
+                  : "Finance tools are available on desktop. Mobile access is currently limited."
                 : copy.cardText}
             </p>
           </div>
@@ -802,14 +802,14 @@ function SystemcelAuthForm({
     <div className="auth-custom">
       {signUpCompleteMode ? (
         <div className="auth-custom__result">
-          <strong>{language === "tr" ? "Mobil deneyim sınırlı tutuluyor" : "Mobile access is limited"}</strong>
+          <strong>{language === "tr" ? "Hesabınız hazır" : "Your account is ready"}</strong>
           <p>
             {language === "tr"
-              ? "Systemcel'in tam finans paneli masaüstünde kullanılacak. Mobilde veri okuma, bildirim ve muhasebeciyle mesajlaşma gibi daha güvenli bir eşlikçi akış hazırlıyoruz."
-              : "The full Systemcel finance workspace will run on desktop. Mobile will focus on safer companion flows like reading data, notifications and accountant messaging."}
+              ? "Finans araçlarını masaüstünde kullanabilirsiniz. Mobil erişim şimdilik sınırlıdır."
+              : "Finance tools are available on desktop. Mobile access is currently limited."}
           </p>
           <a className="auth-custom__submit auth-custom__submit-link" href="/app">
-            {language === "tr" ? "Mobil erişim ekranına devam et" : "Continue to mobile access"}
+            {language === "tr" ? "Mobil erişime devam et" : "Continue to mobile access"}
           </a>
           <a className="auth-custom__secondary auth-custom__secondary-link" href="/">
             {language === "tr" ? "Tanıtıma dön" : "Back to intro"}

@@ -54,12 +54,16 @@ ReceiptOcr__Provider=OpenAI
 ReceiptOcr__BaseUrl=https://api.openai.com/v1
 ReceiptOcr__Model=gpt-5-mini
 DeepSeek__ApiKey=
+DeepSeek__ProModel=deepseek-flash
+DeepSeek__FlashModel=deepseek-flash
 SYSTEMCEL_SMS_PROVIDER=Netgsm
 NETGSM_USERNAME=
 NETGSM_PASSWORD=
 NETGSM_MSGHEADER=
 NETGSM_APPNAME=systemcel
 ```
+
+DeepSeek anahtarı yalnız sunucu ortam değişkeninde tutulur. AI sohbeti ve önerileri varsayılan olarak `deepseek-flash` kullanır; Systemcel bilinen işletme verilerini sağlayıcıya göndermeden önce takma adlarla maskeler.
 
 For local Vite development, include local origins in `SYSTEMCEL_ALLOWED_ORIGINS` and `SYSTEMCEL_CLERK_AUTHORIZED_PARTIES`, then run the API and Vite dev server separately.
 

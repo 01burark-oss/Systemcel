@@ -1,8 +1,9 @@
 # Systemcel — Kompakt Yapılacaklar
 
-> Son güncelleme: 8 Eylül 2026
+> Son güncelleme: 17 Eylül 2026
 > Kural: Tamamlanan paketler bu dosyada ayrıntılı günlük olarak tutulmaz; yalnız kısa özet bırakılır.
 > PayTR başvurusu, test mağazası, sandbox ve gerçek kart tahsilatı şirket kuruluşundan önce açılmaz.
+> Ayrıntılı kapanış planı: [`docs/design/2026-09-11-yayin-ve-yazilim-kapanis-plani.md`](docs/design/2026-09-11-yayin-ve-yazilim-kapanis-plani.md)
 
 ## 1. Sabit kararlar
 
@@ -30,7 +31,7 @@
 
 - [x] Oracle Docker/Caddy/PostgreSQL düzeninde app, Caddy ve PostgreSQL sağlık ve ağ izolasyonu doğrulandı; genel HTTP kapısı 8 Eylül 2026'da geçti.
 - [ ] Sıfırdan yeni kimlikle Clerk kayıt → provision → kolay kurulum smoke testi çalıştır.
-- [ ] Gerçek SMTP teslimini doğrula; fiyat/yenileme bildirimlerinin gönderim kanıtını kaydet.
+- [ ] Canlı SMTP'yi yapılandır; doğrulanmış göndericiden kontrollü gelen kutusuna genel ve fiyat/yenileme bildirimi teslimini kanıtla.
 - [x] Muhasebeci pilotunu; profil görseli yükleme, yönetici onayı, müşteri eşleşmesi ve çalışma alanı geçişiyle tamamla.
 - [x] Fake ödeme zincirini işletme ve muhasebeci rollerinde doğrula.
 - [ ] Fiziksel iOS/Safari smoke'unu sınırlı pilot sırasında çalıştır.
@@ -38,16 +39,18 @@
 ### Kullanıcı, maliyet veya dış koordinasyon gerektirir
 
 - [x] Oracle yedeği ayrı veritabanına geri yüklendi; checksum ve geri yükleme kontrolü 2 Eylül 2026'da geçti.
-- [ ] Günlük Oracle yedeğini kullanıcı profiline bağlı olmayan, taşınabilir ve otomatik sunucu dışı hedefe aktar.
+- [ ] Hazır `rclone crypt` akışını bağımsız nesne depolamaya bağla; üç ardışık uzak yedek ve yalnız uzak kopyadan bağımsız restore ile RPO/RTO'yu ölç.
+- [ ] Hazır Oracle metric collector'ını kalıcı izleme hedefine bağla; VM dışı HTTPS probe ile alarm ve düzelme mesajlarını iki kanalda doğrula.
 - [ ] Sınırlı gerçek kullanıcı pilotunu tamamla; hata oranı, aktivasyon ve destek yüküne göre genel yayın kararı ver.
+- [ ] DeepSeek hesabında model geliştirme için veri kullanımını kapat; sağlayıcıyı, Çin'de veri işleme/saklama ihtimalini ve yurt dışı aktarım dayanağını alt işleyen/KVKK metinlerinde hukuk onayıyla güncelle.
 
 ### Şirket kuruluşundan sonra
 
-- [ ] Şirket unvanı, MERSİS/vergi bilgisi, adres, KEP/e-posta ve destek kanalını yasal metinlere ekle.
-- [x] Hukuk onayı kullanıcı tarafından 31 Ağustos 2026'da bildirildi; yayıma alınacak kimlik ve iletişim alanları ayrı kapıda kalıyor.
+- [x] Hizmet sağlayıcı adı, şahıs işletmesi türü, vergi dairesi/numarası, açık adres ve destek e-postasını Türkçe/İngilizce yasal metinlere ekle; vergi levhasındaki işe başlama tarihi ve faaliyet kodunu yayım kaydına işle.
+- [ ] Sunulan belgelerde bulunmayan MERSİS/ticaret sicil ve KEP bilgisinin şahıs işletmesi için gerekliliğini doğrula; varsa yasal metinlere ekle.
+- [x] Hukuk onayı kullanıcı tarafından 31 Ağustos 2026'da bildirildi; doğrulanan kimlik ve iletişim alanları 17 Eylül 2026'da ürün metinlerine işlendi.
 - [ ] PayTR başvuru/test mağazası/sandbox sözleşme testlerini tamamla.
-- [ ] Canlı checkout, imzalı webhook, yenileme, başarısız tahsilat, iade ve mutabakatı gerçek sağlayıcıda doğrula.
-- [ ] Fiyat artışı için 30 günlük bildirim snapshot'ı, teslim kanıtı ve bildirim başarısızsa zamlı tahsilatı durdurma kuralını uygula.
+- [ ] Canlı checkout, imzalı webhook, yenileme, başarısız tahsilat, iade ve mutabakatı gerçek sağlayıcıda doğrula; 30 günlük fiyat korumasının gerçek tahsilat yolunda da uygulandığını kanıtla.
 
 ## 3. P0 — Tamamlanan teknik temel
 
@@ -58,7 +61,11 @@
 - [x] Fatura, kullanıcı, işletme, gelir-gider, cari, ürün/hizmet ve muhasebeci müşteri limitleri API'de transaction-safe uygulanıyor.
 - [x] AES-256-GCM, tenant sınırları, rate limit, güvenlik başlıkları, dar CORS, dosya imza/boyut ve ZIP bombası kontrolleri tamamlandı.
 - [x] Oracle secret'ları, private PostgreSQL ağı, liveness/readiness, container durumu ve günlük yedek timer'ı doğrulandı.
-- [ ] Oracle CPU, RAM, disk, container restart ve yedek yaşı alarmlarını `docs/runbooks/monitoring.md` eşiklerine göre kur.
+- [x] Oracle CPU, RAM, disk, readiness, PostgreSQL bağlantısı, container restart ve uzak yedek yaşı için Prometheus metrik collector'ı ve systemd timer'ı eklendi; sahte servis fixture'ı geçti.
+- [x] Şifreli sunucu dışı yedek aktarımı için `rclone crypt`, kilit, retry, checksum, tamamlanma işareti ve uzak başarıya bağlı güvenli yerel retention eklendi; hata/idempotency fixture'ları geçti.
+- [x] Genel bildirim outbox'ına tenant bağlı SMTP adaptörü eklendi; alıcı/snapshot uyuşmazlığı ve mükerrer deneme e-postası regresyonları kapatıldı.
+- [x] Fiyat artışı için değişmez snapshot ve iki kanal teslim kanıtı eklendi; 30 gün şartı sağlanmazsa aylık/yıllık ve uzlaştırma sonrası yenilemede eski fiyat korunuyor.
+- [x] SHA-sabitli release bundle, yayın kanıt şeması/doğrulayıcısı ve canonical Developer API public smoke'u eklendi.
 - [x] Mobil kayıt/çıkış, sohbet arşiv yarışı ve eski mavi tema regresyonları kapatıldı.
 - [x] Landing plan/rol/dönem seçimi uygulamaya taşınıyor; aylık kartlar ilk 3 ay ve sonraki fiyatı, yıllık kartlar toplam tutar ve gerçek tasarrufu gösteriyor; muhasebeci kartları masaüstünde merkez, mobilde tek sütun.
 - [x] CI; .NET, Vitest, Playwright cihaz matrisi, lint, typecheck, PostgreSQL smoke, Docker build, zafiyet ve secret taramasını çalıştırıyor.
@@ -66,6 +73,7 @@
 - [x] İşletme canlı pilotu; gelir-gider, ürün-stok, hızlı satış, cari, tahsilat, fatura, rapor, GİB ayarı, Telegram, abonelik ve dönem sonu iptaliyle tamamlandı.
 - [x] Pilot sırasında bulunan hızlı satış limit atlama ve cari kart üstüne yazma yarışları regresyon testleriyle kapatıldı.
 - [x] Canlı yönetici erişimi yapılandırıldı; pilot muhasebeci başvurusu onaylandı.
+- [x] Oracle'a DeepSeek anahtarı ve `deepseek-flash` model seçimi eklendi; sağlayıcı smoke isteği ile public health/readiness 11 Eylül 2026'da geçti. Tenant bağlı gerçek kullanıcı AI akışı ayrı kabul kapısıdır.
 
 ## 4. Pilot özellik matrisi
 
@@ -73,7 +81,7 @@
 
 - [x] Giriş, geri tuşu ve işletme değiştirme; sıfırdan kayıt/çıkış ayrı smoke'ta kalıyor.
 - [x] Kolay kurulum ve işletme profili.
-- [ ] Dashboard çalışıyor; canlı AI anahtarı eksik olduğu için asistan yanıt testi bekliyor.
+- [ ] Dashboard çalışıyor; DeepSeek sağlayıcı smoke'u geçti, fakat yeni maskeli istemci yayımlandıktan sonra gerçek oturumla tenant bağlı asistan yanıtı doğrulanmalı.
 - [x] Gelir, gider, kasa hareketi ve tahsilat.
 - [x] Cari hesap ve hareketler.
 - [x] Ürün/hizmet, stok, hızlı satış ve raporlar.
@@ -104,12 +112,13 @@
 
 ### Canlı pilotta kalan somut engeller
 
-- Oracle'a canlı AI anahtarı eklenmeli.
+- Maskeli DeepSeek istemcisi aday sürüme alınmalı; gerçek oturumla asistan yanıtı ve tenant ayrımı kanıtlanmalı.
 - Gerçek SMTP teslim kanıtı ve sıfırdan yeni kimlik smoke'u alınmalı.
+- Sunucu dışı yedek hedefi ile kalıcı izleme/alarm alıcısı yapılandırılmalı ve gerçek kurtarma/alarm kanıtı alınmalı.
 
 ## 5. P1 — P0 sonrasında öncelik
 
-1. Hatırlatma ve bildirim omurgası: outbox, idempotency, retry/dead-letter, sessiz saat, e-posta/Telegram tercihleri.
+1. Bildirim operasyonu: canlı SMTP teslimi, tenant bağlı Telegram chat eşleştirmesi ve dead-letter kayıtlarını kontrollü tekrar işleme görünürlüğü.
 2. e-Belge sağlayıcı adapter'ı: UBL-TR, e-Fatura/e-Arşiv, webhook/polling, iptal/itiraz ve mutabakat.
 3. Stok hareket defteri: depo/konum, rezervasyon, transfer, sayım, ters kayıt, maliyet ve mutabakat.
 4. Tedarikçi zinciri: sevk/e-İrsaliye, depo mal kabulü, kısmi kabul, itiraz ve kabul edilen miktar kadar hakediş.
@@ -213,6 +222,7 @@
 - Canlı alan: `https://systemcel.app`
 - Şirket öncesi ödeme sağlayıcısı: `Fake`
 - Canlı uygulama Oracle üzerinde çalışır; genel yayın kararı verilmeden ödeme sağlayıcısı `Fake` kalır.
+- Canlı AI sağlayıcısı DeepSeek, model `deepseek-flash`tır; anahtar yalnız Oracle `.env` dosyasında tutulur.
 - PostgreSQL yalnız `systemcel_app` kullanıcısı ve uygulama trusted source'u üzerinden erişilir.
 - OneDrive dışı geri alınabilir geliştirme önbelleği: `C:\Users\Windows\AppData\Local\SystemcelCacheBackups\20260810-1615`
 - `YAPILACAKLAR.md` kullanıcı isteği gereği commit edilmez.

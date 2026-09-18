@@ -79,14 +79,14 @@ export function AnalyticsConsentBanner() {
 
   const english = window.localStorage.getItem("systemcel.language") === "en";
   return (
-    <aside className="analytics-consent" aria-label={english ? "Analytics cookie preference" : "Analitik çerez tercihi"}>
+    <aside className="analytics-consent" aria-label={english ? "Cookie and analytics preference" : "Çerez ve analiz tercihi"}>
       <div>
-        <strong>{english ? "Help us improve Systemcel" : "Systemcel'i geliştirmemize yardımcı olun"}</strong>
-        <p>{english ? "We use Google Analytics only with your permission to understand visits and improve the site." : "Ziyaretleri anlamak ve siteyi geliştirmek için Google Analytics'i yalnızca izninizle kullanıyoruz."}</p>
+        <strong>{english ? "Cookies and analytics" : "Çerezler ve analiz"}</strong>
+        <p>{english ? "We would like to use analytics cookies and Google Analytics to understand how the site is used. They are enabled only with your permission." : "Siteyi nasıl kullandığınızı anlamak için analiz çerezleri ve Google Analytics kullanmak istiyoruz. Yalnızca izin verirseniz etkinleşir."}</p>
       </div>
       <div className="analytics-consent__actions">
         <button type="button" className="analytics-consent__reject" onClick={() => chooseConsent("denied")}>{english ? "Decline" : "Reddet"}</button>
-        <button type="button" className="analytics-consent__accept" onClick={() => chooseConsent("granted")}>{english ? "Allow analytics" : "Analitiğe izin ver"}</button>
+        <button type="button" className="analytics-consent__accept" onClick={() => chooseConsent("granted")}>{english ? "Allow cookies" : "Çerezlere izin ver"}</button>
       </div>
     </aside>
   );

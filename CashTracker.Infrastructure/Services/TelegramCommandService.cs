@@ -334,7 +334,8 @@ namespace CashTracker.Infrastructure.Services
 
             try
             {
-                var businessName = await GetActiveBusinessNameAsync();
+                var business = await _isletmeService.GetActiveAsync();
+                var businessName = string.IsNullOrWhiteSpace(business.Ad) ? "Bilinmiyor" : business.Ad.Trim();
                 var categories = await GetExpenseCategoryNamesAsync();
                 var telegramFilePath = await _telegram.GetFilePathAsync(update.PhotoFileId, ct);
                 tempFilePath = BuildTempReceiptFilePath(telegramFilePath);
@@ -342,6 +343,7 @@ namespace CashTracker.Infrastructure.Services
 
                 var request = new ReceiptOcrRequest
                 {
+                    BusinessId = business.Id,
                     BusinessName = businessName,
                     Caption = string.IsNullOrWhiteSpace(update.Caption) ? null : update.Caption.Trim(),
                     FileName = Path.GetFileName(tempFilePath),

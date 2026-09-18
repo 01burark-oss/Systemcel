@@ -1,6 +1,6 @@
 import React from "react";
 import { ArrowLeft, ArrowRight, BriefcaseBusiness, Mail, Newspaper } from "lucide-react";
-import { legalTexts, type LegalTextKey } from "../auth/legalTexts";
+import { legalTexts, publicBusinessIdentity, type LegalTextKey } from "../auth/legalTexts";
 import "./marketing.css";
 
 export type PublicPageKind = "about" | "blog" | "careers" | "contact" | "cookies" | LegalTextKey;
@@ -44,20 +44,20 @@ function LegalContent({ legal }: { legal: (typeof legalTexts)["tr"][LegalTextKey
 function AboutContent({ language }: { language: "tr" | "en" }) {
   const tr = language === "tr";
   const points = tr ? [
-    ["İşletme ve muhasebeci odağı", "KOBİ'ler ile muhasebecilerin aynı finansal bağlamda güvenle çalışmasını sağlıyoruz."],
+    ["Muhasebeciyle ortak çalışma", "İşletmeler muhasebecilerini davet eder, yetkisini seçer ve kayıtları aynı çalışma alanında yönetir."],
     ["Sade finans dili", "Gelir, gider, fatura, cari, stok ve rapor süreçlerini anlaşılır iş adımlarına dönüştürüyoruz."],
-    ["Eyleme dönük yapay zekâ", "Systemcel AI yalnızca veriyi göstermeyi değil, doğru soruyu ve sonraki adımı bulmayı hedefler."]
+    ["Tedarikçi pazaryeri", "Farklı tedarikçilerden alım yapmayı, teklif toplamayı ve teslimatları ayrı izlemeyi kolaylaştırır."]
   ] : [
-    ["Built for businesses and accountants", "We help small businesses and accountants work securely in the same financial context."],
+    ["Accountant collaboration", "Businesses invite their accountant, choose access and manage records in one shared workspace."],
     ["A clearer finance language", "We turn income, expenses, invoices, accounts, inventory and reports into understandable workflows."],
-    ["Actionable AI", "Systemcel AI aims to help find the right question and next action, not merely display data."]
+    ["Supplier marketplace", "Businesses can buy from multiple suppliers, collect quotes and track deliveries separately."]
   ];
 
   return <>
     <article className="marketing-contact-card">
       <BriefcaseBusiness />
-      <h2>{tr ? "Finans operasyonlarını daha anlaşılır hale getiriyoruz." : "We make financial operations easier to understand."}</h2>
-      <p>{tr ? "Systemcel; işletmelerin günlük finans akışını yönetmesi ve muhasebecilerin müşterileriyle düzenli biçimde çalışması için geliştirilen yerli bir finans çalışma alanıdır." : "Systemcel is a Turkish financial workspace for businesses running daily finance operations and accountants working neatly with their clients."}</p>
+      <h2>{tr ? "İşletmenin finansını tek yerde topluyoruz." : "We bring business finance together in one place."}</h2>
+      <p>{tr ? "Systemcel; işletmelerin finansını yönetmesi, muhasebecileriyle birlikte çalışması ve tedarikçilerden alım yapması için geliştirilen yerli bir platformdur." : "Systemcel is a Turkish platform for managing business finance, working with accountants and buying from suppliers."}</p>
       <a className="marketing-button marketing-button--ink" href="/#on-muhasebe">{tr ? "Ürünü keşfet" : "Explore the product"}<ArrowRight size={17} /></a>
     </article>
     <div className="marketing-content-grid">
@@ -92,11 +92,13 @@ function ContactCard({ icon, title, text, href }: { icon: React.ReactNode; title
 function CookiesContent({ language }: { language: "tr" | "en" }) {
   const tr = language === "tr";
   return <article className="marketing-legal-card">
-    <div className="marketing-legal-meta"><strong>{tr ? "Teknik envanter" : "Technical inventory"}</strong><span>{tr ? "8 Eylül 2026" : "September 8, 2026"}</span></div>
+    <div className="marketing-legal-meta"><strong>{tr ? "Kullanılan çerezler ve tarayıcı verileri" : "Cookies and browser data used"}</strong><span>{tr ? "17 Eylül 2026" : "September 17, 2026"}</span></div>
     <section><h2>{tr ? "Zorunlu oturum ve güvenlik verileri" : "Essential session and security data"}</h2><p>{tr ? "Clerk, oturum açma, kimlik doğrulama ve saldırı önleme için gerekli güvenli çerezleri veya eşdeğer tarayıcı tanımlayıcılarını kullanabilir. Bunlar hizmetin güvenli sunumu için zorunludur." : "Clerk may use secure cookies or equivalent browser identifiers required for sign-in, authentication and abuse prevention. These are essential to provide the service securely."}</p></section>
     <section><h2>{tr ? "Yerel tercihler" : "Local preferences"}</h2><p>{tr ? "systemcel.language dil tercihini; systemcel.accountTypeIntent ise kayıt sırasında seçilen hesap türünü geçici olarak localStorage içinde saklar. Hesap türü niyeti kurulum tamamlandığında silinir; kullanıcı tarayıcı verilerini dilediği zaman temizleyebilir." : "systemcel.language stores the language preference; systemcel.accountTypeIntent temporarily stores the account type selected during registration in localStorage. The account intent is removed after setup, and users can clear browser data at any time."}</p></section>
-    <section><h2>{tr ? "Analitik ve reklam" : "Analytics and advertising"}</h2><p>{tr ? "Systemcel, yalnızca açık izninizden sonra Google Analytics kullanır. İzin verilmezse analitik script'i yüklenmez. Tercih, bu tarayıcıda systemcel.analyticsConsent anahtarıyla saklanır." : "Systemcel uses Google Analytics only after your explicit permission. If you decline, the analytics script is not loaded. Your choice is stored in this browser under systemcel.analyticsConsent."}</p></section>
-    <aside>{tr ? "Şirket ve veri sorumlusu bilgileri kuruluş sonrasında hukuk onayıyla eklenecektir." : "Company and data-controller details will be added after incorporation and legal review."}</aside>
+    <section><h2>{tr ? "Analiz çerezleri" : "Analytics cookies"}</h2><p>{tr ? "Systemcel, yalnızca açık izninizden sonra analiz çerezlerini ve Google Analytics'i etkinleştirir. Reddederseniz analiz araçları yüklenmez. Çerez tercihiniz bu tarayıcıda saklanır." : "Systemcel enables analytics cookies and Google Analytics only after your explicit permission. If you decline, analytics tools are not loaded. Your cookie choice is stored in this browser."}</p></section>
+    <aside>{tr
+      ? `Veri sorumlusu: ${publicBusinessIdentity.tr.provider}. ${publicBusinessIdentity.tr.tax}. Adres: ${publicBusinessIdentity.tr.address}. İletişim: ${publicBusinessIdentity.tr.contact}.`
+      : `Data controller: ${publicBusinessIdentity.en.provider}. ${publicBusinessIdentity.en.tax}. Address: ${publicBusinessIdentity.en.address}. Contact: ${publicBusinessIdentity.en.contact}.`}</aside>
   </article>;
 }
 
@@ -104,8 +106,8 @@ function PublicFooter({ language }: { language: "tr" | "en" }) {
   const tr = language === "tr";
   return <footer className="marketing-footer">
     <div className="marketing-wrap marketing-footer__grid">
-      <div><a className="marketing-brand marketing-brand--dark" href="/"><BrandMark /><strong>systemcel</strong></a><p>{tr ? "Ön muhasebe, yapay zekâ ve muhasebeciyle ortak çalışma alanı." : "Accounting, AI and a shared workspace with your accountant."}</p></div>
-      <FooterGroup title={tr ? "Ürün" : "Product"} links={[[tr ? "Ön Muhasebe" : "Accounting", "/#on-muhasebe"], [tr ? "AI Asistan" : "AI Assistant", "/#ai"], [tr ? "Muhasebeciyle çalışma" : "Accountant collaboration", "/#pazaryeri"], [tr ? "Fiyatlandırma" : "Pricing", "/#fiyat"]]} soonTitle={tr ? "Yakında" : "Coming soon"} soonItems={tr ? ["Banka hareketi eşleştirme", "Çoklu şube ve para birimi", "Entegrasyon API'leri", "Muhasebeci dönem otomasyonu"] : ["Bank transaction matching", "Multiple branches and currencies", "Integration APIs", "Accountant period automation"]} />
+      <div><a className="marketing-brand marketing-brand--dark" href="/"><BrandMark /><strong>systemcel</strong></a><p>{tr ? "Ön muhasebe, muhasebeciyle ortak çalışma ve tedarikçi pazaryeri." : "Accounting, accountant collaboration and a supplier marketplace."}</p></div>
+      <FooterGroup title={tr ? "Ürün" : "Product"} links={[[tr ? "Ön muhasebe" : "Accounting", "/#on-muhasebe"], [tr ? "Yapay zekâ asistanı" : "AI Assistant", "/#ai"], [tr ? "Muhasebeciyle çalışma" : "Accountant collaboration", "/#muhasebeci"], [tr ? "Tedarikçi pazaryeri" : "Supplier marketplace", "/#pazaryeri"], [tr ? "Fiyatlandırma" : "Pricing", "/#fiyat"]]} soonTitle={tr ? "Yakında" : "Coming soon"} soonItems={tr ? ["Banka hareketi eşleştirme", "Çoklu şube ve para birimi", "Entegrasyon API'leri", "Muhasebeci dönem otomasyonu"] : ["Bank transaction matching", "Multiple branches and currencies", "Integration APIs", "Accountant period automation"]} />
       <FooterGroup title={tr ? "Şirket" : "Company"} links={[[tr ? "Hakkımızda" : "About", "/hakkimizda"], [tr ? "Kariyer" : "Careers", "/kariyer"], ["Blog", "/blog"], [tr ? "İletişim" : "Contact", "/iletisim"]]} />
       <FooterGroup title={tr ? "Yasal" : "Legal"} links={[["KVKK", "/kvkk"], [tr ? "Gizlilik" : "Privacy", "/gizlilik"], [tr ? "Kullanım Şartları" : "Terms", "/kullanim-sartlari"], [tr ? "Abonelik Koşulları" : "Subscription Terms", "/abonelik-kosullari"], [tr ? "Çerezler" : "Cookies", "/cerezler"]]} />
     </div>
@@ -124,6 +126,6 @@ function pageTitle(kind: PublicPageKind, language: "tr" | "en") {
 }
 
 function pageLead(kind: PublicPageKind, language: "tr" | "en") {
-  const leads = language === "tr" ? { about: "İşletmelerin ve muhasebecilerin finansal süreçlerini daha net, hızlı ve birlikte yönetilebilir hale getiriyoruz.", blog: "Ön muhasebe, finansal operasyon ve dijital iş birliği üzerine ürün notları.", careers: "KOBİ'lerin finansal işlerini sadeleştiren ürünü birlikte inşa edelim.", contact: "Ürün, satış ve destek konularında doğru ekibe doğrudan ulaşın.", cookies: "Systemcel'in tarayıcı verilerini nasıl kullandığına ilişkin açık bilgiler." } : { about: "We make financial workflows for businesses and accountants clearer, faster and easier to manage together.", blog: "Product notes on accounting, financial operations and digital collaboration.", careers: "Build the product that simplifies financial operations for small businesses.", contact: "Reach the right team directly for product, sales and support.", cookies: "Clear information about how Systemcel uses browser data." };
+  const leads = language === "tr" ? { about: "İşletmelerin finansını yönetmesini, muhasebecileriyle çalışmasını ve tedarikçilerden alım yapmasını kolaylaştırıyoruz.", blog: "Ön muhasebe, işletme finansı ve dijital iş birliği üzerine ürün notları.", careers: "KOBİ'lerin finansal işlerini sadeleştiren ürünü birlikte geliştirelim.", contact: "Ürün, satış ve destek için doğru ekibe ulaşın.", cookies: "Systemcel'in kullandığı çerezleri ve tarayıcı verilerini öğrenin." } : { about: "We make it easier for businesses to manage finance, work with accountants and buy from suppliers.", blog: "Product notes on accounting, business finance and digital collaboration.", careers: "Help build a product that simplifies finance for small businesses.", contact: "Reach the right team for product, sales or support.", cookies: "Learn which cookies and browser data Systemcel uses." };
   return leads[kind as keyof typeof leads] ?? "";
 }
