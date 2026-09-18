@@ -1,9 +1,10 @@
 import { expect, test, type Page, type Route } from "@playwright/test";
 
-test("güvenli ödeme teslimat onayında tedarikçiye bırakılır", async ({ page }, testInfo) => {
+test("güvenli ödeme QR mal kabulünde tedarikçiye bırakılır", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "desktop-chromium", "Supplier flow desktop smoke test");
 
   const api = await mockWorkspace(page);
+  await page.addInitScript(() => window.localStorage.setItem("systemcel.analyticsConsent", "denied"));
   await page.goto("/app/tedarikci-pazaryeri");
 
   await page.getByRole("button", { name: "Sepete ekle" }).click();
@@ -18,15 +19,23 @@ test("güvenli ödeme teslimat onayında tedarikçiye bırakılır", async ({ pa
     kalemler: [{ urunId: 10, miktar: 1 }]
   }));
 
-  await page.getByRole("button", { name: "Teslim aldım" }).click();
+  await page.getByRole("button", { name: "QR okut", exact: true }).click();
+  await page.getByRole("textbox", { name: "QR kodu" }).fill("scq1_test");
+  await page.getByRole("button", { name: "Etiketi bul" }).click();
+  await expect(page.getByRole("heading", { name: "Filtre Kahve" })).toBeVisible();
+  await page.getByRole("button", { name: "Mal kabulü kaydet" }).click();
   await expect(page.getByText("Tamamlandı", { exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "Ödemeyi kaydet" })).toHaveCount(0);
-  expect(api.lastStateBody).toEqual(expect.objectContaining({ durum: "TeslimEdildi" }));
+  expect(api.lastReceiptBody).toEqual(expect.objectContaining({
+    kabulEdilenMiktar: 1,
+    reddedilenMiktar: 0,
+    idempotencyKey: expect.stringMatching(/^receipt-/)
+  }));
 });
 
 async function mockWorkspace(page: Page) {
   let state = "";
-  const api: { createdBody?: unknown; lastStateBody?: unknown } = {};
+  const api: { createdBody?: unknown; lastReceiptBody?: unknown } = {};
 
   await page.route("**/api/**", async route => {
     const request = route.request();
@@ -54,10 +63,16 @@ async function mockWorkspace(page: Page) {
       state = "SevkEdildi";
       return json(route, { mesaj: "Ödeme güvenli biçimde alındı." });
     }
-    if (path === "/api/ekran/tedarikci-pazaryeri/tedarikci-siparisler/88/durum" && request.method() === "POST") {
-      api.lastStateBody = request.postDataJSON();
+    if (path === "/api/ekran/tedarikci-pazaryeri/sevkiyat-qr/scq1_test" && request.method() === "GET") {
+      return json(route, {
+        kod: "scq1_test", siparisId: 88, siparisNo: "PAZ-77-01", urunAdi: "Filtre Kahve",
+        sku: "KAHVE", birim: "Adet", miktar: 1, lotNo: "", durum: "Aktif"
+      });
+    }
+    if (path === "/api/ekran/tedarikci-pazaryeri/sevkiyat-qr/scq1_test/mal-kabul" && request.method() === "POST") {
+      api.lastReceiptBody = request.postDataJSON();
       state = "Tamamlandi";
-      return json(route, { mesaj: "Teslimat onaylandı; tedarikçi hakedişi serbest bırakıldı." });
+      return json(route, { mesaj: "Mal kabul kaydedildi; tedarikçi hakedişi serbest bırakıldı." });
     }
     return json(route, { mesaj: `Unexpected route: ${path}` }, 404);
   });
@@ -76,8 +91,8 @@ function marketplace(state: string) {
       paraBirimi: "TRY", kullanilabilirStok: 10, minimumSiparisMiktari: 1, tahminiTeslimatGun: 2
     }],
     anaSiparisler: hasOrder ? [{ id: 77, siparisNo: "PAZ-77", teslimatAdresi: "Kadıköy, İstanbul", araToplam: 100, kdvToplam: 20, genelToplam: 120, paraBirimi: "TRY", durum: state, createdAt: "2026-09-17T12:00:00Z" }] : [],
-    siparisler: hasOrder ? [{ id: 88, anaSiparisId: 77, anaSiparisNo: "PAZ-77", siparisNo: "PAZ-77-01", teslimatAdresi: "Kadıköy, İstanbul", aliciIsletmeId: 42, tedarikciIsletmeId: 2, tedarikciUnvani: "Marmara Gıda", araToplam: 100, kdvToplam: 20, genelToplam: 120, paraBirimi: "TRY", komisyonTutari: 0, komisyonKdvTutari: 0, tevkifatTutari: 0, odemeHizmetiBedeli: 0, tedarikciHakEdisi: 120, durum: state, kargoFirmasi: "Kargo", kargoTakipNo: "TRK-1", createdAt: "2026-09-17T12:00:00Z" }] : [],
-    siparisKalemleri: hasOrder ? [{ id: 1, tedarikciSiparisId: 88, tedarikciUrunId: 10, sku: "KAHVE", ad: "Filtre Kahve", birim: "Adet", miktar: 1, birimFiyat: 100, kdvOrani: 20, toplamTutar: 120 }] : []
+    siparisler: hasOrder ? [{ id: 88, anaSiparisId: 77, anaSiparisNo: "PAZ-77", siparisNo: "PAZ-77-01", teslimatAdresi: "Kadıköy, İstanbul", aliciIsletmeId: 42, tedarikciIsletmeId: 2, tedarikciUnvani: "Marmara Gıda", araToplam: 100, kdvToplam: 20, genelToplam: 120, paraBirimi: "TRY", komisyonTutari: 0, komisyonKdvTutari: 0, tevkifatTutari: 0, odemeHizmetiBedeli: 0, tedarikciHakEdisi: 120, durum: state, kargoFirmasi: "Kargo", kargoTakipNo: "TRK-1", createdAt: "2026-09-17T12:00:00Z", malKabulVar: state === "Tamamlandi" }] : [],
+    siparisKalemleri: hasOrder ? [{ id: 1, tedarikciSiparisId: 88, tedarikciUrunId: 10, sku: "KAHVE", ad: "Filtre Kahve", birim: "Adet", miktar: 1, sevkEdilenMiktar: 1, kabulEdilenMiktar: state === "Tamamlandi" ? 1 : 0, reddedilenMiktar: 0, birimFiyat: 100, kdvOrani: 20, toplamTutar: 120 }] : []
   };
 }
 
