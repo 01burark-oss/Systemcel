@@ -104,7 +104,7 @@ const copy = {
     announcement: "Yeni — e-Arşiv fatura akışı Systemcel'de yayında",
     accounting: "Ön muhasebe", ai: "Yapay zekâ asistanı", marketplace: "Tedarikçi pazaryeri", pricing: "Fiyatlandırma",
     signIn: "Giriş yap", start: "Lansman fiyatıyla başla", eyebrow: "İşletme finansı",
-    titleA: "Ön muhasebe,", titleB: "muhasebecin, tedarikçilerin.", titleC: "Hepsi tek yerde.",
+    titleA: "İşletmenin", titleB: "finansal ihtiyaçları.", titleC: "Hepsi tek yerde.",
     lead: "Gelir, gider, cari hesap, stok ve faturalarını tek yerde yönet. Muhasebecinle birlikte çalış, tedarikçilerden alım yap ve yapay zekâ asistanından destek al.",
     trial: "Lansman fiyatıyla başla", tour: "Canlı tur", setup: "Kolay kurulum", cancel: "Dönem sonunda iptal",
     section1: "Defter seni değil, sen defteri yönet.", section1Text: "Kasa, cari hesap, stok ve faturalarını tek yerde izle. Tekrarlayan işleri azalt, hangi ödeme ve tahsilatlara bakman gerektiğini gör.",
@@ -605,7 +605,7 @@ export function LandingPage() {
 
         <section id="pazaryeri" className="marketing-section marketing-section--dark">
           <div className="marketing-wrap marketing-feature-grid marketing-reveal" data-reveal>
-            <SectionCopy number="04" label={supplierMarketplaceLabel} title={language === "tr" ? "Tek sepet. Birden fazla tedarikçi." : "One cart. Multiple suppliers."} text={language === "tr" ? "Ürünleri aynı sepette topla; her tedarikçinin siparişini, teslimatını ve faturasını ayrı takip et." : "Combine products in one cart, then track each supplier's order, delivery and invoice separately."} dark />
+            <SectionCopy number="04" label={supplierMarketplaceLabel} title={language === "tr" ? <>Tek sepet.<br />Birden fazla tedarikçi.</> : <>One cart.<br />Multiple suppliers.</>} text={language === "tr" ? "Ürünleri aynı sepette topla; her tedarikçinin siparişini, teslimatını ve faturasını ayrı takip et." : "Combine products in one cart, then track each supplier's order, delivery and invoice separately."} dark />
             <div className="marketing-ledger-list">
               <FeatureRow icon={<PackageSearch />} title={language === "tr" ? "Ürünleri karşılaştır" : "Compare products"} text={language === "tr" ? "Ürün, kategori veya tedarikçi adına göre ara." : "Search by product, category or supplier."} />
               <FeatureRow icon={<WalletCards />} title={language === "tr" ? "Tek sepet, ayrı takip" : "One cart, separate tracking"} text={language === "tr" ? "Farklı tedarikçilerden al; teslimatları ve faturaları ayrı izle." : "Buy from multiple suppliers and track deliveries and invoices separately."} />
@@ -634,7 +634,7 @@ export function LandingPage() {
         <section className="marketing-final-cta"><div className="marketing-wrap"><h2>{t.finalTitle}</h2><div><a className="marketing-button marketing-button--lime marketing-button--large" href={trialHref()}>{pricingCta}<ArrowRight size={18} /></a><a className="marketing-button marketing-button--dark-ghost marketing-button--large" href="mailto:satis@systemcel.app?subject=Systemcel%20Satış%20Görüşmesi">{t.sales}</a></div></div></section>
       </main>
 
-      <footer className="marketing-footer"><div className="marketing-wrap marketing-footer__grid"><div><a className="marketing-brand marketing-brand--dark" href="#top"><BrandMark /><strong>systemcel</strong></a><p>{t.footerText}</p></div><FooterGroup title={t.product} links={[[t.accounting, "/#on-muhasebe"], [t.ai, "/#ai"], [collaborationLabel, "/#muhasebeci"], [supplierMarketplaceLabel, "/#pazaryeri"], [t.pricing, "/#fiyat"]]} soonTitle={t.soon} soonItems={[t.multipleBranchesAndCurrencies, t.integrationApis, t.periodAutomation]} /><FooterGroup title={t.company} links={[[t.about, "/hakkimizda"], [t.careers, "/kariyer"], [t.blog, "/blog"], [t.contact, "/iletisim"]]} /><FooterGroup title={t.legal} links={[["KVKK", "/kvkk"], [t.privacy, "/gizlilik"], [t.terms, "/kullanim-sartlari"], [language === "tr" ? "Abonelik Koşulları" : "Subscription Terms", "/abonelik-kosullari"], [t.cookies, "/cerezler"]]} /></div><div className="marketing-wrap marketing-footer__bottom"><span>© 2026 SYSTEMCEL — İSTANBUL</span><button type="button" onClick={changeLanguage}>{language === "tr" ? "TR / EN" : "EN / TR"}</button></div></footer>
+      <footer className="marketing-footer"><div className="marketing-wrap marketing-footer__grid"><div><a className="marketing-brand marketing-brand--dark" href="#top"><BrandMark /><strong>systemcel</strong></a><p>{t.footerText}</p></div><FooterGroup title={t.product} links={[[t.accounting, "#on-muhasebe"], [t.ai, "#ai"], [collaborationLabel, "#muhasebeci"], [supplierMarketplaceLabel, "#pazaryeri"], [t.pricing, "#fiyat"]]} soonTitle={t.soon} soonItems={[t.multipleBranchesAndCurrencies, t.integrationApis, t.periodAutomation]} /><FooterGroup title={t.company} links={[[t.about, "/hakkimizda"], [t.careers, "/kariyer"], [t.blog, "/blog"], [t.contact, "/iletisim"]]} /><FooterGroup title={t.legal} links={[["KVKK", "/kvkk"], [t.privacy, "/gizlilik"], [t.terms, "/kullanim-sartlari"], [language === "tr" ? "Abonelik Koşulları" : "Subscription Terms", "/abonelik-kosullari"], [t.cookies, "/cerezler"]]} /></div><div className="marketing-wrap marketing-footer__bottom"><span>© 2026 SYSTEMCEL — İSTANBUL</span><button type="button" onClick={changeLanguage}>{language === "tr" ? "TR / EN" : "EN / TR"}</button></div></footer>
 
       {tourOpen ? (
         <div className="marketing-modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setTourOpen(false)}>
@@ -992,7 +992,7 @@ function HeroLedger({
 }
 
 function Trust({ icon, title, text }: { icon: React.ReactNode; title: string; text: string }) { return <article>{icon}<div><strong>{title}</strong><span>{text}</span></div></article>; }
-function SectionCopy({ number, label, title, text, dark = false }: { number: string; label: string; title: string; text: string; dark?: boolean }) { return <div className={`marketing-section-copy${dark ? " dark" : ""}`}><span className="marketing-section-number">{number}</span><span className="marketing-eyebrow"><i />{label}</span><h2>{title}</h2><p>{text}</p></div>; }
+function SectionCopy({ number, label, title, text, dark = false }: { number: string; label: string; title: React.ReactNode; text: string; dark?: boolean }) { return <div className={`marketing-section-copy${dark ? " dark" : ""}`}><span className="marketing-section-number">{number}</span><span className="marketing-eyebrow"><i />{label}</span><h2>{title}</h2><p>{text}</p></div>; }
 function FeatureRow({ icon, title, text }: { icon: React.ReactNode; title: string; text: string }) { return <article><span>{icon}</span><div><strong>{title}</strong><p>{text}</p></div></article>; }
 
 function FooterGroup({ title, links, soonTitle, soonItems = [] }: { title: string; links: Array<[string, string]>; soonTitle?: string; soonItems?: string[] }) {

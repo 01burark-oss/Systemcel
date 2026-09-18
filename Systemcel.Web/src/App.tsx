@@ -423,6 +423,7 @@ function restoreScroll(url: URL) {
       return;
     }
 
+    document.querySelector<HTMLElement>(".marketing-page")?.scrollTo?.({ left: 0, top: 0 });
     window.scrollTo({ left: 0, top: 0 });
   });
 }
