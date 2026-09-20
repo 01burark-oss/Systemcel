@@ -37,6 +37,12 @@ interface FisOcrSonucu {
   paymentMethod: string;
   receiptTotal?: number | null;
   items: Array<{ rawName: string; amount: number; candidateKalem: string }>;
+  suggestedCariId?: number | null;
+  suggestedCariName?: string | null;
+  cariConfidence?: number | null;
+  existingRecordRelation?: string | null;
+  relatedRecordId?: number | null;
+  relationConfidence?: number | null;
 }
 
 interface GelirGiderEkranOzeti {
@@ -106,6 +112,7 @@ export function HizliSatisSayfasi({ yenileAnahtari, onKayitOlusturuldu }: HizliS
   const [taramaMesaji, setTaramaMesaji] = React.useState("");
   const [fisOcrHazir, setFisOcrHazir] = React.useState<boolean | null>(null);
   const [fisSonucu, setFisSonucu] = React.useState<FisOcrSonucu | null>(null);
+  const [onerilenCariBaglansin, setOnerilenCariBaglansin] = React.useState(false);
   const [fisIslemde, setFisIslemde] = React.useState(false);
   const [giderTaslagi, setGiderTaslagi] = React.useState<GiderTaslagi | null>(null);
   const [giderKalemleri, setGiderKalemleri] = React.useState<string[]>([]);
@@ -266,6 +273,7 @@ export function HizliSatisSayfasi({ yenileAnahtari, onKayitOlusturuldu }: HizliS
         jsonOku<GelirGiderEkranOzeti>("/api/ekran/gelir-gider")
       ]);
       setFisSonucu(result);
+      setOnerilenCariBaglansin(Boolean(result.suggestedCariId));
       setGiderKalemleri(ledger.giderKalemleri);
       setGiderOdemeYontemleri(ledger.odemeYontemleri);
       setGiderTaslagi(fisTaslagiOlustur(result, ledger.giderKalemleri, ledger.odemeYontemleri));
@@ -302,6 +310,7 @@ export function HizliSatisSayfasi({ yenileAnahtari, onKayitOlusturuldu }: HizliS
           tarih,
           tur: "gider",
           tutar,
+          cariKartId: onerilenCariBaglansin ? fisSonucu?.suggestedCariId ?? null : null,
           odemeYontemi: giderTaslagi.odemeYontemi,
           kalem: giderTaslagi.kalem,
           aciklama: giderTaslagi.aciklama,
@@ -309,6 +318,7 @@ export function HizliSatisSayfasi({ yenileAnahtari, onKayitOlusturuldu }: HizliS
         })
       });
       setFisSonucu(null);
+      setOnerilenCariBaglansin(false);
       setGiderTaslagi(null);
       setMesaj("Fiş gider olarak kaydedildi. Finansal özet yenilendi.");
       onKayitOlusturuldu?.();
@@ -452,11 +462,14 @@ export function HizliSatisSayfasi({ yenileAnahtari, onKayitOlusturuldu }: HizliS
                 </div>
                 <b>{paraBic(fisSonucu.receiptTotal ?? 0)}</b>
                 <p>{fisSonucu.items.length} satır okundu. Kayıt oluşturmadan önce tutarları kontrol edin.</p>
+                {fisSonucu.suggestedCariName ? <p>Önerilen cari: <strong>{fisSonucu.suggestedCariName}</strong>{fisSonucu.cariConfidence != null ? ` (%${Math.round(fisSonucu.cariConfidence * 100)})` : ""}. Kaydetmeden önce kontrol edin.</p> : null}
+                {fisSonucu.existingRecordRelation ? <p>{fisSonucu.relatedRecordId ? <>Olası mevcut gider: <strong>#{fisSonucu.relatedRecordId}</strong></> : fisSonucu.existingRecordRelation === "yeni_kayit" ? <strong>Yeni bir gider gibi görünüyor.</strong> : <strong>Mevcut kayıt ilişkisini kontrol edin.</strong>}{fisSonucu.relationConfidence != null ? ` (%${Math.round(fisSonucu.relationConfidence * 100)})` : ""} Bu yalnızca inceleme notudur.</p> : null}
                 <div className="pos-receipt-form__fields">
                   <label><span>Tarih</span><input aria-label="Fiş tarihi" type="datetime-local" value={giderTaslagi.tarih} onChange={(event) => giderTaslaginiGuncelle({ tarih: event.target.value })} /></label>
                   <label><span>Toplam</span><input aria-label="Fiş toplamı" inputMode="decimal" value={giderTaslagi.tutar} onChange={(event) => giderTaslaginiGuncelle({ tutar: event.target.value })} /></label>
                   <label><span>Ödeme yöntemi</span><select aria-label="Fiş ödeme yöntemi" value={giderTaslagi.odemeYontemi} onChange={(event) => giderTaslaginiGuncelle({ odemeYontemi: event.target.value })}>{giderOdemeYontemleri.map((option) => <option key={option.deger} value={option.deger}>{option.etiket}</option>)}</select></label>
                   <label><span>Gider kalemi</span><select aria-label="Fiş gider kalemi" value={giderTaslagi.kalem} onChange={(event) => giderTaslaginiGuncelle({ kalem: event.target.value })}><option value="">Kalem seçin</option>{giderKalemleri.map((category) => <option key={category} value={category}>{category}</option>)}</select></label>
+                  {fisSonucu.suggestedCariId ? <label><span>Cari bağlantısı</span><span><input aria-label="Önerilen cariye bağla" type="checkbox" checked={onerilenCariBaglansin} onChange={(event) => setOnerilenCariBaglansin(event.target.checked)} /> {fisSonucu.suggestedCariName}</span></label> : null}
                   <label className="pos-receipt-form__description"><span>Açıklama</span><textarea aria-label="Fiş açıklaması" value={giderTaslagi.aciklama} onChange={(event) => giderTaslaginiGuncelle({ aciklama: event.target.value })} /></label>
                 </div>
                 <button type="button" className="pos-receipt-form__save" onClick={() => void giderOlarakKaydet()} disabled={giderKaydediliyor}>

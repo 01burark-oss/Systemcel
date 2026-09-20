@@ -35,6 +35,7 @@ internal sealed class MigrationPreview
     public IReadOnlyList<MigrationError> Errors { get; init; } = [];
     public bool CanApply => ValidRows > 0 && Errors.Count == 0;
     public string? UnsupportedReason { get; init; }
+    public IReadOnlyList<SutunEslemeOnerisi> SuggestedMappings { get; init; } = [];
 }
 
 internal sealed class MigrationApplyResult
@@ -53,6 +54,7 @@ internal sealed class ExternalDataMigrationService
     private readonly IUrunHizmetService _urunService;
     private readonly IStokService _stokService;
     private readonly IKalemTanimiService _kalemService;
+    private readonly IAkilliKararService? _akilliKararService;
     private readonly ConcurrentDictionary<string, Draft> _drafts = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<int, SemaphoreSlim> _applyGates = new();
 
@@ -62,7 +64,8 @@ internal sealed class ExternalDataMigrationService
         ICariService cariService,
         IUrunHizmetService urunService,
         IStokService stokService,
-        IKalemTanimiService kalemService)
+        IKalemTanimiService kalemService,
+        IAkilliKararService? akilliKararService = null)
     {
         _dbFactory = dbFactory;
         _isletmeService = isletmeService;
@@ -70,6 +73,7 @@ internal sealed class ExternalDataMigrationService
         _urunService = urunService;
         _stokService = stokService;
         _kalemService = kalemService;
+        _akilliKararService = akilliKararService;
     }
 
     public async Task<MigrationPreview> PreviewAsync(string type, IFormFile file, CancellationToken ct)
@@ -84,14 +88,37 @@ internal sealed class ExternalDataMigrationService
 
         await using var stream = file.OpenReadStream();
         using var reader = new StreamReader(stream, new UTF8Encoding(false, true), detectEncodingFromByteOrderMarks: true);
-        ParsedDocument parsed;
+        string content;
         try
         {
-            parsed = await MigrationCsvParser.ParseAsync(normalizedType, reader, ct);
+            content = await reader.ReadToEndAsync(ct);
         }
         catch (DecoderFallbackException)
         {
             throw new MigrationValidationException("Dosya okunamadı. Kullandığınız programdan yeniden dışa aktarıp tekrar deneyin.");
+        }
+        ParsedDocument parsed;
+        IReadOnlyList<SutunEslemeOnerisi> suggestedMappings = [];
+        try
+        {
+            parsed = await MigrationCsvParser.ParseAsync(normalizedType, new StringReader(content), ct);
+        }
+        catch (MigrationValidationException ex) when (
+            ex.Message.StartsWith("Şablon başlıkları eksik", StringComparison.Ordinal) &&
+            _akilliKararService is not null)
+        {
+            var inspection = MigrationCsvParser.Inspect(content);
+            suggestedMappings = await _akilliKararService.SutunlariEsleAsync(
+                normalizedType,
+                inspection.Headers,
+                inspection.Samples,
+                ct);
+            var mapping = suggestedMappings
+                .Where(x => x.HedefAlan != "esleme_yok" && x.Guven >= 0.55)
+                .GroupBy(x => x.HedefAlan, StringComparer.OrdinalIgnoreCase)
+                .Select(x => x.OrderByDescending(y => y.Guven).First())
+                .ToDictionary(x => MigrationCsvParser.NormalizeHeaderName(x.KaynakSutun), x => x.HedefAlan, StringComparer.OrdinalIgnoreCase);
+            parsed = await MigrationCsvParser.ParseAsync(normalizedType, new StringReader(content), ct, mapping);
         }
         var draftId = Convert.ToHexString(RandomNumberGenerator.GetBytes(16));
         var businessId = await _isletmeService.GetActiveIdAsync();
@@ -108,6 +135,7 @@ internal sealed class ExternalDataMigrationService
             DuplicateRows = parsed.DuplicateRows,
             Headers = parsed.Headers,
             SampleRows = parsed.ValidRows.Take(5).Select(x => (IReadOnlyDictionary<string, string>)x.Values).ToList(),
+            SuggestedMappings = suggestedMappings,
             Errors = parsed.Errors,
             UnsupportedReason = normalizedType == "fatura"
                 ? "Açık faturalar, cari ve satır eşleştirmesi kesin olmadığı için bu sürümde aktarılmıyor."
@@ -380,7 +408,11 @@ internal static class MigrationCsvParser
         "fatura" or "acik fatura" => "fatura", _ => throw new MigrationValidationException("Veri türü desteklenmiyor.")
     };
 
-    public static async Task<ParsedDocument> ParseAsync(string type, TextReader reader, CancellationToken ct)
+    public static async Task<ParsedDocument> ParseAsync(
+        string type,
+        TextReader reader,
+        CancellationToken ct,
+        IReadOnlyDictionary<string, string>? headerMapping = null)
     {
         var lines = new List<string>();
         while (true)
@@ -394,7 +426,10 @@ internal static class MigrationCsvParser
         }
         if (lines.Count == 0) throw new MigrationValidationException("CSV başlığı bulunamadı.");
         var separator = DetectSeparator(lines[0]);
-        var headers = ParseLine(lines[0], separator).Select(NormalizeHeader).ToList();
+        var headers = ParseLine(lines[0], separator)
+            .Select(NormalizeHeader)
+            .Select(x => headerMapping?.GetValueOrDefault(x) ?? x)
+            .ToList();
         if (headers.Count == 0 || headers.Count > ExternalDataMigrationLimits.MaxColumns || headers.Any(string.IsNullOrWhiteSpace) || headers.Distinct(StringComparer.OrdinalIgnoreCase).Count() != headers.Count)
             throw new MigrationValidationException("CSV başlıkları geçersiz veya tekrar ediyor.");
         var required = Schemas[type];
@@ -424,6 +459,36 @@ internal static class MigrationCsvParser
         var example = type switch { "cari" => "cari-1;Örnek Müşteri;Musteri;;;;;;0;2026-01-01", "urun" => "urun-1;Örnek Ürün;Urun;8690000000000;Adet;20;10;15;TRY;0;2026-01-01", "stok" => "stok-1;Örnek Ürün;8690000000000;10;12,50;2026-01-01", "kategori" => "kategori-1;Gelir;Danışmanlık", _ => "fatura-1;F-001;Örnek Müşteri;2026-01-01;;Satis;1000" };
         return string.Join("\r\n", new[] { string.Join(';', columns), example }) + "\r\n";
     }
+
+    public static (IReadOnlyList<string> Headers, IReadOnlyList<IReadOnlyDictionary<string, string>> Samples) Inspect(string content)
+    {
+        var lines = content.TrimStart('\uFEFF')
+            .Split(new[] { "\r\n", "\n", "\r" }, StringSplitOptions.None)
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Take(6)
+            .ToList();
+        if (lines.Count == 0)
+            throw new MigrationValidationException("CSV başlığı bulunamadı.");
+        var separator = DetectSeparator(lines[0]);
+        var headers = ParseLine(lines[0], separator).Select(x => x.Trim()).ToList();
+        if (headers.Count == 0 ||
+            headers.Count > ExternalDataMigrationLimits.MaxColumns ||
+            headers.Any(string.IsNullOrWhiteSpace) ||
+            headers.Distinct(StringComparer.OrdinalIgnoreCase).Count() != headers.Count)
+            throw new MigrationValidationException("CSV başlıkları geçersiz veya tekrar ediyor.");
+        var samples = lines.Skip(1).Select(line =>
+        {
+            var cells = ParseLine(line, separator);
+            return (IReadOnlyDictionary<string, string>)headers.Select((header, index) => new
+            {
+                header,
+                value = index < cells.Count ? cells[index] : string.Empty
+            }).ToDictionary(x => x.header, x => x.value, StringComparer.OrdinalIgnoreCase);
+        }).ToList();
+        return (headers, samples);
+    }
+
+    public static string NormalizeHeaderName(string value) => NormalizeHeader(value);
 
     public static bool TryDecimal(string raw, out decimal value)
     {

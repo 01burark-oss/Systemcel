@@ -52,6 +52,9 @@ interface AiChatResponse {
   suggestions: string[];
   generatedAt: string;
   usage?: AiUsageStatus;
+  intent?: string;
+  actionPath?: string | null;
+  routingConfidence?: number | null;
 }
 
 interface ChatMessage {
@@ -59,6 +62,7 @@ interface ChatMessage {
   role: "assistant" | "user";
   content: string;
   meta?: string;
+  actionPath?: string | null;
 }
 
 const introMessage: ChatMessage = {
@@ -161,7 +165,9 @@ export function AiAssistantPanel() {
         {
           id: createId("assistant"),
           role: "assistant",
-          content: response.answer
+          content: response.answer,
+          meta: response.actionPath ? `${response.intent ?? "Önerilen işlem"} · %${Math.round((response.routingConfidence ?? 0) * 100)}` : undefined,
+          actionPath: response.actionPath
         }
       ]);
     } catch (err) {
@@ -178,7 +184,7 @@ export function AiAssistantPanel() {
     }
   }, [input, sending]);
 
-  const topSuggestions = suggestionData?.suggestions ?? [];
+  const topSuggestions = (suggestionData?.suggestions ?? []).slice(0, 3);
   const configured = status?.configured ?? suggestionData?.configured ?? false;
   const usage = status?.usage ?? suggestionData?.usage;
   const usageText = formatUsage(usage);
@@ -238,6 +244,7 @@ export function AiAssistantPanel() {
                     <article key={message.id} className={`ai-assistant-chat__message ${message.role}`}>
                       <p>{message.content}</p>
                       {message.meta ? <small>{message.meta}</small> : null}
+                      {message.actionPath ? <a href={message.actionPath}>İşleme git</a> : null}
                     </article>
                   ))}
                   {sending ? (
@@ -273,7 +280,7 @@ export function AiAssistantPanel() {
             {activeTab === "oneriler" ? (
               <div className="ai-assistant-suggestions">
                 <div className="ai-assistant-suggestions__toolbar">
-                  <span>Öneriler</span>
+                  <span>Bugünün üç işi</span>
                   <button type="button" onClick={() => void loadSuggestions()} disabled={loading || !configured}>
                     {loading ? <Loader2 className="spin" size={15} /> : <Sparkles size={15} />}
                     Öneri al

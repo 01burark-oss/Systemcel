@@ -43,6 +43,8 @@ interface GibSmsBaslatSonucu {
   mesaj: string;
   operationId: string;
 }
+interface UrunEslesmeSonucu { hazir: boolean; urunHizmetId?: number | null; urunAdi?: string | null; iliski?: string | null; guven?: number | null; kayitliEslesme?: boolean; birimUyarisi?: string | null; maliyetUyarisi?: string | null; }
+interface FaturaKontrolSonucu { hazir: boolean; iliski: string; iliskiliFaturaId?: number | null; iliskiliFatura?: string | null; guven?: number | null; birimUyarisi?: string | null; maliyetUyarisi?: string | null; }
 
 const BIRIM_SECENEKLERI = ["Adet", "Paket", "Kutu", "Kilogram", "Gram", "Litre", "Metre", "Saat", "Hizmet"];
 const FATURA_FORM_HATA_ID = "fatura-form-hata";
@@ -215,6 +217,8 @@ export function FaturalarSayfasi({
   const [musteriTeyidi, setMusteriTeyidi] = React.useState<FaturaMusteriOnayDurumu | null>(null);
   const [musteriTeyitUrl, setMusteriTeyitUrl] = React.useState("");
   const [formPaneliAcik, setFormPaneliAcik] = React.useState(false);
+  const [urunEslesme, setUrunEslesme] = React.useState<UrunEslesmeSonucu | null>(null);
+  const [faturaKontrol, setFaturaKontrol] = React.useState<FaturaKontrolSonucu | null>(null);
   const seciliIdRef = React.useRef<number | null>(null);
   const tumunuSecRef = React.useRef<HTMLInputElement | null>(null);
   const formHataAciklamasi = hata ? FATURA_FORM_HATA_ID : undefined;
@@ -446,6 +450,40 @@ export function FaturalarSayfasi({
     } finally {
       setIslemde(false);
     }
+  }
+
+  async function urunEslesmesiniAra() {
+    try { setUrunEslesme(await jsonOku<UrunEslesmeSonucu>("/api/ekran/akilli-karar/urun-eslestir", { method: "POST", body: JSON.stringify({ kaynakMetin: form.satirAciklama, birim: form.birim, barkod: "", birimFiyat: sayiyaCevir(form.birimFiyat), cariKartId: Number(form.cariKartId) }) })); }
+    catch (error) { setHata(error instanceof Error ? error.message : "Ürün eşleşmesi alınamadı."); }
+  }
+  async function urunEslesmesiniUygula() {
+    if (!urunEslesme?.urunHizmetId) return;
+    urunSec(String(urunEslesme.urunHizmetId));
+    await jsonOku("/api/ekran/akilli-karar/urun-eslestir/onayla", { method: "POST", body: JSON.stringify({ kaynakMetin: form.satirAciklama, urunHizmetId: urunEslesme.urunHizmetId, cariKartId: Number(form.cariKartId) }) });
+    setUrunEslesme(null);
+  }
+  async function faturaKontrolEt() {
+    try {
+      if (Number(form.cariKartId) <= 0) throw new Error("Cari seçin.");
+      const miktar = sayiyaCevir(form.miktar);
+      const birimFiyat = sayiyaCevir(form.birimFiyat);
+      const iskontoOrani = Math.min(100, Math.max(0, sayiyaCevir(form.iskontoOrani)));
+      const genelToplam = Math.max(0, miktar * birimFiyat * (1 - iskontoOrani / 100));
+      setFaturaKontrol(await jsonOku<FaturaKontrolSonucu>("/api/ekran/akilli-karar/fatura-kontrol", {
+        method: "POST",
+        body: JSON.stringify({
+          cariKartId: Number(form.cariKartId),
+          tarih: form.tarih,
+          faturaTipi: form.faturaTipi,
+          aciklama: [form.aciklama, form.satirAciklama].filter(Boolean).join(" · "),
+          genelToplam,
+          urunHizmetId: Number(form.urunHizmetId) || null,
+          birim: form.birim,
+          birimFiyat
+        })
+      }));
+    }
+    catch (error) { setHata(error instanceof Error ? error.message : "Fatura kontrol edilemedi."); }
   }
 
   async function musteriTeyidiGonder() {
@@ -781,11 +819,15 @@ export function FaturalarSayfasi({
                   <span>Stok etkilensin</span>
                 </label>
               </div>
+              <label className="invoice-field invoice-field--full"><span>Satır açıklaması</span><input value={form.satirAciklama} onChange={(event) => formGuncelle("satirAciklama", event.target.value)} placeholder="Ürün açıklaması..." /></label>
+              <div className="invoice-actions"><button type="button" className="invoice-btn" onClick={() => void urunEslesmesiniAra()} disabled={!form.satirAciklama.trim() || islemde}>Akıllı ürün eşleştir</button>{urunEslesme?.urunHizmetId ? <button type="button" className="invoice-btn invoice-btn--success" onClick={() => void urunEslesmesiniUygula()}>Uygula: {urunEslesme.urunAdi} (%{Math.round((urunEslesme.guven ?? 0) * 100)})</button> : null}</div>
+              {urunEslesme?.birimUyarisi || urunEslesme?.maliyetUyarisi ? <p className="invoice-form-note">{[urunEslesme.birimUyarisi, urunEslesme.maliyetUyarisi].filter(Boolean).join(" · ")}</p> : null}
             </div>
 
             <div className="invoice-form-section">
               <h3><i /> İşlemler</h3>
               <div className="invoice-actions">
+                <button className="invoice-btn" onClick={() => void faturaKontrolEt()} disabled={islemde}>Faturayı kontrol et</button>
                 <button className="invoice-btn invoice-btn--primary" onClick={taslakKaydet} disabled={islemde}>
                   <FileText size={18} /> Taslak Oluştur
                 </button>
@@ -806,6 +848,12 @@ export function FaturalarSayfasi({
                   <Trash2 size={18} /> İptal
                 </button>
               </div>
+              {faturaKontrol ? <div className="invoice-form-note" role="status">{[
+                faturaKontrol.iliskiliFatura ? `${faturaKontrol.iliski.startsWith("ayni_") ? "Olası mükerrer" : "İlişkili belge"}: ${faturaKontrol.iliskiliFatura}${faturaKontrol.guven != null ? ` (%${Math.round(faturaKontrol.guven * 100)})` : ""}` : null,
+                faturaKontrol.iliskiliFatura ? null : faturaKontrol.iliski === "yeni_kayit" ? "Yeni ve bağımsız bir kayıt gibi görünüyor." : faturaKontrol.iliski === "incele" ? "Belge ilişkisi belirsiz; kayıt öncesi kontrol edin." : null,
+                faturaKontrol.birimUyarisi,
+                faturaKontrol.maliyetUyarisi
+              ].filter(Boolean).join(" · ") || "Kontrol tamamlandı."}</div> : null}
               {musteriTeyidi && musteriTeyidi.durum !== "Yok" ? (
                 <div className={`invoice-customer-confirmation is-${musteriTeyidi.durum.toLocaleLowerCase("tr-TR")}`}>
                   <div>

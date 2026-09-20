@@ -10,6 +10,12 @@ namespace CashTracker.Core.Models
         public string PaymentMethod { get; set; } = string.Empty;
         public decimal? ReceiptTotal { get; set; }
         public List<ReceiptOcrLineItem> Items { get; set; } = [];
+        public int? SuggestedCariId { get; set; }
+        public string SuggestedCariName { get; set; } = string.Empty;
+        public decimal? CariConfidence { get; set; }
+        public string ExistingRecordRelation { get; set; } = string.Empty;
+        public int? RelatedRecordId { get; set; }
+        public decimal? RelationConfidence { get; set; }
     }
 
     public sealed class ReceiptOcrLineItem

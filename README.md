@@ -56,6 +56,9 @@ ReceiptOcr__Model=gpt-5-mini
 DeepSeek__ApiKey=
 DeepSeek__ProModel=deepseek-flash
 DeepSeek__FlashModel=deepseek-flash
+TYPESAFE_API_KEY=
+TYPESAFE_BASE_URL=https://api.typesafe.ai/v1
+TYPESAFE_MODEL=jev-latest
 SYSTEMCEL_SMS_PROVIDER=Netgsm
 NETGSM_USERNAME=
 NETGSM_PASSWORD=
@@ -63,7 +66,7 @@ NETGSM_MSGHEADER=
 NETGSM_APPNAME=systemcel
 ```
 
-DeepSeek anahtarı yalnız sunucu ortam değişkeninde tutulur. AI sohbeti ve önerileri varsayılan olarak `deepseek-flash` kullanır; Systemcel bilinen işletme verilerini sağlayıcıya göndermeden önce takma adlarla maskeler.
+DeepSeek ve TypeSafe anahtarları yalnız sunucu ortam değişkenlerinde tutulur. AI sohbeti varsayılan olarak `deepseek-flash` kullanır; Jev kısa sınıflandırma ve eşleştirme kararlarını üstlenerek sohbete gönderilen bağlamı küçültür. Systemcel bilinen işletme verilerini sohbet sağlayıcısına göndermeden önce takma adlarla maskeler.
 
 For local Vite development, include local origins in `SYSTEMCEL_ALLOWED_ORIGINS` and `SYSTEMCEL_CLERK_AUTHORIZED_PARTIES`, then run the API and Vite dev server separately.
 

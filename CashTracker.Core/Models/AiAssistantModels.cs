@@ -40,6 +40,9 @@ namespace CashTracker.Core.Models
         public string Mode { get; set; } = "chat";
         public string Model { get; set; } = string.Empty;
         public string Answer { get; set; } = string.Empty;
+        public string Intent { get; set; } = "genel";
+        public string ActionPath { get; set; } = string.Empty;
+        public double RoutingConfidence { get; set; }
         public List<string> Suggestions { get; set; } = [];
         public DateTimeOffset GeneratedAt { get; set; } = DateTimeOffset.Now;
         public AiUsageStatus Usage { get; set; } = new();

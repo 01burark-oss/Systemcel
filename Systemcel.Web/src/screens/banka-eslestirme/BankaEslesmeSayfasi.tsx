@@ -21,6 +21,8 @@ interface EslesmeAdayi {
   tarih: string;
   skor: number;
   nedenler: string[];
+  akilliOneri?: boolean;
+  akilliGuven?: number;
 }
 
 interface ImportSonucu {
@@ -151,7 +153,7 @@ export function BankaEslesmeSayfasi({ yenileAnahtari, saltOkunur = false }: { ye
             <div className="bank-section-title"><div><h2 id="bank-candidates-title">Eşleşme adayları</h2><p>Banka hareketine karşılık gelen kaydı seçin.</p></div></div>
             {adaylar.length === 0 ? <p>Yeterince güçlü bir aday bulunamadı.</p> : <div className="bank-candidate-grid">{adaylar.map((aday) => <label className={seciliAday?.kaynakTuru === aday.kaynakTuru && seciliAday.kaynakId === aday.kaynakId ? "selected" : ""} key={`${aday.kaynakTuru}-${aday.kaynakId}`}>
               <input type="radio" name="aday" checked={seciliAday?.kaynakTuru === aday.kaynakTuru && seciliAday.kaynakId === aday.kaynakId} onChange={() => setSeciliAday(aday)} />
-              <span><strong>{aday.baslik}</strong><small>{new Date(aday.tarih).toLocaleDateString("tr-TR")} · {para(aday.tutar, "TRY")}</small><em>{aday.skor}/100 · {aday.nedenler.join(" · ")}</em></span>
+              <span><strong>{aday.baslik}</strong>{aday.akilliOneri ? <small>Akıllı öneri %{Math.round((aday.akilliGuven ?? 0) * 100)}</small> : null}<small>{new Date(aday.tarih).toLocaleDateString("tr-TR")} · {para(aday.tutar, "TRY")}</small><em>{aday.skor}/100 · {aday.nedenler.join(" · ")}</em></span>
             </label>)}</div>}
             <div className="bank-confirm"><p><CheckCircle2 size={18} />Onay yalnız bu banka hareketini seçilen kayda bağlar; fatura, tahsilat veya cari kayıt değiştirilmez.</p><button type="button" onClick={eslestir} disabled={islemde || !seciliAday || saltOkunur}>Eşleştirmeyi onayla</button></div>
           </section> : null}

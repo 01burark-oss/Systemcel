@@ -44,6 +44,7 @@ namespace CashTracker.Infrastructure.Persistence
         public DbSet<CariKart> CariKartlari => Set<CariKart>();
         public DbSet<CariHareket> CariHareketleri => Set<CariHareket>();
         public DbSet<UrunHizmet> UrunHizmetleri => Set<UrunHizmet>();
+        public DbSet<UrunEslesmeTakmaAdi> UrunEslesmeTakmaAdlari => Set<UrunEslesmeTakmaAdi>();
         public DbSet<StokHareket> StokHareketleri => Set<StokHareket>();
         public DbSet<StokDepo> StokDepolari => Set<StokDepo>();
         public DbSet<StokDefterIslemi> StokDefterIslemleri => Set<StokDefterIslemi>();
@@ -341,8 +342,10 @@ namespace CashTracker.Infrastructure.Persistence
                 e.Property(x => x.ParaBirimi).IsRequired().HasMaxLength(3);
                 e.HasIndex(x => x.IsletmeId);
                 e.HasIndex(x => new { x.IsletmeId, x.Tarih });
+                e.HasIndex(x => new { x.IsletmeId, x.CariKartId, x.Tarih });
                 e.HasIndex(x => new { x.IsletmeId, x.SubeId, x.Tarih });
                 e.HasOne<Sube>().WithMany().HasForeignKey(x => x.SubeId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne<CariKart>().WithMany().HasForeignKey(x => x.CariKartId).OnDelete(DeleteBehavior.SetNull);
             });
 
             modelBuilder.Entity<Sube>(e =>
@@ -966,6 +969,18 @@ namespace CashTracker.Infrastructure.Persistence
                     .WithMany()
                     .HasForeignKey(x => x.SubeId)
                     .OnDelete(DeleteBehavior.Restrict);
+            });
+            modelBuilder.Entity<UrunEslesmeTakmaAdi>(e =>
+            {
+                e.ToTable("UrunEslesmeTakmaAdi");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.KaynakMetin).IsRequired().HasMaxLength(500);
+                e.Property(x => x.Anahtar).IsRequired().HasMaxLength(560);
+                e.HasIndex(x => new { x.IsletmeId, x.Anahtar }).IsUnique();
+                e.HasIndex(x => new { x.IsletmeId, x.UrunHizmetId });
+                e.HasOne<Isletme>().WithMany().HasForeignKey(x => x.IsletmeId).OnDelete(DeleteBehavior.Cascade);
+                e.HasOne<UrunHizmet>().WithMany().HasForeignKey(x => x.UrunHizmetId).OnDelete(DeleteBehavior.Cascade);
+                e.HasOne<CariKart>().WithMany().HasForeignKey(x => x.CariKartId).OnDelete(DeleteBehavior.SetNull);
             });
 
             modelBuilder.Entity<StokHareket>(e =>

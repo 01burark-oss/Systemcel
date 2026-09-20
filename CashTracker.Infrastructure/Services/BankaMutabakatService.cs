@@ -19,10 +19,14 @@ public sealed class BankaMutabakatService : IBankaMutabakatService
     private static readonly CultureInfo TurkishCulture = CultureInfo.GetCultureInfo("tr-TR");
     private static readonly Regex CurrencyPattern = new("^[A-Z]{3}$", RegexOptions.CultureInvariant);
     private readonly IDbContextFactory<CashTrackerDbContext> _dbFactory;
+    private readonly IJevDecisionService? _jev;
 
-    public BankaMutabakatService(IDbContextFactory<CashTrackerDbContext> dbFactory)
+    public BankaMutabakatService(
+        IDbContextFactory<CashTrackerDbContext> dbFactory,
+        IJevDecisionService? jev = null)
     {
         _dbFactory = dbFactory;
+        _jev = jev;
     }
 
     public async Task<IReadOnlyList<BankaHareketDto>> ListeleAsync(int isletmeId, string? durum = null, CancellationToken ct = default)
@@ -128,7 +132,39 @@ public sealed class BankaMutabakatService : IBankaMutabakatService
         if (hareket.Durum != BankaHareketDurumlari.Acik)
             return Array.Empty<BankaEslesmeAdayi>();
 
-        return await BuildCandidatesAsync(db, hareket, ct);
+        var candidates = await BuildCandidatesAsync(db, hareket, ct);
+        if (_jev?.IsConfigured != true || candidates.Count < 2)
+            return candidates;
+
+        var options = candidates.ToDictionary(
+            x => $"aday_{x.KaynakTuru}_{x.KaynakId}",
+            x => (string?)$"{x.Baslik}; tutar {x.Tutar}; tarih {x.Tarih:yyyy-MM-dd}; mevcut skor {x.Skor}; nedenler {string.Join(", ", x.Nedenler)}",
+            StringComparer.Ordinal);
+        options["eslesme_yok"] = "Hareket, aday kayıtların hiçbiriyle aynı işlemi anlatmıyor.";
+        options["incele"] = "Birden fazla aday makul veya açıklama yetersiz; kullanıcı kontrolü gerekiyor.";
+        var answers = await _jev.ChooseAsync(
+            new
+            {
+                bankaHareketi = new { hareket.Aciklama, hareket.Tutar, tarih = hareket.Tarih.ToString("yyyy-MM-dd"), hareket.ParaBirimi },
+                adaylar = candidates
+            },
+            new Dictionary<string, JevChoiceQuestion>
+            {
+                ["eslesme"] = new("Banka hareketi hangi finansal kaydın ödemesi veya tahsilatıdır? Tutar ve tarih skorlarını veri olarak kullan; açıklamadaki kişi, işletme ve belge numarasına odaklan.", options)
+            },
+            ct);
+        var answer = answers.GetValueOrDefault("eslesme", JevChoiceResult.Unavailable);
+        if (!answer.Available || !answer.Choice.StartsWith("aday_", StringComparison.Ordinal))
+            return candidates;
+
+        var selectedKey = answer.Choice["aday_".Length..];
+        return candidates
+            .Select(x => $"{x.KaynakTuru}_{x.KaynakId}" == selectedKey
+                ? x with { AkilliOneri = true, AkilliGuven = answer.Confidence }
+                : x)
+            .OrderByDescending(x => x.AkilliOneri)
+            .ThenByDescending(x => x.Skor)
+            .ToList();
     }
 
     public async Task EslesmeOnaylaAsync(int isletmeId, int hareketId, BankaEslesmeIstek istek, CancellationToken ct = default)

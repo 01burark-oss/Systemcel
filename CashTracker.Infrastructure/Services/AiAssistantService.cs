@@ -30,6 +30,7 @@ namespace CashTracker.Infrastructure.Services
         private readonly IBrutKarMarjiService? _brutKarMarjiService;
         private readonly IAiUsageQuotaService _usageQuotaService;
         private readonly ILogger<AiAssistantService>? _logger;
+        private readonly IAkilliKararService? _akilliKararService;
 
         public AiAssistantService(
             DeepSeekSettings settings,
@@ -44,7 +45,8 @@ namespace CashTracker.Infrastructure.Services
             IFinansalGorunumService finansalGorunumService,
             IAiUsageQuotaService usageQuotaService,
             IBrutKarMarjiService? brutKarMarjiService = null,
-            ILogger<AiAssistantService>? logger = null)
+            ILogger<AiAssistantService>? logger = null,
+            IAkilliKararService? akilliKararService = null)
         {
             _settings = settings;
             _deepSeek = deepSeek;
@@ -59,6 +61,7 @@ namespace CashTracker.Infrastructure.Services
             _brutKarMarjiService = brutKarMarjiService;
             _usageQuotaService = usageQuotaService;
             _logger = logger;
+            _akilliKararService = akilliKararService;
         }
 
         public async Task<AiAssistantStatus> GetStatusAsync(CancellationToken ct = default)
@@ -82,6 +85,9 @@ namespace CashTracker.Infrastructure.Services
             var model = mode == "task" ? _settings.EffectiveFlashModel : _settings.EffectiveProModel;
             var usage = await _usageQuotaService.GetStatusAsync(ct);
             var context = await BuildBusinessContextAsync(ct);
+            var routing = _akilliKararService is null
+                ? new AsistanYonlendirme("genel", 0, string.Empty)
+                : await _akilliKararService.AsistaniYonlendirAsync(message, ct);
             var privacy = PromptPrivacyMap.Create(context);
             var suggestions = BuildRuleBasedSuggestions(context).Select(x => x.Baslik).Take(3).ToList();
 
@@ -93,6 +99,9 @@ namespace CashTracker.Infrastructure.Services
                     Mode = mode,
                     Model = model,
                     Answer = "Sorunu yaz, işletme verilerine göre kısa ve uygulanabilir bir cevap hazırlayayım.",
+                    Intent = routing.Niyet,
+                    ActionPath = routing.AksiyonUrl,
+                    RoutingConfidence = routing.Guven,
                     Suggestions = suggestions,
                     Usage = usage
                 };
@@ -106,6 +115,9 @@ namespace CashTracker.Infrastructure.Services
                     Mode = mode,
                     Model = model,
                     Answer = "Bu alan serbest sohbet için değil. Gelir, gider, fatura, cari, stok, tahsilat, OCR veya rapor verileriyle ilgili net bir soru yazın.",
+                    Intent = routing.Niyet,
+                    ActionPath = routing.AksiyonUrl,
+                    RoutingConfidence = routing.Guven,
                     Suggestions = suggestions,
                     Usage = usage
                 };
@@ -121,6 +133,9 @@ namespace CashTracker.Infrastructure.Services
                     Mode = mode,
                     Model = model,
                     Answer = BuildOfflineAnswer(message, context),
+                    Intent = routing.Niyet,
+                    ActionPath = routing.AksiyonUrl,
+                    RoutingConfidence = routing.Guven,
                     Suggestions = suggestions,
                     Usage = usage
                 };
@@ -136,7 +151,7 @@ namespace CashTracker.Infrastructure.Services
                     new[]
                     {
                         new DeepSeekChatMessage("system", BuildChatSystemPrompt()),
-                        new DeepSeekChatMessage("user", BuildChatUserPrompt(privacy.Redact(message), context, mode, privacy))
+                        new DeepSeekChatMessage("user", BuildChatUserPrompt(privacy.Redact(message), context, mode, privacy, routing.Niyet))
                     },
                     mode == "task" ? 0.25 : 0.35,
                     mode == "task" ? 500 : 2000,
@@ -151,6 +166,9 @@ namespace CashTracker.Infrastructure.Services
                     Mode = mode,
                     Model = model,
                     Answer = privacy.Restore(CleanAssistantText(answer)),
+                    Intent = routing.Niyet,
+                    ActionPath = routing.AksiyonUrl,
+                    RoutingConfidence = routing.Guven,
                     Suggestions = suggestions,
                     Usage = usage
                 };
@@ -165,6 +183,9 @@ namespace CashTracker.Infrastructure.Services
                     Model = model,
                     Answer = "AI yanıtı şu anda alınamadı. Yerel analizle devam ediyorum.\n\n" +
                              BuildOfflineAnswer(message, context),
+                    Intent = routing.Niyet,
+                    ActionPath = routing.AksiyonUrl,
+                    RoutingConfidence = routing.Guven,
                     Suggestions = suggestions,
                     Usage = usage
                 };
@@ -175,6 +196,21 @@ namespace CashTracker.Infrastructure.Services
         {
             var context = await BuildBusinessContextAsync(ct);
             var suggestions = BuildRuleBasedSuggestions(context);
+            if (_akilliKararService is not null)
+            {
+                var dailyTasks = await _akilliKararService.BugununIsleriniGetirAsync(context.BusinessId, ct);
+                if (dailyTasks.Count > 0)
+                {
+                    suggestions = dailyTasks.Select(x => new AiBusinessSuggestion
+                    {
+                        Baslik = x.Baslik,
+                        Aciklama = x.Aciklama,
+                        Oncelik = x.Oncelik,
+                        Metrik = x.Metrik,
+                        Kaynak = "Bugünün işleri"
+                    }).Take(3).ToList();
+                }
+            }
             var privacy = PromptPrivacyMap.Create(context);
             var model = _settings.EffectiveProModel;
             var usage = await _usageQuotaService.GetStatusAsync(ct);
@@ -488,12 +524,14 @@ namespace CashTracker.Infrastructure.Services
             string message,
             BusinessContext context,
             string mode,
-            PromptPrivacyMap privacy)
+            PromptPrivacyMap privacy,
+            string intent)
         {
             return
                 $"Mod: {mode}\n" +
                 "İşletme bağlamı:\n" +
-                BuildContextText(context, privacy) +
+                $"Odak alanı: {intent}\n" +
+                BuildContextText(context, privacy, intent) +
                 "\n\nKullanıcı sorusu:\n" +
                 message +
                 "\n\nYanıt sınırı: en fazla 180 kelime.";
@@ -522,44 +560,52 @@ namespace CashTracker.Infrastructure.Services
             return sb.ToString();
         }
 
-        private static string BuildContextText(BusinessContext context, PromptPrivacyMap privacy)
+        private static string BuildContextText(BusinessContext context, PromptPrivacyMap privacy, string intent = "genel")
         {
             var sb = new StringBuilder();
             sb.AppendLine($"İşletme: {privacy.Redact(context.BusinessName)}");
             sb.AppendLine($"Bugün: {context.Today:yyyy-MM-dd}");
             sb.AppendLine($"Analiz aralığı: {context.CurrentFrom:yyyy-MM-dd} - {context.CurrentTo:yyyy-MM-dd}");
-            sb.AppendLine($"Gelir: {FormatMoney(context.CurrentSummary.IncomeTotal)} ({context.CurrentSummary.IncomeCount} kayıt)");
-            sb.AppendLine($"Gider: {FormatMoney(context.CurrentSummary.ExpenseTotal)} ({context.CurrentSummary.ExpenseCount} kayıt)");
-            sb.AppendLine($"Net: {FormatMoney(context.CurrentSummary.Net)}");
-            sb.AppendLine($"Önceki 30 gün gider: {FormatMoney(context.PreviousSummary.ExpenseTotal)}, net: {FormatMoney(context.PreviousSummary.Net)}");
-            AppendGroups(sb, "En büyük gider kalemleri", context.ExpenseGroups, privacy);
-            AppendGroups(sb, "En büyük gelir kalemleri", context.IncomeGroups, privacy);
-            AppendGroups(sb, "Ödeme yöntemleri", context.PaymentGroups, privacy);
-            sb.AppendLine($"Fatura sayısı: {context.InvoiceCount}, açık fatura bakiyesi: {FormatMoney(context.OutstandingInvoiceTotal)}");
-            if (context.OverdueInvoices.Count > 0)
+            if (intent is "genel" or "nakit" or "rapor" or "kayit")
             {
-                sb.AppendLine("Vadesi geçen faturalar:");
-                foreach (var invoice in context.OverdueInvoices)
+                sb.AppendLine($"Gelir: {FormatMoney(context.CurrentSummary.IncomeTotal)} ({context.CurrentSummary.IncomeCount} kayıt)");
+                sb.AppendLine($"Gider: {FormatMoney(context.CurrentSummary.ExpenseTotal)} ({context.CurrentSummary.ExpenseCount} kayıt)");
+                sb.AppendLine($"Net: {FormatMoney(context.CurrentSummary.Net)}");
+                sb.AppendLine($"Önceki 30 gün gider: {FormatMoney(context.PreviousSummary.ExpenseTotal)}, net: {FormatMoney(context.PreviousSummary.Net)}");
+                AppendGroups(sb, "En büyük gider kalemleri", context.ExpenseGroups, privacy);
+                AppendGroups(sb, "En büyük gelir kalemleri", context.IncomeGroups, privacy);
+                AppendGroups(sb, "Ödeme yöntemleri", context.PaymentGroups, privacy);
+            }
+            if (intent is "genel" or "tahsilat" or "rapor")
+            {
+                sb.AppendLine($"Fatura sayısı: {context.InvoiceCount}, açık fatura bakiyesi: {FormatMoney(context.OutstandingInvoiceTotal)}");
+                if (context.OverdueInvoices.Count > 0)
                 {
-                    sb.AppendLine($"- {privacy.Redact(invoice.YerelFaturaNo)}: {FormatMoney(GetRemainingInvoiceAmount(invoice))}, vade {invoice.VadeTarihi:yyyy-MM-dd}, durum {invoice.Durum}");
+                    sb.AppendLine("Vadesi geçen faturalar:");
+                    foreach (var invoice in context.OverdueInvoices)
+                        sb.AppendLine($"- {privacy.Redact(invoice.YerelFaturaNo)}: {FormatMoney(GetRemainingInvoiceAmount(invoice))}, vade {invoice.VadeTarihi:yyyy-MM-dd}, durum {invoice.Durum}");
                 }
             }
 
-            AppendFinancialView(sb, context.FinancialView, privacy);
-            if (context.GrossMargin?.Guvenilir == true)
+            if (intent is "genel" or "nakit" or "tahsilat" or "rapor")
+                AppendFinancialView(sb, context.FinancialView, privacy);
+            if (intent is "genel" or "rapor" && context.GrossMargin?.Guvenilir == true)
             {
                 sb.AppendLine($"Son 30 gün brüt kâr: {FormatMoney(context.GrossMargin.BrutKarTry)}, marj %{context.GrossMargin.BrutKarOrani?.ToString("N1", TrCulture) ?? "—"}; KDV hariç hareketli ortalama stok maliyetiyle hesaplandı.");
             }
 
-            sb.AppendLine($"Cari kart: {context.CariCount}, aktif ürün/hizmet: {context.ProductCount}");
-            if (context.StockWarnings.Count > 0)
+            if (intent is "genel" or "stok")
             {
-                sb.AppendLine("Kritik stok uyarıları:");
-                foreach (var stock in context.StockWarnings)
-                    sb.AppendLine($"- {privacy.Redact(stock.Name)}: {stock.CurrentStock.ToString("N2", TrCulture)} {stock.Unit}, kritik {stock.CriticalStock.ToString("N2", TrCulture)}");
+                sb.AppendLine($"Aktif ürün/hizmet: {context.ProductCount}");
+                if (context.StockWarnings.Count > 0)
+                {
+                    sb.AppendLine("Kritik stok uyarıları:");
+                    foreach (var stock in context.StockWarnings)
+                        sb.AppendLine($"- {privacy.Redact(stock.Name)}: {stock.CurrentStock.ToString("N2", TrCulture)} {stock.Unit}, kritik {stock.CriticalStock.ToString("N2", TrCulture)}");
+                }
             }
 
-            if (context.RecentTransactions.Count > 0)
+            if (intent is "genel" or "nakit" or "kayit" && context.RecentTransactions.Count > 0)
             {
                 sb.AppendLine("Son işlemler:");
                 foreach (var row in context.RecentTransactions)

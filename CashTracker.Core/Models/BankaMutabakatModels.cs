@@ -33,6 +33,8 @@ public sealed record BankaEslesmeAdayi(
     decimal Tutar,
     DateTime Tarih,
     int Skor,
-    IReadOnlyList<string> Nedenler);
+    IReadOnlyList<string> Nedenler,
+    bool AkilliOneri = false,
+    double AkilliGuven = 0);
 
 public sealed record BankaEslesmeIstek(string KaynakTuru, int KaynakId, bool Onaylandi);

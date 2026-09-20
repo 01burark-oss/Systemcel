@@ -38,6 +38,7 @@ var yonetimOptions = ResolveYonetimOptions(builder.Configuration);
 var clerkIdentityMigrationOptions = ResolveClerkIdentityMigrationOptions(builder.Configuration);
 var telegramSettings = ResolveTelegramSettings(builder.Configuration, appDataPath);
 var deepSeekSettings = ResolveDeepSeekSettings(builder.Configuration);
+var jevSettings = ResolveJevSettings(builder.Configuration);
 var receiptOcrSettings = builder.Configuration.GetSection("ReceiptOcr").Get<ReceiptOcrSettings>() ?? new ReceiptOcrSettings();
 var paymentOptions = ResolvePaymentOptions(builder.Configuration, builder.Environment);
 var reminderEmailOptions = ResolveSubscriptionReminderEmailOptions(builder.Configuration);
@@ -128,6 +129,7 @@ builder.Services.AddSingleton(telegramSettings);
 builder.Services.AddSingleton(yonetimOptions);
 builder.Services.AddSingleton(clerkIdentityMigrationOptions);
 builder.Services.AddSingleton(deepSeekSettings);
+builder.Services.AddSingleton(jevSettings);
 builder.Services.AddSingleton(receiptOcrSettings);
 builder.Services.AddSingleton(paymentOptions);
 builder.Services.AddSingleton(new MuhasebeciOdemeOptions
@@ -240,6 +242,14 @@ builder.Services.AddHttpClient("DeepSeek", client =>
 {
     client.Timeout = TimeSpan.FromSeconds(deepSeekSettings.EffectiveTimeoutSeconds);
 });
+builder.Services.AddHttpClient("Jev", client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(jevSettings.EffectiveTimeoutSeconds);
+}).RedactLoggedHeaders(["Authorization"]);
+builder.Services.AddSingleton<IJevDecisionService>(sp => new JevDecisionService(
+    sp.GetRequiredService<IHttpClientFactory>().CreateClient("Jev"),
+    sp.GetRequiredService<JevSettings>(),
+    sp.GetRequiredService<ILogger<JevDecisionService>>()));
 builder.Services.AddSingleton(sp =>
 {
     var factory = sp.GetRequiredService<IHttpClientFactory>();
@@ -269,6 +279,7 @@ else
     }).RedactLoggedHeaders(["Authorization"]);
 }
 builder.Services.AddSingleton<IAiAssistantService, AiAssistantService>();
+builder.Services.AddSingleton<IAkilliKararService, AkilliKararService>();
 builder.Services.AddSingleton<ITelegramApprovalService, TelegramApprovalService>();
 builder.Services.AddSingleton<ITelegramReceiptSessionStore, TelegramReceiptSessionStore>();
 builder.Services.AddSingleton<ITelegramStockSessionStore, TelegramStockSessionStore>();
@@ -426,6 +437,7 @@ app.MapBillingApi();
 app.MapDesktopImportApi();
 app.MapExternalDataMigrationApi();
 app.MapAiAssistantApi();
+app.MapAkilliKararApi();
 app.MapMuhasebeciApi();
 app.MapTedarikciPazaryeriApi();
 app.MapSohbetMerkeziApi();
@@ -814,6 +826,25 @@ static string[] SplitCsv(string? value)
 {
     return (value ?? string.Empty)
         .Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+}
+
+static JevSettings ResolveJevSettings(IConfiguration configuration)
+{
+    var settings = configuration.GetSection("Jev").Get<JevSettings>() ?? new JevSettings();
+    settings.ApiKey = FirstNonEmpty(
+        Environment.GetEnvironmentVariable("TYPESAFE_API_KEY"),
+        Environment.GetEnvironmentVariable("Jev__ApiKey"),
+        configuration["Jev:ApiKey"],
+        settings.ApiKey) ?? string.Empty;
+    settings.BaseUrl = FirstNonEmpty(
+        Environment.GetEnvironmentVariable("TYPESAFE_BASE_URL"),
+        configuration["Jev:BaseUrl"],
+        settings.BaseUrl) ?? settings.BaseUrl;
+    settings.Model = FirstNonEmpty(
+        Environment.GetEnvironmentVariable("TYPESAFE_MODEL"),
+        configuration["Jev:Model"],
+        settings.Model) ?? settings.Model;
+    return settings;
 }
 
 static ClerkIdentityMigrationOptions ResolveClerkIdentityMigrationOptions(IConfiguration configuration)

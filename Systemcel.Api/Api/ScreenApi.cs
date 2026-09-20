@@ -3238,6 +3238,7 @@ namespace Systemcel.Api.Api
                 Tarih = ParseDate(request.tarih),
                 Tip = tur == "gider" ? "Gider" : "Gelir",
                 Tutar = request.tutar,
+                CariKartId = request.cariKartId,
                 ParaBirimi = request.paraBirimi ?? "TRY",
                 OdemeYontemi = ToDomainPayment(request.odemeYontemi),
                 Kalem = kalem,
@@ -3260,6 +3261,7 @@ namespace Systemcel.Api.Api
                 kurSnapshot = row.KurSnapshot <= 0m ? 1m : row.KurSnapshot,
                 tryKarsiligi = row.TryKarsiligi == 0m ? row.Tutar : row.TryKarsiligi,
                 subeId = row.SubeId,
+                cariKartId = row.CariKartId,
                 odemeYontemi = ToApiPayment(row.OdemeYontemi),
                 kalem = (row.Kalem ?? row.GiderTuru ?? string.Empty).Trim(),
                 aciklama = row.Aciklama ?? string.Empty
@@ -4481,6 +4483,7 @@ namespace Systemcel.Api.Api
             public decimal kurSnapshot { get; set; } = 1m;
             public decimal tryKarsiligi { get; set; }
             public int? subeId { get; set; }
+            public int? cariKartId { get; set; }
             public string odemeYontemi { get; set; } = "nakit";
             public string kalem { get; set; } = string.Empty;
             public string aciklama { get; set; } = string.Empty;
@@ -4496,6 +4499,7 @@ namespace Systemcel.Api.Api
             public string? odemeYontemi { get; set; }
             public string? kalem { get; set; }
             public string? aciklama { get; set; }
+            public int? cariKartId { get; set; }
             public StokGirisIstek? stokGiris { get; set; }
         }
 

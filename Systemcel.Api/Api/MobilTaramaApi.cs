@@ -45,6 +45,7 @@ internal static class MobilTaramaApi
             ReceiptOcrSettings settings,
             IReceiptOcrService receiptOcr,
             IAiUsageQuotaService usageQuota,
+            IAkilliKararService akilliKarar,
             IIsletmeService businesses,
             IKalemTanimiService categories,
             CancellationToken ct) =>
@@ -72,6 +73,7 @@ internal static class MobilTaramaApi
                     ImageBytes = file.Bytes,
                     AvailableExpenseCategories = expenseCategories
                 }, ct);
+                result = await akilliKarar.FisiZenginlestirAsync(business.Id, result, expenseCategories, ct);
                 return Results.Ok(result);
             }
             catch (EntitlementViolationException)

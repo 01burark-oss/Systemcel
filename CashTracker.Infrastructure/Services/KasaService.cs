@@ -87,6 +87,7 @@ namespace CashTracker.Infrastructure.Services
             }
 
             kasa.IsletmeId = activeIsletmeId;
+            await EnsureCariBelongsToBusinessAsync(db, activeIsletmeId, kasa.CariKartId);
             await ApplySnapshotAsync(kasa);
             kasa.Tip = NormalizeTip(kasa.Tip);
             kasa.OdemeYontemi = NormalizeOdemeYontemi(kasa.OdemeYontemi);
@@ -135,6 +136,7 @@ namespace CashTracker.Infrastructure.Services
             foreach (var kasa in rowList)
             {
                 kasa.IsletmeId = activeIsletmeId;
+                await EnsureCariBelongsToBusinessAsync(db, activeIsletmeId, kasa.CariKartId);
                 await ApplySnapshotAsync(kasa);
                 kasa.Tip = NormalizeTip(kasa.Tip);
                 kasa.OdemeYontemi = NormalizeOdemeYontemi(kasa.OdemeYontemi);
@@ -172,6 +174,8 @@ namespace CashTracker.Infrastructure.Services
             existing.Kalem = NormalizeKalem(existing.Tip, kasa.Kalem, kasa.GiderTuru);
             existing.GiderTuru = existing.Tip == "Gider" ? existing.Kalem : null;
             existing.Aciklama = kasa.Aciklama;
+            await EnsureCariBelongsToBusinessAsync(db, activeIsletmeId, kasa.CariKartId);
+            existing.CariKartId = kasa.CariKartId;
             await db.SaveChangesAsync();
         }
 
@@ -236,6 +240,18 @@ namespace CashTracker.Infrastructure.Services
             }
 
             return "Genel Gelir";
+        }
+
+        private static async Task EnsureCariBelongsToBusinessAsync(
+            CashTrackerDbContext db,
+            int businessId,
+            int? cariId)
+        {
+            if (!cariId.HasValue)
+                return;
+            if (!await db.CariKartlari.AsNoTracking().AnyAsync(x =>
+                    x.Id == cariId.Value && x.IsletmeId == businessId && x.Aktif))
+                throw new ArgumentException("Seçilen cari kart bu işletmede bulunamadı.", nameof(cariId));
         }
 
         private async Task ApplySnapshotAsync(Kasa row)

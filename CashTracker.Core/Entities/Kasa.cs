@@ -7,6 +7,7 @@ namespace CashTracker.Core.Entities
         public int Id { get; set; }
         public int IsletmeId { get; set; }
         public int? SubeId { get; set; }
+        public int? CariKartId { get; set; }
         public DateTime Tarih { get; set; } = DateTime.Now;
         public string Tip { get; set; } = "Gelir"; // Gelir | Gider
         public decimal Tutar { get; set; }
