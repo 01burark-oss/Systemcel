@@ -1,5 +1,7 @@
 using System.Text;
 using CashTracker.Core.Entities;
+using CashTracker.Core.Models;
+using CashTracker.Core.Services;
 using CashTracker.Infrastructure.Persistence;
 using CashTracker.Infrastructure.Services;
 using CashTracker.Tests.Support;
@@ -154,6 +156,29 @@ public sealed class ExternalDataMigrationTests
             second => Assert.Null(second.BirimMaliyet));
     }
 
+    [Fact]
+    public async Task PreviewAsync_DoesNotApplyAmbiguousLowConfidenceColumnMapping()
+    {
+        await using var fixture = await MigrationFixture.CreateWithSmartMappingAsync("Ürün İsmi", "ad", .66);
+
+        await Assert.ThrowsAsync<MigrationValidationException>(() => fixture.PreviewAsync(
+            "urun",
+            "kayitAnahtari;Ürün İsmi;tip\nproduct-1;Kablo;Urun"));
+    }
+
+    [Fact]
+    public async Task PreviewAsync_AppliesHighConfidenceColumnMapping()
+    {
+        await using var fixture = await MigrationFixture.CreateWithSmartMappingAsync("Ürün İsmi", "ad", .94);
+
+        var preview = await fixture.PreviewAsync(
+            "urun",
+            "kayitAnahtari;Ürün İsmi;tip\nproduct-1;Kablo;Urun");
+
+        Assert.Equal(1, preview.ValidRows);
+        Assert.Contains(preview.SuggestedMappings, x => x.KaynakSutun == "Ürün İsmi" && x.HedefAlan == "ad");
+    }
+
     private sealed class MigrationFixture : IAsyncDisposable
     {
         private readonly SqliteConnection _connection;
@@ -169,6 +194,17 @@ public sealed class ExternalDataMigrationTests
         public FakeStokService Stock { get; }
 
         public static async Task<MigrationFixture> CreateAsync(params UrunHizmet[] products)
+            => await CreateCoreAsync(null, products);
+
+        public static async Task<MigrationFixture> CreateWithSmartMappingAsync(
+            string sourceColumn,
+            string targetField,
+            double confidence)
+            => await CreateCoreAsync(new FixedSmartMapping(sourceColumn, targetField, confidence), []);
+
+        private static async Task<MigrationFixture> CreateCoreAsync(
+            IAkilliKararService? smartService,
+            params UrunHizmet[] products)
         {
             var connection = new SqliteConnection("Data Source=:memory:");
             await connection.OpenAsync();
@@ -186,20 +222,39 @@ public sealed class ExternalDataMigrationTests
                 new CariService(factory, business),
                 productsService,
                 stock,
-                new FakeKalemTanimiService());
+                new FakeKalemTanimiService(),
+                smartService);
 
             return new MigrationFixture(connection, service, stock);
         }
 
         public async Task PreviewAndApplyAsync(string type, string csv)
         {
-            var bytes = Encoding.UTF8.GetBytes(csv);
-            var file = new FormFile(new MemoryStream(bytes), 0, bytes.Length, "file", "aktarim.csv");
-            var preview = await _service.PreviewAsync(type, file, CancellationToken.None);
+            var preview = await PreviewAsync(type, csv);
             Assert.Empty(preview.Errors);
             await _service.ApplyAsync(preview.DraftId, CancellationToken.None);
         }
 
+        public async Task<MigrationPreview> PreviewAsync(string type, string csv)
+        {
+            var bytes = Encoding.UTF8.GetBytes(csv);
+            var file = new FormFile(new MemoryStream(bytes), 0, bytes.Length, "file", "aktarim.csv");
+            return await _service.PreviewAsync(type, file, CancellationToken.None);
+        }
+
         public ValueTask DisposeAsync() => _connection.DisposeAsync();
+    }
+
+    private sealed class FixedSmartMapping(string sourceColumn, string targetField, double confidence) : IAkilliKararService
+    {
+        public AkilliKararDurumu GetStatus() => new(true, "test");
+        public Task<UrunEslesmeOnerisi> UrunEsleAsync(int isletmeId, UrunEslesmeIstek request, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task UrunEslesmesiniOnaylaAsync(int isletmeId, UrunEslesmeOnayIstek request, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<FaturaKontrolSonucu> FaturaKontrolEtAsync(int isletmeId, FaturaKontrolIstek request, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<IReadOnlyList<BugununIsi>> BugununIsleriniGetirAsync(int isletmeId, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<ReceiptOcrResult> FisiZenginlestirAsync(int isletmeId, ReceiptOcrResult result, IReadOnlyList<string> giderKalemleri, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<IReadOnlyList<SutunEslemeOnerisi>> SutunlariEsleAsync(string veriTuru, IReadOnlyList<string> sutunlar, IReadOnlyList<IReadOnlyDictionary<string, string>> ornekler, CancellationToken ct = default) =>
+            Task.FromResult<IReadOnlyList<SutunEslemeOnerisi>>([new(sourceColumn, targetField, confidence)]);
+        public Task<AsistanYonlendirme> AsistaniYonlendirAsync(string mesaj, CancellationToken ct = default) => throw new NotSupportedException();
     }
 }

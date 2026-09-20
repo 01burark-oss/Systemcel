@@ -48,6 +48,7 @@ internal sealed class MigrationApplyResult
 internal sealed class ExternalDataMigrationService
 {
     private static readonly TimeSpan DraftLifetime = TimeSpan.FromMinutes(15);
+    private const double MinimumAutomaticMappingConfidence = 0.68;
     private readonly IDbContextFactory<CashTrackerDbContext> _dbFactory;
     private readonly IIsletmeService _isletmeService;
     private readonly ICariService _cariService;
@@ -114,7 +115,7 @@ internal sealed class ExternalDataMigrationService
                 inspection.Samples,
                 ct);
             var mapping = suggestedMappings
-                .Where(x => x.HedefAlan != "esleme_yok" && x.Guven >= 0.55)
+                .Where(x => x.HedefAlan != "esleme_yok" && x.Guven >= MinimumAutomaticMappingConfidence)
                 .GroupBy(x => x.HedefAlan, StringComparer.OrdinalIgnoreCase)
                 .Select(x => x.OrderByDescending(y => y.Guven).First())
                 .ToDictionary(x => MigrationCsvParser.NormalizeHeaderName(x.KaynakSutun), x => x.HedefAlan, StringComparer.OrdinalIgnoreCase);
