@@ -8,6 +8,8 @@ namespace CashTracker.Core.Entities
         public int IsletmeId { get; set; }
         public int? KullaniciId { get; set; }
         public string Rol { get; set; } = "isletme_sahibi";
+        public int? SubeId { get; set; }
+        public int? DepoId { get; set; }
         public string Durum { get; set; } = "Aktif";
         public string DavetEposta { get; set; } = string.Empty;
         public string? DavetKodu { get; set; }

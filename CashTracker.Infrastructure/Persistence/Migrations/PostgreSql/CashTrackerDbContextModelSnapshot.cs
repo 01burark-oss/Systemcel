@@ -1685,6 +1685,9 @@ namespace CashTracker.Infrastructure.Persistence.Migrations.PostgreSql
                     b.Property<string>("DavetKodu")
                         .HasColumnType("text");
 
+                    b.Property<int?>("DepoId")
+                        .HasColumnType("integer");
+
                     b.Property<string>("Durum")
                         .IsRequired()
                         .HasColumnType("text");
@@ -1701,6 +1704,9 @@ namespace CashTracker.Infrastructure.Persistence.Migrations.PostgreSql
                     b.Property<string>("Rol")
                         .IsRequired()
                         .HasColumnType("text");
+
+                    b.Property<int?>("SubeId")
+                        .HasColumnType("integer");
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamp without time zone");
@@ -3816,6 +3822,20 @@ namespace CashTracker.Infrastructure.Persistence.Migrations.PostgreSql
 
                     b.Property<int>("AliciIsletmeId")
                         .HasColumnType("integer");
+                    b.Property<int?>("SubeId").HasColumnType("integer");
+                    b.Property<int?>("DepoId").HasColumnType("integer");
+                    b.Property<string>("IslemYapanKullaniciRef").IsRequired().HasMaxLength(160).HasColumnType("character varying(160)");
+                    b.Property<string>("CihazRef").IsRequired().HasMaxLength(160).HasColumnType("character varying(160)");
+                    b.Property<string>("IpAdresi").IsRequired().HasMaxLength(64).HasColumnType("character varying(64)");
+                    b.Property<string>("BelgeKarmasi").IsRequired().HasMaxLength(128).HasColumnType("character varying(128)");
+                    b.Property<string>("FotoKanitiYolu").IsRequired().HasMaxLength(500).HasColumnType("character varying(500)");
+                    b.Property<decimal?>("OlculenAgirlik").HasColumnType("NUMERIC(18,3)");
+                    b.Property<decimal?>("OlculenSicaklik").HasColumnType("NUMERIC(8,2)");
+                    b.Property<decimal>("KabulBrutTutar").HasColumnType("NUMERIC(18,2)");
+                    b.Property<decimal>("SerbestBirakilanNetTutar").HasColumnType("NUMERIC(18,2)");
+                    b.Property<DateTime?>("MuhasebelestiAt").HasColumnType("timestamp without time zone");
+                    b.Property<string>("HakEdisAktarimReferansi").IsRequired().HasMaxLength(120).HasColumnType("character varying(120)");
+                    b.Property<string>("HakEdisAktarimHatasi").IsRequired().HasMaxLength(1000).HasColumnType("character varying(1000)");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp without time zone");
@@ -4011,6 +4031,12 @@ namespace CashTracker.Infrastructure.Persistence.Migrations.PostgreSql
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
+                    b.Property<string>("BelgeUuid").IsRequired().HasMaxLength(80).HasColumnType("character varying(80)");
+                    b.Property<string>("BelgeDosyaYolu").IsRequired().HasMaxLength(500).HasColumnType("character varying(500)");
+                    b.Property<DateTime?>("SevkAt").HasColumnType("timestamp without time zone");
+                    b.Property<int?>("VarisDeposu").HasColumnType("integer");
+                    b.Property<DateTime?>("RandevuAt").HasColumnType("timestamp without time zone");
+
                     b.Property<string>("CikisDeposu")
                         .IsRequired()
                         .HasMaxLength(180)
@@ -4130,6 +4156,10 @@ namespace CashTracker.Infrastructure.Persistence.Migrations.PostgreSql
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
+
+                    b.Property<string>("SeriNo").IsRequired().HasMaxLength(160).HasColumnType("character varying(160)");
+                    b.Property<decimal?>("Agirlik").HasColumnType("NUMERIC(18,3)");
+                    b.Property<int>("PaletKoli").HasColumnType("integer");
 
                     b.Property<decimal>("Miktar")
                         .HasColumnType("NUMERIC(18,3)");

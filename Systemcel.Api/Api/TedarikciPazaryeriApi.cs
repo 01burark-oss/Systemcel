@@ -2,8 +2,11 @@ using CashTracker.Core.Entities;
 using CashTracker.Core.Models;
 using CashTracker.Core.Services;
 using CashTracker.Infrastructure.Persistence;
+using CashTracker.Infrastructure.Security;
 using CashTracker.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace Systemcel.Api.Api;
 
@@ -12,7 +15,7 @@ internal static class TedarikciPazaryeriApi
     private sealed record ApiHata(string mesaj);
     public static void MapTedarikciPazaryeriApi(this WebApplication app)
     {
-        app.MapGet("/api/ekran/tedarikci-pazaryeri", async (IIsletmeService isletmeler, ISystemcelYonetimService yonetim, IMarketplacePaymentGateway paymentGateway, IDbContextFactory<CashTrackerDbContext> factory, CancellationToken ct) =>
+        app.MapGet("/api/ekran/tedarikci-pazaryeri", async (IIsletmeService isletmeler, ISystemcelYonetimService yonetim, ICurrentUserContext currentUser, IMarketplacePaymentGateway paymentGateway, IDbContextFactory<CashTrackerDbContext> factory, CancellationToken ct) =>
         {
             var aktif = await isletmeler.GetActiveAsync();
             await using var db = await factory.CreateDbContextAsync(ct);
@@ -46,16 +49,23 @@ internal static class TedarikciPazaryeriApi
                 .OrderBy(x => x.Id).Select(x => new { x.Id, x.TedarikciSiparisId, x.TedarikciUrunId, x.Sku, x.Ad, x.Birim, x.Miktar, x.SevkEdilenMiktar, x.KabulEdilenMiktar, x.ReddedilenMiktar, x.BirimFiyat, x.KdvOrani, x.NetTutar, x.KdvTutari, x.ToplamTutar }).ToListAsync(ct);
             var sevkiyatlar = await db.TedarikciSevkiyatlari.AsNoTracking().Where(x => siparisIds.Contains(x.TedarikciSiparisId))
                 .OrderByDescending(x => x.CreatedAt)
-                .Select(x => new { x.Id, x.TedarikciSiparisId, x.SevkiyatNo, x.TasimaTipi, x.Tasiyici, x.BelgeNo, x.AracPlaka, x.SurucuAdi, x.CikisDeposu, x.PlanlananTeslimAt, x.Not, x.Durum, x.CreatedAt,
+                .Select(x => new { x.Id, x.TedarikciSiparisId, x.SevkiyatNo, x.TasimaTipi, x.Tasiyici, x.BelgeNo, x.BelgeUuid, x.BelgeDosyaYolu, x.SevkAt, x.AracPlaka, x.SurucuAdi, x.CikisDeposu, x.VarisDeposu, x.RandevuAt, x.PlanlananTeslimAt, x.Not, x.Durum, x.CreatedAt,
                     etiketSayisi = (from k in db.TedarikciSevkiyatKalemleri where k.TedarikciSevkiyatId == x.Id join e in db.TedarikciSevkiyatEtiketleri on k.Id equals e.TedarikciSevkiyatKalemiId select e).Count(),
                     okutulanEtiketSayisi = (from k in db.TedarikciSevkiyatKalemleri where k.TedarikciSevkiyatId == x.Id join e in db.TedarikciSevkiyatEtiketleri on k.Id equals e.TedarikciSevkiyatKalemiId where e.Durum != "Hazir" select e).Count() }).ToListAsync(ct);
             var anaSiparisler = await db.PazaryeriAnaSiparisleri.AsNoTracking().Where(x => x.AliciIsletmeId == aktif.Id)
                 .OrderByDescending(x => x.CreatedAt).Select(x => new { x.Id, x.SiparisNo, x.TeslimatAdresi, x.AraToplam, x.KdvToplam, x.GenelToplam, x.ParaBirimi, x.Durum, x.CreatedAt }).ToListAsync(ct);
             var hakedisler = await (from h in db.TedarikciHakEdisleri.AsNoTracking()
                 join s in db.TedarikciSiparisleri.AsNoTracking() on h.TedarikciSiparisId equals s.Id
-                where h.TedarikciIsletmeId == aktif.Id
+                where h.TedarikciIsletmeId == aktif.Id || s.AliciIsletmeId == aktif.Id
                 orderby h.CreatedAt descending
                 select new { h.Id, h.TedarikciSiparisId, s.SiparisNo, h.BrutTutar, h.KomisyonTutari, h.KomisyonKdvTutari, h.TevkifatTutari, h.OdemeHizmetiBedeli, h.IadeTutari, h.NetTutar, h.OdenenTutar, h.ParaBirimi, h.Durum, h.AktarimReferansi, h.PlanlananAt, h.TamamlandiAt }).ToListAsync(ct);
+            var malKabulHareketleri = await (from receipt in db.TedarikciMalKabulleri.AsNoTracking()
+                join receiptOrder in db.TedarikciSiparisleri.AsNoTracking() on receipt.TedarikciSiparisId equals receiptOrder.Id
+                where receiptOrder.TedarikciIsletmeId == aktif.Id
+                orderby receipt.CreatedAt descending
+                select new { receipt.Id, receipt.TedarikciSiparisId, receipt.KabulEdilenMiktar, receipt.ReddedilenMiktar,
+                    receipt.KabulBrutTutar, receipt.SerbestBirakilanNetTutar, receipt.HakEdisAktarimReferansi,
+                    receipt.HakEdisAktarimHatasi, receipt.CreatedAt }).ToListAsync(ct);
             var sikayetler = await (from complaint in db.TedarikciSiparisSikayetleri.AsNoTracking()
                 join order in db.TedarikciSiparisleri.AsNoTracking() on complaint.TedarikciSiparisId equals order.Id
                 join profileRow in db.TedarikciProfilleri.AsNoTracking() on complaint.TedarikciIsletmeId equals profileRow.IsletmeId
@@ -71,6 +81,28 @@ internal static class TedarikciPazaryeriApi
                 .Select(x => new { x.Id, x.TedarikciSiparisId, x.TedarikciIsletmeId, x.UrunUygunluguPuani,
                     x.EksiksizTeslimatPuani, x.HasarsizTeslimatPuani, x.ZamanindaTeslimatPuani,
                     x.SorunCozmePuani, x.OrtalamaPuan, x.Yorum, x.UpdatedAt }).ToListAsync(ct);
+            var subeler = await db.Subeler.AsNoTracking().Where(x => x.IsletmeId == aktif.Id && x.Aktif)
+                .OrderByDescending(x => x.Varsayilan).ThenBy(x => x.Ad)
+                .Select(x => new { x.Id, x.Ad, x.Kod, x.Varsayilan }).ToListAsync(ct);
+            var depolar = await db.StokDepolari.AsNoTracking().Where(x => x.IsletmeId == aktif.Id && x.Aktif)
+                .OrderByDescending(x => x.Varsayilan).ThenBy(x => x.Ad)
+                .Select(x => new { x.Id, x.SubeId, x.Ad, x.Kod, x.Varsayilan }).ToListAsync(ct);
+            var identity = currentUser.GetCurrentUser();
+            var malKabulUyelik = identity is null ? null : await (
+                from membership in db.IsletmeUyelikleri.AsNoTracking()
+                join user in db.Kullanicilar.AsNoTracking() on membership.KullaniciId equals user.Id
+                where membership.IsletmeId == aktif.Id && membership.Durum == "Aktif" &&
+                      user.AuthProviderUserId == identity.ProviderUserId &&
+                      (membership.Rol == "isletme_sahibi" || membership.Rol == "yonetici" ||
+                       membership.Rol == "depo_sorumlusu" || membership.Rol == "mal_kabul_onaylayicisi")
+                select new { membership.Id, membership.SubeId, membership.DepoId }).SingleOrDefaultAsync(ct);
+            var malKabulYetkisi = malKabulUyelik is not null;
+            if (malKabulUyelik is not null && (malKabulUyelik.SubeId is not null || malKabulUyelik.DepoId is not null))
+            {
+                subeler = subeler.Where(x => malKabulUyelik.SubeId == null || x.Id == malKabulUyelik.SubeId).ToList();
+                depolar = depolar.Where(x => (malKabulUyelik.SubeId == null || x.SubeId == malKabulUyelik.SubeId) &&
+                                             (malKabulUyelik.DepoId == null || x.Id == malKabulUyelik.DepoId)).ToList();
+            }
             var tedarikciPerformanslari = await db.TedarikciProfilleri.AsNoTracking().Where(x => x.Yayinda)
                 .Select(x => new
                 {
@@ -86,6 +118,33 @@ internal static class TedarikciPazaryeriApi
                                            select rating.Id).Count(),
                     sorunBildirimiSayisi = db.TedarikciSiparisSikayetleri.Count(s => s.TedarikciIsletmeId == x.IsletmeId)
                 }).ToListAsync(ct);
+            var kabulZamanlari = await (from receipt in db.TedarikciMalKabulleri.AsNoTracking()
+                join label in db.TedarikciSevkiyatEtiketleri.AsNoTracking() on receipt.TedarikciSevkiyatEtiketiId equals label.Id
+                join shipmentLine in db.TedarikciSevkiyatKalemleri.AsNoTracking() on label.TedarikciSevkiyatKalemiId equals shipmentLine.Id
+                where siparisIds.Contains(receipt.TedarikciSiparisId)
+                group receipt by shipmentLine.TedarikciSevkiyatId into receipts
+                select new { sevkiyatId = receipts.Key, ilkKabulAt = receipts.Min(x => x.CreatedAt) }).ToListAsync(ct);
+            var kabulZamaniBySevkiyat = kabulZamanlari.ToDictionary(x => x.sevkiyatId, x => x.ilkKabulAt);
+            var kabulEdilenToplam = siparisKalemleri.Sum(x => x.KabulEdilenMiktar);
+            var reddedilenToplam = siparisKalemleri.Sum(x => x.ReddedilenMiktar);
+            var sevkEdilenToplam = siparisKalemleri.Sum(x => x.SevkEdilenMiktar);
+            var zamanliAdaylar = sevkiyatlar.Where(x => x.PlanlananTeslimAt != null && kabulZamaniBySevkiyat.ContainsKey(x.Id)).ToList();
+            var kabulSureleri = sevkiyatlar.Where(x => kabulZamaniBySevkiyat.ContainsKey(x.Id))
+                .Select(x => (kabulZamaniBySevkiyat[x.Id] - x.CreatedAt).TotalHours).Where(x => x >= 0).ToList();
+            var hakedisSureleri = await (from receipt in db.TedarikciMalKabulleri.AsNoTracking()
+                join settlement in db.TedarikciHakEdisleri.AsNoTracking() on receipt.TedarikciSiparisId equals settlement.TedarikciSiparisId
+                where siparisIds.Contains(receipt.TedarikciSiparisId) && settlement.TamamlandiAt != null
+                select new { receipt.CreatedAt, settlement.TamamlandiAt }).ToListAsync(ct);
+            var operasyonMetrikleri = new
+            {
+                zamanindaTeslimOrani = zamanliAdaylar.Count == 0 ? 0m : Math.Round(100m * zamanliAdaylar.Count(x => kabulZamaniBySevkiyat[x.Id] <= x.PlanlananTeslimAt) / zamanliAdaylar.Count, 1),
+                kabulOrani = sevkEdilenToplam <= 0 ? 0m : Math.Round(100m * kabulEdilenToplam / sevkEdilenToplam, 1),
+                eksikOrani = sevkEdilenToplam <= 0 ? 0m : Math.Round(100m * Math.Max(0m, sevkEdilenToplam - kabulEdilenToplam - reddedilenToplam) / sevkEdilenToplam, 1),
+                hasarOrani = siparisRows.Count == 0 ? 0m : Math.Round(100m * sikayetler.Count(x => x.Kategori == TedarikciSikayetKategorileri.Hasarli) / siparisRows.Count, 1),
+                itirazOrani = siparisRows.Count == 0 ? 0m : Math.Round(100m * siparisRows.Count(x => x.Durum == PazaryeriSiparisDurumlari.Itirazli) / siparisRows.Count, 1),
+                ortalamaKabulSuresiSaat = kabulSureleri.Count == 0 ? 0m : Math.Round((decimal)kabulSureleri.Average(), 1),
+                ortalamaHakedisSuresiSaat = hakedisSureleri.Count == 0 ? 0m : Math.Round((decimal)hakedisSureleri.Average(x => (x.TamamlandiAt!.Value - x.CreatedAt).TotalHours), 1)
+            };
             var yonetici = await yonetim.IsCurrentUserAdminAsync(ct);
             var yonetimProfilleri = yonetici
                 ? await db.TedarikciProfilleri.AsNoTracking().Where(x => x.DogrulamaDurumu == "Incelemede")
@@ -96,11 +155,14 @@ internal static class TedarikciPazaryeriApi
                     join p in db.TedarikciProfilleri.AsNoTracking() on s.TedarikciProfilId equals p.Id
                     join h in db.TedarikciHakEdisleri.AsNoTracking() on s.Id equals h.TedarikciSiparisId into hg
                     from h in hg.DefaultIfEmpty()
-                    where s.Durum == PazaryeriSiparisDurumlari.Itirazli || (h != null && h.Durum == "Bekliyor" && h.PlanlananAt <= DateTime.UtcNow)
+                    where s.Durum == PazaryeriSiparisDurumlari.Itirazli ||
+                          (s.Durum == PazaryeriSiparisDurumlari.MalKabulBekliyor && db.TedarikciSevkiyatlari.Any(v => v.TedarikciSiparisId == s.Id && v.PlanlananTeslimAt != null && v.PlanlananTeslimAt <= DateTime.UtcNow)) ||
+                          (h != null && (h.Durum == "AktarimBasarisiz" || h.Durum == "AktarimBekliyor" || (h.Durum == "Bekliyor" && h.PlanlananAt <= DateTime.UtcNow)))
                     orderby s.UpdatedAt
-                    select new { s.Id, s.SiparisNo, tedarikciUnvani = p.Unvan, s.Durum, s.GenelToplam, s.ParaBirimi, hakedisDurumu = h == null ? "" : h.Durum, planlananAt = h == null ? (DateTime?)null : h.PlanlananAt }).ToListAsync(ct)
+                    select new { s.Id, s.SiparisNo, tedarikciUnvani = p.Unvan, s.Durum, s.GenelToplam, s.ParaBirimi, hakedisDurumu = h == null ? "" : h.Durum, planlananAt = h == null ? (DateTime?)null : h.PlanlananAt,
+                        yonetimNedeni = s.Durum == PazaryeriSiparisDurumlari.Itirazli ? "Açık itiraz" : h != null && h.Durum == "AktarimBasarisiz" ? "Başarısız aktarım" : h != null && h.Durum == "AktarimBekliyor" ? "Aktarım yeniden denenecek" : s.Durum == PazaryeriSiparisDurumlari.MalKabulBekliyor ? "Geciken mal kabul" : "Geciken hakediş" }).ToListAsync(ct)
                 : [];
-            return Results.Ok(new { aktifIsletmeId = aktif.Id, guvenliOdemeHazir = paymentGateway.IsConfigured, profiller, talepler, acikTalepler, gelenTeklifler, profil, urunler, benimUrunlerim, kaynakUrunler, anaSiparisler, siparisler = siparisRows, siparisKalemleri, sevkiyatlar, hakedisler, sikayetler, degerlendirmeler, tedarikciPerformanslari, yonetici, yonetimProfilleri, yonetimSiparisler });
+            return Results.Ok(new { aktifIsletmeId = aktif.Id, guvenliOdemeHazir = paymentGateway.IsConfigured, malKabulYetkisi, subeler, depolar, profiller, talepler, acikTalepler, gelenTeklifler, profil, urunler, benimUrunlerim, kaynakUrunler, anaSiparisler, siparisler = siparisRows, siparisKalemleri, sevkiyatlar, hakedisler, malKabulHareketleri, sikayetler, degerlendirmeler, tedarikciPerformanslari, operasyonMetrikleri, yonetici, yonetimProfilleri, yonetimSiparisler });
         });
 
         app.MapPut("/api/ekran/tedarikci-pazaryeri/profil", async (TedarikciProfilKaydetRequest request, IIsletmeService isletmeler, IDbContextFactory<CashTrackerDbContext> factory, CancellationToken ct) =>
@@ -183,6 +245,56 @@ internal static class TedarikciPazaryeriApi
             catch (InvalidOperationException ex) { return Results.Conflict(new ApiHata(ex.Message)); }
         }).RequireRateLimiting("sensitive");
 
+        app.MapPost("/api/ekran/tedarikci-pazaryeri/sevkiyatlar/{sevkiyatId:int}/belge", async (int sevkiyatId, HttpContext http, AppRuntimeOptions runtime, IIsletmeService isletmeler, IDbContextFactory<CashTrackerDbContext> factory, CancellationToken ct) =>
+        {
+            try
+            {
+                var businessId = await isletmeler.GetActiveIdAsync();
+                await using var db = await factory.CreateDbContextAsync(ct);
+                var shipment = await db.TedarikciSevkiyatlari.SingleOrDefaultAsync(x => x.Id == sevkiyatId && x.TedarikciIsletmeId == businessId, ct)
+                    ?? throw new KeyNotFoundException("Sevkiyat bulunamadı.");
+                if (!http.Request.HasFormContentType)
+                    return Results.BadRequest(new ApiHata("Belge multipart/form-data olarak gönderilmelidir."));
+                var form = await http.Request.ReadFormAsync(ct);
+                var file = form.Files.GetFile("file") ?? form.Files.FirstOrDefault();
+                if (file is null || file.Length == 0)
+                    return Results.BadRequest(new ApiHata("İrsaliye fotoğrafı veya PDF seçilmedi."));
+                await using var input = file.OpenReadStream();
+                var inspection = await SecureFileInspector.InspectAsync(input, file.FileName, file.Length, SecureFilePurpose.ChatAttachment, ct);
+                if (!inspection.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase) && inspection.ContentType != "application/pdf")
+                    return Results.BadRequest(new ApiHata("İrsaliye yalnız JPG, PNG, WEBP veya PDF olabilir."));
+
+                var directory = GetShipmentDocumentDirectory(runtime, businessId, sevkiyatId);
+                Directory.CreateDirectory(directory);
+                var storedName = $"{Guid.NewGuid():N}{inspection.Extension}";
+                var path = Path.Combine(directory, storedName);
+                await using (var output = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None, 64 * 1024, useAsync: true))
+                    await SecureFileInspector.CopyBoundedAsync(input, output, file.Length, 5L * 1024 * 1024, ct);
+                shipment.BelgeDosyaYolu = ShipmentDocumentUrl(sevkiyatId, storedName);
+                shipment.UpdatedAt = DateTime.UtcNow;
+                await db.SaveChangesAsync(ct);
+                return Results.Ok(new { yol = shipment.BelgeDosyaYolu, dosyaAdi = inspection.DisplayFileName });
+            }
+            catch (KeyNotFoundException ex) { return Results.NotFound(new ApiHata(ex.Message)); }
+            catch (InvalidOperationException ex) { return Results.BadRequest(new ApiHata(ex.Message)); }
+        }).RequireRateLimiting("upload");
+
+        app.MapGet("/api/ekran/tedarikci-pazaryeri/sevkiyatlar/{sevkiyatId:int}/belge/{dosyaAdi}", async (int sevkiyatId, string dosyaAdi, AppRuntimeOptions runtime, IIsletmeService isletmeler, ISystemcelYonetimService yonetim, IDbContextFactory<CashTrackerDbContext> factory, CancellationToken ct) =>
+        {
+            var isAdmin = await yonetim.IsCurrentUserAdminAsync(ct);
+            var businessId = isAdmin ? 0 : await isletmeler.GetActiveIdAsync();
+            await using var db = await factory.CreateDbContextAsync(ct);
+            var shipment = await db.TedarikciSevkiyatlari.AsNoTracking().SingleOrDefaultAsync(x => x.Id == sevkiyatId && (isAdmin || x.AliciIsletmeId == businessId || x.TedarikciIsletmeId == businessId), ct);
+            if (shipment is null)
+                return Results.NotFound(new ApiHata("Sevkiyat bulunamadı."));
+            var safeName = Path.GetFileName(dosyaAdi);
+            var directory = GetShipmentDocumentDirectory(runtime, shipment.TedarikciIsletmeId, sevkiyatId);
+            var path = Path.Combine(directory, safeName);
+            if (!string.Equals(safeName, dosyaAdi, StringComparison.Ordinal) || !SecureFileInspector.IsPathInside(path, directory) || !File.Exists(path))
+                return Results.NotFound(new ApiHata("İrsaliye dosyası bulunamadı."));
+            return Results.File(path, EvidenceContentType(Path.GetExtension(path)), enableRangeProcessing: false);
+        }).RequireRateLimiting("sensitive");
+
         app.MapGet("/api/ekran/tedarikci-pazaryeri/sevkiyat-qr/{kod}", async (string kod, ITedarikciPazaryeriService service, CancellationToken ct) =>
         {
             try { return Results.Ok(await service.ResolveShipmentQrAsync(kod, ct)); }
@@ -201,9 +313,94 @@ internal static class TedarikciPazaryeriApi
             catch (ArgumentException ex) { return Results.BadRequest(new ApiHata(ex.Message)); }
         }).RequireRateLimiting("sensitive");
 
-        app.MapPost("/api/ekran/tedarikci-pazaryeri/sevkiyat-qr/{kod}/mal-kabul", async (string kod, TedarikciMalKabulRequest request, ITedarikciPazaryeriService service, CancellationToken ct) =>
+        app.MapPost("/api/ekran/tedarikci-pazaryeri/sevkiyat-qr/{kod}/kanit", async (string kod, HttpContext http, AppRuntimeOptions runtime, IIsletmeService isletmeler, ITedarikciPazaryeriService service, CancellationToken ct) =>
         {
-            try { return Results.Ok(await service.ReceiveShipmentQrAsync(kod, request, ct)); }
+            try
+            {
+                if (!http.Request.HasFormContentType)
+                    return Results.BadRequest(new ApiHata("Kanıt dosyası multipart/form-data olarak gönderilmelidir."));
+                var form = await http.Request.ReadFormAsync(ct);
+                var branchId = ParseOptionalFormInt(form["subeId"].ToString(), "Şube");
+                var warehouseId = ParseOptionalFormInt(form["depoId"].ToString(), "Depo");
+                await service.ValidateReceiptEvidenceAccessAsync(kod, branchId, warehouseId, ct);
+                var file = form.Files.GetFile("file") ?? form.Files.FirstOrDefault();
+                if (file is null || file.Length == 0)
+                    return Results.BadRequest(new ApiHata("Kanıt fotoğrafı veya PDF seçilmedi."));
+
+                await using var input = file.OpenReadStream();
+                var inspection = await SecureFileInspector.InspectAsync(input, file.FileName, file.Length, SecureFilePurpose.ChatAttachment, ct);
+                if (!inspection.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase) && inspection.ContentType != "application/pdf")
+                    return Results.BadRequest(new ApiHata("Kanıt yalnız JPG, PNG, WEBP veya PDF olabilir."));
+
+                var businessId = await isletmeler.GetActiveIdAsync();
+                var directory = GetReceiptEvidenceDirectory(runtime, businessId, kod);
+                Directory.CreateDirectory(directory);
+                var storedName = $"{Guid.NewGuid():N}{inspection.Extension}";
+                var path = Path.Combine(directory, storedName);
+                await using (var output = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None, 64 * 1024, useAsync: true))
+                    await SecureFileInspector.CopyBoundedAsync(input, output, file.Length, 5L * 1024 * 1024, ct);
+                return Results.Ok(new { yol = ReceiptEvidenceUrl(kod, storedName), dosyaAdi = inspection.DisplayFileName });
+            }
+            catch (UnauthorizedAccessException ex) { return Results.Json(new ApiHata(ex.Message), statusCode: StatusCodes.Status403Forbidden); }
+            catch (KeyNotFoundException ex) { return Results.NotFound(new ApiHata(ex.Message)); }
+            catch (ArgumentException ex) { return Results.BadRequest(new ApiHata(ex.Message)); }
+            catch (InvalidOperationException ex) { return Results.BadRequest(new ApiHata(ex.Message)); }
+        }).RequireRateLimiting("upload");
+
+        app.MapGet("/api/ekran/tedarikci-pazaryeri/sevkiyat-qr/{kod}/kanit/{dosyaAdi}", async (string kod, string dosyaAdi, AppRuntimeOptions runtime, IIsletmeService isletmeler, ISystemcelYonetimService yonetim, ITedarikciPazaryeriService service, IDbContextFactory<CashTrackerDbContext> factory, CancellationToken ct) =>
+        {
+            try
+            {
+                var isAdmin = await yonetim.IsCurrentUserAdminAsync(ct);
+                int businessId;
+                if (isAdmin)
+                {
+                    var codeHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(NormalizeEvidenceQrCode(kod)))).ToLowerInvariant();
+                    await using var db = await factory.CreateDbContextAsync(ct);
+                    businessId = await (from label in db.TedarikciSevkiyatEtiketleri.AsNoTracking()
+                        join line in db.TedarikciSevkiyatKalemleri.AsNoTracking() on label.TedarikciSevkiyatKalemiId equals line.Id
+                        join shipment in db.TedarikciSevkiyatlari.AsNoTracking() on line.TedarikciSevkiyatId equals shipment.Id
+                        where label.KodHash == codeHash
+                        select shipment.AliciIsletmeId).SingleOrDefaultAsync(ct);
+                    if (businessId == 0)
+                        return Results.NotFound(new ApiHata("Kanıt dosyası bulunamadı."));
+                }
+                else
+                {
+                    _ = await service.ResolveShipmentQrAsync(kod, ct);
+                    businessId = await isletmeler.GetActiveIdAsync();
+                }
+                var safeName = Path.GetFileName(dosyaAdi);
+                if (!string.Equals(safeName, dosyaAdi, StringComparison.Ordinal) || string.IsNullOrWhiteSpace(safeName))
+                    return Results.BadRequest(new ApiHata("Kanıt dosya adı geçersiz."));
+                var directory = GetReceiptEvidenceDirectory(runtime, businessId, kod);
+                var path = Path.Combine(directory, safeName);
+                if (!SecureFileInspector.IsPathInside(path, directory) || !File.Exists(path))
+                    return Results.NotFound(new ApiHata("Kanıt dosyası bulunamadı."));
+                return Results.File(path, EvidenceContentType(Path.GetExtension(path)), enableRangeProcessing: false);
+            }
+            catch (UnauthorizedAccessException ex) { return Results.Json(new ApiHata(ex.Message), statusCode: StatusCodes.Status403Forbidden); }
+            catch (KeyNotFoundException ex) { return Results.NotFound(new ApiHata(ex.Message)); }
+        }).RequireRateLimiting("sensitive");
+
+        app.MapPost("/api/ekran/tedarikci-pazaryeri/sevkiyat-qr/{kod}/mal-kabul", async (string kod, TedarikciMalKabulRequest request, HttpContext http, AppRuntimeOptions runtime, IIsletmeService isletmeler, ITedarikciPazaryeriService service, CancellationToken ct) =>
+        {
+            try
+            {
+                var evidenceUrl = NormalizeReceiptEvidenceUrl(request.FotoKanitiYolu, kod);
+                var evidenceHash = string.IsNullOrWhiteSpace(evidenceUrl)
+                    ? string.Empty
+                    : await ComputeReceiptEvidenceHashAsync(runtime, await isletmeler.GetActiveIdAsync(), kod, evidenceUrl, ct);
+                var auditedRequest = request with
+                {
+                    IslemYapanKullaniciRef = null,
+                    IpAdresi = http.Connection.RemoteIpAddress?.ToString(),
+                    FotoKanitiYolu = evidenceUrl,
+                    BelgeKarmasi = evidenceHash
+                };
+                return Results.Ok(await service.ReceiveShipmentQrAsync(kod, auditedRequest, ct));
+            }
+            catch (UnauthorizedAccessException ex) { return Results.Json(new ApiHata(ex.Message), statusCode: StatusCodes.Status403Forbidden); }
             catch (KeyNotFoundException ex) { return Results.NotFound(new ApiHata(ex.Message)); }
             catch (ArgumentException ex) { return Results.BadRequest(new ApiHata(ex.Message)); }
             catch (InvalidOperationException ex) { return Results.Conflict(new ApiHata(ex.Message)); }
@@ -263,6 +460,25 @@ internal static class TedarikciPazaryeriApi
             catch (InvalidOperationException ex) { return Results.Conflict(new ApiHata(ex.Message)); }
         }).RequireRateLimiting("sensitive");
 
+        app.MapGet("/api/ekran/yonetim/tedarikci-siparisler/{siparisId:int}/inceleme", async (int siparisId, ISystemcelYonetimService yonetim, IDbContextFactory<CashTrackerDbContext> factory, CancellationToken ct) =>
+        {
+            if (!await yonetim.IsCurrentUserAdminAsync(ct))
+                return Results.Json(new ApiHata("Bu işlem için yönetici yetkisi gerekir."), statusCode: StatusCodes.Status403Forbidden);
+            await using var db = await factory.CreateDbContextAsync(ct);
+            var order = await db.TedarikciSiparisleri.AsNoTracking().SingleOrDefaultAsync(x => x.Id == siparisId, ct);
+            if (order is null)
+                return Results.NotFound(new ApiHata("Tedarikçi siparişi bulunamadı."));
+            var shipments = await db.TedarikciSevkiyatlari.AsNoTracking().Where(x => x.TedarikciSiparisId == siparisId)
+                .OrderBy(x => x.CreatedAt).Select(x => new { x.Id, x.SevkiyatNo, x.BelgeNo, x.BelgeUuid, x.BelgeDosyaYolu, x.SevkAt, x.RandevuAt, x.PlanlananTeslimAt, x.AracPlaka, x.SurucuAdi, x.Durum }).ToListAsync(ct);
+            var receipts = await db.TedarikciMalKabulleri.AsNoTracking().Where(x => x.TedarikciSiparisId == siparisId)
+                .OrderBy(x => x.CreatedAt).Select(x => new { x.Id, x.KabulEdilenMiktar, x.ReddedilenMiktar, x.RedNedeni, x.Not, x.SubeId, x.DepoId, x.IslemYapanKullaniciRef, x.CihazRef, x.IpAdresi, x.BelgeKarmasi, x.FotoKanitiYolu, x.OlculenAgirlik, x.OlculenSicaklik, x.KabulBrutTutar, x.SerbestBirakilanNetTutar, x.HakEdisAktarimReferansi, x.HakEdisAktarimHatasi, x.CreatedAt }).ToListAsync(ct);
+            var complaints = await db.TedarikciSiparisSikayetleri.AsNoTracking().Where(x => x.TedarikciSiparisId == siparisId)
+                .OrderBy(x => x.CreatedAt).Select(x => new { x.Kategori, x.Aciklama, x.Talep, x.Durum, x.TedarikciYaniti, x.KapanisNotu, x.CreatedAt, x.UpdatedAt }).ToListAsync(ct);
+            var history = await db.TedarikciSiparisDurumKayitlari.AsNoTracking().Where(x => x.TedarikciSiparisId == siparisId)
+                .OrderBy(x => x.CreatedAt).Select(x => new { x.OncekiDurum, x.YeniDurum, x.IslemYapanIsletmeId, x.Aciklama, x.CreatedAt }).ToListAsync(ct);
+            return Results.Ok(new { order.Id, order.SiparisNo, order.Durum, order.GenelToplam, order.ParaBirimi, shipments, receipts, complaints, history });
+        }).RequireRateLimiting("sensitive");
+
         app.MapPost("/api/ekran/tedarikci-pazaryeri/tedarikci-siparisler/{siparisId:int}/fatura", async (int siparisId, TedarikciBelgeEsleRequest request, ITedarikciPazaryeriService service, CancellationToken ct) =>
         {
             try { await service.MatchSupplierInvoiceAsync(siparisId, request, ct); return Results.Ok(new { mesaj = "Fatura siparişle eşleştirildi." }); }
@@ -319,4 +535,77 @@ internal static class TedarikciPazaryeriApi
         }).RequireRateLimiting("sensitive");
 
     }
+
+    private static string GetReceiptEvidenceDirectory(AppRuntimeOptions runtime, int businessId, string code)
+    {
+        var codeHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(code.Trim()))).ToLowerInvariant();
+        return Path.Combine(runtime.AppDataPath, "uploads", "marketplace-receipts", businessId.ToString(), codeHash);
+    }
+
+    private static string GetShipmentDocumentDirectory(AppRuntimeOptions runtime, int supplierBusinessId, int shipmentId) =>
+        Path.Combine(runtime.AppDataPath, "uploads", "marketplace-shipments", supplierBusinessId.ToString(), shipmentId.ToString());
+
+    private static string ShipmentDocumentUrl(int shipmentId, string fileName) =>
+        $"/api/ekran/tedarikci-pazaryeri/sevkiyatlar/{shipmentId}/belge/{Uri.EscapeDataString(fileName)}";
+
+    private static string ReceiptEvidenceUrl(string code, string fileName) =>
+        $"/api/ekran/tedarikci-pazaryeri/sevkiyat-qr/{Uri.EscapeDataString(code.Trim())}/kanit/{Uri.EscapeDataString(fileName)}";
+
+    private static string NormalizeEvidenceQrCode(string code)
+    {
+        var normalized = (code ?? string.Empty).Trim();
+        const string prefix = "systemcel:sevkiyat:";
+        if (normalized.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            normalized = normalized[prefix.Length..];
+        if (!normalized.StartsWith("scq1_", StringComparison.Ordinal) || normalized.Length != 53)
+            throw new ArgumentException("Geçersiz sevkiyat QR kodu.");
+        return normalized;
+    }
+
+    private static string NormalizeReceiptEvidenceUrl(string? value, string code)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return string.Empty;
+        var prefix = $"/api/ekran/tedarikci-pazaryeri/sevkiyat-qr/{Uri.EscapeDataString(code.Trim())}/kanit/";
+        var normalized = value.Trim();
+        if (!normalized.StartsWith(prefix, StringComparison.Ordinal) || normalized[prefix.Length..].Contains('/'))
+            throw new ArgumentException("Kanıt dosyası bu sevkiyat etiketiyle eşleşmiyor.");
+        return normalized;
+    }
+
+    private static int? ParseOptionalFormInt(string value, string label)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+        if (!int.TryParse(value, out var parsed) || parsed <= 0)
+            throw new ArgumentException($"{label} seçimi geçersiz.");
+        return parsed;
+    }
+
+    private static async Task<string> ComputeReceiptEvidenceHashAsync(
+        AppRuntimeOptions runtime,
+        int businessId,
+        string code,
+        string evidenceUrl,
+        CancellationToken ct)
+    {
+        var fileName = Uri.UnescapeDataString(evidenceUrl[(evidenceUrl.LastIndexOf('/') + 1)..]);
+        var safeName = Path.GetFileName(fileName);
+        var directory = GetReceiptEvidenceDirectory(runtime, businessId, code);
+        var path = Path.Combine(directory, safeName);
+        if (string.IsNullOrWhiteSpace(safeName) || !string.Equals(safeName, fileName, StringComparison.Ordinal) ||
+            !SecureFileInspector.IsPathInside(path, directory) || !File.Exists(path))
+            throw new ArgumentException("Kanıt dosyası bulunamadı veya bu sevkiyat etiketiyle eşleşmiyor.");
+        await using var input = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 64 * 1024, useAsync: true);
+        return Convert.ToHexString(await SHA256.HashDataAsync(input, ct)).ToLowerInvariant();
+    }
+
+    private static string EvidenceContentType(string extension) => extension.ToLowerInvariant() switch
+    {
+        ".jpg" or ".jpeg" => "image/jpeg",
+        ".png" => "image/png",
+        ".webp" => "image/webp",
+        ".pdf" => "application/pdf",
+        _ => "application/octet-stream"
+    };
 }

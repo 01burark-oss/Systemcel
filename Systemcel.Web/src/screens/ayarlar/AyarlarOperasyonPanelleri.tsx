@@ -22,6 +22,8 @@ interface Uyelik {
   eposta: string;
   adSoyad: string;
   rol: string;
+  subeId: number | null;
+  depoId: number | null;
   durum: string;
   davetKodu: string;
 }
@@ -31,6 +33,8 @@ interface UyelikListe {
   isletmeId: number;
   isletmeAdi: string;
   uyelikler: Uyelik[];
+  subeler: Array<{ id: number; ad: string; kod: string }>;
+  depolar: Array<{ id: number; subeId: number | null; ad: string; kod: string }>;
 }
 
 interface PinDurumu {
@@ -73,8 +77,11 @@ interface GelistiriciApiAnahtarSonucu extends GelistiriciApiAnahtari {
 const rolEtiketi: Record<string, string> = {
   isletme_sahibi: "İşletme sahibi",
   yonetici: "Yönetici",
-  personel: "Personel"
+  personel: "Personel",
+  depo_sorumlusu: "Depo sorumlusu",
+  mal_kabul_onaylayicisi: "Mal kabul onaylayıcısı"
 };
+const isWarehouseRole = (role: string) => role === "depo_sorumlusu" || role === "mal_kabul_onaylayicisi";
 const MAKSIMUM_AKTARIM_PAKETI = 50 * 1024 * 1024;
 const GELISTIRICI_API_SCOPES = [
   { value: "summary:read", label: "İşletme özeti" },
@@ -291,6 +298,8 @@ function EkipPaneli() {
   const [liste, setListe] = React.useState<UyelikListe | null>(null);
   const [eposta, setEposta] = React.useState("");
   const [rol, setRol] = React.useState("personel");
+  const [subeId, setSubeId] = React.useState("");
+  const [depoId, setDepoId] = React.useState("");
   const [davetKodu, setDavetKodu] = React.useState(queryCode);
   const [davetBaglantisi, setDavetBaglantisi] = React.useState("");
   const [mesaj, setMesaj] = React.useState("");
@@ -325,11 +334,12 @@ function EkipPaneli() {
       setHata("");
       const invite = await jsonOku<{ davetKodu: string }>("/api/ekran/uyelikler/davet", {
         method: "POST",
-        body: JSON.stringify({ eposta, rol })
+        body: JSON.stringify({ eposta, rol, subeId: subeId ? Number(subeId) : null, depoId: depoId ? Number(depoId) : null })
       });
       const link = `${window.location.origin}/app/ayarlar?davet=${encodeURIComponent(invite.davetKodu)}`;
       setDavetBaglantisi(link);
       setEposta("");
+      setSubeId(""); setDepoId("");
       try {
         if (!navigator.clipboard?.writeText) throw new Error("Clipboard API kullanılamıyor.");
         await navigator.clipboard.writeText(link);
@@ -357,6 +367,21 @@ function EkipPaneli() {
     }
   }
 
+  async function uyelikKapsamiGuncelle(uye: Uyelik, yeniRol: string, yeniSubeId: number | null, yeniDepoId: number | null) {
+    const kapsamli = yeniRol === "depo_sorumlusu" || yeniRol === "mal_kabul_onaylayicisi";
+    let effectiveDepoId = kapsamli ? yeniDepoId : null;
+    let effectiveSubeId = kapsamli ? yeniSubeId : null;
+    if (kapsamli && effectiveSubeId === null && effectiveDepoId === null) {
+      const defaultWarehouse = liste?.depolar[0];
+      effectiveDepoId = defaultWarehouse?.id ?? null;
+      effectiveSubeId = defaultWarehouse?.subeId ?? liste?.subeler[0]?.id ?? null;
+    }
+    await calistir(() => jsonOku<UyelikListe>(`/api/ekran/uyelikler/${uye.id}/rol`, {
+      method: "PUT",
+      body: JSON.stringify({ rol: yeniRol, subeId: effectiveSubeId, depoId: effectiveDepoId })
+    }), "Rol ve görev kapsamı güncellendi.");
+  }
+
   return (
     <section className="settings-card settings-operation-card settings-operation-card--team">
       <header className="settings-card__header settings-operation-card__header">
@@ -367,7 +392,8 @@ function EkipPaneli() {
       {liste?.sahibiMi ? (
         <form className="settings-operation-form settings-operation-form--invite" onSubmit={davetOlustur}>
           <label><span>E-posta</span><input type="email" value={eposta} onChange={(event) => setEposta(event.target.value)} placeholder="ekip@isletme.com" required /></label>
-          <label><span>Rol</span><select value={rol} onChange={(event) => setRol(event.target.value)}><option value="personel">Personel</option><option value="yonetici">Yönetici</option></select></label>
+          <label><span>Rol</span><select value={rol} onChange={(event) => { setRol(event.target.value); if (!isWarehouseRole(event.target.value)) { setSubeId(""); setDepoId(""); } }}><option value="personel">Personel</option><option value="yonetici">Yönetici</option><option value="depo_sorumlusu">Depo sorumlusu</option><option value="mal_kabul_onaylayicisi">Mal kabul onaylayıcısı</option></select></label>
+          {isWarehouseRole(rol) ? <><label><span>Şube kapsamı</span><select value={subeId} onChange={(event) => { setSubeId(event.target.value); setDepoId(""); }}><option value="">Tüm şubeler</option>{(liste?.subeler ?? []).map((sube) => <option key={sube.id} value={sube.id}>{sube.ad} · {sube.kod}</option>)}</select></label><label><span>Depo kapsamı</span><select value={depoId} onChange={(event) => { const value = event.target.value; setDepoId(value); const warehouse = liste?.depolar.find((item) => String(item.id) === value); if (warehouse?.subeId) setSubeId(String(warehouse.subeId)); }}><option value="">Şubedeki tüm depolar</option>{(liste?.depolar ?? []).filter((depo) => !subeId || String(depo.subeId) === subeId).map((depo) => <option key={depo.id} value={depo.id}>{depo.ad} · {depo.kod}</option>)}</select></label></> : null}
           <button className="settings-btn settings-btn--green" disabled={islemde} type="submit"><UserRoundPlus size={17} /> Davet oluştur</button>
         </form>
       ) : null}
@@ -377,8 +403,9 @@ function EkipPaneli() {
           <div className="settings-team-row" key={uye.id}>
             <div className="settings-team-row__identity"><strong>{uye.adSoyad || uye.eposta}</strong><small>{uye.adSoyad ? uye.eposta : uye.durum === "DavetBekliyor" ? "Daveti bekliyor" : "Aktif üye"}</small></div>
             {liste?.sahibiMi && uye.rol !== "isletme_sahibi" ? (
-              <select aria-label={`${uye.eposta} rolü`} value={uye.rol} disabled={islemde || uye.durum !== "Aktif"} onChange={(event) => void calistir(() => jsonOku<UyelikListe>(`/api/ekran/uyelikler/${uye.id}/rol`, { method: "PUT", body: JSON.stringify({ rol: event.target.value }) }), "Rol güncellendi.")}><option value="personel">Personel</option><option value="yonetici">Yönetici</option></select>
+              <select aria-label={`${uye.eposta} rolü`} value={uye.rol} disabled={islemde || uye.durum !== "Aktif"} onChange={(event) => void uyelikKapsamiGuncelle(uye, event.target.value, uye.subeId, uye.depoId)}><option value="personel">Personel</option><option value="yonetici">Yönetici</option><option value="depo_sorumlusu">Depo sorumlusu</option><option value="mal_kabul_onaylayicisi">Mal kabul onaylayıcısı</option></select>
             ) : <span className="settings-status-pill active">{rolEtiketi[uye.rol] ?? uye.rol}</span>}
+            {liste?.sahibiMi && isWarehouseRole(uye.rol) && uye.durum === "Aktif" ? <div className="settings-team-row__scope"><select aria-label={`${uye.eposta} şube kapsamı`} value={uye.subeId ?? ""} disabled={islemde} onChange={(event) => void uyelikKapsamiGuncelle(uye, uye.rol, event.target.value ? Number(event.target.value) : null, null)}><option value="">Tüm şubeler</option>{liste.subeler.map((sube) => <option key={sube.id} value={sube.id}>{sube.ad}</option>)}</select><select aria-label={`${uye.eposta} depo kapsamı`} value={uye.depoId ?? ""} disabled={islemde} onChange={(event) => { const nextWarehouse = liste.depolar.find((depo) => depo.id === Number(event.target.value)); void uyelikKapsamiGuncelle(uye, uye.rol, nextWarehouse?.subeId ?? uye.subeId, nextWarehouse?.id ?? null); }}><option value="">Şubedeki tüm depolar</option>{liste.depolar.filter((depo) => !uye.subeId || depo.subeId === uye.subeId).map((depo) => <option key={depo.id} value={depo.id}>{depo.ad}</option>)}</select></div> : null}
             <div className="settings-team-row__actions">
               {uye.davetKodu ? <button className="settings-icon-action" type="button" aria-label="Davet bağlantısını kopyala" onClick={() => void davetKopyala(uye.davetKodu)}><Copy size={17} /></button> : null}
               {liste?.sahibiMi && uye.rol !== "isletme_sahibi" && uye.durum === "Aktif" ? <button className="settings-icon-action" type="button" aria-label="Sahipliği devret" onClick={() => window.confirm("İşletme sahipliği bu üyeye devredilsin mi?") && void calistir(() => jsonOku<UyelikListe>(`/api/ekran/uyelikler/${uye.id}/sahiplik-devri`, { method: "POST" }), "İşletme sahipliği devredildi.")}><ArrowRightLeft size={17} /></button> : null}

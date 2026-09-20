@@ -43,9 +43,18 @@ public sealed class IsletmeUyelikService : IIsletmeUyelikService
         var owner = await db.IsletmeUyelikleri.AnyAsync(x => x.IsletmeId == business.Id && x.KullaniciId == actor.Id && x.Durum == "Aktif" && x.Rol == "isletme_sahibi", ct);
         if (!owner) throw new UnauthorizedAccessException("Yalniz isletme sahibi kullanici davet edebilir.");
 
+        var scope = await ValidateScopeAsync(db, business.Id, role, request.SubeId, request.DepoId, ct);
         var existing = await db.IsletmeUyelikleri.FirstOrDefaultAsync(x => x.IsletmeId == business.Id && x.DavetEposta == email && x.Durum != "Iptal", ct);
         if (existing is not null)
+        {
+            existing.Rol = role;
+            existing.SubeId = scope.SubeId;
+            existing.DepoId = scope.DepoId;
+            existing.UpdatedAt = DateTime.UtcNow;
+            await db.SaveChangesAsync(ct);
+            if (tx is not null) await tx.CommitAsync(ct);
             return ToDto(existing, true);
+        }
 
         var entitlement = await _entitlementGuard.GetAsync(business.Id, business.TenantTipi, ct);
         _entitlementGuard.EnsureWritable(entitlement);
@@ -56,6 +65,8 @@ public sealed class IsletmeUyelikService : IIsletmeUyelikService
         {
             IsletmeId = business.Id,
             Rol = role,
+            SubeId = scope.SubeId,
+            DepoId = scope.DepoId,
             Durum = "DavetBekliyor",
             DavetEposta = email,
             DavetKodu = Convert.ToHexString(RandomNumberGenerator.GetBytes(24)).ToLowerInvariant(),
@@ -101,6 +112,8 @@ public sealed class IsletmeUyelikService : IIsletmeUyelikService
         if (previousMembership is not null)
         {
             previousMembership.Rol = membership.Rol;
+            previousMembership.SubeId = membership.SubeId;
+            previousMembership.DepoId = membership.DepoId;
             previousMembership.Durum = "Aktif";
             previousMembership.DavetEposta = membership.DavetEposta;
             previousMembership.DavetKodu = null;
@@ -121,12 +134,15 @@ public sealed class IsletmeUyelikService : IIsletmeUyelikService
         return await BuildListAsync(db, membership.IsletmeId, actor.Id, ct);
     }
 
-    public async Task<IsletmeUyelikListeDto> UpdateRoleAsync(int membershipId, string role, CancellationToken ct = default)
+    public async Task<IsletmeUyelikListeDto> UpdateRoleAsync(int membershipId, IsletmeUyelikRolGuncelleRequest request, CancellationToken ct = default)
     {
-        var normalizedRole = NormalizeRole(role);
+        var normalizedRole = NormalizeRole(request.Rol);
         await using var access = await GetOwnerAccessAsync(ct);
         var membership = await RequireMutableMembershipAsync(access.Db, access.BusinessId, membershipId, ct);
+        var scope = await ValidateScopeAsync(access.Db, access.BusinessId, normalizedRole, request.SubeId, request.DepoId, ct);
         membership.Rol = normalizedRole;
+        membership.SubeId = scope.SubeId;
+        membership.DepoId = scope.DepoId;
         membership.UpdatedAt = DateTime.UtcNow;
         await access.Db.SaveChangesAsync(ct);
         return await BuildListAsync(access.Db, access.BusinessId, access.ActorId, ct);
@@ -170,8 +186,10 @@ public sealed class IsletmeUyelikService : IIsletmeUyelikService
     private static string NormalizeRole(string? role) => role?.Trim().ToLowerInvariant() switch
     {
         "yonetici" => "yonetici",
+        "depo_sorumlusu" => "depo_sorumlusu",
+        "mal_kabul_onaylayicisi" => "mal_kabul_onaylayicisi",
         "personel" or "" or null => "personel",
-        _ => throw new ArgumentException("Davet rolu yonetici veya personel olmalidir.")
+        _ => throw new ArgumentException("Davet rolünü yönetici, personel, depo sorumlusu veya mal kabul onaylayıcısı olarak seçin.")
     };
 
     private async Task<MembershipAccess> GetAccessAsync(CancellationToken ct)
@@ -237,6 +255,8 @@ public sealed class IsletmeUyelikService : IIsletmeUyelikService
                 Eposta = user != null && user.Eposta != string.Empty ? user.Eposta : membership.DavetEposta,
                 AdSoyad = user != null ? user.AdSoyad : string.Empty,
                 Rol = membership.Rol,
+                SubeId = membership.SubeId,
+                DepoId = membership.DepoId,
                 Durum = membership.Durum,
                 DavetKodu = isOwner ? membership.DavetKodu ?? string.Empty : string.Empty,
                 DavetAt = membership.DavetAt,
@@ -247,7 +267,13 @@ public sealed class IsletmeUyelikService : IIsletmeUyelikService
             SahibiMi = isOwner,
             IsletmeId = business.Id,
             IsletmeAdi = business.Ad,
-            Uyelikler = rows
+            Uyelikler = rows,
+            Subeler = await db.Subeler.AsNoTracking().Where(x => x.IsletmeId == businessId && x.Aktif)
+                .OrderByDescending(x => x.Varsayilan).ThenBy(x => x.Ad)
+                .Select(x => new IsletmeUyelikKapsamSecenegi(x.Id, x.Ad, x.Kod)).ToListAsync(ct),
+            Depolar = await db.StokDepolari.AsNoTracking().Where(x => x.IsletmeId == businessId && x.Aktif)
+                .OrderByDescending(x => x.Varsayilan).ThenBy(x => x.Ad)
+                .Select(x => new IsletmeUyelikDepoSecenegi(x.Id, x.SubeId, x.Ad, x.Kod)).ToListAsync(ct)
         };
     }
 
@@ -262,9 +288,34 @@ public sealed class IsletmeUyelikService : IIsletmeUyelikService
         IsletmeId = row.IsletmeId,
         Eposta = row.DavetEposta,
         Rol = row.Rol,
+        SubeId = row.SubeId,
+        DepoId = row.DepoId,
         Durum = row.Durum,
         DavetKodu = row.DavetKodu ?? string.Empty,
         DavetAt = row.DavetAt ?? row.CreatedAt,
         TekrarKullanildi = reused
     };
+
+    private static async Task<(int? SubeId, int? DepoId)> ValidateScopeAsync(
+        CashTrackerDbContext db,
+        int businessId,
+        string role,
+        int? branchId,
+        int? warehouseId,
+        CancellationToken ct)
+    {
+        if (role is not ("depo_sorumlusu" or "mal_kabul_onaylayicisi"))
+            return (null, null);
+        if (branchId is null && warehouseId is null)
+            throw new ArgumentException("Depo ve mal kabul rolleri için en az bir şube veya depo seçin.");
+        if (branchId is not null && !await db.Subeler.AnyAsync(x => x.Id == branchId && x.IsletmeId == businessId && x.Aktif, ct))
+            throw new ArgumentException("Seçilen şube bu işletmeye ait değil.");
+        if (warehouseId is null)
+            return (branchId, null);
+        var warehouse = await db.StokDepolari.AsNoTracking().SingleOrDefaultAsync(x => x.Id == warehouseId && x.IsletmeId == businessId && x.Aktif, ct)
+            ?? throw new ArgumentException("Seçilen depo bu işletmeye ait değil.");
+        if (branchId is not null && warehouse.SubeId != branchId)
+            throw new ArgumentException("Seçilen depo ve şube birbiriyle eşleşmiyor.");
+        return (branchId ?? warehouse.SubeId, warehouse.Id);
+    }
 }

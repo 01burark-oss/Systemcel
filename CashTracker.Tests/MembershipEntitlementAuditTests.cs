@@ -30,9 +30,11 @@ public sealed class MembershipEntitlementAuditTests
         await using var fixture = await Fixture.CreateAsync();
         var service = fixture.CreateMembershipService();
         var first = await service.CreateInviteAsync(new IsletmeUyelikDavetRequest { Eposta = "same@example.com" });
-        var second = await service.CreateInviteAsync(new IsletmeUyelikDavetRequest { Eposta = "SAME@example.com" });
+        var second = await service.CreateInviteAsync(new IsletmeUyelikDavetRequest { Eposta = "SAME@example.com", Rol = "yonetici" });
         Assert.Equal(first.Id, second.Id);
         Assert.True(second.TekrarKullanildi);
+        await using var verificationDb = fixture.CreateDbContext();
+        Assert.Equal("yonetici", (await verificationDb.IsletmeUyelikleri.SingleAsync(x => x.Id == first.Id)).Rol);
     }
 
     [Fact]
@@ -82,7 +84,7 @@ public sealed class MembershipEntitlementAuditTests
 
         var service = fixture.CreateMembershipService();
         var member = Assert.Single((await service.GetMembershipsAsync()).Uyelikler, x => x.KullaniciId == 2);
-        var updated = await service.UpdateRoleAsync(member.Id, "yonetici");
+        var updated = await service.UpdateRoleAsync(member.Id, new IsletmeUyelikRolGuncelleRequest { Rol = "yonetici" });
         Assert.Equal("yonetici", Assert.Single(updated.Uyelikler, x => x.Id == member.Id).Rol);
 
         var transferred = await service.TransferOwnershipAsync(member.Id);

@@ -265,7 +265,7 @@ namespace CashTracker.Infrastructure.Persistence
             {
                 e.ToTable("TedarikciSevkiyat"); e.HasKey(x => x.Id);
                 e.Property(x => x.SevkiyatNo).IsRequired().HasMaxLength(48); e.Property(x => x.TasimaTipi).IsRequired().HasMaxLength(40);
-                e.Property(x => x.Tasiyici).IsRequired().HasMaxLength(160); e.Property(x => x.BelgeNo).IsRequired().HasMaxLength(100);
+                e.Property(x => x.Tasiyici).IsRequired().HasMaxLength(160); e.Property(x => x.BelgeNo).IsRequired().HasMaxLength(100); e.Property(x => x.BelgeUuid).IsRequired().HasMaxLength(80); e.Property(x => x.BelgeDosyaYolu).IsRequired().HasMaxLength(500);
                 e.Property(x => x.AracPlaka).IsRequired().HasMaxLength(24); e.Property(x => x.SurucuAdi).IsRequired().HasMaxLength(120);
                 e.Property(x => x.CikisDeposu).IsRequired().HasMaxLength(180); e.Property(x => x.Not).IsRequired().HasMaxLength(800);
                 e.Property(x => x.Durum).IsRequired().HasMaxLength(30);
@@ -277,7 +277,7 @@ namespace CashTracker.Infrastructure.Persistence
             modelBuilder.Entity<TedarikciSevkiyatKalemi>(e =>
             {
                 e.ToTable("TedarikciSevkiyatKalemi"); e.HasKey(x => x.Id);
-                e.Property(x => x.Miktar).HasColumnType("NUMERIC(18,3)"); e.Property(x => x.LotNo).IsRequired().HasMaxLength(100);
+                e.Property(x => x.Miktar).HasColumnType("NUMERIC(18,3)"); e.Property(x => x.LotNo).IsRequired().HasMaxLength(100); e.Property(x => x.SeriNo).IsRequired().HasMaxLength(160); e.Property(x => x.Agirlik).HasColumnType("NUMERIC(18,3)");
                 e.Property(x => x.SicaklikMin).HasColumnType("NUMERIC(8,2)"); e.Property(x => x.SicaklikMax).HasColumnType("NUMERIC(8,2)");
                 e.HasIndex(x => x.TedarikciSevkiyatId); e.HasIndex(x => x.TedarikciSiparisKalemiId);
                 e.HasOne<TedarikciSevkiyat>().WithMany().HasForeignKey(x => x.TedarikciSevkiyatId).OnDelete(DeleteBehavior.Cascade);
@@ -297,6 +297,8 @@ namespace CashTracker.Infrastructure.Persistence
                 e.Property(x => x.IdempotencyAnahtari).IsRequired().HasMaxLength(100);
                 e.Property(x => x.KabulEdilenMiktar).HasColumnType("NUMERIC(18,3)"); e.Property(x => x.ReddedilenMiktar).HasColumnType("NUMERIC(18,3)");
                 e.Property(x => x.RedNedeni).IsRequired().HasMaxLength(80); e.Property(x => x.Not).IsRequired().HasMaxLength(800);
+                e.Property(x => x.IslemYapanKullaniciRef).IsRequired().HasMaxLength(160); e.Property(x => x.CihazRef).IsRequired().HasMaxLength(160); e.Property(x => x.IpAdresi).IsRequired().HasMaxLength(64); e.Property(x => x.BelgeKarmasi).IsRequired().HasMaxLength(128); e.Property(x => x.FotoKanitiYolu).IsRequired().HasMaxLength(500);
+                e.Property(x => x.OlculenAgirlik).HasColumnType("NUMERIC(18,3)"); e.Property(x => x.OlculenSicaklik).HasColumnType("NUMERIC(8,2)"); e.Property(x => x.KabulBrutTutar).HasColumnType("NUMERIC(18,2)"); e.Property(x => x.SerbestBirakilanNetTutar).HasColumnType("NUMERIC(18,2)"); e.Property(x => x.HakEdisAktarimReferansi).IsRequired().HasMaxLength(120); e.Property(x => x.HakEdisAktarimHatasi).IsRequired().HasMaxLength(1000);
                 e.HasIndex(x => x.TedarikciSevkiyatEtiketiId).IsUnique();
                 e.HasIndex(x => new { x.AliciIsletmeId, x.IdempotencyAnahtari }).IsUnique();
                 e.HasIndex(x => new { x.TedarikciSiparisId, x.CreatedAt });

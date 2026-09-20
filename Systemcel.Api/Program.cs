@@ -41,6 +41,7 @@ var deepSeekSettings = ResolveDeepSeekSettings(builder.Configuration);
 var jevSettings = ResolveJevSettings(builder.Configuration);
 var receiptOcrSettings = builder.Configuration.GetSection("ReceiptOcr").Get<ReceiptOcrSettings>() ?? new ReceiptOcrSettings();
 var paymentOptions = ResolvePaymentOptions(builder.Configuration, builder.Environment);
+var pazaryeriOptions = ResolvePazaryeriOptions(builder.Configuration);
 var reminderEmailOptions = ResolveSubscriptionReminderEmailOptions(builder.Configuration);
 var musteriSmsSettings = ResolveMusteriSmsSettings(builder.Configuration);
 var secretEncryptionKey = ResolveSecretEncryptionKey(builder.Configuration, builder.Environment, appDataPath);
@@ -136,7 +137,7 @@ builder.Services.AddSingleton(new MuhasebeciOdemeOptions
 {
     PlatformCommissionRate = paymentOptions.AccountantPlatformCommissionRate
 });
-builder.Services.AddSingleton(new PazaryeriOptions());
+builder.Services.AddSingleton(pazaryeriOptions);
 builder.Services.AddSingleton(reminderEmailOptions);
 builder.Services.AddSingleton(musteriSmsSettings);
 builder.Services.AddHttpContextAccessor();
@@ -190,6 +191,7 @@ builder.Services.AddSingleton<IMarketplacePaymentGateway>(_ => paymentOptions.Us
     ? new FakeMarketplacePaymentGateway()
     : new UnconfiguredMarketplacePaymentGateway());
 builder.Services.AddSingleton<ITedarikciPazaryeriService, TedarikciPazaryeriService>();
+builder.Services.AddSingleton<ISevkIrsaliyesiAdapter, UnconfiguredSevkIrsaliyesiAdapter>();
 builder.Services.AddHostedService<MarketplaceOrderExpiryHostedService>();
 builder.Services.AddSingleton<ISubscriptionLifecycleService, SubscriptionLifecycleService>();
 builder.Services.AddSingleton<ISubscriptionPriceProtectionService, SubscriptionPriceProtectionService>();
@@ -410,6 +412,34 @@ if (clerkAuthenticationOptions.Enabled)
 }
 app.UseMiddleware<DeveloperApiAuthenticationMiddleware>();
 app.UseRateLimiter();
+app.Use(async (context, next) =>
+{
+    if (!context.Request.Path.StartsWithSegments("/api/ekran/tedarikci-pazaryeri"))
+    {
+        await next();
+        return;
+    }
+
+    if (!pazaryeriOptions.Aktif)
+    {
+        context.Response.StatusCode = StatusCodes.Status404NotFound;
+        await context.Response.WriteAsJsonAsync(new { mesaj = "Tedarikçi pazaryeri şu anda kapalı." });
+        return;
+    }
+
+    if (pazaryeriOptions.PilotIsletmeIdleri.Count > 0)
+    {
+        var businessId = await context.RequestServices.GetRequiredService<IIsletmeService>().GetActiveIdAsync();
+        if (!pazaryeriOptions.IsBusinessAllowed(businessId))
+        {
+            context.Response.StatusCode = StatusCodes.Status403Forbidden;
+            await context.Response.WriteAsJsonAsync(new { mesaj = "Tedarikçi pazaryeri bu işletmenin pilotuna henüz açılmadı." });
+            return;
+        }
+    }
+
+    await next();
+});
 app.UseMiddleware<DeveloperApiAuthenticationEnforcementMiddleware>();
 
 app.MapGet("/api/health/live", () => Results.Ok(new
@@ -804,6 +834,39 @@ static DeepSeekSettings ResolveDeepSeekSettings(IConfiguration configuration)
         settings.ApiKey = apiKey;
 
     return settings;
+}
+
+static PazaryeriOptions ResolvePazaryeriOptions(IConfiguration configuration)
+{
+    var activeValue = FirstNonEmpty(
+        Environment.GetEnvironmentVariable("SYSTEMCEL_PAZARYERI_AKTIF"),
+        configuration["Pazaryeri:Aktif"]);
+    var active = string.IsNullOrWhiteSpace(activeValue) ||
+                 (bool.TryParse(activeValue, out var parsedActive) && parsedActive);
+    if (!string.IsNullOrWhiteSpace(activeValue) && !bool.TryParse(activeValue, out _))
+        throw new InvalidOperationException("Pazaryeri:Aktif true veya false olmalıdır.");
+
+    var configuredIds = configuration.GetSection("Pazaryeri:PilotIsletmeIdleri").GetChildren()
+        .Select(x => x.Value)
+        .Where(x => !string.IsNullOrWhiteSpace(x))
+        .Cast<string>()
+        .ToList();
+    if (configuredIds.Count == 0)
+    {
+        configuredIds.AddRange(SplitCsv(FirstNonEmpty(
+            Environment.GetEnvironmentVariable("SYSTEMCEL_PAZARYERI_PILOT_ISLETME_IDS"),
+            configuration["Pazaryeri:PilotIsletmeIdleri"])));
+    }
+
+    var pilotIds = new HashSet<int>();
+    foreach (var value in configuredIds)
+    {
+        if (!int.TryParse(value, out var id) || id <= 0)
+            throw new InvalidOperationException("Pazaryeri pilot işletme kimlikleri pozitif tam sayı olmalıdır.");
+        pilotIds.Add(id);
+    }
+
+    return new PazaryeriOptions { Aktif = active, PilotIsletmeIdleri = pilotIds };
 }
 
 static void ConfigureDatabase(DbContextOptionsBuilder options, DatabaseRuntimeOptions databaseOptions)

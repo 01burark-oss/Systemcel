@@ -31,7 +31,7 @@ internal static class UyelikApi
 
         app.MapPut("/api/ekran/uyelikler/{id:int}/rol", async (int id, IsletmeUyelikRolGuncelleRequest request, IIsletmeUyelikService service, CancellationToken ct) =>
         {
-            try { return Results.Ok(await service.UpdateRoleAsync(id, request.Rol, ct)); }
+            try { return Results.Ok(await service.UpdateRoleAsync(id, request, ct)); }
             catch (UnauthorizedAccessException ex) { return Results.Json(new { mesaj = ex.Message }, statusCode: StatusCodes.Status403Forbidden); }
             catch (KeyNotFoundException ex) { return Results.NotFound(new { mesaj = ex.Message }); }
             catch (ArgumentException ex) { return Results.BadRequest(new { mesaj = ex.Message }); }

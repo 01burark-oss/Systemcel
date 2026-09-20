@@ -107,7 +107,8 @@ public sealed class MarketplaceDemoDataSeederTests
             new FakeIsletmeService(buyer),
             new FakeManagementService(),
             new FakeMarketplacePaymentGateway(),
-            new PazaryeriOptions());
+            new PazaryeriOptions(),
+            new AnonymousCurrentUserContext());
 
         public ValueTask DisposeAsync() => _connection.DisposeAsync();
     }
@@ -140,5 +141,10 @@ public sealed class MarketplaceDemoDataSeederTests
         public Task<DestekTalebiListeDto> GetDestekTalepleriAsync(CancellationToken ct = default) => throw new NotSupportedException();
         public Task<DestekTalebiDto> UpdateDestekTalebiAsync(int i, DestekTalebiGuncelleRequest r, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<EntitlementOverrideResult> ApplyEntitlementOverrideAsync(int i, EntitlementOverrideRequest r, CancellationToken ct = default) => throw new NotSupportedException();
+    }
+
+    private sealed class AnonymousCurrentUserContext : ICurrentUserContext
+    {
+        public CurrentUserIdentity? GetCurrentUser() => null;
     }
 }

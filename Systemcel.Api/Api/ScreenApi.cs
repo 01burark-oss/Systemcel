@@ -1912,15 +1912,31 @@ namespace Systemcel.Api.Api
                 join profile in db.TedarikciProfilleri.AsNoTracking() on order.TedarikciProfilId equals profile.Id
                 where order.AliciIsletmeId == businessId || order.TedarikciIsletmeId == businessId
                 where order.Durum == PazaryeriSiparisDurumlari.SiparisVerildi ||
+                      order.Durum == PazaryeriSiparisDurumlari.SevkeHazir ||
+                      order.Durum == PazaryeriSiparisDurumlari.KismenSevkEdildi ||
                       order.Durum == PazaryeriSiparisDurumlari.SevkEdildi ||
+                      order.Durum == PazaryeriSiparisDurumlari.MalKabulBekliyor ||
+                      order.Durum == PazaryeriSiparisDurumlari.KismenKabul ||
                       order.Durum == PazaryeriSiparisDurumlari.CariOdemeBekliyor ||
                       order.Durum == PazaryeriSiparisDurumlari.HakEdisBekliyor ||
                       order.Durum == PazaryeriSiparisDurumlari.Tamamlandi ||
                       order.Durum == PazaryeriSiparisDurumlari.Itirazli
                 orderby order.UpdatedAt descending
                 select new { order.Id, order.SiparisNo, order.Durum, order.AliciIsletmeId, order.TedarikciIsletmeId, profile.Unvan })
-                .Take(8)
+                .Take(16)
                 .ToListAsync();
+
+            var orderIds = rows.Select(x => x.Id).ToList();
+            var settlementStates = await db.TedarikciHakEdisleri.AsNoTracking()
+                .Where(x => orderIds.Contains(x.TedarikciSiparisId))
+                .Select(x => new { x.TedarikciSiparisId, x.Durum })
+                .ToDictionaryAsync(x => x.TedarikciSiparisId, x => x.Durum);
+            var upcomingAppointments = await db.TedarikciSevkiyatlari.AsNoTracking()
+                .Where(x => orderIds.Contains(x.TedarikciSiparisId) && x.RandevuAt != null &&
+                            x.RandevuAt >= DateTime.UtcNow && x.RandevuAt <= DateTime.UtcNow.AddHours(24))
+                .GroupBy(x => x.TedarikciSiparisId)
+                .Select(x => new { TedarikciSiparisId = x.Key, RandevuAt = x.Min(y => y.RandevuAt) })
+                .ToDictionaryAsync(x => x.TedarikciSiparisId, x => x.RandevuAt);
 
             foreach (var row in rows)
             {
@@ -1929,8 +1945,18 @@ namespace Systemcel.Api.Api
                 {
                     PazaryeriSiparisDurumlari.SiparisVerildi when isSupplier =>
                         ("Yeni sipariş", $"{row.SiparisNo} numaralı sipariş onayınızı bekliyor.", "Siparişi aç"),
+                    PazaryeriSiparisDurumlari.SevkeHazir when !isSupplier =>
+                        ("Sipariş sevke hazır", $"{row.Unvan}, {row.SiparisNo} numaralı siparişi sevke hazırladı.", "Siparişi aç"),
+                    PazaryeriSiparisDurumlari.KismenSevkEdildi when !isSupplier =>
+                        ("Siparişin bir bölümü yolda", $"{row.SiparisNo} için ilk sevkiyat oluşturuldu.", "Teslimatı izle"),
                     PazaryeriSiparisDurumlari.SevkEdildi when !isSupplier =>
                         ("Sipariş yolda", $"{row.Unvan}, {row.SiparisNo} numaralı siparişi kargoya verdi.", "Teslimatı izle"),
+                    PazaryeriSiparisDurumlari.MalKabulBekliyor when !isSupplier =>
+                        ("Mal kabul bekliyor", $"{row.SiparisNo} sevkiyatını QR ile kontrol edip teslim alın.", "Mal kabulü aç"),
+                    PazaryeriSiparisDurumlari.KismenKabul when isSupplier =>
+                        ("Kısmi kabul kaydedildi", $"{row.SiparisNo} siparişinin bir bölümü kabul edildi.", "Kabul sonucunu gör"),
+                    PazaryeriSiparisDurumlari.KismenKabul =>
+                        ("Mal kabul sürüyor", $"{row.SiparisNo} siparişinin kalan sevkiyatını kontrol edin.", "Mal kabulü aç"),
                     PazaryeriSiparisDurumlari.CariOdemeBekliyor when !isSupplier =>
                         ("Ödeme bekliyor", $"{row.SiparisNo} teslim alındı. Borç cari hesaba eklendi.", "Ödemeyi kaydet"),
                     PazaryeriSiparisDurumlari.HakEdisBekliyor when isSupplier =>
@@ -1943,18 +1969,47 @@ namespace Systemcel.Api.Api
                         ("İtiraz açıldı", $"{row.SiparisNo} numaralı sipariş incelemede.", "Siparişi aç"),
                     _ => (string.Empty, string.Empty, string.Empty)
                 };
-                if (title.Length == 0)
-                    continue;
-                notifications.Add(new BildirimDto
+                if (title.Length > 0)
                 {
-                    id = $"tedarikci-siparis-{row.Id}-{row.Durum}",
-                    tur = "tedarikci",
-                    onem = row.Durum == PazaryeriSiparisDurumlari.Itirazli ? "yuksek" : "orta",
-                    baslik = title,
-                    mesaj = message,
-                    aksiyon = action,
-                    url = "/app/tedarikci-pazaryeri"
-                });
+                    notifications.Add(new BildirimDto
+                    {
+                        id = $"tedarikci-siparis-{row.Id}-{row.Durum}",
+                        tur = "tedarikci",
+                        onem = row.Durum == PazaryeriSiparisDurumlari.Itirazli ? "yuksek" : "orta",
+                        baslik = title,
+                        mesaj = message,
+                        aksiyon = action,
+                        url = "/app/tedarikci-pazaryeri"
+                    });
+                }
+
+                if (upcomingAppointments.TryGetValue(row.Id, out var appointmentAt) && appointmentAt is not null)
+                {
+                    notifications.Add(new BildirimDto
+                    {
+                        id = $"tedarikci-siparis-{row.Id}-randevu-{appointmentAt.Value:yyyyMMddHH}",
+                        tur = "tedarikci",
+                        onem = "orta",
+                        baslik = "Teslimat randevusu yaklaştı",
+                        mesaj = $"{row.SiparisNo} için randevu {appointmentAt.Value.ToLocalTime():dd.MM HH:mm}.",
+                        aksiyon = "Teslimatı aç",
+                        url = "/app/tedarikci-pazaryeri"
+                    });
+                }
+
+                if (settlementStates.GetValueOrDefault(row.Id) == "AktarimBasarisiz")
+                {
+                    notifications.Add(new BildirimDto
+                    {
+                        id = $"tedarikci-siparis-{row.Id}-AktarimBasarisiz",
+                        tur = "tedarikci",
+                        onem = "yuksek",
+                        baslik = "Hakediş aktarımı başarısız",
+                        mesaj = $"{row.SiparisNo} için hakediş yeniden deneme bekliyor.",
+                        aksiyon = "Hakedişi gör",
+                        url = "/app/tedarikci-pazaryeri"
+                    });
+                }
             }
         }
 

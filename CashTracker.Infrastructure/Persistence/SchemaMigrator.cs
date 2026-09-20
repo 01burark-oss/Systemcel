@@ -35,6 +35,7 @@ namespace CashTracker.Infrastructure.Persistence
             EnsureGibPortalIslemLogTable(db);
             EnsureSubeKurTablesAndColumns(db, conn);
             EnsureWebAuthTables(db);
+            EnsureMarketplaceAcceptanceColumns(db, conn);
 
             EnsureKasaColumns(db, conn);
             EnsureIsletmeColumns(db, conn);
@@ -148,6 +149,7 @@ WHERE NOT EXISTS (
         private static partial void EnsureKasaColumns(CashTrackerDbContext db, DbConnection conn);
         private static partial void EnsureIsletmeColumns(CashTrackerDbContext db, DbConnection conn);
         private static partial void EnsureWebAuthColumns(CashTrackerDbContext db, DbConnection conn);
+        private static partial void EnsureMarketplaceAcceptanceColumns(CashTrackerDbContext db, DbConnection conn);
         private static partial void EnsureIndexes(CashTrackerDbContext db);
         private static partial int EnsureActiveBusiness(CashTrackerDbContext db, DbConnection conn);
         private static partial void BackfillKasaBusiness(CashTrackerDbContext db, int activeIsletmeId);

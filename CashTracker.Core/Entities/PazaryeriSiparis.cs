@@ -98,11 +98,16 @@ public sealed class TedarikciSevkiyat
     public string TasimaTipi { get; set; } = string.Empty;
     public string Tasiyici { get; set; } = string.Empty;
     public string BelgeNo { get; set; } = string.Empty;
+    public string BelgeUuid { get; set; } = string.Empty;
+    public string BelgeDosyaYolu { get; set; } = string.Empty;
     public string AracPlaka { get; set; } = string.Empty;
     public string SurucuAdi { get; set; } = string.Empty;
     public string CikisDeposu { get; set; } = string.Empty;
     public string Not { get; set; } = string.Empty;
     public string Durum { get; set; } = "Hazir";
+    public DateTime? SevkAt { get; set; }
+    public int? VarisDeposu { get; set; }
+    public DateTime? RandevuAt { get; set; }
     public DateTime? PlanlananTeslimAt { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
@@ -119,6 +124,9 @@ public sealed class TedarikciSevkiyatKalemi
     public DateTime? SonKullanmaTarihi { get; set; }
     public decimal? SicaklikMin { get; set; }
     public decimal? SicaklikMax { get; set; }
+    public string SeriNo { get; set; } = string.Empty;
+    public decimal? Agirlik { get; set; }
+    public int PaletKoli { get; set; }
 }
 
 public sealed class TedarikciSevkiyatEtiketi
@@ -143,6 +151,20 @@ public sealed class TedarikciMalKabul
     public decimal ReddedilenMiktar { get; set; }
     public string RedNedeni { get; set; } = string.Empty;
     public string Not { get; set; } = string.Empty;
+    public int? SubeId { get; set; }
+    public int? DepoId { get; set; }
+    public string IslemYapanKullaniciRef { get; set; } = string.Empty;
+    public string CihazRef { get; set; } = string.Empty;
+    public string IpAdresi { get; set; } = string.Empty;
+    public string BelgeKarmasi { get; set; } = string.Empty;
+    public string FotoKanitiYolu { get; set; } = string.Empty;
+    public decimal? OlculenAgirlik { get; set; }
+    public decimal? OlculenSicaklik { get; set; }
+    public decimal KabulBrutTutar { get; set; }
+    public decimal SerbestBirakilanNetTutar { get; set; }
+    public DateTime? MuhasebelestiAt { get; set; }
+    public string HakEdisAktarimReferansi { get; set; } = string.Empty;
+    public string HakEdisAktarimHatasi { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }
 

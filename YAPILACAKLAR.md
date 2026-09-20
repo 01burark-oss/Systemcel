@@ -1,58 +1,171 @@
-# Systemcel — Kompakt Yapılacaklar
+# Systemcel — Öncelikli Yapılacaklar
 
-> Son güncelleme: 17 Eylül 2026
+> Son güncelleme: 21 Eylül 2026
+> Durum kontrolü: `7ea166e` yerel sürümü, mevcut kod/testler ve önceki pilot kayıtları. Bu düzenlemede testler yeniden çalıştırılmadı; canlı ortam yeniden doğrulanmadı.
+> `[x]` yalnız belirtilen kapsamın tamamlandığını gösterir. Kodun ve testin bulunması, canlı kabulün tamamlandığı anlamına gelmez.
+> 21 Eylül kullanıcı kararı: tedarikçi pazaryeri, sevkiyat ve mal kabul ilk ücretli yayına dahildir. Satış belgesi, canlı sürüm/geri dönüş ve Jev gerçek kullanım kontrolleri listeye eklendi.
 > Kural: Tamamlanan paketler bu dosyada ayrıntılı günlük olarak tutulmaz; yalnız kısa özet bırakılır.
-> PayTR başvurusu, test mağazası, sandbox ve gerçek kart tahsilatı şirket kuruluşundan önce açılmaz.
+> PayTR başvurusu yapıldı ve değerlendirmede; sağlayıcı erişimi, testler ve gerçek tahsilat kabulü bekliyor.
 > Ayrıntılı kapanış planı: [`docs/design/2026-09-11-yayin-ve-yazilim-kapanis-plani.md`](docs/design/2026-09-11-yayin-ve-yazilim-kapanis-plani.md)
 
-## 1. Sabit kararlar
+## 1. P0 — Yayın öncesi temel işler
 
-- Lansmanda ücretsiz deneme kapalı; abonelik açık onay ve anlık tahsilatla başlar.
-- Lansman fiyatı ilk 50 yeni hesapta aylık planda ilk 3 ay geçerlidir.
-- Yıllık toplu ödemede lansman fiyatı 12 ay için uygulanır; yenileme liste fiyatından yapılır.
-- Peşin ödenmiş dönem değişmez; sonraki yenilemede o tarihteki liste fiyatı uygulanır.
-- Fiyat değişikliği en az 30 gün önce e-posta ve uygulama içinden bildirilir; dönem sonu iptal yolu açık kalır.
-- Ek muhasebeci müşteri kredileri kampanya dışıdır ve güncel liste fiyatından yinelenir.
-- Muhasebecisini getirip meslek doğrulamasını tamamlatan işletmeye, lansman döneminden sonraki ilk normal plan ayı hediye edilir.
+### 1. Aday sürüm, hesap ve temel kullanım kabulü
 
-### Fiyatlar — KDV hariç
-
-| Plan | Lansman aylık | Normal aylık | Lansman yıllık toplam | Normal yıllık |
-|---|---:|---:|---:|---:|
-| İşletme Başlangıç | ₺490 | ₺690 | ₺6.144 | ₺6.624 |
-| İşletme Büyüme | ₺990 | ₺1.290 | ₺11.880 | ₺15.480 |
-| İşletme Kurumsal | ₺1.990 | ₺2.490 | ₺22.704 | ₺23.904 |
-| Muhasebeci Standart | ₺699 | ₺899 | ₺8.557,92 | ₺9.061,92 |
-| Muhasebeci Pro | ₺1.199 | ₺1.499 | ₺14.353,92 | ₺15.109,92 |
-
-## 2. P0 — Açık yayın kapıları
-
-### Teknik olarak şimdi yapılabilir
-
-- [x] Oracle Docker/Caddy/PostgreSQL düzeninde app, Caddy ve PostgreSQL sağlık ve ağ izolasyonu doğrulandı; genel HTTP kapısı 8 Eylül 2026'da geçti.
+- [ ] Aday commit, başarılı CI ve canlı sürümü eşleştir; önceki doğrulanmış sürüme şema uyumlu geri dönüşü izole ortamda prova et. Otomatik yayın kodu hazır; çalışmış olması ayrıca kanıtlanmalı.
 - [ ] Sıfırdan yeni kimlikle Clerk kayıt → provision → kolay kurulum smoke testi çalıştır.
 - [ ] Canlı SMTP'yi yapılandır; doğrulanmış göndericiden kontrollü gelen kutusuna genel ve fiyat/yenileme bildirimi teslimini kanıtla.
-- [x] Muhasebeci pilotunu; profil görseli yükleme, yönetici onayı, müşteri eşleşmesi ve çalışma alanı geçişiyle tamamla.
-- [x] Fake ödeme zincirini işletme ve muhasebeci rollerinde doğrula.
-- [ ] Fiziksel iOS/Safari smoke'unu sınırlı pilot sırasında çalıştır.
+- [ ] Maskeli DeepSeek istemcisinin aday sürümde bulunduğunu ve gerçek oturumla işletmeye bağlı asistan yanıtını doğrula; başka işletmenin verisinin yanıta karışmadığını kontrol et.
+- [ ] Jev önerilerini gerçek kullanıcı senaryolarında doğrula: düşük güvenli öneriyi incelemeye yönlendirme, kullanıcı onayı, yanlış öneriyi reddetme ve tekrar işlemde mükerrer kayıt oluşmaması. Yeni karar akışları için kod/test mevcut; canlı kabul açık.
+- [ ] İşletme ve muhasebeci sohbetlerinde kontrollü dosya gönderme/indirme kabulünü tamamla; dosya ve hedef kullanıcı onayı bekliyor.
+- [ ] Kritik akışlarda kalan klavye sırası, focus, Escape ve boş/yükleniyor/hata durumlarını doğrula. Plan penceresinin odak kapanı ve geri dönüş testi mevcut; kalan kapsamı tamamla.
+- [ ] Fiziksel iOS/Safari smoke'unu sınırlı pilot sırasında çalıştır; WebKit emülasyonunu gerçek cihaz kanıtı sayma.
 
-### Kullanıcı, maliyet veya dış koordinasyon gerektirir
+### 2. Yedek, izleme ve veri işleme
 
-- [x] Oracle yedeği ayrı veritabanına geri yüklendi; checksum ve geri yükleme kontrolü 2 Eylül 2026'da geçti.
 - [ ] Hazır `rclone crypt` akışını bağımsız nesne depolamaya bağla; üç ardışık uzak yedek ve yalnız uzak kopyadan bağımsız restore ile RPO/RTO'yu ölç.
 - [ ] Hazır Oracle metric collector'ını kalıcı izleme hedefine bağla; VM dışı HTTPS probe ile alarm ve düzelme mesajlarını iki kanalda doğrula.
-- [ ] Sınırlı gerçek kullanıcı pilotunu tamamla; hata oranı, aktivasyon ve destek yüküne göre genel yayın kararı ver.
 - [ ] DeepSeek hesabında model geliştirme için veri kullanımını kapat; sağlayıcıyı, Çin'de veri işleme/saklama ihtimalini ve yurt dışı aktarım dayanağını alt işleyen/KVKK metinlerinde hukuk onayıyla güncelle.
 
-### Şirket kuruluşundan sonra
+### 3. Ücretli yayın — sağlayıcı ve belge doğrulamaları
 
-- [x] Hizmet sağlayıcı adı, şahıs işletmesi türü, vergi dairesi/numarası, açık adres ve destek e-postasını Türkçe/İngilizce yasal metinlere ekle; vergi levhasındaki işe başlama tarihi ve faaliyet kodunu yayım kaydına işle.
+Yasal hazırlık kaydında işe başlama tarihi 14 Eylül 2026. PayTR başvurusu yapıldı; erişim ve gerçek ödeme kabulü açık.
+
 - [ ] Sunulan belgelerde bulunmayan MERSİS/ticaret sicil ve KEP bilgisinin şahıs işletmesi için gerekliliğini doğrula; varsa yasal metinlere ekle.
-- [x] Hukuk onayı kullanıcı tarafından 31 Ağustos 2026'da bildirildi; doğrulanan kimlik ve iletişim alanları 17 Eylül 2026'da ürün metinlerine işlendi.
-- [ ] PayTR başvuru/test mağazası/sandbox sözleşme testlerini tamamla.
+- [ ] PayTR başvuru sonucunu ve mağazaya tanımlanan ödeme yeteneklerini doğrula; test mağazası/erişim açıldıktan sonra gerçek sağlayıcı adapter'ını ve sandbox sözleşme testlerini tamamla.
 - [ ] Canlı checkout, imzalı webhook, yenileme, başarısız tahsilat, iade ve mutabakatı gerçek sağlayıcıda doğrula; 30 günlük fiyat korumasının gerçek tahsilat yolunda da uygulandığını kanıtla.
+- [ ] Systemcel'in kendi abonelik satış belgesi sürecini netleştir: manuel veya otomatik düzenleme yöntemini seç; tahsilat–belge referansı, müşteriye sunma ve iade/iptal bağlantısını doğrula. Uygulamada müşterilerin kestiği faturalar bu işten ayrıdır.
+- [ ] Tedarikçi ödemeleri için sağlayıcının alt üye işyeri, bloke ve kısmi hakediş desteğini doğrula; abonelik başvurusunu pazaryeri ödeme yetkisi olarak kabul etme. Ayrıntılı kabul maddeleri aşağıdaki tedarikçi bölümünde.
 
-## 3. P0 — Tamamlanan teknik temel
+## 2. P0 — Tedarikçi pazaryeri, sevkiyat ve mal kabul
+
+Uygulama sırası: **sağlayıcı yetenekleri → depo yetkileri ve kabul kaydı → kısmi stok/cari/fatura → kısmi hakediş ve itiraz → ekran/bildirim → entegrasyon testleri ve sınırlı depo pilotu**. Sağlayıcı sonucu beklenirken veri modeli, arayüz ve Fake testleri ilerleyebilir; gerçek para kabulü kapanmış sayılmaz.
+
+Mevcut Fake ödeme akışında tam kabul için muhasebe/hakediş kodu mevcut; ret geldiğinde ilgili tedarikçi siparişinin hakedişi blokeleniyor. Gerçek PSP kabulü ile kalem bazlı kısmi aktarım ve muhasebe işleri açık. Kod/test kanıtı: [tedarikçi servisi](CashTracker.Infrastructure/Services/TedarikciPazaryeriService.cs), [modeller](CashTracker.Core/Models/PazaryeriSiparisModels.cs), [servis testleri](CashTracker.Tests/TedarikciPazaryeriServiceTests.cs), [arayüz](Systemcel.Web/src/screens/tedarikci-pazaryeri/TedarikciPazaryeriSayfasi.tsx).
+
+### Sabit ürün kararları
+
+- Klasik kargo takibi zorunlu olmayacak; tedarikçinin kendi aracı, distribütör, 3PL, soğuk zincir ve bölge deposu aynı sevk modeliyle desteklenir.
+- Tedarikçinin veya sürücünün “teslim ettim” beyanı tek başına hakediş açmaz; hakedişin kaynağı alıcının yetkili depo/şube kullanıcısının dijital mal kabul kaydıdır.
+- Mal kabul sipariş bazında değil kalem ve miktar bazında yapılır; kabul edilen miktar stok, fatura, cari ve hakedişe yansır.
+- Eksik, fazla, hasarlı, yanlış, kalite reddi ve sıcaklık/parti uyuşmazlığı ayrı nedenler olarak tutulur.
+- Güvenli ödeme yalnız lisanslı PSP'nin alt üye işyeri/blokeli hakediş modeliyle çalışır; para Systemcel hesabında tutulmaz.
+- PSP hazır değilse vadeli/cari akış açıkça ayrı bir ödeme seçeneğidir; güvenli ödeme gibi sunulmaz.
+
+### Sipariş ve sevk modeli
+
+- [x] Kalem miktarlarından kısmi/tam sevk ve kısmi/tam kabul durumları; ret durumunda itiraz geçişi uygulandı.
+- [x] `Sevke hazır` / `Mal kabul bekliyor` durumları, arayüz görünürlüğü ve geçiş zinciri tamamlandı.
+- [x] Tek siparişe birden fazla sevkiyat; sevkiyat başına araç, çıkış deposu ve planlanan teslim tarihi desteği eklendi.
+- [x] Belge numarası, plaka, sürücü/taşıyıcı, çıkış deposu, planlanan teslim zamanı ve açıklama alanları eklendi.
+- [x] Sevkiyatın e-İrsaliye UUID/sevk tarihi, varış deposu ve randevu alanları; API, arayüz ve kalıcı veri modeliyle tamamlandı.
+- [x] Lot, son kullanma tarihi, sıcaklık aralığı ve miktarı etiketlere bölme temeli eklendi.
+- [x] Seri numarası, ağırlık ve palet/koli alanları ile temel aralık doğrulamaları tamamlandı.
+- [ ] Ürün kategorisine göre zorunlu sevk alanı kurallarını tanımla.
+- [x] Sevkiyat QR'ı opak rastgele kodla üretildi; fiyat veya hassas işletme verisi QR içeriğine yazılmıyor, çözümleme işletme erişimine bağlı.
+- [x] e-Belge adapter'ına tenant ve idempotency bağlı e-İrsaliye gönderme, durum sorgulama ve yanıt alma sözleşmesi eklendi; gerçek sağlayıcı erişimi açılana kadar yapılandırılmamış adapter güvenli hata döndürüyor.
+- [x] Kağıt irsaliye veya entegrasyonsuz tedarikçi için dosya imzası/boyutu doğrulanan fotoğraf/PDF yükleme ve manuel belge numarası yedeği eklendi.
+
+### Depo mal kabulü
+
+- [x] `Depo sorumlusu` ve `Mal kabul onaylayıcısı` rolleri davet/rol ekranında şube-depo kapsamıyla tanımlandı; API bu kapsamı uygular ve tedarikçi işletme alıcı adına kabul veremez.
+- [x] QR çözümleme, kodla mal kabul ve sipariş kaleminde sevk/kabul/ret miktarlarının gösterimi eklendi.
+- [ ] Kamera ile QR okutma, irsaliye eşleştirme ve beklenen/gelen miktar karşılaştırmasını gerçek mobil cihazda tamamla.
+- [x] QR etiketi bazında tam/kısmi kabul, ret, ret nedeni ve not kaydı eklendi; tekrar işlem aynı kabulü çoğaltmıyor.
+- [x] Mal kabul kaydına QR etiketi, alıcı işletme ve şube/depo rolü erişimine bağlı, dosya imzası ve boyutu doğrulanan JPG/PNG/WEBP/PDF kanıt yükleme eklendi; dosya yolu kabul denetim izinde saklanıyor.
+- [ ] Tartım, sıcaklık, lot/seri ve son kullanma tarihi kontrolünü ürün kategorisine göre açılabilir doğrulama adımları yap.
+- [x] Kabul kaydına sunucudan doğrulanan kullanıcı, işletme, şube/depo, cihaz, IP, tarih-saat ve SHA-256 belge karmasıyla denetim izi eklendi.
+- [ ] Yüksek tutar/risk eşiğinde iki yetkili onayı; küçük ve düzenli teslimatlarda tek yetkili onayı uygula.
+- [ ] Çevrimdışı depolar için süreli ve imzalı taslak oluştur; ağ geldiğinde sunucu zamanıyla uzlaştır, çakışmayı manuel incelemeye düşür.
+- [x] Kabul tamamlanmadan alıcı stoku artırılmıyor; her kısmi kabulde yalnız kabul edilen miktar kadar stok girişi yapılıyor.
+
+### Güvenli ödeme ve kısmi hakediş
+
+- [x] Siparişte ödeme alma, teslimata kadar hakedişi bloke tutma ve teslimat sonrası PSP serbest bırakma sözleşmesi hazırlandı; gerçek sağlayıcı adapter'ı kapalıdır.
+- [x] Serbest bırakılabilir hakediş her kabul kaydının kabul edilen miktar/tutarı üzerinden hesaplanıyor.
+- [x] Kısmi kabulde kabul edilen net tutar aktarılıyor; reddedilen tutar blokede kalıyor ve yönetici kararıyla alıcıya kısmen veya tamamen iade edilebiliyor.
+- [x] Komisyon, komisyon KDV'si, tevkifat ve ödeme hizmeti bedeli kısmi kabul oranında kuruşa yuvarlanıyor; son kabul kuruş farkını kapatıyor.
+- [x] `Bloke → Kısmen serbest → Serbest bırakıldı → İade edildi` durumları PSP işlem kimliği ve idempotency anahtarıyla saklanıyor.
+- [ ] Ters ibraz durumunu gerçek PSP webhook sözleşmesi açıldığında ekle.
+- [ ] Tahsilat, hakediş, iade ve ters ibraz webhook'larını imza doğrulamalı, tekrar çalıştırılabilir ve tenant bağlı işle.
+- [ ] PSP bakiyesi ile Systemcel ödeme/hakediş kayıtlarını günlük otomatik mutabakata al; farkta yeni aktarımı durdurup yönetici uyarısı üret.
+- [x] Serbest bırakma başarısızsa mal kabul geri alınmıyor; hata ve kabul kanıtı saklanıyor, sipariş `Hakediş bekliyor` kuyruğunda güvenli yeniden denemeye açık kalıyor.
+- [ ] PSP sözleşmesi, alt üye işyeri doğrulaması, koruma hesabı ve chargeback/rezerv şartları hukuk ve finans onayından geçmeden canlı ödeme açma.
+
+### İtiraz, fark ve kötüye kullanım
+
+- [x] Eksik, hasarlı, yanlış ürün, kalite ve diğer şikâyet kategorileri; tedarikçi yanıtı, alıcı sonuçlandırması ve doğrulanmış sipariş değerlendirmesi eklendi.
+- [x] Teslim edilmedi, sıcaklık ve belge uyuşmazlığı kategorileri mevcut şikâyet akışına eklendi.
+- [x] Bir etikette itiraz açıkken aynı siparişin uyuşmazlık dışındaki etiketleri kabul edilebiliyor ve yalnız onların hakedişi serbest bırakılıyor; sipariş yönetici kararı verilene kadar `İtirazlı` kalıyor.
+- [x] Yönetici inceleme paketinde sipariş, sevkiyat, irsaliye dosyası/UUID, mal kabul, fotoğraf kanıtı, kullanıcı izi, durum geçmişi ve taraf açıklamaları tek ekranda gösteriliyor.
+- [x] Yönetici kararları `tedarikçiye aktar`, `alıcıya iade`, `kısmi paylaş`, `yeniden teslim` olarak gerekçe, durum geçmişi ve ödeme/hakediş kayıtlarıyla uygulanıyor.
+- [ ] Taraflara yanıt süresi ve yönetici inceleme SLA'sı tanımla; süre dolunca otomatik para aktarımı yerine risk kuralına göre üst inceleme veya sözleşmesel karar uygula.
+- [ ] Sürekli asılsız itiraz, sürekli eksik sevk ve olağandışı kabul/red örüntüleri için alıcı/tedarikçi risk puanı üret.
+- [ ] Riskli hesaplarda daha uzun bloke, çift onay, işlem limiti veya manuel inceleme uygula; otomatik kalıcı yaptırım verme.
+
+### Muhasebe, belge ve stok bağlantıları
+
+- [x] Alıcı stok girişi, alış faturası ve borç carisi her kısmi kabulde yalnız kabul edilen miktar/tutar üzerinden oluşturuluyor.
+- [x] Tedarikçi stok çıkışı peşin/vadeli ödeme türünden bağımsız olarak sevk edilen miktar kadar rezervasyondan ve stoktan düşüyor; kaynak stok hareketi sevkiyat referansıyla yazılıyor.
+- [ ] Kabul farklarını kayıp, iade veya yeniden sevk kararıyla stokta uzlaştır.
+- [ ] Kısmi kabul/red için e-İrsaliye yanıtı ve gerekiyorsa iade e-İrsaliyesi/e-Fatura süreçlerini e-Belge adapter'ına bağla.
+- [ ] Sonradan değişen kabul kararlarında silme yerine ters stok, cari, fatura ve hakediş kayıtları üret.
+- [ ] Aynı sipariş, irsaliye, fatura, cari, stok hareketi, PSP tahsilatı ve hakediş arasında izlenebilir referans zinciri kur.
+
+### Ekranlar ve bildirimler
+
+- [x] Alıcı sipariş ekranına `Beklenen sevkiyatlar`, `Mal kabul`, `Fark/itiraz` ve `Blokedeki ödemeler` operasyon görünümleri eklendi.
+- [x] Tedarikçi ekranında sevk oluşturma, QR etiketi, belge numarası ve kalemlerin kabul/ret miktarları mevcut.
+- [x] Tedarikçi sevkiyat ekranında belge dosyası ekleme ve sipariş bazında kesinti/net hakediş görünümü tamamlandı.
+- [x] Tedarikçi satış görünümünde her mal kabulün brüt tutarı, serbest bırakılan net tutarı, aktarım referansı/hatası ve ret miktarı ayrı hareket listesinde gösteriliyor.
+- [x] Yöneticiye geciken mal kabul, açık itiraz, geciken hakediş ve başarısız aktarım operasyon kuyruğu eklendi.
+- [ ] Mutabakat farkı ve riskli işlem kuyruklarını gerçek PSP mutabakatı/risk puanı hazır olduğunda ekle.
+- [x] Sevke hazır/kısmi sevk, randevu yaklaşması, mal kabul bekleme, kısmi kabul, itiraz, hakediş serbest bırakma ve aktarım başarısız olayları mevcut uygulama bildirimi/outbox hattına bağlandı.
+- [x] Yönetim görünümüne zamanında teslim, kabul, eksik/hasar, itiraz, ortalama kabul ve hakediş süresi metrikleri eklendi.
+
+### Test ve yayın kapıları
+
+- [x] Tam kabul, çoklu sevkiyat, kısmi kabul, eksik/tam ret, hasar, kısmi iade ve kısmi hakediş servis testleri eklendi.
+- [x] Sipariş miktarını aşan sevkiyat transaction içinde reddediliyor; stok ve rezervasyon değişmediği regresyon testinde doğrulandı.
+- [ ] Yeniden sevk ve eşzamanlı sevkiyat yarışları için kalan servis/integrasyon kapsamını tamamla.
+- [x] Yabancı işletmenin QR erişimi, aynı kabulün tekrar gönderimi, tam kabulde tek stok/muhasebe işlemi ve rette hakediş blokesi için regresyon testleri eklendi.
+- [x] Depo/mal kabul rolü sınırı, yabancı tenant ve aynı işlem anahtarıyla mükerrer QR regresyonları eklendi.
+- [x] Farklı işlem anahtarıyla aynı QR'ın ikinci kez kabul edilmesi regresyon testinde reddediliyor.
+- [ ] Eşzamanlı kabul/itiraz yarışının kalan regresyon kapsamını tamamla.
+- [ ] PSP tahsilat/serbest bırakma/iade webhook tekrarları, zaman aşımı ve günlük mutabakat farkını sağlayıcı sözleşme testleriyle doğrula.
+- [ ] Mobil mal kabul akışını kamera izni, çevrimdışı taslak, en küçük ekran ve depo eldiveniyle kullanılabilir hedef boyutlarıyla Playwright'ta doğrula.
+- [x] Pazaryeri API'si `Pazaryeri:Aktif` ve `Pazaryeri:PilotIsletmeIdleri` yapılandırmasıyla tamamen kapatılabilir veya işletme izin listesine sınırlandırılabilir duruma getirildi.
+- [ ] Canlı yapılandırmada tek tedarik zinciri ve sınırlı depo pilot işletmelerini seç; kısmi kabul ve muhasebe mutabakatı kanıtlanmadan izin listesini genişletme.
+- [ ] Pilot çıkışında hukuk/finans, operasyon, muhasebe, güvenlik ve geri alma runbook onaylarını yayın kaydına ekle.
+
+## 3. P0 — Son kabul ve yayın kararı
+
+- [ ] Sınırlı gerçek kullanıcı pilotunu tamamla; hata oranı, aktivasyon ve destek yüküne göre genel yayın kararı ver. Önceki işletme/muhasebeci senaryo pilotları tamamlandı; bu madde genel yayın kararını kapatır.
+
+## 4. P1 — Yayından sonra iyileştirmeler
+
+Tedarikçi pazaryeri, sevkiyat ve mal kabul 21 Eylül kullanıcı kararıyla P0'a alındı. Aşağıdaki işler genel yayın sonrasındaki sıradır; ilk yayında kullanılan depo/rol, stok ve bildirim parçaları P0 kabulüne dahildir.
+
+1. [ ] Üyelik/rol/sahiplik: mevcut davet, rol değiştirme, üye kaldırma ve sahiplik devrini gerçek hesaplarla doğrula; açık sekmede yetki kaldırma ve arayüz kabulünü tamamla.
+2. [ ] Bildirim operasyonu: işletme/kullanıcıya bağlı Telegram eşleştirmesi ve başarısız bildirimleri kontrollü yeniden gönderme görünürlüğü. Canlı SMTP teslimi P0'da.
+3. [ ] Hata ve kullanım görünürlüğü: mevcut istek kimliği/log altyapısını kalıcı hata izlemeye bağla; aktivasyon ve ürün dönüşüm ölçümlerini tamamla. Altyapı alarmları P0'da.
+4. [ ] Banka eşleştirme: mevcut CSV, aday önerisi ve insan onayını gerçek anonimleştirilmiş dosyalarla doğrula; kısmi/toplu eşleştirme kapsamını netleştir.
+5. [ ] Eski veri aktarımı: mevcut önizleme/uygulama ve akıllı alan eşleştirmesini gerçek formatlar, yarım kalan aktarım ve tekrar denemeyle doğrula; masaüstü aracı sürümle ve imzala.
+6. [ ] Stok defteri: mevcut depo, rezervasyon, transfer, sayım ve ters kaydı pilotta doğrula; kalan konum, maliyet ve mutabakat ihtiyaçlarını tamamla.
+7. [ ] Genel e-Belge kapsamını tamamla: UBL-TR, e-Fatura/e-Arşiv, webhook/polling, iptal/itiraz ve mutabakat. Tedarikçi sevk/kabulü için gereken e-İrsaliye ve iade bağlantıları P0'dadır; bu madde kalan genel kapsamdır.
+8. [ ] Pazaryeri iletişim güvenliği: iletişim tespiti ve 30 dakika kuralının mevcut kapsamını doğrula; yanlış pozitif ve insan incelemesini tamamla.
+9. [ ] Frontend: mevcut rota bazlı lazy-load'u koru; bundle/CSS ve API yanıt sürelerini ölçerek gerekli modül ve ortak durum bileşeni düzenlemelerini yap.
+10. [ ] Mevcut şube/kur temelinin üzerine konsolidasyon, entegrasyon ve Pro muhasebeci otomasyonlarında kalan kapsamı netleştir; P2 işleriyle birlikte planla.
+
+## 5. P2 — Sonraki ürün derinliği
+
+- [ ] Sektör/NACE tabanlı mevzuat ve teşvik bildirimleri; yalnız doğrulanmış kaynaklarla.
+- [ ] Gelişmiş stok maliyetleme, performans ve 100 bin+ hareket testleri.
+- [ ] OAuth, webhook abonelikleri ve geliştirici portalı; API anahtarlı, yetki kapsamlı salt okunur v1 mevcut.
+- [ ] Çoklu şube konsolidasyonu, kur farkı ve çoklu para birimi raporlaması.
+- [ ] Gelişmiş müşteri sağlık skoru, dönem sonu görevleri ve destek SLA otomasyonu.
+
+## 6. Yapıldı — teknik temel ve kayıtlı doğrulamalar
 
 - [x] PostgreSQL migration zinciri boş ve eski şemada veri koruyarak doğrulandı.
 - [x] Aylık/yıllık fiyat kataloğu, KDV, lansman kontenjanı ve yenileme referansı tek sunucu kaynağına alındı.
@@ -74,20 +187,37 @@
 - [x] Pilot sırasında bulunan hızlı satış limit atlama ve cari kart üstüne yazma yarışları regresyon testleriyle kapatıldı.
 - [x] Canlı yönetici erişimi yapılandırıldı; pilot muhasebeci başvurusu onaylandı.
 - [x] Oracle'a DeepSeek anahtarı ve `deepseek-flash` model seçimi eklendi; sağlayıcı smoke isteği ile public health/readiness 11 Eylül 2026'da geçti. Tenant bağlı gerçek kullanıcı AI akışı ayrı kabul kapısıdır.
+- [x] Maskeli DeepSeek istemcisi ve işletmeye bağlı finansal bağlam testleri kaynak kodda mevcut; canlı oturum kabulü açık.
+- [x] CI başarılı aday SHA'sını Oracle'a taşıyan otomatik yayın workflow'u, kısıtlı SSH geçidi ve dağıtım/yedek ön kontrolleri eklendi. Kanıt: [workflow](.github/workflows/deploy-production.yml), [dağıtım betiği](deployment/oracle-free/scripts/deploy-bundle.sh).
+- [x] Üyelik daveti, kapasite, e-posta doğrulama, rol değiştirme, üye kaldırma ve sahiplik devri temeli/testleri mevcut. Kanıt: [üyelik testleri](CashTracker.Tests/MembershipEntitlementAuditTests.cs).
+- [x] Depo, rezervasyon, transfer, sayım ve ters stok kaydı temeli/testleri mevcut. Kanıt: [stok testleri](CashTracker.Tests/GelismisStokServiceTests.cs).
+- [x] Banka CSV aktarımı, aday eşleştirme, insan onayı ve işletme sınırı testleri mevcut. Kanıt: [banka testleri](CashTracker.Tests/BankaMutabakatServiceTests.cs).
+- [x] Eski veri aktarımında önizleme/uygulama, akıllı alan eşleştirme ve tekrar işlem testleri mevcut. Kanıt: [aktarım testleri](CashTracker.Tests/ExternalDataMigrationTests.cs).
+- [x] API anahtarı ve yetki kapsamı olan salt okunur geliştirici API v1 mevcut. Kanıt: [API testleri](CashTracker.Tests/DeveloperApiServiceTests.cs).
+- [x] Rota bazlı lazy-load, istek kimliği ve log kapsamı mevcut. Kanıt: [App.tsx](Systemcel.Web/src/App.tsx), [istek görünürlüğü testleri](CashTracker.Tests/RequestObservabilityTests.cs).
+- [x] Plan penceresinde klavye odak kapanı, Escape ve tetikleyiciye odak dönüşü için test eklendi. Kanıt: [erişilebilirlik testleri](Systemcel.Web/e2e/workspace-accessibility.spec.ts).
+- [x] Jev karar akışları ve düşük güvenli kararları incelemeye yönlendirme kodu/testleri eklendi. Kanıt: [Jev testleri](CashTracker.Tests/JevDecisionServiceTests.cs), `d892fc0`, `c58ab35`, `dcb4343`.
+- [x] Oracle Docker/Caddy/PostgreSQL düzeninde app, Caddy ve PostgreSQL sağlık ve ağ izolasyonu doğrulandı; genel HTTP kapısı 8 Eylül 2026'da geçti.
+- [x] Muhasebeci pilotunu; profil görseli yükleme, yönetici onayı, müşteri eşleşmesi ve çalışma alanı geçişiyle tamamla.
+- [x] Fake ödeme zincirini işletme ve muhasebeci rollerinde doğrula.
+- [x] Oracle yedeği ayrı veritabanına geri yüklendi; checksum ve geri yükleme kontrolü 2 Eylül 2026'da geçti.
+- [x] Hizmet sağlayıcı adı, şahıs işletmesi türü, vergi dairesi/numarası, açık adres ve destek e-postasını Türkçe/İngilizce yasal metinlere ekle; vergi levhasındaki işe başlama tarihi ve faaliyet kodunu yayım kaydına işle.
+- [x] Hukuk onayı kullanıcı tarafından 31 Ağustos 2026'da bildirildi; doğrulanan kimlik ve iletişim alanları 17 Eylül 2026'da ürün metinlerine işlendi.
+- [x] PayTR başvurusu yapıldı — kullanıcı 21 Eylül 2026'da doğruladı; başvuru değerlendirmesi sürüyor.
 
-## 4. Pilot özellik matrisi
+## 7. Önceki pilotların kabul kaydı
 
 ### İşletme
 
 - [x] Giriş, geri tuşu ve işletme değiştirme; sıfırdan kayıt/çıkış ayrı smoke'ta kalıyor.
 - [x] Kolay kurulum ve işletme profili.
-- [ ] Dashboard çalışıyor; DeepSeek sağlayıcı smoke'u geçti, fakat yeni maskeli istemci yayımlandıktan sonra gerçek oturumla tenant bağlı asistan yanıtı doğrulanmalı.
+- [x] Dashboard ve DeepSeek sağlayıcı smoke'u önceki kayıtlarda doğrulandı. Gerçek oturumla AI kabulü P0'da açık.
 - [x] Gelir, gider, kasa hareketi ve tahsilat.
 - [x] Cari hesap ve hareketler.
 - [x] Ürün/hizmet, stok, hızlı satış ve raporlar.
 - [x] Fatura taslağı ve onay; güvenlik gereği gerçek GİB gönderimi yapılmadı.
 - [x] Muhasebeci bulma, talep, bağlantı ve sohbet.
-- [ ] Sohbette dosya yükleme; zararsız pilot dosyasının gönderimi için işlem anı onayı bekliyor.
+- Açık — Sohbette dosya yükleme: P0 dosya kabulü kapsamında, dosya ve hedef onayı bekliyor.
 - [x] Telegram bağlantı ekranı ve eşleme verisi; üçüncü kişiye gerçek mesaj gönderilmedi.
 - [x] Ayarlar, çoklu işletme, plan, açık onay, Fake ödeme, geçmiş ve dönem sonu iptal.
 
@@ -97,7 +227,7 @@
 - [x] Müşteri listesi, pazaryeri talebi kabulü ve 1/10 kapasite sayacı.
 - [x] Müşteri çalışma alanına geçiş; `Okuma + rapor` yazma sınırı API'de doğrulandı.
 - [x] Müşteri verileri, rapor erişimi, talep ve sohbet.
-- [ ] Müşteri sohbetinde dosya yükleme.
+- Açık — Müşteri sohbetinde dosya yükleme: P0 dosya kabulü kapsamında.
 - [x] Pazaryeri profili ve işletme eşleşmesi.
 - [x] Standart aylık seçim, açık onay, Fake ödeme, plan dönemi/hakları ve ödeme geçmişi.
 - [x] Pro ve Standart + ek müşteri kredisi fiyatları ile Fake checkout varyasyonları kalıcı testlerle doğrulandı.
@@ -106,121 +236,36 @@
 ### Ortak kalite kapıları
 
 - [x] 320/360/375/390/430 mobil, 768 tablet, 1366/1920 masaüstü, WebKit ve reduced-motion Playwright matrisi geçti.
-- [ ] Klavye sırası, focus, modal kapanı, Escape, boş/loading/hata durumları.
+- Açık — Kalan klavye, odak ve boş/yükleniyor/hata durumları: P0 arayüz kabulü kapsamında.
 - [x] Konsol hatası, yatay taşma ve eski mavi tema kontrolü; canlı konsol temiz.
 - [x] Oluşturulan pilot verileri `PILOT` etiketiyle ayrıldı ve pilot raporuna kaydedildi.
 
-### Canlı pilotta kalan somut engeller
+Kalan dosya, AI ve ortak arayüz işleri yukarıdaki P0 maddelerinin kabul kapsamıdır; ayrı iş olarak iki kez sayılmaz.
 
-- Maskeli DeepSeek istemcisi aday sürüme alınmalı; gerçek oturumla asistan yanıtı ve tenant ayrımı kanıtlanmalı.
-- Gerçek SMTP teslim kanıtı ve sıfırdan yeni kimlik smoke'u alınmalı.
-- Sunucu dışı yedek hedefi ile kalıcı izleme/alarm alıcısı yapılandırılmalı ve gerçek kurtarma/alarm kanıtı alınmalı.
+## 8. Sabit ürün kararları ve fiyatlar
 
-## 5. P1 — P0 sonrasında öncelik
+- Lansmanda ücretsiz deneme kapalı; abonelik açık onay ve anlık tahsilatla başlar.
+- Lansman fiyatı ilk 50 yeni hesapta aylık planda ilk 3 ay geçerlidir.
+- Yıllık toplu ödemede lansman fiyatı 12 ay için uygulanır; yenileme liste fiyatından yapılır.
+- Peşin ödenmiş dönem değişmez; sonraki yenilemede o tarihteki liste fiyatı uygulanır.
+- Fiyat değişikliği en az 30 gün önce e-posta ve uygulama içinden bildirilir; dönem sonu iptal yolu açık kalır.
+- Ek muhasebeci müşteri kredileri kampanya dışıdır ve güncel liste fiyatından yinelenir.
+- Muhasebecisini getirip meslek doğrulamasını tamamlatan işletmeye, lansman döneminden sonraki ilk normal plan ayı hediye edilir.
 
-1. Bildirim operasyonu: canlı SMTP teslimi, tenant bağlı Telegram chat eşleştirmesi ve dead-letter kayıtlarını kontrollü tekrar işleme görünürlüğü.
-2. e-Belge sağlayıcı adapter'ı: UBL-TR, e-Fatura/e-Arşiv, webhook/polling, iptal/itiraz ve mutabakat.
-3. Stok hareket defteri: depo/konum, rezervasyon, transfer, sayım, ters kayıt, maliyet ve mutabakat.
-4. Tedarikçi zinciri: sevk/e-İrsaliye, depo mal kabulü, kısmi kabul, itiraz ve kabul edilen miktar kadar hakediş.
-5. Pazaryeri iletişim güvenliği: iletişim tespiti, 30 dakika kısıt, yanlış pozitif ve insan incelemesi.
-6. Banka hareketleri ve insan onaylı cari/fatura eşleştirme.
-7. Kullanıcı/rol/sahiplik devri ve üyelik yönetimi.
-8. Eski veri aktarım sihirbazı ve imzalı masaüstü araç dağıtımı.
-9. Yapılandırılmış log, correlation ID, hata izleme ve ürün dönüşüm metrikleri.
-10. Frontend modülerleştirme, lazy-load, ortak durum bileşenleri ve CSS parçalama.
-11. Çoklu şube/para birimi, entegrasyon API'leri ve gerçek Pro muhasebeci otomasyonları.
+### Fiyatlar — KDV hariç
 
-### Tedarikçi zinciri — sevk, mal kabul ve hakediş
+| Plan | Lansman aylık | Normal aylık | Lansman yıllık toplam | Normal yıllık |
+|---|---:|---:|---:|---:|
+| İşletme Başlangıç | ₺490 | ₺690 | ₺6.144 | ₺6.624 |
+| İşletme Büyüme | ₺990 | ₺1.290 | ₺11.880 | ₺15.480 |
+| İşletme Kurumsal | ₺1.990 | ₺2.490 | ₺22.704 | ₺23.904 |
+| Muhasebeci Standart | ₺699 | ₺899 | ₺8.557,92 | ₺9.061,92 |
+| Muhasebeci Pro | ₺1.199 | ₺1.499 | ₺14.353,92 | ₺15.109,92 |
 
-#### Sabit ürün kararları
-
-- Klasik kargo takibi zorunlu olmayacak; tedarikçinin kendi aracı, distribütör, 3PL, soğuk zincir ve bölge deposu aynı sevk modeliyle desteklenir.
-- Tedarikçinin veya sürücünün “teslim ettim” beyanı tek başına hakediş açmaz; hakedişin kaynağı alıcının yetkili depo/şube kullanıcısının dijital mal kabul kaydıdır.
-- Mal kabul sipariş bazında değil kalem ve miktar bazında yapılır; kabul edilen miktar stok, fatura, cari ve hakedişe yansır.
-- Eksik, fazla, hasarlı, yanlış, kalite reddi ve sıcaklık/parti uyuşmazlığı ayrı nedenler olarak tutulur.
-- Güvenli ödeme yalnız lisanslı PSP'nin alt üye işyeri/blokeli hakediş modeliyle çalışır; para Systemcel hesabında tutulmaz.
-- PSP hazır değilse vadeli/cari akış açıkça ayrı bir ödeme seçeneğidir; güvenli ödeme gibi sunulmaz.
-
-#### Sipariş ve sevk modeli
-
-- [ ] Sipariş durumlarını `Sipariş verildi → Tedarikçi onayladı → Sevke hazır → Kısmen sevk edildi/Sevk edildi → Mal kabul bekliyor → Kısmen kabul/Tam kabul/İtirazlı → Tamamlandı` olarak kalem toplamlarından türet.
-- [ ] Tek siparişe birden fazla sevkiyat, farklı araç/depo ve farklı teslim tarihi bağlanabilmesini sağla.
-- [ ] Sevkiyat kaydına e-İrsaliye numarası/UUID, sevk tarihi, araç plakası, sürücü/taşıyıcı, çıkış ve varış deposu, randevu zamanı ve açıklama alanlarını ekle.
-- [ ] Seri/lot/parti, son kullanma tarihi, ağırlık, sıcaklık aralığı ve palet/koli bilgisini kategoriye göre isteğe bağlı destekle.
-- [ ] Sevkiyat QR'ı üret; QR yalnız sipariş/sevkiyat kimliği taşısın, fiyat veya hassas işletme verisi içermesin.
-- [ ] e-Belge adapter'ına e-İrsaliye gönderme, durum sorgulama ve e-İrsaliye yanıtı alma sözleşmesini ekle.
-- [ ] Kağıt irsaliye veya entegrasyonsuz tedarikçi için belge fotoğrafı/PDF ve manuel numara girişi yedeği bırak.
-
-#### Depo mal kabulü
-
-- [ ] `Depo sorumlusu` ve `Mal kabul onaylayıcısı` rollerini şube/depo kapsamıyla tanımla; sürücü ve tedarikçi alıcı adına kabul veremesin.
-- [ ] Mobil uyumlu mal kabul ekranında QR okutma, irsaliye eşleştirme ve beklenen/gelen/kabul/red miktarlarını yan yana göster.
-- [ ] Her kalem için tam kabul, kısmi kabul ve red işlemlerini; neden, not ve fotoğraf kanıtıyla kaydet.
-- [ ] Tartım, sıcaklık, lot/seri ve son kullanma tarihi kontrolünü ürün kategorisine göre açılabilir doğrulama adımları yap.
-- [ ] Kabul kaydına kullanıcı, işletme, şube/depo, cihaz, IP, tarih-saat ve belge karması ekleyerek değiştirilemez denetim izi oluştur.
-- [ ] Yüksek tutar/risk eşiğinde iki yetkili onayı; küçük ve düzenli teslimatlarda tek yetkili onayı uygula.
-- [ ] Çevrimdışı depolar için süreli ve imzalı taslak oluştur; ağ geldiğinde sunucu zamanıyla uzlaştır, çakışmayı manuel incelemeye düşür.
-- [ ] Kabul tamamlanmadan alıcı stoklarını artırma; yalnız kabul edilen miktar kadar stok girişi yap.
-
-#### Güvenli ödeme ve kısmi hakediş
-
-- [x] Siparişte ödeme alma, teslimata kadar hakedişi bloke tutma ve teslimat sonrası PSP serbest bırakma sözleşmesi hazırlandı; gerçek sağlayıcı adapter'ı kapalıdır.
-- [ ] Sipariş toplamı yerine her sevkiyat kaleminin kabul edilen miktarı üzerinden serbest bırakılabilir hakediş hesapla.
-- [ ] Kısmi kabulde kabul edilen tutarı aktar; eksik/hasarlı/reddedilen tutarı blokede bırak veya karar sonucunda iade et.
-- [ ] Komisyon, komisyon KDV'si, tevkifat, ödeme hizmeti bedeli ve tedarikçi net hakedişini her kısmi aktarımda oransal ve kuruş mutabakatlı dağıt.
-- [ ] `Blokede → Kısmen serbest → Serbest bırakıldı → İade edildi/Ters ibraz` durumlarını PSP işlem kimliği ve idempotency anahtarıyla sakla.
-- [ ] Tahsilat, hakediş, iade ve ters ibraz webhook'larını imza doğrulamalı, tekrar çalıştırılabilir ve tenant bağlı işle.
-- [ ] PSP bakiyesi ile Systemcel ödeme/hakediş kayıtlarını günlük otomatik mutabakata al; farkta yeni aktarımı durdurup yönetici uyarısı üret.
-- [ ] Serbest bırakma başarısızsa mal kabulü geri alma; siparişi `Hakediş bekliyor` durumunda tut ve güvenli yeniden deneme sağla.
-- [ ] PSP sözleşmesi, alt üye işyeri doğrulaması, koruma hesabı ve chargeback/rezerv şartları hukuk ve finans onayından geçmeden canlı ödeme açma.
-
-#### İtiraz, fark ve kötüye kullanım
-
-- [ ] İtiraz türlerini `teslim edilmedi`, `eksik`, `hasarlı`, `yanlış ürün`, `kalite`, `sıcaklık`, `belge uyuşmazlığı` olarak yapılandır.
-- [ ] İtiraz açıldığında yalnız ilgili sevkiyat/kalem tutarını bloke et; uyuşmazlık olmayan hakedişi gereksiz yere tutma.
-- [ ] İnceleme paketinde sipariş, sevkiyat, irsaliye/e-İrsaliye yanıtı, mal kabul kaydı, fotoğraflar, kullanıcı izi ve taraf açıklamalarını tek ekranda göster.
-- [ ] Yönetici kararlarını `tedarikçiye aktar`, `alıcıya iade`, `kısmi paylaş`, `yeniden teslim` olarak gerekçe ve denetim iziyle uygula.
-- [ ] Taraflara yanıt süresi ve yönetici inceleme SLA'sı tanımla; süre dolunca otomatik para aktarımı yerine risk kuralına göre üst inceleme veya sözleşmesel karar uygula.
-- [ ] Sürekli asılsız itiraz, sürekli eksik sevk ve olağandışı kabul/red örüntüleri için alıcı/tedarikçi risk puanı üret.
-- [ ] Riskli hesaplarda daha uzun bloke, çift onay, işlem limiti veya manuel inceleme uygula; otomatik kalıcı yaptırım verme.
-
-#### Muhasebe, belge ve stok bağlantıları
-
-- [ ] Alıcı stok girişini, alış faturasını ve borç carisini yalnız kabul edilen miktar/tutar üzerinden oluştur.
-- [ ] Tedarikçi stok çıkışını sevkte rezervasyondan düş; kabul farklarını kayıp, iade veya yeniden sevk kararıyla uzlaştır.
-- [ ] Kısmi kabul/red için e-İrsaliye yanıtı ve gerekiyorsa iade e-İrsaliyesi/e-Fatura süreçlerini e-Belge adapter'ına bağla.
-- [ ] Sonradan değişen kabul kararlarında silme yerine ters stok, cari, fatura ve hakediş kayıtları üret.
-- [ ] Aynı sipariş, irsaliye, fatura, cari, stok hareketi, PSP tahsilatı ve hakediş arasında izlenebilir referans zinciri kur.
-
-#### Ekranlar ve bildirimler
-
-- [ ] Alıcıya `Beklenen sevkiyatlar`, `Mal kabul`, `Fark/itiraz` ve `Blokedeki ödemeler` görünümlerini ekle.
-- [ ] Tedarikçiye sevk oluşturma, belge ekleme, kabul sonucu, bloke/serbest hakediş ve fark kapatma ekranlarını ekle.
-- [ ] Yöneticiye geciken mal kabul, açık itiraz, başarısız aktarım, mutabakat farkı ve riskli işlem kuyrukları ekle.
-- [ ] Sevk edildi, randevu yaklaştı, mal kabul bekliyor, kısmi kabul, red, itiraz, hakediş serbest ve aktarım başarısız olaylarını uygulama içi bildirim/outbox hattına bağla.
-- [ ] Operasyon raporlarına zamanında teslim, kabul oranı, eksik/hasar oranı, itiraz oranı, ortalama kabul süresi ve hakediş süresi metriklerini ekle.
-
-#### Test ve yayın kapıları
-
-- [ ] Tam kabul, çoklu sevkiyat, kısmi kabul, fazla teslim, eksik teslim, tam red, hasar, yeniden sevk ve iade senaryoları için servis/integrasyon testleri yaz.
-- [ ] Yetkisiz depo kullanıcısı, yabancı tenant, mükerrer QR, aynı kabulün iki kez gönderimi ve eşzamanlı kabul/itiraz yarışlarını regresyon testine al.
-- [ ] PSP tahsilat/serbest bırakma/iade webhook tekrarları, zaman aşımı ve günlük mutabakat farkını sağlayıcı sözleşme testleriyle doğrula.
-- [ ] Mobil mal kabul akışını kamera izni, çevrimdışı taslak, en küçük ekran ve depo eldiveniyle kullanılabilir hedef boyutlarıyla Playwright'ta doğrula.
-- [ ] Özelliği bayrak arkasında tek tedarik zinciri ve sınırlı depo pilotuyla aç; kısmi kabul ve muhasebe mutabakatı kanıtlanmadan genelleştirme.
-- [ ] Pilot çıkışında hukuk/finans, operasyon, muhasebe, güvenlik ve geri alma runbook onaylarını yayın kaydına ekle.
-
-## 6. P2 — Sonraki ürün derinliği
-
-- Sektör/NACE tabanlı mevzuat ve teşvik bildirimleri; yalnız doğrulanmış kaynaklarla.
-- Gelişmiş stok maliyetleme, performans ve 100 bin+ hareket testleri.
-- API anahtarı/OAuth, webhook abonelikleri ve geliştirici portalı.
-- Çoklu şube konsolidasyonu, kur farkı ve çoklu para birimi raporlaması.
-- Gelişmiş müşteri sağlık skoru, dönem sonu görevleri ve destek SLA otomasyonu.
-
-## 7. Operasyon notları
+## 9. Operasyon notları
 
 - Canlı alan: `https://systemcel.app`
-- Şirket öncesi ödeme sağlayıcısı: `Fake`
+- PayTR başvurusu değerlendirmede; gerçek tahsilat henüz denenmedi (21 Eylül kullanıcı beyanı).
 - Canlı uygulama Oracle üzerinde çalışır; genel yayın kararı verilmeden ödeme sağlayıcısı `Fake` kalır.
 - Canlı AI sağlayıcısı DeepSeek, model `deepseek-flash`tır; anahtar yalnız Oracle `.env` dosyasında tutulur.
 - PostgreSQL yalnız `systemcel_app` kullanıcısı ve uygulama trusted source'u üzerinden erişilir.

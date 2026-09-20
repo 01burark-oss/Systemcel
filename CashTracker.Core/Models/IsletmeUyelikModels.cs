@@ -4,6 +4,8 @@ public sealed class IsletmeUyelikDavetRequest
 {
     public string Eposta { get; init; } = string.Empty;
     public string Rol { get; init; } = "personel";
+    public int? SubeId { get; init; }
+    public int? DepoId { get; init; }
 }
 
 public sealed class IsletmeUyelikDavetDto
@@ -12,6 +14,8 @@ public sealed class IsletmeUyelikDavetDto
     public int IsletmeId { get; init; }
     public string Eposta { get; init; } = string.Empty;
     public string Rol { get; init; } = string.Empty;
+    public int? SubeId { get; init; }
+    public int? DepoId { get; init; }
     public string Durum { get; init; } = string.Empty;
     public string DavetKodu { get; init; } = string.Empty;
     public DateTime DavetAt { get; init; }
@@ -24,6 +28,8 @@ public sealed class IsletmeUyelikListeDto
     public int IsletmeId { get; init; }
     public string IsletmeAdi { get; init; } = string.Empty;
     public List<IsletmeUyelikDto> Uyelikler { get; init; } = new();
+    public List<IsletmeUyelikKapsamSecenegi> Subeler { get; init; } = new();
+    public List<IsletmeUyelikDepoSecenegi> Depolar { get; init; } = new();
 }
 
 public sealed class IsletmeUyelikDto
@@ -33,6 +39,8 @@ public sealed class IsletmeUyelikDto
     public string Eposta { get; init; } = string.Empty;
     public string AdSoyad { get; init; } = string.Empty;
     public string Rol { get; init; } = string.Empty;
+    public int? SubeId { get; init; }
+    public int? DepoId { get; init; }
     public string Durum { get; init; } = string.Empty;
     public string DavetKodu { get; init; } = string.Empty;
     public DateTime? DavetAt { get; init; }
@@ -42,7 +50,12 @@ public sealed class IsletmeUyelikDto
 public sealed class IsletmeUyelikRolGuncelleRequest
 {
     public string Rol { get; init; } = string.Empty;
+    public int? SubeId { get; init; }
+    public int? DepoId { get; init; }
 }
+
+public sealed record IsletmeUyelikKapsamSecenegi(int Id, string Ad, string Kod);
+public sealed record IsletmeUyelikDepoSecenegi(int Id, int? SubeId, string Ad, string Kod);
 
 public sealed class IsletmeUyelikDavetKabulRequest
 {

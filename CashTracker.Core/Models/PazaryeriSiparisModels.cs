@@ -7,9 +7,11 @@ public static class PazaryeriSiparisDurumlari
     public const string Odendi = "Odendi";
     public const string TedarikciOnayladi = "TedarikciOnayladi";
     public const string Hazirlaniyor = "Hazirlaniyor";
+    public const string SevkeHazir = "SevkeHazir";
     public const string KismenSevkEdildi = "KismenSevkEdildi";
     public const string SevkEdildi = "SevkEdildi";
     public const string KismenKabul = "KismenKabul";
+    public const string MalKabulBekliyor = "MalKabulBekliyor";
     public const string TeslimEdildi = "TeslimEdildi";
     public const string HakEdisBekliyor = "HakEdisBekliyor";
     public const string CariOdemeBekliyor = "CariOdemeBekliyor";
@@ -82,7 +84,19 @@ public sealed record PazaryeriIptalRequest(string Neden);
 
 public sealed record PazaryeriHakEdisTamamlaRequest(string AktarimReferansi);
 
-public sealed record PazaryeriItirazCozRequest(bool DevamEt, string Not);
+public static class PazaryeriItirazKararlari
+{
+    public const string TedarikciyeAktar = "TedarikciyeAktar";
+    public const string AliciyaIade = "AliciyaIade";
+    public const string KismiPaylas = "KismiPaylas";
+    public const string YenidenTeslim = "YenidenTeslim";
+}
+
+public sealed record PazaryeriItirazCozRequest(
+    bool DevamEt,
+    string Not,
+    string? Karar = null,
+    decimal? TedarikciyeAktarilacakTutar = null);
 
 public sealed record TedarikciBelgeEsleRequest(string BelgeNo, string BelgeUuid);
 
@@ -93,7 +107,10 @@ public sealed record TedarikciSevkiyatKalemiRequest(
     string? LotNo,
     DateTime? SonKullanmaTarihi,
     decimal? SicaklikMin,
-    decimal? SicaklikMax);
+    decimal? SicaklikMax,
+    string? SeriNo = null,
+    decimal? Agirlik = null,
+    int PaletKoli = 0);
 
 public sealed record TedarikciSevkiyatOlusturRequest(
     string TasimaTipi,
@@ -104,7 +121,11 @@ public sealed record TedarikciSevkiyatOlusturRequest(
     string? CikisDeposu,
     DateTime? PlanlananTeslimAt,
     string? Not,
-    IReadOnlyList<TedarikciSevkiyatKalemiRequest> Kalemler);
+    IReadOnlyList<TedarikciSevkiyatKalemiRequest> Kalemler,
+    string? BelgeUuid = null,
+    DateTime? SevkAt = null,
+    int? VarisDeposu = null,
+    DateTime? RandevuAt = null);
 
 public sealed record TedarikciSevkiyatEtiketiDto(
     int Id,
@@ -140,7 +161,16 @@ public sealed record TedarikciMalKabulRequest(
     decimal KabulEdilenMiktar,
     decimal ReddedilenMiktar,
     string? RedNedeni,
-    string? Not);
+    string? Not,
+    int? SubeId = null,
+    int? DepoId = null,
+    string? IslemYapanKullaniciRef = null,
+    string? CihazRef = null,
+    string? IpAdresi = null,
+    string? BelgeKarmasi = null,
+    string? FotoKanitiYolu = null,
+    decimal? OlculenAgirlik = null,
+    decimal? OlculenSicaklik = null);
 
 public sealed record TedarikciMalKabulSonucu(int Id, string SiparisDurumu, bool TekrarKullanildi = false);
 
@@ -151,6 +181,9 @@ public static class TedarikciSikayetKategorileri
     public const string YanlisUrun = "YanlisUrun";
     public const string Kalite = "Kalite";
     public const string Diger = "Diger";
+    public const string TeslimEdilmedi = "TeslimEdilmedi";
+    public const string Sicaklik = "Sicaklik";
+    public const string BelgeUyusmazligi = "BelgeUyusmazligi";
 }
 
 public static class TedarikciSikayetDurumlari
