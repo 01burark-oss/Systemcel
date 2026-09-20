@@ -15,6 +15,7 @@ public sealed class BankaMutabakatService : IBankaMutabakatService
 {
     public const long AzamiDosyaBoyutu = 2L * 1024 * 1024;
     private const int AzamiSatirSayisi = 2_000;
+    private const double SmartSuggestionMinimumConfidence = 0.55;
     private static readonly UTF8Encoding StrictUtf8 = new(false, true);
     private static readonly CultureInfo TurkishCulture = CultureInfo.GetCultureInfo("tr-TR");
     private static readonly Regex CurrencyPattern = new("^[A-Z]{3}$", RegexOptions.CultureInvariant);
@@ -154,7 +155,9 @@ public sealed class BankaMutabakatService : IBankaMutabakatService
             },
             ct);
         var answer = answers.GetValueOrDefault("eslesme", JevChoiceResult.Unavailable);
-        if (!answer.Available || !answer.Choice.StartsWith("aday_", StringComparison.Ordinal))
+        if (!answer.Available ||
+            answer.Confidence < SmartSuggestionMinimumConfidence ||
+            !answer.Choice.StartsWith("aday_", StringComparison.Ordinal))
             return candidates;
 
         var selectedKey = answer.Choice["aday_".Length..];

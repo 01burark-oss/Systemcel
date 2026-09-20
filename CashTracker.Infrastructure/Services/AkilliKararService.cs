@@ -208,9 +208,12 @@ public sealed class AkilliKararService : IAkilliKararService
         if (!answers.TryGetValue("iliski", out var answer))
             return result;
         result.Hazir = answer.Available;
-        result.Iliski = answer.Available ? answer.Choice : "yeni_kayit";
+        result.Iliski = answer.Available
+            ? answer.Confidence >= ReviewConfidence ? answer.Choice : "incele"
+            : "yeni_kayit";
         result.Guven = answer.Confidence;
-        if (TryReadId(answer.Choice, "ayni_", out var duplicateId) || TryReadId(answer.Choice, "ilgili_", out duplicateId))
+        if (answer.Confidence >= ReviewConfidence &&
+            (TryReadId(answer.Choice, "ayni_", out var duplicateId) || TryReadId(answer.Choice, "ilgili_", out duplicateId)))
         {
             var invoice = candidates.SingleOrDefault(x => x.Id == duplicateId);
             if (invoice is not null)
@@ -404,9 +407,11 @@ public sealed class AkilliKararService : IAkilliKararService
         }
         if (answers.TryGetValue("kayit", out var recordAnswer))
         {
-            result.ExistingRecordRelation = recordAnswer.Choice;
+            result.ExistingRecordRelation = recordAnswer.Available && recordAnswer.Confidence >= ReviewConfidence
+                ? recordAnswer.Choice
+                : "incele";
             result.RelationConfidence = (decimal)recordAnswer.Confidence;
-            if (TryReadId(recordAnswer.Choice, "kayit_", out var recordId))
+            if (recordAnswer.Confidence >= ReviewConfidence && TryReadId(recordAnswer.Choice, "kayit_", out var recordId))
                 result.RelatedRecordId = recordId;
         }
         return result;

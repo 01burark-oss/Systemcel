@@ -92,6 +92,28 @@ public sealed class AkilliKararServiceTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task InvoiceRelation_LowConfidenceFallsBackToReview()
+    {
+        var cari = new CariKart { IsletmeId = 1, Tip = "Tedarikci", Unvan = "ABC" };
+        _db.CariKartlari.Add(cari);
+        await _db.SaveChangesAsync();
+        var invoice = new Fatura { IsletmeId = 1, CariKartId = cari.Id, Tarih = DateTime.Today, GenelToplam = 100, Durum = "Kesildi", YerelFaturaNo = "A-1" };
+        _db.Faturalar.Add(invoice);
+        await _db.SaveChangesAsync();
+        var service = CreateService(new FakeJev((key, _) => Choice($"ayni_{invoice.Id}", .31)));
+
+        var result = await service.FaturaKontrolEtAsync(1, new FaturaKontrolIstek
+        {
+            CariKartId = cari.Id,
+            Tarih = DateTime.Today,
+            GenelToplam = 100
+        });
+
+        Assert.Equal("incele", result.Iliski);
+        Assert.Null(result.IliskiliFaturaId);
+    }
+
+    [Fact]
     public async Task DailyTasks_ReturnAtMostThreeAndGroupOpenBankMovements()
     {
         _db.Faturalar.AddRange(

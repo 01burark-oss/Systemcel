@@ -1,6 +1,7 @@
 using System.Text;
 using CashTracker.Core.Entities;
 using CashTracker.Core.Models;
+using CashTracker.Core.Services;
 using CashTracker.Infrastructure.Persistence;
 using CashTracker.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
@@ -107,6 +108,26 @@ public sealed class BankaMutabakatServiceTests : IDisposable
         }
     }
 
+    [Fact]
+    public async Task SmartCandidate_LowConfidenceIsNotPromoted()
+    {
+        await using (var db = _factory.CreateDbContext())
+        {
+            db.Faturalar.AddRange(
+                new Fatura { IsletmeId = _tenantA, CariKartId = 0, Tarih = new DateTime(2026, 8, 24), FaturaTipi = "Satis", YerelFaturaNo = "F-1", GenelToplam = 1000m, Durum = "Kesildi", Aciklama = "ABC" },
+                new Fatura { IsletmeId = _tenantA, CariKartId = 0, Tarih = new DateTime(2026, 8, 24), FaturaTipi = "Satis", YerelFaturaNo = "F-2", GenelToplam = 1000m, Durum = "Kesildi", Aciklama = "ABC" });
+            await db.SaveChangesAsync();
+        }
+        await ImportAsync(_tenantA, "Tarih;Açıklama;Tutar\n24.08.2026;ABC;1000,00");
+        var movement = Assert.Single(await _service.ListeleAsync(_tenantA));
+        var smartService = new BankaMutabakatService(_factory, new FixedJev("aday_Fatura_1", .32));
+
+        var candidates = await smartService.AdaylariGetirAsync(_tenantA, movement.Id);
+
+        Assert.True(candidates.Count >= 2);
+        Assert.DoesNotContain(candidates, x => x.AkilliOneri);
+    }
+
     [Theory]
     [InlineData("Tarih;Açıklama;Tutar\n24.08.2026;=HYPERLINK(\"https://evil\");10")]
     [InlineData("PK\u0003\u0004fake")]
@@ -176,5 +197,19 @@ public sealed class BankaMutabakatServiceTests : IDisposable
         public Factory(string path) => _options = new DbContextOptionsBuilder<CashTrackerDbContext>().UseSqlite($"Data Source={path}").Options;
         public CashTrackerDbContext CreateDbContext() => new(_options);
         public Task<CashTrackerDbContext> CreateDbContextAsync(CancellationToken cancellationToken = default) => Task.FromResult(CreateDbContext());
+    }
+
+    private sealed class FixedJev(string choice, double confidence) : IJevDecisionService
+    {
+        public bool IsConfigured => true;
+
+        public Task<IReadOnlyDictionary<string, JevChoiceResult>> ChooseAsync(
+            object state,
+            IReadOnlyDictionary<string, JevChoiceQuestion> questions,
+            CancellationToken ct = default) => Task.FromResult<IReadOnlyDictionary<string, JevChoiceResult>>(
+                questions.Keys.ToDictionary(
+                    key => key,
+                    _ => new JevChoiceResult(true, choice, confidence, new Dictionary<string, double> { [choice] = confidence }, "test"),
+                    StringComparer.Ordinal));
     }
 }
