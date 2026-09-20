@@ -171,13 +171,13 @@ function AccountantPlanCard({ plan, billing, language, popular, href }: { plan: 
 
 function planFeatures(plan: PublicPlan, language: PricingLanguage) {
   const tr = language === "tr";
-  if (plan.kod === "isletme_baslangic") return [tr ? "Gelir-gider ve cari takibi" : "Income, expenses and accounts", tr ? "Ayda 50 e-Arşiv fatura" : "50 e-Archive invoices/month", tr ? "AI asistan · 100 soru/ay" : "AI assistant · 100 questions/month", tr ? "Tek kullanıcı" : "One user"];
-  if (plan.kod === "isletme_buyume") return [tr ? "Sınırsız fatura" : "Unlimited invoices", tr ? "Sınırsız AI" : "Unlimited AI", tr ? "3 kullanıcı + muhasebeci erişimi" : "3 users + accountant access", tr ? "Stok ve raporlar" : "Inventory and reports"];
+  if (plan.kod === "isletme_baslangic") return [tr ? "Gelir-gider ve cari takibi" : "Income, expenses and accounts", tr ? "Ayda 50 e-Arşiv fatura" : "50 e-Archive invoices/month", tr ? "Systemcel AI · Ayda 100 soru" : "Systemcel AI · 100 questions/month", tr ? "Akıllı eşleştirme ve kontroller" : "Smart matching and checks", tr ? "Tek kullanıcı" : "One user"];
+  if (plan.kod === "isletme_buyume") return [tr ? "Sınırsız fatura" : "Unlimited invoices", tr ? "Sınırsız Systemcel AI" : "Unlimited Systemcel AI", tr ? "Akıllı eşleştirme ve kontroller" : "Smart matching and checks", tr ? "3 kullanıcı + muhasebeci erişimi" : "3 users + accountant access", tr ? "Stok ve raporlar" : "Inventory and reports"];
   return [tr ? "Öncelikli destek" : "Priority support", tr ? "Sınırsız kullanıcı" : "Unlimited users", tr ? "Büyüme planındaki her şey" : "Everything in Growth"];
 }
 
 function accountantPlanFeatures(plan: PublicPlan, language: PricingLanguage) {
   const tr = language === "tr";
-  if (plan.kod === "muhasebeci_standart") return [tr ? "10 müşteri dahil" : "10 clients included", tr ? "Sonraki müşteri +₺50/ay" : "₺50/mo per extra client", tr ? "AI asistan · 100 soru/ay" : "AI assistant · 100 questions/month", tr ? "Müşteri çalışma alanları" : "Client workspaces", accountantMarketplaceEnabled ? (tr ? "Pazaryeri profili" : "Marketplace profile") : (tr ? "Müşteri davetleri" : "Client invitations")];
-  return [tr ? "Sınırsız müşteri" : "Unlimited clients", tr ? "Müşteri belge sağlık skoru" : "Client document readiness score", tr ? "Sınırsız AI asistan" : "Unlimited AI assistant", accountantMarketplaceEnabled ? (tr ? "Pazaryerinde öne çıkma" : "Featured marketplace placement") : (tr ? "Sınırsız müşteri daveti" : "Unlimited client invitations")];
+  if (plan.kod === "muhasebeci_standart") return [tr ? "10 müşteri dahil" : "10 clients included", tr ? "Sonraki müşteri +₺50/ay" : "₺50/mo per extra client", tr ? "Systemcel AI · Ayda 100 soru" : "Systemcel AI · 100 questions/month", tr ? "Akıllı eşleştirme ve kontroller" : "Smart matching and checks", tr ? "Müşteri çalışma alanları" : "Client workspaces", accountantMarketplaceEnabled ? (tr ? "Pazaryeri profili" : "Marketplace profile") : (tr ? "Müşteri davetleri" : "Client invitations")];
+  return [tr ? "Sınırsız müşteri" : "Unlimited clients", tr ? "Müşteri belge sağlık skoru" : "Client document readiness score", tr ? "Sınırsız Systemcel AI" : "Unlimited Systemcel AI", tr ? "Akıllı eşleştirme ve kontroller" : "Smart matching and checks", accountantMarketplaceEnabled ? (tr ? "Pazaryerinde öne çıkma" : "Featured marketplace placement") : (tr ? "Sınırsız müşteri daveti" : "Unlimited client invitations")];
 }

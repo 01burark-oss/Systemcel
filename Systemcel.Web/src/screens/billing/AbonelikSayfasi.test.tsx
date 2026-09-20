@@ -147,7 +147,7 @@ describe("AbonelikSayfasi", () => {
     expect(screen.getByRole("heading", { name: "Plan hakları" })).toBeVisible();
     expect(screen.getByText("01 Ağustos 2026")).toBeVisible();
     expect(screen.getByText("15 Ağustos 2026")).toBeVisible();
-    expect(screen.getByText("Sınırsız AI mesajı")).toBeVisible();
+    expect(screen.getByText("Systemcel AI: sınırsız mesaj ve akıllı öneriler")).toBeVisible();
     expect(screen.getByText("12 müşteri")).toBeVisible();
     expect(screen.getByText("Sınırsız fatura")).toBeVisible();
     expect(screen.queryByRole("heading", { name: "Aboneliğiniz, tek bakışta." })).not.toBeInTheDocument();

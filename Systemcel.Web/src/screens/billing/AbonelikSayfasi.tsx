@@ -105,6 +105,11 @@ function limitMetni(limit: number | null, tekil: string, cogul = tekil) {
   return `${limit} ${limit === 1 ? tekil : cogul}`;
 }
 
+function aiHakMetni(limit: number | null) {
+  const mesajHakki = limit === null ? "sınırsız mesaj" : `${limit} mesaj`;
+  return `Systemcel AI: ${mesajHakki} ve akıllı öneriler`;
+}
+
 function durumTonu(value: string) {
   if (["Aktif", "Basarili", "DenemeYetkilendirildi"].includes(value)) return "success";
   if (["Basarisiz", "IptalEdildi"].includes(value)) return "danger";
@@ -333,8 +338,8 @@ export function AbonelikSayfasi() {
     {
       icon: <MessageCircle size={20} />,
       text: ozet.haklar.aiAktif
-        ? limitMetni(ozet.haklar.aiMesajLimiti, "AI mesajı")
-        : "AI mesajı dahil değil"
+        ? aiHakMetni(ozet.haklar.aiMesajLimiti)
+        : "Systemcel AI dahil değil"
     },
     { icon: <UserRound size={20} />, text: limitMetni(ozet.haklar.kullaniciLimiti, "kullanıcı") },
     ozet.hesapTipi === "Muhasebeci"

@@ -28,8 +28,8 @@ const helpContent: Record<string, HelpArticle> = {
         body: "Ücretsiz başlatıldığında kullanıcı ürünü ödeme yapmadan dener. Deneme sonunda uygun plan seçilirse kayıtlar aynı işletme altında devam eder; tekrar kurulum yapmaya gerek kalmaz."
       },
       {
-        title: "AI mesaj hakkı ne anlama gelir?",
-        body: "Yapay zekâ mesaj hakkı, asistana gönderdiğiniz soruları ve özet isteklerini ifade eder. Dönem özeti, kayıt açıklaması veya finans yorumu hazırlatmak bu haktan düşebilir."
+        title: "Systemcel AI hakkı neleri kapsar?",
+        body: "Planınızdaki mesaj hakkı, asistana gönderdiğiniz soruları ve özet isteklerini kapsar. Akıllı eşleştirme, fiş ve fatura kontrolleri, veri taşıma önerileri ve günlük öncelikler de Systemcel AI paketine dahildir."
       },
       {
         title: "GİB bilgisi olmadan kullanabilir miyim?",

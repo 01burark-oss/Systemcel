@@ -102,20 +102,20 @@ const fallbackAccountantPlans: PublicPlan[] = [
 const copy = {
   tr: {
     announcement: "Yeni — e-Arşiv fatura akışı Systemcel'de yayında",
-    accounting: "Ön muhasebe", ai: "Yapay zekâ asistanı", marketplace: "Tedarikçi pazaryeri", pricing: "Fiyatlandırma",
+    accounting: "Ön muhasebe", ai: "Systemcel AI", marketplace: "Tedarikçi pazaryeri", pricing: "Fiyatlandırma",
     signIn: "Giriş yap", start: "Lansman fiyatıyla başla", eyebrow: "İşletme finansı",
     titleA: "İşletmenin", titleB: "finansal ihtiyaçları.", titleC: "Hepsi tek yerde.",
-    lead: "Gelir, gider, cari hesap, stok ve faturalarını tek yerde yönet. Muhasebecinle birlikte çalış, tedarikçilerden alım yap ve yapay zekâ asistanından destek al.",
+    lead: "Gelir, gider, cari hesap, stok ve faturalarını tek yerde yönet. Muhasebecinle birlikte çalış, tedarikçilerden alım yap ve Systemcel AI’dan destek al.",
     trial: "Lansman fiyatıyla başla", tour: "Canlı tur", setup: "Kolay kurulum", cancel: "Dönem sonunda iptal",
     section1: "Defter seni değil, sen defteri yönet.", section1Text: "Kasa, cari hesap, stok ve faturalarını tek yerde izle. Tekrarlayan işleri azalt, hangi ödeme ve tahsilatlara bakman gerektiğini gör.",
-    section2: "Defterine soru sor, yanıtını al.", section2Text: "Systemcel yapay zekâ asistanı; gelir, gider, stok, cari hesap, tahsilat ve rapor sorularına kısa yanıtlar verir.",
+    section2: "Kayıtlarını anlar, sıradaki işi önüne getirir.", section2Text: "Systemcel AI banka hareketi, fiş, tedarikçi ürünü ve faturalar için uygun kaydı önerir; hataları erkenden gösterir. Son karar her zaman sende kalır.",
     section3: "Muhasebecinle aynı çalışma alanında.", section3Business: "Çalıştığın muhasebeciyi davet et, erişim yetkisini seç ve belgelerinle görüşmelerini tek yerde yönet.",
     section3Accountant: "Mevcut müşterilerini davet et, her müşterinin kayıtlarını ayrı izle ve ortak çalışma alanlarını yönet.",
     forBusiness: "İşletmeler için", forAccountant: "Muhasebeciler için", findAccountant: "Muhasebecini davet et", joinMarketplace: "Tedarikçi hesabı aç",
     pricingTitle: "Şeffaf fiyat, sürpriz yok.", monthly: "Aylık", yearly: "Yıllık", discount: "Lansmana özel", popular: "Popüler", perMonth: "/ay", billedYearly: "yıllık ödemede", yearlyTotal: "Yıllık toplam", planCta: "Lansman fiyatıyla başla",
     finalTitle: "İlk kaydını bugün oluştur.", sales: "Satış ekibimizle görüş", footerText: "Ön muhasebe, muhasebeciyle ortak çalışma ve tedarikçi pazaryeri tek yerde.",
-    product: "Ürün", soon: "Yakında", bankMatching: "Banka hareketi eşleştirme", multipleBranchesAndCurrencies: "Çoklu şube ve para birimi", integrationApis: "Entegrasyon API'leri", periodAutomation: "Muhasebeci dönem otomasyonu", clientHealthScore: "Müşteri belge sağlık skoru", company: "Şirket", legal: "Yasal", about: "Hakkımızda", careers: "Kariyer", blog: "Blog", contact: "İletişim", privacy: "Gizlilik", terms: "Kullanım Şartları", cookies: "Çerezler",
-    tourTitle: "Systemcel canlı tur", tourText: "Gelir-gider kaydı, cari ve stok takibi, fatura, yapay zekâ asistanı, muhasebeci bağlantısı ve tedarikçi pazaryeri tek yerde buluşur.", tourAction: "Hesabını oluştur", close: "Kapat",
+    product: "Ürün", soon: "Yakında", multipleBranchesAndCurrencies: "Çoklu şube ve para birimi", integrationApis: "Entegrasyon API'leri", periodAutomation: "Muhasebeci dönem otomasyonu", clientHealthScore: "Müşteri belge sağlık skoru", company: "Şirket", legal: "Yasal", about: "Hakkımızda", careers: "Kariyer", blog: "Blog", contact: "İletişim", privacy: "Gizlilik", terms: "Kullanım Şartları", cookies: "Çerezler",
+    tourTitle: "Systemcel canlı tur", tourText: "Gelir-gider kaydı, cari ve stok takibi, fatura, Systemcel AI, muhasebeci bağlantısı ve tedarikçi pazaryeri tek yerde buluşur.", tourAction: "Hesabını oluştur", close: "Kapat",
   },
   en: {
     announcement: "New — e-Archive invoice flow is live in Systemcel",
@@ -125,13 +125,13 @@ const copy = {
     lead: "Manage income, expenses, accounts, inventory and invoices in one place. Work with your accountant, buy from suppliers and use an AI assistant for support.",
     trial: "Start with launch pricing", tour: "Live tour", setup: "Easy setup", cancel: "Cancel at period end",
     section1: "You run the books — not the other way around.", section1Text: "Cash, accounts, inventory and invoices come together in one flow. Reduce repetitive work and make decisions visible.",
-    section2: "Ask your books and get an answer.", section2Text: "Systemcel AI prepares concise, actionable answers about income, expenses, inventory, accounts, collections and reports.",
+    section2: "Understands your records and brings the next task forward.", section2Text: "Systemcel AI suggests the right record from bank transactions to receipts and supplier products to invoices, then flags issues early. You stay in control of every decision.",
     section3: "Share one workspace with your accountant.", section3Business: "Invite your current accountant, choose their access and manage records and conversations in one place.",
     section3Accountant: "Invite existing clients, keep each client's records separate and manage shared workspaces.",
     forBusiness: "For businesses", forAccountant: "For accountants", findAccountant: "Invite your accountant", joinMarketplace: "Open a supplier account",
     pricingTitle: "Transparent pricing. No surprises.", monthly: "Monthly", yearly: "Yearly", discount: "Launch offer", popular: "Popular", perMonth: "/mo", billedYearly: "with annual billing", yearlyTotal: "Annual total", planCta: "Start with launch pricing",
     finalTitle: "Create your first record today.", sales: "Talk to sales", footerText: "Accounting, accountant collaboration and a supplier marketplace in one place.",
-    product: "Product", soon: "Coming soon", bankMatching: "Bank transaction matching", multipleBranchesAndCurrencies: "Multiple branches and currencies", integrationApis: "Integration APIs", periodAutomation: "Accountant period automation", clientHealthScore: "Client document readiness score", company: "Company", legal: "Legal", about: "About", careers: "Careers", blog: "Blog", contact: "Contact", privacy: "Privacy", terms: "Terms", cookies: "Cookies",
+    product: "Product", soon: "Coming soon", multipleBranchesAndCurrencies: "Multiple branches and currencies", integrationApis: "Integration APIs", periodAutomation: "Accountant period automation", clientHealthScore: "Client document readiness score", company: "Company", legal: "Legal", about: "About", careers: "Careers", blog: "Blog", contact: "Contact", privacy: "Privacy", terms: "Terms", cookies: "Cookies",
     tourTitle: "Systemcel live tour", tourText: "Income and expense records, accounts, inventory, invoices, AI assistance and accountant collaboration meet in one workspace.", tourAction: "Create your account", close: "Close",
   },
 };
@@ -179,11 +179,11 @@ export function LandingPage() {
       target: "ai",
       number: "02",
       eyebrow: "Systemcel AI",
-      title: "Verini soruya ve aksiyona dönüştür",
-      text: "Finansal verilerini anlayan asistan; nakit akışı, tahsilat riski ve stok hareketleri hakkında uygulanabilir yanıtlar üretir.",
-      metricLabel: "Örnek sonuç",
-      metricValue: "2 riskli cari",
-      chips: ["Nakit akışı", "Tahsilat", "Stok riski"],
+      title: "Doğru kaydı bul, sıradaki işi gör",
+      text: "Banka hareketi, fiş, stok ve fatura kayıtlarında uygun adımı önerir; bugün ilgilenmen gereken üç işi öne çıkarır.",
+      metricLabel: "Günlük özet",
+      metricValue: "3 öncelikli iş",
+      chips: ["Akıllı eşleştirme", "Erken kontrol", "Günlük öncelik"],
     },
     {
       target: "pazaryeri",
@@ -220,11 +220,11 @@ export function LandingPage() {
       target: "ai",
       number: "02",
       eyebrow: "Systemcel AI",
-      title: "Turn your data into answers and actions",
-      text: "The assistant understands your financial data and produces actionable answers about cash flow, collections and inventory.",
-      metricLabel: "Example insight",
-      metricValue: "2 risky accounts",
-      chips: ["Cash flow", "Collections", "Inventory risk"],
+      title: "Find the right record and see what is next",
+      text: "It suggests the right action across bank transactions, receipts, inventory and invoices, then brings today's three priorities forward.",
+      metricLabel: "Daily brief",
+      metricValue: "3 priority tasks",
+      chips: ["Smart matching", "Early checks", "Daily priorities"],
     },
     {
       target: "pazaryeri",
@@ -564,23 +564,31 @@ export function LandingPage() {
               <div className="marketing-ai-thread">
                 <div className="marketing-ai-question">
                   <small>{language === "tr" ? "SİZ" : "YOU"}</small>
-                  <p>{language === "tr" ? "Bu ay tahsilat performansım nasıl?" : "How is my collection performance this month?"}</p>
+                  <p>{language === "tr" ? "Bugün önce hangi işlere bakmalıyım?" : "What should I handle first today?"}</p>
                 </div>
                 <div className="marketing-ai-typing" aria-hidden="true"><i /><i /><i /></div>
                 <div className="marketing-ai-answer">
                   <span><Bot size={20} /></span>
                   <div>
                     <small>{language === "tr" ? "ANALİZ TAMAMLANDI" : "ANALYSIS COMPLETE"}</small>
-                    <strong>{language === "tr" ? "Vadesi geçen alacakların toplamı azaldı; en yüksek risk iki cari hesapta yoğunlaşıyor." : "Overdue receivables decreased; the highest risk is concentrated in two accounts."}</strong>
+                    <strong>{language === "tr" ? "Vadesi geçen iki tahsilat, maliyeti önceki alımlardan farklı bir fatura ve eşleşmemiş bir banka hareketi bekliyor." : "Two overdue collections, one invoice with a cost variance and one unmatched bank transaction need attention."}</strong>
                     <div className="marketing-ai-insights">
-                      <b>{language === "tr" ? "Tahsilat ↑ %12" : "Collections ↑ 12%"}</b>
-                      <b>{language === "tr" ? "2 riskli cari" : "2 risky accounts"}</b>
+                      <b>{language === "tr" ? "3 öncelikli iş" : "3 priority tasks"}</b>
+                      <b>{language === "tr" ? "Uyarılar birleştirildi" : "Alerts grouped"}</b>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
             <SectionCopy number="02" label={t.ai} title={t.section2} text={t.section2Text} dark />
+          </div>
+          <div className="marketing-wrap marketing-ai-capabilities marketing-reveal" data-reveal>
+            <FeatureRow icon={<WalletCards />} title={language === "tr" ? "Doğru kaydı daha hızlı bul" : "Find the right record faster"} text={language === "tr" ? "Banka hareketine uygun işlemi, fişe doğru gider kalemi ve cariyi önerir." : "Suggests the right transaction for a bank movement and the right expense category and account for a receipt."} />
+            <FeatureRow icon={<PackageSearch />} title={language === "tr" ? "Tedarikçinin dilini stoklarına çevir" : "Translate supplier products into your inventory"} text={language === "tr" ? "Tedarikçinin ürün adlarını mevcut stoklarınla eşleştirir." : "Matches supplier product names with the items already in your inventory."} />
+            <FeatureRow icon={<FileText />} title={language === "tr" ? "Faturayı kaydetmeden kontrol et" : "Check invoices before saving"} text={language === "tr" ? "Stok, birim ve maliyet sapmalarını erkenden gösterir." : "Flags inventory, unit and cost variances before they become records."} />
+            <FeatureRow icon={<ShieldCheck />} title={language === "tr" ? "Aynı işi iki kez kaydetme" : "Avoid recording the same transaction twice"} text={language === "tr" ? "Belgenin yeni bir gider mi, mevcut işlemin başka belgesi mi olduğunu kontrol eder." : "Checks whether a document is a new expense or another document for an existing transaction."} />
+            <FeatureRow icon={<Bot />} title={language === "tr" ? "Günün işini önüne getir" : "Bring today's work forward"} text={language === "tr" ? "Bugün ilgilenmen gereken üç işi seçer; aynı uyarıları tekrar tekrar göstermez." : "Selects the three tasks that need attention today and groups repeated alerts."} />
+            <FeatureRow icon={<Sparkles />} title={language === "tr" ? "Verini kolay taşı, doğru yanıtı bul" : "Move data easily and get the right answer"} text={language === "tr" ? "Başka programdan gelen sütunları tanır; işletme asistanının sorunu ilgili kayıtlarla yanıtlamasını sağlar." : "Recognizes columns imported from other software and selects the right business data for the assistant."} />
           </div>
         </section>
 

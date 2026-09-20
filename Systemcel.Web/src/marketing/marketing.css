@@ -1856,6 +1856,35 @@
   font-size: 8px;
   letter-spacing: .03em;
 }
+.marketing-ai-capabilities {
+  margin-top: 54px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+.marketing-ai-capabilities article {
+  min-height: 168px;
+  padding: 22px;
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  border: 1px solid var(--mk-white-line);
+  border-radius: 18px;
+  background: rgba(255,255,255,.035);
+}
+.marketing-ai-capabilities article > span {
+  width: 42px;
+  height: 42px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: var(--mk-lime);
+  color: var(--mk-ink);
+}
+.marketing-ai-capabilities article > div { display: grid; gap: 7px; }
+.marketing-ai-capabilities strong { color: var(--mk-cream); line-height: 1.35; }
+.marketing-ai-capabilities p { margin: 0; color: #a4a49a; font-size: 14px; line-height: 1.55; }
 .marketing-reveal.is-visible .marketing-ai-question { animation: marketing-ai-question-cycle 10s .1s var(--mk-ease-in-out) infinite both; }
 .marketing-reveal.is-visible .marketing-ai-typing { animation: marketing-ai-typing-cycle 10s .1s var(--mk-ease-in-out) infinite both; }
 .marketing-reveal.is-visible .marketing-ai-answer { animation: marketing-ai-answer-cycle 10s .1s var(--mk-ease-in-out) infinite both; }
@@ -1893,6 +1922,7 @@
 }
 
 @media (max-width: 900px) {
+  .marketing-ai-capabilities { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .marketing-tour-scene {
     grid-template-columns: minmax(230px, .72fr) minmax(390px, 1.28fr);
     gap: 30px;
@@ -1901,6 +1931,8 @@
 }
 
 @media (max-width: 700px) {
+  .marketing-ai-capabilities { margin-top: 38px; grid-template-columns: 1fr; }
+  .marketing-ai-capabilities article { min-height: 0; }
   .marketing-market-card { padding: 18px; border-radius: 19px; }
   .marketing-market-accountant { padding: 18px; gap: 16px; }
   .marketing-market-accountant__head {

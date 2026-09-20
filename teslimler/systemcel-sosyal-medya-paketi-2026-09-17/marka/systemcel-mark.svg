@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180" role="img" aria-labelledby="title description">
+  <title id="title">Systemcel işareti</title>
+  <desc id="description">Siyah çerçeveli, dört bölmeli ve lime sağ alt hücreli Systemcel marka işareti</desc>
+  <defs>
+    <clipPath id="systemcel-mark-inner">
+      <rect x="20.5" y="20.5" width="139" height="139" rx="28.5"/>
+    </clipPath>
+  </defs>
+  <rect x="18" y="18" width="144" height="144" rx="31" fill="#fbfaf5"/>
+  <rect x="90" y="90" width="69.5" height="69.5" fill="#c8ff00" clip-path="url(#systemcel-mark-inner)"/>
+  <path d="M90 20.5v139M20.5 90h139" fill="none" stroke="#d8d7ce" stroke-width="3"/>
+  <rect x="18" y="18" width="144" height="144" rx="31" fill="none" stroke="#0b0b09" stroke-width="5"/>
+</svg>
