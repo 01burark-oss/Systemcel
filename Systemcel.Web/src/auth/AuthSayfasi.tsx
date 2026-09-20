@@ -22,6 +22,7 @@ import { legalTexts, type AuthLanguage, type LegalTextKey } from "./legalTexts";
 import { useSystemcelAuth } from "./SystemcelAuthProvider";
 import { AuthStatus } from "./AuthGate";
 import { sanitizeAppReturnUrl } from "../shared/subscriptionIntent";
+import type { ClerkAuthAttempt } from "./clerkClient";
 
 type AuthMode = "sign-in" | "sign-up";
 type AuthStep = "form" | "verify-sign-in" | "verify-sign-up" | "sign-up-complete" | "forgot-request" | "reset-password";
@@ -592,7 +593,7 @@ function SystemcelAuthForm({
   const signUpCopy: Record<string, string> = formCopy[language]["sign-up"];
   const [step, setStep] = React.useState<AuthStep>("form");
   const [fullName, setFullName] = React.useState("");
-  const [email, setEmail] = React.useState("");
+  const [email, setEmail] = React.useState(() => getInitialEmail());
   const [password, setPassword] = React.useState("");
   const [passwordVisible, setPasswordVisible] = React.useState(false);
   const [resetPassword, setResetPassword] = React.useState("");
@@ -631,6 +632,29 @@ function SystemcelAuthForm({
 
     window.location.replace(completionReturnUrl);
   }, [auth.clerk, completionReturnUrl, language]);
+
+  const continueSignIn = async (attempt: ClerkAuthAttempt) => {
+    if (attempt.status === "complete") {
+      await completeSession(attempt.createdSessionId);
+      return true;
+    }
+
+    if (attempt.status === "needs_second_factor") {
+      const emailFactor = attempt.supportedSecondFactors?.find((factor) => factor.strategy === "email_code");
+      if (!emailFactor?.emailAddressId) {
+        throw new Error(language === "tr" ? "Bu hesap için desteklenen doğrulama yöntemi bulunamadı." : "No supported verification method was found.");
+      }
+
+      await auth.clerk?.client.signIn.prepareSecondFactor({
+        strategy: "email_code",
+        emailAddressId: emailFactor.emailAddressId
+      });
+      setStep("verify-sign-in");
+      return true;
+    }
+
+    return false;
+  };
 
   const sifreSifirlamayaBasla = () => {
     setStep("forgot-request");
@@ -729,22 +753,7 @@ function SystemcelAuthForm({
           password
         });
 
-        if (attempt.status === "complete") {
-          await completeSession(attempt.createdSessionId);
-          return;
-        }
-
-        if (attempt.status === "needs_second_factor") {
-          const emailFactor = attempt.supportedSecondFactors?.find((factor) => factor.strategy === "email_code");
-          if (!emailFactor?.emailAddressId) {
-            throw new Error(language === "tr" ? "Bu hesap için desteklenen doğrulama yöntemi bulunamadı." : "No supported verification method was found.");
-          }
-
-          await auth.clerk.client.signIn.prepareSecondFactor({
-            strategy: "email_code",
-            emailAddressId: emailFactor.emailAddressId
-          });
-          setStep("verify-sign-in");
+        if (await continueSignIn(attempt)) {
           return;
         }
 
@@ -767,6 +776,32 @@ function SystemcelAuthForm({
       await auth.clerk.client.signUp.prepareEmailAddressVerification({ strategy: "email_code" });
       setStep("verify-sign-up");
     } catch (error) {
+      const code = getAuthErrorCode(error);
+
+      if (mode === "sign-in" && code === "form_identifier_not_found") {
+        window.location.replace(buildAuthSwitchHref("/kayit", accountTypeIntent, returnUrl, email.trim()));
+        return;
+      }
+
+      if (mode === "sign-up" && code === "form_identifier_exists") {
+        try {
+          const attempt = await auth.clerk.client.signIn.create({
+            identifier: email.trim(),
+            password
+          });
+
+          if (await continueSignIn(attempt)) {
+            return;
+          }
+        } catch (signInError) {
+          setHata(readableAuthError(signInError, language));
+          return;
+        }
+
+        window.location.replace(buildAuthSwitchHref("/giris", accountTypeIntent, returnUrl, email.trim()));
+        return;
+      }
+
       setHata(readableAuthError(error, language));
     } finally {
       setIslemde(false);
@@ -1118,7 +1153,7 @@ function readableAuthError(error: unknown, language: AuthLanguage) {
     errors?: Array<{ code?: string; message?: string; longMessage?: string }>;
   };
   const first = raw.errors?.[0];
-  const code = first?.code ?? "";
+  const code = getAuthErrorCode(error);
 
   const trMessages: Record<string, string> = {
     form_identifier_not_found: "Bu e-posta ile kayıtlı hesap bulunamadı.",
@@ -1136,6 +1171,11 @@ function readableAuthError(error: unknown, language: AuthLanguage) {
   return first?.longMessage || first?.message || raw.message || fallback;
 }
 
+function getAuthErrorCode(error: unknown) {
+  const raw = error as { errors?: Array<{ code?: string }> };
+  return raw.errors?.[0]?.code ?? "";
+}
+
 function getInitialLanguage(): AuthLanguage {
   const storedLanguage = window.localStorage.getItem(LANGUAGE_STORAGE_KEY);
   return storedLanguage === "en" || storedLanguage === "tr" ? storedLanguage : "tr";
@@ -1144,6 +1184,10 @@ function getInitialLanguage(): AuthLanguage {
 function getSafeReturnUrl() {
   const params = new URLSearchParams(window.location.search);
   return sanitizeAppReturnUrl(params.get("returnUrl"));
+}
+
+function getInitialEmail() {
+  return new URLSearchParams(window.location.search).get("email")?.trim() ?? "";
 }
 
 function getAccountTypeIntent(mode: AuthMode): "Isletme" | "Muhasebeci" | "" {
@@ -1175,11 +1219,13 @@ function buildOAuthUrl(path: string, accountType: "Isletme" | "Muhasebeci", retu
   return url;
 }
 
-function buildAuthSwitchHref(baseHref: string, accountTypeIntent: "Isletme" | "Muhasebeci" | "", returnUrl: string) {
+function buildAuthSwitchHref(baseHref: string, accountTypeIntent: "Isletme" | "Muhasebeci" | "", returnUrl: string, email = "") {
   const url = new URL(baseHref, window.location.origin);
   if (accountTypeIntent)
     url.searchParams.set("hesapTipi", accountTypeIntent);
   if (returnUrl !== "/app")
     url.searchParams.set("returnUrl", returnUrl);
+  if (email)
+    url.searchParams.set("email", email);
   return `${url.pathname}${url.search}`;
 }

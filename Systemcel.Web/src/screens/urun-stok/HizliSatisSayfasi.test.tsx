@@ -147,6 +147,7 @@ describe("HizliSatisSayfasi mobil tarama", () => {
         tarih: "2026-08-24T12:00",
         tur: "gider",
         tutar: 128.5,
+        cariKartId: null,
         odemeYontemi: "krediKarti",
         kalem: "Ofis Giderleri",
         aciklama: "Bahar Market | Temizlik",

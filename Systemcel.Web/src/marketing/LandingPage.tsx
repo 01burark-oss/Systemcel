@@ -103,7 +103,7 @@ const copy = {
   tr: {
     announcement: "Yeni — e-Arşiv fatura akışı Systemcel'de yayında",
     accounting: "Ön muhasebe", ai: "Systemcel AI", marketplace: "Tedarikçi pazaryeri", pricing: "Fiyatlandırma",
-    signIn: "Giriş yap", start: "Lansman fiyatıyla başla", eyebrow: "İşletme finansı",
+    signIn: "Giriş yap", signUp: "Kayıt ol", start: "Lansman fiyatıyla başla", eyebrow: "İşletme finansı",
     titleA: "İşletmenin", titleB: "finansal ihtiyaçları.", titleC: "Hepsi tek yerde.",
     lead: "Gelir, gider, cari hesap, stok ve faturalarını tek yerde yönet. Muhasebecinle birlikte çalış, tedarikçilerden alım yap ve Systemcel AI’dan destek al.",
     trial: "Lansman fiyatıyla başla", tour: "Canlı tur", setup: "Kolay kurulum", cancel: "Dönem sonunda iptal",
@@ -120,7 +120,7 @@ const copy = {
   en: {
     announcement: "New — e-Archive invoice flow is live in Systemcel",
     accounting: "Accounting", ai: "AI Assistant", marketplace: "Supplier marketplace", pricing: "Pricing",
-    signIn: "Sign in", start: "Start with launch pricing", eyebrow: "B2B FINANCE PLATFORM — TR/2026",
+    signIn: "Sign in", signUp: "Sign up", start: "Start with launch pricing", eyebrow: "B2B FINANCE PLATFORM — TR/2026",
     titleA: "Accounting,", titleB: "your accountant and suppliers.", titleC: "All in one place.",
     lead: "Manage income, expenses, accounts, inventory and invoices in one place. Work with your accountant, buy from suppliers and use an AI assistant for support.",
     trial: "Start with launch pricing", tour: "Live tour", setup: "Easy setup", cancel: "Cancel at period end",
@@ -499,6 +499,7 @@ export function LandingPage() {
           <div className="marketing-nav__actions">
             <button className="marketing-language" type="button" onClick={changeLanguage} aria-label="Change language">{language === "tr" ? "EN" : "TR"}</button>
             <a className="marketing-button marketing-button--ghost" href={signedIn ? "/app" : "/giris"}>{signedIn ? (language === "tr" ? "Uygulamaya Git" : "Open app") : t.signIn}</a>
+            {!signedIn ? <a className="marketing-button marketing-button--signup" href="/kayit">{t.signUp}</a> : null}
             <a className="marketing-button marketing-button--ink" href={trialHref()}>{pricingCta}</a>
             <button className="marketing-menu-button" type="button" aria-label={language === "tr" ? "Menü" : "Menu"} aria-expanded={mobileMenuOpen} onClick={() => setMobileMenuOpen((value) => !value)}>{mobileMenuOpen ? <X /> : <Menu />}</button>
           </div>
@@ -510,6 +511,7 @@ export function LandingPage() {
           <a href="#pazaryeri" onClick={() => setMobileMenuOpen(false)}>{supplierMarketplaceLabel}</a>
           <a href="#fiyat" onClick={() => setMobileMenuOpen(false)}>{t.pricing}</a>
           <a href={signedIn ? "/app" : "/giris"}>{signedIn ? (language === "tr" ? "Uygulamaya Git" : "Open app") : t.signIn}</a>
+          {!signedIn ? <a href="/kayit">{t.signUp}</a> : null}
           <a className="marketing-mobile-menu__cta" href={trialHref()}>{pricingCta}<ArrowRight size={18} /></a>
         </div> : null}
         <div className="marketing-scroll-progress" aria-hidden="true"><div ref={progressRef} /></div>
