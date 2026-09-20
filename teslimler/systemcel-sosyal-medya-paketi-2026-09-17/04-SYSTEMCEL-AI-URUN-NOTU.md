@@ -4,6 +4,18 @@ Systemcel AI artık yalnızca sorulara yanıt veren bir asistan olarak anlatılm
 
 Bu özellikler Systemcel AI’ın bulunduğu planlara dahildir. Ayrı bir paket veya ek ücretli özellik gibi sunulmamalı.
 
+## Fırat abiye gönderilecek mesaj
+
+Fırat abi selam, Systemcel AI tarafına yeni özellikler ekledik. Bundan sonraki içeriklerde asistanı yalnızca soru yanıtlayan bir araç gibi değil, günlük kayıt işlerini hızlandıran bir yardımcı olarak anlatalım.
+
+Systemcel AI artık banka hareketine uygun kaydı öneriyor; fişten gider kalemi ve cari seçmeye yardımcı oluyor. Başka programlardan alınan tablolardaki sütunları Systemcel’deki karşılıklarıyla eşleştiriyor ve işletme asistanının soruya uygun finans verisini seçmesini sağlıyor. Ayrıca bugün ilgilenilmesi gereken üç işi öne çıkarıyor, aynı konudaki uyarıları bir araya getiriyor.
+
+Stok ve fatura tarafında da tedarikçinin ürün adlarını mevcut stoklarla eşleştiriyor; faturadaki stok, birim ve maliyet farklarını kayıt yapılmadan önce gösteriyor. Bir belgenin yeni bir gider mi, yoksa daha önce kaydedilmiş işlemin başka bir belgesi mi olabileceğini de kontrol ediyor.
+
+İletişimde “AI karar veriyor” veya “otomatik onaylıyor” demeyelim. “Systemcel AI uygun seçeneği önerir, kullanıcı kontrol edip onaylar” diyelim. Bu özelliklerin tamamı Systemcel AI’ın bulunduğu planlara dahil; ayrı paket ya da ek ücretli özellik gibi anlatmayalım. Müşteriye dönük metinlerde sağlayıcı adını kullanmayıp yalnızca **Systemcel AI** diyelim.
+
+İlk içeriklerde sırasıyla bugünün üç işi, faturayı kaydetmeden kontrol, tedarikçi ürününü stokla eşleştirme, kolay veri taşıma ve banka hareketi/fiş önerilerini öne çıkarabiliriz.
+
 ## Ana mesaj
 
 **Doğru kaydı daha hızlı bul. Hatayı kaydetmeden gör. Bugün neye bakacağını bil.**
