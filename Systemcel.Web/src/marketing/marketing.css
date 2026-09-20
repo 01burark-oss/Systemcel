@@ -652,8 +652,15 @@
 .marketing-tour-nav--secondary:disabled { opacity: .35; cursor: default; }
 .marketing-tour-nav--primary { border-color: var(--mk-ink); background: var(--mk-ink); color: var(--mk-cream); text-decoration: none; }
 
-@media (max-width: 1400px) {
-  .marketing-nav__links { display: none; }
+@media (max-width: 1400px) and (min-width: 1261px) {
+  .marketing-nav { padding-inline: 16px; gap: 14px; }
+  .marketing-nav__links { gap: 16px; font-size: 13px; }
+  .marketing-nav__actions { gap: 6px; }
+  .marketing-nav__actions .marketing-button { min-height: 42px; padding-inline: 14px; font-size: 13px; }
+}
+
+@media (max-width: 1260px) {
+  .marketing-nav__links, .marketing-nav__actions > .marketing-button { display: none; }
   .marketing-menu-button { display: inline-flex; }
   .marketing-mobile-menu { padding: 22px 28px 28px; display: grid; gap: 0; background: var(--mk-ink); color: var(--mk-cream); border-bottom: 1px solid var(--mk-white-line); }
   .marketing-mobile-menu a { padding: 14px 0; border-bottom: 1px solid var(--mk-white-line); font-family: Georgia, serif; font-size: 25px; }
@@ -662,10 +669,6 @@
   .marketing-hero__copy { max-width: 760px; }
   .marketing-hero-board { max-width: 680px; }
   .marketing-feature-grid, .marketing-market-grid { gap: 50px; }
-}
-
-@media (max-width: 900px) {
-  .marketing-nav__actions > .marketing-button { display: none; }
 }
 
 @media (max-width: 760px) {

@@ -30,6 +30,16 @@ test.describe("landing header", () => {
     await expect(navigation.getByRole("button", { name: "Menü" })).toBeVisible();
   });
 
+  test("offers separate sign-in and sign-up actions", async ({ page }) => {
+    await page.setViewportSize({ width: 1366, height: 800 });
+    await page.goto("/");
+
+    const actions = page.locator(".marketing-nav__actions");
+    await expect(actions.getByRole("link", { name: "Giriş yap", exact: true })).toHaveAttribute("href", "/giris");
+    await expect(actions.getByRole("link", { name: "Kayıt ol", exact: true })).toHaveAttribute("href", "/kayit");
+    expect(await actions.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+  });
+
   test("fits the smallest supported mobile viewport", async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 568 });
     await page.goto("/");
