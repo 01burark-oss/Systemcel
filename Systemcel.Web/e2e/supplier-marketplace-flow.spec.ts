@@ -82,7 +82,7 @@ async function mockWorkspace(page: Page) {
 function marketplace(state: string) {
   const hasOrder = Boolean(state);
   return {
-    aktifIsletmeId: 42, guvenliOdemeHazir: true, yonetici: false, profiller: [], talepler: [], acikTalepler: [], gelenTeklifler: [],
+    aktifIsletmeId: 42, guvenliOdemeHazir: true, malKabulYetkisi: true, yonetici: false, profiller: [], talepler: [], acikTalepler: [], gelenTeklifler: [],
     profil: null, benimUrunlerim: [], kaynakUrunler: [],
     urunler: [{
       id: 10, tedarikciProfilId: 20, tedarikciUnvani: "Marmara Gıda", tedarikciSehri: "İstanbul",
