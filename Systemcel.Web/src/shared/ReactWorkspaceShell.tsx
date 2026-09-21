@@ -173,6 +173,14 @@ function bildirimIkonu(tur: string) {
   }
 }
 
+function bildirimAksiyonHref(aksiyon: string) {
+  if (aksiyon === "Tahsilatı öne al" || aksiyon === "Tahsilatı takip et") {
+    return "/app/tahsilat-odeme";
+  }
+
+  return undefined;
+}
+
 function yetkiEtiketi(value?: string) {
   return value === "TamIslem" ? "Tam işlem" : "Okuma + rapor";
 }
@@ -792,6 +800,7 @@ export function ReactWorkspaceShell({ children, ustBar, baslik, sagAksiyon, onUs
                   ) : (
                     <div className="notification-list">
                       {bildirimler.map((item) => {
+                        const aksiyonHref = item.url ?? bildirimAksiyonHref(item.aksiyon);
                         const content = (
                           <>
                             <span className={`notification-item__icon notification-item__icon--${item.tur}`}>
@@ -803,7 +812,9 @@ export function ReactWorkspaceShell({ children, ustBar, baslik, sagAksiyon, onUs
                                 {!item.okundu ? <em className="notification-item__unread">Okunmadı</em> : null}
                               </div>
                               <p>{item.mesaj}</p>
-                              {item.aksiyon ? <small>{item.aksiyon}</small> : null}
+                              {item.aksiyon ? (
+                                aksiyonHref && !item.url ? <a className="notification-item__cta" href={aksiyonHref} onClick={() => { if (!item.okundu) void bildirimleriOkunduYap(item.id); }}>{item.aksiyon}</a> : <small className={aksiyonHref ? "notification-item__cta" : undefined}>{item.aksiyon}</small>
+                              ) : null}
                             </div>
                           </>
                         );

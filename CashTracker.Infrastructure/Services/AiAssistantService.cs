@@ -502,6 +502,7 @@ namespace CashTracker.Infrastructure.Services
                 "Panel içinde okunacağı için yanıtı en fazla 5 madde ve 180 kelimeyle sınırla; tablo verme.\n" +
                 "Markdown sembolleri, kalın yazı işaretleri veya kod bloğu kullanma; düz metin yaz.\n" +
                 "Yalnızca verilen işletme bağlamından çıkarım yap; veri yoksa bunu açıkça söyle.\n" +
+                "Köşeli parantezli anonim işletme ve cari kodlarını aynen koru; bunlar kullanıcıya gösterilmeden gerçek adlara dönüştürülecek.\n" +
                 "Cari risk sorularında karar verme; açık alacak, gecikme, ödeme örneği ve veri kalitesini birlikte açıkla.\n" +
                 "Nakit yeterliliği sorularında yalnız 13 haftalık projeksiyonu ve kayıtlı planları kullan; maaş veya başka plan kalemi kayıtlı değilse kesin sonuç verme.\n" +
                 "Kayıt ekleme, silme veya değiştirme yetkin yok; böyle taleplerde danışmanlık ve kontrol listesi sun.\n" +
@@ -517,6 +518,7 @@ namespace CashTracker.Infrastructure.Services
                 "Her madde tek cümle olsun, toplam yanıt 90 kelimeyi geçmesin, giriş veya sonuç paragrafı yazma.\n" +
                 "Biçim: '- Başlık: uygulanabilir öneri ve metrik.'\n" +
                 "Markdown kalın yazı veya kod bloğu kullanma.\n" +
+                "Köşeli parantezli anonim işletme ve cari kodlarını aynen koru; bunlar kullanıcıya gösterilmeden gerçek adlara dönüştürülecek.\n" +
                 "Türkçe yaz; veri yetersizse bunu belirt.";
         }
 
@@ -873,7 +875,25 @@ namespace CashTracker.Infrastructure.Services
             {
                 var result = value;
                 foreach (var replacement in _replacements)
+                {
                     result = result.Replace(replacement.Value, replacement.Key, StringComparison.OrdinalIgnoreCase);
+
+                    if (!replacement.Value.StartsWith("[CARI_", StringComparison.Ordinal) ||
+                        !replacement.Value.EndsWith(']'))
+                    {
+                        continue;
+                    }
+
+                    // Models sometimes normalize the privacy token while composing prose
+                    // (for example "cari 1" or "CARI-1"). Restore those variants too so
+                    // internal aliases never become user-facing counterparty names.
+                    var aliasNumber = replacement.Value.AsSpan(6, replacement.Value.Length - 7).ToString();
+                    result = Regex.Replace(
+                        result,
+                        $@"(?<![\p{{L}}\p{{N}}_])\[?cari[\s_-]*{Regex.Escape(aliasNumber)}\]?(?![\p{{L}}\p{{N}}_])",
+                        _ => replacement.Key,
+                        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+                }
                 return result;
             }
 

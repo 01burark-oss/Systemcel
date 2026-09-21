@@ -96,6 +96,26 @@ public sealed class AiAssistantFinancialContextTests
     }
 
     [Fact]
+    public async Task OnlineAssistant_RestoresNormalizedCariAliasInAnswer()
+    {
+        var handler = new CapturingHandler(
+            HttpStatusCode.OK,
+            "{\"choices\":[{\"message\":{\"content\":\"cari 1 için tahsilatı önceleyin.\"}}]}");
+        var service = CreateService(
+            BuildFinancialView(),
+            new DeepSeekSettings { ApiKey = "test-api-key" },
+            handler);
+
+        var result = await service.ChatAsync(new AiAssistantChatRequest
+        {
+            Mesaj = "Örnek Market cari kaydını değerlendir."
+        });
+
+        Assert.Contains("Örnek Market için", result.Answer);
+        Assert.DoesNotContain("cari 1", result.Answer, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task DeepSeekClient_DoesNotExposeUpstreamErrorBody()
     {
         var handler = new CapturingHandler(HttpStatusCode.BadRequest, "sensitive-upstream-detail");

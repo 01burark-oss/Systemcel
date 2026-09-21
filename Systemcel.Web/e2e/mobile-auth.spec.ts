@@ -110,12 +110,12 @@ test("mobile sign-out blocks browser-back access to the workspace", async ({ pag
   const signOut = page.getByRole("button", { name: "Çıkış yap" });
   await expect(signOut).toBeVisible();
   await signOut.click();
-  await expect(page).toHaveURL(/\/giris$/);
+  await expect(page).toHaveURL(/\/giris(?:\?returnUrl=%2Fapp)?$/);
 
   await page.goBack();
   await expect(page).not.toHaveURL(/\/app(?:\/|$)/);
   await page.goto("/app");
-  await expect(page.getByRole("heading", { name: "Devam etmek için giriş yap" })).toBeVisible();
+  await expect(page).toHaveURL(/\/giris\?returnUrl=%2Fapp$/);
   await expect(page.getByRole("button", { name: "Çıkış yap" })).toHaveCount(0);
 });
 

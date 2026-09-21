@@ -11698,3 +11698,307 @@
   :root[data-theme] .supplier-marketplace__order-group { padding:16px; }
   :root[data-theme] .supplier-marketplace__order-group > header { flex-direction:column; }
 }
+
+/* Keep browser-native scrollbars consistent with the active workspace theme. */
+:root[data-theme] {
+  --sc-scrollbar-thumb: #929187;
+  --sc-scrollbar-track: #e9e6da;
+  scrollbar-color: var(--sc-scrollbar-thumb) var(--sc-scrollbar-track);
+  scrollbar-width: thin;
+}
+
+:root[data-theme="dark"] {
+  --sc-scrollbar-thumb: #686a5e;
+  --sc-scrollbar-track: #202119;
+}
+
+:root[data-theme] :is(body, .react-shell, .react-shell *, .ai-assistant-panel, .ai-assistant-panel *) {
+  scrollbar-color: var(--sc-scrollbar-thumb) var(--sc-scrollbar-track);
+  scrollbar-width: thin;
+}
+
+/* The table cells and high-risk rows need their own dark surfaces and text. */
+:root[data-theme="dark"] .react-shell__body .stock-ledger__history td {
+  color: var(--sc-ink);
+}
+
+:root[data-theme="dark"] .react-shell__body .stock-ledger__history th {
+  color: var(--sc-muted);
+}
+
+:root[data-theme="dark"] .react-shell__body .finance-table--rhythm tr.finance-risk-row--high > :is(th, td) {
+  color: var(--sc-ink);
+  background: color-mix(in srgb, var(--sc-paper) 88%, var(--sc-danger));
+}
+
+:root[data-theme="dark"] .react-shell__body .finance-table--rhythm tr.finance-risk-row--high > th:first-child {
+  background: color-mix(in srgb, var(--sc-paper) 88%, var(--sc-danger));
+}
+
+/* Actions in the assistant and notifications use the same readable lime palette. */
+:root[data-theme] .ai-assistant-trigger,
+:root[data-theme] .ai-assistant-composer button,
+:root[data-theme] .ai-assistant-suggestions__toolbar button {
+  color: var(--sc-on-lime);
+  border-color: var(--sc-lime);
+  background: var(--sc-lime);
+}
+
+:root[data-theme] .ai-assistant-panel__icon {
+  color: var(--sc-ink);
+  background: var(--sc-soft);
+}
+
+:root[data-theme] .ai-assistant-panel__tabs button {
+  color: var(--sc-ink);
+  border-color: var(--sc-line-strong);
+  background: var(--sc-paper);
+}
+
+:root[data-theme] .ai-assistant-panel__tabs button.active {
+  color: var(--sc-on-lime);
+  border-color: var(--sc-lime);
+  background: var(--sc-lime);
+}
+
+:root[data-theme] .ai-assistant-composer {
+  grid-template-columns: minmax(0, 1fr) 48px;
+  align-items: stretch;
+}
+
+:root[data-theme] .ai-assistant-composer textarea {
+  min-height: 64px;
+  color: var(--sc-ink);
+  border-color: var(--sc-line-strong);
+  background: var(--sc-cream-deep);
+}
+
+:root[data-theme] .ai-assistant-composer button {
+  width: 100%;
+  height: 100%;
+  min-height: 64px;
+  align-self: stretch;
+}
+
+:root[data-theme] .notification-item .notification-action {
+  color: var(--sc-ink);
+}
+
+:root[data-theme="dark"] .notification-item .notification-action {
+  color: var(--sc-lime);
+}
+
+:root[data-theme] .notification-item__cta {
+  width: fit-content;
+  min-height: 32px;
+  margin-top: 8px;
+  padding: 6px 10px;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--sc-lime);
+  border-radius: 8px;
+  background: var(--sc-lime);
+  color: var(--sc-on-lime) !important;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.2;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+:root[data-theme] .notification-item__cta:hover {
+  background: #dcff66;
+}
+
+/* A calm, branded handoff while the secure workspace session initializes. */
+:root[data-theme] .workspace-loading {
+  position: relative;
+  display: grid;
+  min-height: 100dvh;
+  place-items: center;
+  overflow: hidden;
+  padding: 24px;
+  color: var(--sc-ink);
+  background: var(--sc-cream);
+}
+
+:root[data-theme] .workspace-loading__grid {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: .45;
+  background-image:
+    linear-gradient(color-mix(in srgb, var(--sc-ink) 5%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--sc-ink) 5%, transparent) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: linear-gradient(to bottom, transparent, #000 35%, #000 75%, transparent);
+}
+
+:root[data-theme] .workspace-loading__card {
+  position: relative;
+  width: min(100%, 470px);
+  padding: clamp(24px, 5vw, 40px);
+  border: 1px solid var(--sc-line-strong);
+  border-radius: 24px;
+  background: var(--sc-paper);
+  box-shadow: var(--sc-shadow);
+}
+
+:root[data-theme] .workspace-loading__brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+:root[data-theme] .workspace-loading__brand > span:last-child {
+  display: grid;
+  gap: 2px;
+}
+
+:root[data-theme] .workspace-loading__brand strong {
+  font-size: 22px;
+  font-weight: 850;
+  letter-spacing: -.065em;
+  line-height: 1;
+}
+
+:root[data-theme] .workspace-loading__brand small {
+  font: 700 9px/1.2 Consolas, monospace;
+  letter-spacing: .13em;
+}
+
+:root[data-theme] .workspace-loading__mark,
+:root[data-theme] .workspace-loading__orbit-core {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  overflow: hidden;
+  border: 1px solid var(--sc-ink);
+  border-radius: 8px;
+}
+
+:root[data-theme] .workspace-loading__mark {
+  width: 32px;
+  height: 32px;
+}
+
+:root[data-theme] .workspace-loading__mark i,
+:root[data-theme] .workspace-loading__orbit-core i {
+  border-right: 1px solid var(--sc-line-strong);
+  border-bottom: 1px solid var(--sc-line-strong);
+}
+
+:root[data-theme] .workspace-loading__mark i:last-child,
+:root[data-theme] .workspace-loading__orbit-core i:last-child {
+  background: var(--sc-lime);
+}
+
+:root[data-theme] .workspace-loading__orbit {
+  position: relative;
+  display: grid;
+  width: 96px;
+  height: 96px;
+  margin: 56px auto 42px;
+  place-items: center;
+}
+
+:root[data-theme] .workspace-loading__orbit-ring {
+  position: absolute;
+  inset: 0;
+  border: 2px solid var(--sc-line-strong);
+  border-top-color: var(--sc-lime);
+  border-right-color: var(--sc-lime);
+  border-radius: 50%;
+  animation: workspace-loading-turn 1.5s linear infinite;
+}
+
+:root[data-theme] .workspace-loading__orbit-ring::after {
+  position: absolute;
+  right: 9px;
+  bottom: 9px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--sc-lime);
+  content: "";
+}
+
+:root[data-theme] .workspace-loading--error .workspace-loading__orbit-ring {
+  animation: none;
+}
+
+:root[data-theme] .workspace-loading__orbit-core {
+  width: 37px;
+  height: 37px;
+  border-radius: 9px;
+}
+
+:root[data-theme] .workspace-loading__eyebrow {
+  margin: 0 0 10px;
+  color: var(--sc-muted);
+  font: 700 10px/1.4 Consolas, monospace;
+  letter-spacing: .13em;
+}
+
+:root[data-theme] .workspace-loading h1 {
+  margin: 0;
+  font-size: clamp(27px, 5vw, 36px);
+  font-weight: 800;
+  letter-spacing: -.045em;
+  line-height: 1.12;
+}
+
+:root[data-theme] .workspace-loading__description {
+  max-width: 34ch;
+  margin: 12px 0 0;
+  color: var(--sc-muted);
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+:root[data-theme] .workspace-loading__progress {
+  height: 3px;
+  margin-top: 34px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: var(--sc-line);
+}
+
+:root[data-theme] .workspace-loading__progress span {
+  display: block;
+  width: 32%;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--sc-lime);
+  animation: workspace-loading-sweep 1.7s ease-in-out infinite;
+}
+
+:root[data-theme] .workspace-loading__action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  margin-top: 28px;
+  padding: 0 16px;
+  border-radius: 10px;
+  background: var(--sc-lime);
+  color: var(--sc-on-lime);
+  font-weight: 800;
+  text-decoration: none;
+}
+
+:root[data-theme] .workspace-loading__action:focus-visible {
+  outline: 3px solid var(--sc-ink);
+  outline-offset: 3px;
+}
+
+@keyframes workspace-loading-turn { to { transform: rotate(360deg); } }
+@keyframes workspace-loading-sweep {
+  from { transform: translateX(-120%); }
+  to { transform: translateX(320%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-theme] .workspace-loading__orbit-ring,
+  :root[data-theme] .workspace-loading__progress span { animation: none; }
+}

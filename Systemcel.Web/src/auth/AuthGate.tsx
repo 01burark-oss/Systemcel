@@ -5,40 +5,56 @@ import { useSystemcelAuth } from "./SystemcelAuthProvider";
 export function RequireAuth({ children }: { children: React.ReactNode }) {
   const auth = useSystemcelAuth();
 
+  React.useEffect(() => {
+    if (!auth.clerkEnabled || !auth.isLoaded || auth.isSignedIn || auth.error) {
+      return;
+    }
+
+    const returnUrl = encodeURIComponent(`${window.location.pathname}${window.location.search}`);
+    window.location.replace(`/giris?returnUrl=${returnUrl}`);
+  }, [auth.clerkEnabled, auth.isLoaded, auth.isSignedIn, auth.error]);
+
   if (!auth.clerkEnabled) {
     return <>{children}</>;
   }
 
   if (!auth.isLoaded) {
-    return null;
+    return <WorkspaceLoadingScreen />;
   }
 
   if (auth.error) {
-    return (
-      <AuthStatus
-        title="Oturum bağlantısı hazır değil"
-        text={auth.error}
-        actionHref="/giris"
-        actionText="Giriş ekranına git"
-      />
-    );
+    return <WorkspaceLoadingScreen error={auth.error} />;
   }
 
   if (!auth.isSignedIn) {
-    const returnUrl = encodeURIComponent(`${window.location.pathname}${window.location.search}`);
-    return (
-      <AuthStatus
-        title="Devam etmek için giriş yap"
-        text="Çalışma alanı Systemcel hesabına bağlı olacak. Önce oturum aç, sonra kaldığın yerden devam et."
-        actionHref={`/giris?returnUrl=${returnUrl}`}
-        actionText="Giriş yap"
-        secondaryHref="/kayit"
-        secondaryText="Kayıt ol"
-      />
-    );
+    return <WorkspaceLoadingScreen />;
   }
 
   return <>{children}</>;
+}
+
+function WorkspaceLoadingScreen({ error }: { error?: string }) {
+  return (
+    <main className={`workspace-loading${error ? " workspace-loading--error" : ""}`} role={error ? "alert" : "status"} aria-live={error ? "assertive" : "polite"}>
+      <div className="workspace-loading__grid" aria-hidden="true" />
+      <section className="workspace-loading__card">
+        <div className="workspace-loading__brand">
+          <span className="workspace-loading__mark" aria-hidden="true"><i /><i /><i /><i /></span>
+          <span><strong>systemcel</strong><small>Finance Suite</small></span>
+        </div>
+        <div className="workspace-loading__orbit" aria-hidden="true">
+          <span className="workspace-loading__orbit-ring" />
+          <span className="workspace-loading__orbit-core"><i /><i /><i /><i /></span>
+        </div>
+        <p className="workspace-loading__eyebrow">SYSTEMCEL / ÇALIŞMA ALANI</p>
+        <h1>{error ? "Çalışma alanı açılamadı" : "Çalışma alanın yükleniyor"}</h1>
+        <p className="workspace-loading__description">{error || "Güvenli oturumun hazırlanıyor. Birazdan kaldığın yerden devam edeceksin."}</p>
+        {error ? <a className="workspace-loading__action" href="/giris">Giriş ekranına git <ArrowRight size={18} /></a> : (
+          <div className="workspace-loading__progress" aria-hidden="true"><span /></div>
+        )}
+      </section>
+    </main>
+  );
 }
 
 export function AuthStatus({

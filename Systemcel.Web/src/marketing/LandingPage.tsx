@@ -3,8 +3,6 @@ import { buildSubscriptionStartHref } from "../shared/subscriptionIntent";
 import {
   ArrowRight,
   Bot,
-  Building2,
-  Check,
   ChevronDown,
   FileText,
   Landmark,
@@ -12,7 +10,6 @@ import {
   MessageCircle,
   Package,
   PackageSearch,
-  Play,
   ShieldCheck,
   Sparkles,
   Users,
@@ -20,7 +17,6 @@ import {
   X,
 } from "lucide-react";
 import { useSystemcelAuth } from "../auth/SystemcelAuthProvider";
-import accountantAyseAvatar from "../assets/accountant-ayse-demirtas.jpg";
 import type { FounderCampaignProgressProps } from "./FounderCampaignProgress";
 import { PricingPanel } from "./PricingPanel";
 import "./marketing.css";
@@ -106,7 +102,7 @@ const copy = {
     signIn: "Giriş yap", signUp: "Kayıt ol", start: "Lansman fiyatıyla başla", eyebrow: "İşletme finansı",
     titleA: "İşletmenin", titleB: "finansal ihtiyaçları.", titleC: "Hepsi tek yerde.",
     lead: "Gelir, gider, cari hesap, stok ve faturalarını tek yerde yönet. Muhasebecinle birlikte çalış, tedarikçilerden alım yap ve Systemcel AI’dan destek al.",
-    trial: "Lansman fiyatıyla başla", tour: "Canlı tur", setup: "Kolay kurulum", cancel: "Dönem sonunda iptal",
+    trial: "Lansman fiyatıyla başla", setup: "Kolay kurulum", cancel: "Dönem sonunda iptal",
     section1: "Defter seni değil, sen defteri yönet.", section1Text: "Kasa, cari hesap, stok ve faturalarını tek yerde izle. Tekrarlayan işleri azalt, hangi ödeme ve tahsilatlara bakman gerektiğini gör.",
     section2: "Kayıtlarını anlar, sıradaki işi önüne getirir.", section2Text: "Systemcel AI banka hareketi, fiş, tedarikçi ürünü ve faturalar için uygun kaydı önerir; hataları erkenden gösterir. Son karar her zaman sende kalır.",
     section3: "Muhasebecinle aynı çalışma alanında.", section3Business: "Çalıştığın muhasebeciyi davet et, erişim yetkisini seç ve belgelerinle görüşmelerini tek yerde yönet.",
@@ -115,7 +111,6 @@ const copy = {
     pricingTitle: "Şeffaf fiyat, sürpriz yok.", monthly: "Aylık", yearly: "Yıllık", discount: "Lansmana özel", popular: "Popüler", perMonth: "/ay", billedYearly: "yıllık ödemede", yearlyTotal: "Yıllık toplam", planCta: "Lansman fiyatıyla başla",
     finalTitle: "İlk kaydını bugün oluştur.", sales: "Satış ekibimizle görüş", footerText: "Ön muhasebe, muhasebeciyle ortak çalışma ve tedarikçi pazaryeri tek yerde.",
     product: "Ürün", soon: "Yakında", multipleBranchesAndCurrencies: "Çoklu şube ve para birimi", integrationApis: "Entegrasyon API'leri", periodAutomation: "Muhasebeci dönem otomasyonu", clientHealthScore: "Müşteri belge sağlık skoru", company: "Şirket", legal: "Yasal", about: "Hakkımızda", careers: "Kariyer", blog: "Blog", contact: "İletişim", privacy: "Gizlilik", terms: "Kullanım Şartları", cookies: "Çerezler",
-    tourTitle: "Systemcel canlı tur", tourText: "Gelir-gider kaydı, cari ve stok takibi, fatura, Systemcel AI, muhasebeci bağlantısı ve tedarikçi pazaryeri tek yerde buluşur.", tourAction: "Hesabını oluştur", close: "Kapat",
   },
   en: {
     announcement: "New — e-Archive invoice flow is live in Systemcel",
@@ -123,7 +118,7 @@ const copy = {
     signIn: "Sign in", signUp: "Sign up", start: "Start with launch pricing", eyebrow: "B2B FINANCE PLATFORM — TR/2026",
     titleA: "Accounting,", titleB: "your accountant and suppliers.", titleC: "All in one place.",
     lead: "Manage income, expenses, accounts, inventory and invoices in one place. Work with your accountant, buy from suppliers and use an AI assistant for support.",
-    trial: "Start with launch pricing", tour: "Live tour", setup: "Easy setup", cancel: "Cancel at period end",
+    trial: "Start with launch pricing", setup: "Easy setup", cancel: "Cancel at period end",
     section1: "You run the books — not the other way around.", section1Text: "Cash, accounts, inventory and invoices come together in one flow. Reduce repetitive work and make decisions visible.",
     section2: "Understands your records and brings the next task forward.", section2Text: "Systemcel AI suggests the right record from bank transactions to receipts and supplier products to invoices, then flags issues early. You stay in control of every decision.",
     section3: "Share one workspace with your accountant.", section3Business: "Invite your current accountant, choose their access and manage records and conversations in one place.",
@@ -132,7 +127,6 @@ const copy = {
     pricingTitle: "Transparent pricing. No surprises.", monthly: "Monthly", yearly: "Yearly", discount: "Launch offer", popular: "Popular", perMonth: "/mo", billedYearly: "with annual billing", yearlyTotal: "Annual total", planCta: "Start with launch pricing",
     finalTitle: "Create your first record today.", sales: "Talk to sales", footerText: "Accounting, accountant collaboration and a supplier marketplace in one place.",
     product: "Product", soon: "Coming soon", multipleBranchesAndCurrencies: "Multiple branches and currencies", integrationApis: "Integration APIs", periodAutomation: "Accountant period automation", clientHealthScore: "Client document readiness score", company: "Company", legal: "Legal", about: "About", careers: "Careers", blog: "Blog", contact: "Contact", privacy: "Privacy", terms: "Terms", cookies: "Cookies",
-    tourTitle: "Systemcel live tour", tourText: "Income and expense records, accounts, inventory, invoices, AI assistance and accountant collaboration meet in one workspace.", tourAction: "Create your account", close: "Close",
   },
 };
 
@@ -140,13 +134,8 @@ export function LandingPage() {
   const auth = useSystemcelAuth();
   const pageRef = React.useRef<HTMLDivElement>(null);
   const progressRef = React.useRef<HTMLDivElement>(null);
-  const tourViewportRef = React.useRef<HTMLDivElement>(null);
   const heroLedgerRef = React.useRef<HTMLDivElement>(null);
   const heroTiltFrameRef = React.useRef(0);
-  const tourEaseFrameRef = React.useRef(0);
-  const tourProgressRef = React.useRef(0);
-  const tourProgressTargetRef = React.useRef(0);
-  const tourTouchStartRef = React.useRef<{ x: number; y: number; time: number } | null>(null);
   const [language, setLanguage] = React.useState<Language>(() => window.localStorage.getItem("systemcel.language") === "en" ? "en" : "tr");
   const [billing, setBilling] = React.useState<Billing>("Aylik");
   const [plans, setPlans] = React.useState<PublicPlan[]>(fallbackPlans);
@@ -154,102 +143,12 @@ export function LandingPage() {
   const [founderProgress, setFounderProgress] = React.useState<Omit<FounderCampaignProgressProps, "language"> | null>(null);
   const [pricingAudience, setPricingAudience] = React.useState<"business" | "accountant">("business");
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
-  const [tourOpen, setTourOpen] = React.useState(false);
-  const [tourStep, setTourStep] = React.useState(0);
-  const [tourProgress, setTourProgress] = React.useState(0);
-  const [tourMobile, setTourMobile] = React.useState(() => window.matchMedia("(max-width: 700px)").matches);
   const [marketSide, setMarketSide] = React.useState<"business" | "accountant">("business");
   const [activeSection, setActiveSection] = React.useState("top");
   const t = copy[language];
   const collaborationLabel = language === "tr" ? "Muhasebeciyle çalışma" : "Accountant collaboration";
   const supplierMarketplaceLabel = t.marketplace;
   const signedIn = !auth.clerkEnabled || auth.isSignedIn;
-  const tourSteps = language === "tr" ? [
-    {
-      target: "on-muhasebe",
-      number: "01",
-      eyebrow: "Ön muhasebe",
-      title: "Günlük finans akışını tek yerde yönet",
-      text: "Gelir-gider, cari hesap, stok ve fatura kayıtlarını dağınık dosyalar yerine aynı çalışma alanında takip et.",
-      metricLabel: "Tek çalışma alanı",
-      metricValue: "4 temel akış",
-      chips: ["Gelir / gider", "Cari", "Stok", "Fatura"],
-    },
-    {
-      target: "ai",
-      number: "02",
-      eyebrow: "Systemcel AI",
-      title: "Doğru kaydı bul, sıradaki işi gör",
-      text: "Banka hareketi, fiş, stok ve fatura kayıtlarında uygun adımı önerir; bugün ilgilenmen gereken üç işi öne çıkarır.",
-      metricLabel: "Günlük özet",
-      metricValue: "3 öncelikli iş",
-      chips: ["Akıllı eşleştirme", "Erken kontrol", "Günlük öncelik"],
-    },
-    {
-      target: "pazaryeri",
-      number: "03",
-      eyebrow: "Muhasebeciyle çalışma",
-      title: "Çalıştığın muhasebeciyi davet et",
-      text: "İşletmeler muhasebecilerini, muhasebeciler mevcut müşterilerini davet bağlantısıyla aynı çalışma alanına ekler.",
-      metricLabel: "Bağlantı yöntemi",
-      metricValue: "Karşılıklı davet",
-      chips: ["Yetki seçimi", "Davet bağlantısı", "Ortak çalışma"],
-    },
-    {
-      target: "fiyat",
-      number: "04",
-      eyebrow: "Başlangıç",
-      title: "Planını seç ve çalışma alanını aç",
-      text: "İşletme veya muhasebeci planını seç, hesabını oluştur ve kurulum adımlarını tamamlayarak kullanmaya başla.",
-      metricLabel: "Kurulum",
-      metricValue: "Kolay kurulum",
-      chips: ["Plan seçimi", "Hesap oluşturma", "Kolay kurulum"],
-    },
-  ] : [
-    {
-      target: "on-muhasebe",
-      number: "01",
-      eyebrow: "Accounting",
-      title: "Run your daily finance flow in one place",
-      text: "Track income, expenses, accounts, inventory and invoices in one workspace instead of scattered files.",
-      metricLabel: "One workspace",
-      metricValue: "4 core flows",
-      chips: ["Income / expenses", "Accounts", "Inventory", "Invoices"],
-    },
-    {
-      target: "ai",
-      number: "02",
-      eyebrow: "Systemcel AI",
-      title: "Find the right record and see what is next",
-      text: "It suggests the right action across bank transactions, receipts, inventory and invoices, then brings today's three priorities forward.",
-      metricLabel: "Daily brief",
-      metricValue: "3 priority tasks",
-      chips: ["Smart matching", "Early checks", "Daily priorities"],
-    },
-    {
-      target: "pazaryeri",
-      number: "03",
-      eyebrow: "Accountant collaboration",
-      title: "Invite the accountant you work with",
-      text: "Businesses invite their accountant, and accountants invite existing clients into a shared workspace through an invitation link.",
-      metricLabel: "Connection method",
-      metricValue: "Mutual invitation",
-      chips: ["Permissions", "Invitation link", "Shared work"],
-    },
-    {
-      target: "fiyat",
-      number: "04",
-      eyebrow: "Get started",
-      title: "Choose a plan and open your workspace",
-      text: "Choose a business or accountant plan, create your account and complete the setup steps.",
-      metricLabel: "Setup",
-      metricValue: "Easy setup",
-      chips: ["Choose plan", "Create account", "Easy setup"],
-    },
-  ];
-  const activeTourStep = tourSteps[tourStep];
-  const tourIcons = [WalletCards, Bot, Users, Check];
-
   React.useEffect(() => {
     document.title = language === "tr" ? "systemcel — Yapay Zekâ Destekli Ön Muhasebe" : "systemcel — AI-powered accounting";
     fetch("/api/public/planlar")
@@ -272,26 +171,16 @@ export function LandingPage() {
       .catch(() => undefined);
   }, [language]);
 
-  React.useEffect(() => {
-    const query = window.matchMedia("(max-width: 700px)");
-    const updateTourMode = (event: MediaQueryListEvent) => setTourMobile(event.matches);
-    setTourMobile(query.matches);
-    query.addEventListener("change", updateTourMode);
-    return () => query.removeEventListener("change", updateTourMode);
-  }, []);
-
   React.useEffect(() => () => {
     if (heroTiltFrameRef.current) window.cancelAnimationFrame(heroTiltFrameRef.current);
-    if (tourEaseFrameRef.current) window.cancelAnimationFrame(tourEaseFrameRef.current);
   }, []);
 
   React.useEffect(() => {
-    if (!mobileMenuOpen && !tourOpen) return undefined;
+    if (!mobileMenuOpen) return undefined;
     const page = pageRef.current;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         setMobileMenuOpen(false);
-        setTourOpen(false);
       }
     };
     document.body.style.overflow = "hidden";
@@ -302,7 +191,7 @@ export function LandingPage() {
       if (page) page.style.overflowY = "auto";
       window.removeEventListener("keydown", onKeyDown);
     };
-  }, [mobileMenuOpen, tourOpen]);
+  }, [mobileMenuOpen]);
 
   React.useEffect(() => {
     const page = pageRef.current;
@@ -360,98 +249,6 @@ export function LandingPage() {
 
   function accountantHref(planKod: string) {
     return buildSubscriptionStartHref({ signedIn, accountType: "Muhasebeci", planCode: planKod, billing });
-  }
-
-  function openTour() {
-    setTourStep(0);
-    setTourProgress(0);
-    tourProgressRef.current = 0;
-    tourProgressTargetRef.current = 0;
-    setTourOpen(true);
-    window.requestAnimationFrame(() => tourViewportRef.current?.scrollTo({ top: 0 }));
-  }
-
-  function easeTourProgress() {
-    if (tourEaseFrameRef.current) return;
-    const tick = () => {
-      const current = tourProgressRef.current;
-      const target = tourProgressTargetRef.current;
-      const next = current + (target - current) * .14;
-      if (Math.abs(target - next) < .001) {
-        tourProgressRef.current = target;
-        setTourProgress(target);
-        tourEaseFrameRef.current = 0;
-        return;
-      }
-      tourProgressRef.current = next;
-      setTourProgress(next);
-      tourEaseFrameRef.current = window.requestAnimationFrame(tick);
-    };
-    tourEaseFrameRef.current = window.requestAnimationFrame(tick);
-  }
-
-  function showTourSection(target: string) {
-    setTourOpen(false);
-    window.setTimeout(() => {
-      const section = document.getElementById(target);
-      if (!section) return;
-      section.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 80);
-  }
-
-  function moveTourToStep(nextStep: number) {
-    const clampedStep = Math.min(tourSteps.length - 1, Math.max(0, nextStep));
-    const viewport = tourViewportRef.current;
-    setTourStep(clampedStep);
-    tourProgressTargetRef.current = clampedStep;
-    if (tourMobile) {
-      tourProgressRef.current = clampedStep;
-      setTourProgress(clampedStep);
-      return;
-    }
-    easeTourProgress();
-    if (!viewport) return;
-    const maximumScroll = viewport.scrollHeight - viewport.clientHeight;
-    viewport.scrollTo({
-      top: tourSteps.length > 1 ? maximumScroll * clampedStep / (tourSteps.length - 1) : 0,
-      behavior: "smooth",
-    });
-  }
-
-  function handleTourScroll(event: React.UIEvent<HTMLDivElement>) {
-    if (tourMobile) return;
-    const viewport = event.currentTarget;
-    const maximumScroll = viewport.scrollHeight - viewport.clientHeight;
-    const progress = maximumScroll > 0
-      ? viewport.scrollTop / maximumScroll * (tourSteps.length - 1)
-      : 0;
-    const nextStep = Math.min(tourSteps.length - 1, Math.max(0, Math.round(progress)));
-    tourProgressTargetRef.current = progress;
-    easeTourProgress();
-    setTourStep((current) => current === nextStep ? current : nextStep);
-  }
-
-  function handleTourTouchStart(event: React.TouchEvent<HTMLDivElement>) {
-    const touch = event.touches[0];
-    tourTouchStartRef.current = touch
-      ? { x: touch.clientX, y: touch.clientY, time: event.timeStamp }
-      : null;
-  }
-
-  function handleTourTouchEnd(event: React.TouchEvent<HTMLDivElement>) {
-    const start = tourTouchStartRef.current;
-    const touch = event.changedTouches[0];
-    tourTouchStartRef.current = null;
-    if (!tourMobile || !start || !touch) return;
-
-    const deltaX = touch.clientX - start.x;
-    const deltaY = touch.clientY - start.y;
-    const elapsed = Math.max(1, event.timeStamp - start.time);
-    const velocityX = deltaX / elapsed;
-    const horizontalIntent = Math.abs(deltaX) > Math.abs(deltaY) * 1.15;
-    const committedSwipe = Math.abs(deltaX) >= 42 || Math.abs(velocityX) >= .38;
-    if (!horizontalIntent || !committedSwipe) return;
-    moveTourToStep(tourStep + (deltaX < 0 ? 1 : -1));
   }
 
   function handleHeroPointerMove(event: React.PointerEvent<HTMLDivElement>) {
@@ -527,7 +324,6 @@ export function LandingPage() {
               <p>{t.lead}</p>
               <div className="marketing-hero__actions">
                 <a className="marketing-button marketing-button--hero-primary marketing-button--large" href={trialHref()}>{pricingCta}<ArrowRight size={18} /></a>
-                <button className="marketing-button marketing-button--ghost marketing-button--large" type="button" onClick={openTour}><Play size={17} />{t.tour}</button>
               </div>
               <div className="marketing-proof"><span>{t.setup}</span><i>·</i><span>{t.cancel}</span></div>
             </div>
@@ -584,7 +380,7 @@ export function LandingPage() {
             </div>
             <SectionCopy number="02" label={t.ai} title={t.section2} text={t.section2Text} dark />
           </div>
-          <div className="marketing-wrap marketing-ai-capabilities marketing-reveal" data-reveal>
+          <div className="marketing-wrap marketing-ai-capabilities marketing-reveal" data-reveal tabIndex={0} role="region" aria-label={language === "tr" ? "Systemcel AI yetenekleri" : "Systemcel AI capabilities"}>
             <FeatureRow icon={<WalletCards />} title={language === "tr" ? "Doğru kaydı daha hızlı bul" : "Find the right record faster"} text={language === "tr" ? "Banka hareketine uygun işlemi, fişe doğru gider kalemi ve cariyi önerir." : "Suggests the right transaction for a bank movement and the right expense category and account for a receipt."} />
             <FeatureRow icon={<PackageSearch />} title={language === "tr" ? "Tedarikçinin dilini stoklarına çevir" : "Translate supplier products into your inventory"} text={language === "tr" ? "Tedarikçinin ürün adlarını mevcut stoklarınla eşleştirir." : "Matches supplier product names with the items already in your inventory."} />
             <FeatureRow icon={<FileText />} title={language === "tr" ? "Faturayı kaydetmeden kontrol et" : "Check invoices before saving"} text={language === "tr" ? "Stok, birim ve maliyet sapmalarını erkenden gösterir." : "Flags inventory, unit and cost variances before they become records."} />
@@ -646,284 +442,7 @@ export function LandingPage() {
 
       <footer className="marketing-footer"><div className="marketing-wrap marketing-footer__grid"><div><a className="marketing-brand marketing-brand--dark" href="#top"><BrandMark /><strong>systemcel</strong></a><p>{t.footerText}</p></div><FooterGroup title={t.product} links={[[t.accounting, "#on-muhasebe"], [t.ai, "#ai"], [collaborationLabel, "#muhasebeci"], [supplierMarketplaceLabel, "#pazaryeri"], [t.pricing, "#fiyat"]]} soonTitle={t.soon} soonItems={[t.multipleBranchesAndCurrencies, t.integrationApis, t.periodAutomation]} /><FooterGroup title={t.company} links={[[t.about, "/hakkimizda"], [t.careers, "/kariyer"], [t.blog, "/blog"], [t.contact, "/iletisim"]]} /><FooterGroup title={t.legal} links={[["KVKK", "/kvkk"], [t.privacy, "/gizlilik"], [t.terms, "/kullanim-sartlari"], [language === "tr" ? "Abonelik Koşulları" : "Subscription Terms", "/abonelik-kosullari"], [t.cookies, "/cerezler"]]} /></div><div className="marketing-wrap marketing-footer__bottom"><span>© 2026 SYSTEMCEL — İSTANBUL</span><button type="button" onClick={changeLanguage}>{language === "tr" ? "TR / EN" : "EN / TR"}</button></div></footer>
 
-      {tourOpen ? (
-        <div className="marketing-modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setTourOpen(false)}>
-          <div className="marketing-tour-modal" role="dialog" aria-modal="true" aria-labelledby="tour-title">
-            <header className="marketing-tour-header">
-              <a className="marketing-brand marketing-brand--dark" href="#top" onClick={() => setTourOpen(false)}>
-                <BrandMark /><strong>systemcel</strong>
-              </a>
-              <div>
-                <span><Play size={15} />{language === "tr" ? "Canlı tur" : "Live tour"}</span>
-                <strong>{activeTourStep.number} / {String(tourSteps.length).padStart(2, "0")}</strong>
-              </div>
-              <button className="marketing-tour-modal__close" type="button" onClick={() => setTourOpen(false)} aria-label={t.close}><X /></button>
-            </header>
-
-            <nav className="marketing-tour-progress" aria-label={language === "tr" ? "Tur ilerlemesi" : "Tour progress"}>
-              {tourSteps.map((step, index) => (
-                <button
-                  key={step.target}
-                  type="button"
-                  className={index === tourStep ? "active" : index < tourStep ? "complete" : ""}
-                  onClick={() => moveTourToStep(index)}
-                  aria-label={`${index + 1}. ${step.eyebrow}`}
-                  aria-current={index === tourStep ? "step" : undefined}
-                >
-                  <span>{step.number}</span>
-                  <b>{step.eyebrow}</b>
-                </button>
-              ))}
-            </nav>
-
-            <div
-              className={`marketing-tour-viewport${tourMobile ? " is-mobile-carousel" : ""}`}
-              ref={tourViewportRef}
-              onScroll={handleTourScroll}
-              onTouchStart={handleTourTouchStart}
-              onTouchEnd={handleTourTouchEnd}
-              onTouchCancel={() => { tourTouchStartRef.current = null; }}
-            >
-              <div className="marketing-tour-scrollworld" style={{ height: `${tourSteps.length * 100}%` }}>
-                <div className="marketing-tour-stage" style={{ height: `${100 / tourSteps.length}%` }}>
-                  <div className="marketing-tour-camera">
-                    {tourSteps.map((step, index) => {
-                      const Icon = tourIcons[index] ?? Play;
-                      const distance = index - tourProgress;
-                      const absoluteDistance = Math.abs(distance);
-                      const sceneOpacity = Math.max(0, 1 - absoluteDistance * .72);
-                      const sceneScale = Math.max(.68, 1 - absoluteDistance * .16);
-                      const sceneStyle = {
-                        "--tour-x": `${distance * 8}%`,
-                        "--tour-y": `${distance * 72}%`,
-                        "--tour-mobile-x": `${distance * 96}%`,
-                        "--tour-scene-opacity": sceneOpacity,
-                        "--tour-mobile-opacity": Math.max(.2, 1 - absoluteDistance * .58),
-                        "--tour-scene-scale": sceneScale,
-                        zIndex: tourSteps.length - Math.round(absoluteDistance * 2),
-                      } as React.CSSProperties;
-                      return (
-                        <article
-                          className={`marketing-tour-scene${index === tourStep ? " active" : ""}${absoluteDistance < 1.1 ? " is-near" : ""}${absoluteDistance < .015 ? " is-settled" : ""}`}
-                          key={step.target}
-                          aria-hidden={index !== tourStep}
-                          style={sceneStyle}
-                        >
-                          <div className="marketing-tour-slide__copy">
-                            <span>{step.number} — {step.eyebrow}</span>
-                            <h2 id={index === tourStep ? "tour-title" : undefined}>{step.title}</h2>
-                            <p>{step.text}</p>
-                            <button type="button" onClick={() => showTourSection(step.target)}>
-                              {language === "tr" ? "Bu özelliği incele" : "View this feature"}
-                              <ArrowRight size={17} />
-                            </button>
-                          </div>
-
-                          <TourSceneVisual index={index} step={step} Icon={Icon} language={language} />
-                        </article>
-                      );
-                    })}
-                  </div>
-                  <div className={`marketing-tour-scroll-hint${tourProgress > .2 ? " is-hidden" : ""}`} aria-hidden="true">
-                    <span>{language === "tr" ? "Aşağı kaydır" : "Scroll down"}</span>
-                    <i />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <footer className="marketing-tour-footer">
-              <div>
-                <button type="button" className="marketing-tour-nav marketing-tour-nav--secondary" onClick={() => moveTourToStep(tourStep - 1)} disabled={tourStep === 0}>
-                  {language === "tr" ? "Geri" : "Back"}
-                </button>
-                {tourStep < tourSteps.length - 1 ? (
-                  <button type="button" className="marketing-tour-nav marketing-tour-nav--primary" onClick={() => moveTourToStep(tourStep + 1)}>
-                    {language === "tr" ? "İleri" : "Next"}<ArrowRight size={17} />
-                  </button>
-                ) : (
-                  <a className="marketing-tour-nav marketing-tour-nav--primary" href={trialHref()}>{t.tourAction}<ArrowRight size={17} /></a>
-                )}
-              </div>
-            </footer>
-          </div>
-        </div>
-      ) : null}
     </div>
-  );
-}
-
-type TourVisualStep = {
-  number: string;
-  metricLabel: string;
-  metricValue: string;
-  chips: string[];
-};
-
-function TourSceneVisual({
-  index,
-  step,
-  Icon,
-  language,
-}: {
-  index: number;
-  step: TourVisualStep;
-  Icon: React.ComponentType<{ size?: number; strokeWidth?: number }>;
-  language: Language;
-}) {
-  const tr = language === "tr";
-
-  return (
-    <div className={`marketing-tour-visual marketing-tour-visual--${index + 1}`} aria-hidden="true">
-      <div className="marketing-tour-visual__glow" />
-      <div className="marketing-tour-orb"><Icon size={20} /></div>
-
-      {index === 0 ? (
-        <div className="marketing-tour-window marketing-tour-window--finance">
-          <TourWindowHeader step={step} language={language} />
-          <main className="marketing-tour-finance">
-            <div className="marketing-tour-finance__headline">
-              <span>{tr ? "Nakit akışı" : "Cash flow"}</span>
-              <b>₺1.248.560</b>
-              <small>+12,4%</small>
-            </div>
-            <svg className="marketing-tour-finance__chart" viewBox="0 0 480 172" role="img" aria-label={tr ? "Son altı aylık net nakit akışı" : "Net cash flow over the last six months"}>
-              <defs>
-                <linearGradient id="tour-chart-fill" x1="0" x2="0" y1="0" y2="1">
-                  <stop offset="0%" stopColor="#c8ff00" stopOpacity=".34" />
-                  <stop offset="100%" stopColor="#c8ff00" stopOpacity="0" />
-                </linearGradient>
-              </defs>
-              <g className="grid">
-                <line x1="46" x2="466" y1="24" y2="24" />
-                <line x1="46" x2="466" y1="64" y2="64" />
-                <line x1="46" x2="466" y1="104" y2="104" />
-                <line x1="46" x2="466" y1="144" y2="144" />
-              </g>
-              <g className="axis-labels">
-                <text x="3" y="27">₺1,5M</text>
-                <text x="3" y="67">₺1,0M</text>
-                <text x="3" y="107">₺500K</text>
-                <text x="3" y="147">₺0</text>
-                <text x="46" y="166">Şub</text>
-                <text x="126" y="166">Mar</text>
-                <text x="206" y="166">Nis</text>
-                <text x="286" y="166">May</text>
-                <text x="366" y="166">Haz</text>
-                <text x="446" y="166">Tem</text>
-              </g>
-              <path className="fill" d="M46 128 C76 120 92 106 126 111 S171 123 206 88 S252 56 286 80 S327 117 366 76 S415 61 466 35 L466 145 L46 145 Z" />
-              <path className="line" d="M46 128 C76 120 92 106 126 111 S171 123 206 88 S252 56 286 80 S327 117 366 76 S415 61 466 35" />
-              <line className="guide" x1="366" x2="366" y1="18" y2="145" />
-              <circle className="point-ring" cx="366" cy="76" r="8" />
-              <circle className="point" cx="366" cy="76" r="4" />
-              <g className="tooltip">
-                <rect x="310" y="29" width="112" height="28" rx="7" />
-                <text x="322" y="47">Haz · ₺1.086.240</text>
-              </g>
-            </svg>
-            <div className="marketing-tour-finance__metrics">
-              <span><small>{tr ? "Gelir" : "Income"}</small><strong>₺2.560.000</strong></span>
-              <span><small>{tr ? "Gider" : "Expense"}</small><strong>₺1.311.440</strong></span>
-            </div>
-            <div className="marketing-tour-finance__invoice">
-              <FileText size={17} />
-              <span><small>{tr ? "Son fatura" : "Latest invoice"}</small><strong>FAT-2026-0148</strong></span>
-              <b>{tr ? "Tahsil edildi" : "Paid"}</b>
-            </div>
-          </main>
-        </div>
-      ) : null}
-
-      {index === 1 ? (
-        <div className="marketing-tour-window marketing-tour-window--assistant">
-          <TourWindowHeader step={step} language={language} />
-          <main className="marketing-tour-assistant">
-            <div className="marketing-tour-assistant__question">
-              {tr ? "Bu ay nakit akışım nasıl görünüyor?" : "How does my cash flow look this month?"}
-            </div>
-            <div className="marketing-tour-assistant__typing"><i /><i /><i /></div>
-            <div className="marketing-tour-assistant__answer">
-              <Bot size={18} />
-              <strong>{tr ? "Net nakit akışınız geçen aya göre %12,4 arttı." : "Net cash flow is up 12.4% from last month."}</strong>
-            </div>
-            <div className="marketing-tour-assistant__insights">
-              {step.chips.map((chip) => <span key={chip}><Sparkles size={12} />{chip}</span>)}
-            </div>
-          </main>
-        </div>
-      ) : null}
-
-      {index === 2 ? (
-        <div className="marketing-tour-window marketing-tour-window--accountant">
-          <TourWindowHeader step={step} language={language} />
-          <main className="marketing-tour-accountant">
-            <div className="marketing-tour-accountant__top">
-              <div className="marketing-tour-accountant__avatar">
-                <img src={accountantAyseAvatar} alt="" />
-                <i><Check size={14} strokeWidth={3} /></i>
-              </div>
-              <div>
-                <strong>Ayşe Demirtaş</strong>
-                <span>{tr ? "Muhasebe uzmanı · İstanbul" : "Accounting expert · Istanbul"}</span>
-              </div>
-              <b><Check size={13} strokeWidth={3} />{tr ? "Davet bekliyor" : "Invite pending"}</b>
-            </div>
-            <div className="marketing-tour-accountant__facts">
-              {step.chips.map((chip) => <span key={chip}>{chip}</span>)}
-            </div>
-            <div className="marketing-tour-accountant__meta">
-              <span><ShieldCheck size={15} />{tr ? "Okuma ve rapor yetkisi" : "View and report access"}</span>
-              <span><Users size={15} />{tr ? "Ortak çalışma alanı" : "Shared workspace"}</span>
-            </div>
-            <div className="marketing-tour-accountant__action">{tr ? "Bağlantıyı yönet" : "Manage connection"}<ArrowRight size={16} /></div>
-          </main>
-        </div>
-      ) : null}
-
-      {index === 3 ? (
-        <div className="marketing-tour-window marketing-tour-window--setup">
-          <TourWindowHeader step={step} language={language} />
-          <main className="marketing-tour-setup">
-            <div className="marketing-tour-setup__steps">
-              {[
-                tr ? "Şirket bilgileri" : "Company details",
-                tr ? "Plan seçimi" : "Choose plan",
-                tr ? "Entegrasyonlar" : "Integrations",
-                tr ? "Başlangıç" : "Launch",
-              ].map((label, itemIndex) => (
-                <span className={itemIndex < 3 ? "complete" : "active"} key={label}>
-                  <i>{itemIndex < 3 ? <Check size={13} strokeWidth={3} /> : itemIndex + 1}</i>
-                  <strong>{label}</strong>
-                </span>
-              ))}
-            </div>
-            <div className="marketing-tour-setup__plan">
-              <Building2 size={19} />
-              <span><small>{tr ? "Seçilen plan" : "Selected plan"}</small><strong>{tr ? "Büyüme" : "Growth"}</strong></span>
-              <b>{tr ? "Aylık" : "Monthly"}</b>
-            </div>
-            <div className="marketing-tour-setup__complete">
-              <b>100%</b>
-              <span><strong>{tr ? "Kurulum tamamlandı" : "Setup complete"}</strong><small>{tr ? "Çalışma alanınız hazır" : "Your workspace is ready"}</small></span>
-            </div>
-          </main>
-        </div>
-      ) : null}
-
-      <div className="marketing-tour-float marketing-tour-float--top"><Sparkles size={15} />{step.chips[0]}</div>
-      <div className="marketing-tour-float marketing-tour-float--bottom"><Check size={15} />{step.metricValue}</div>
-    </div>
-  );
-}
-
-function TourWindowHeader({ step, language }: { step: TourVisualStep; language: Language }) {
-  return (
-    <header>
-      <span><i /><i /><i /></span>
-      <b>SYSTEMCEL / {step.number}</b>
-      <small>{language === "tr" ? "CANLI" : "LIVE"}</small>
-    </header>
   );
 }
 

@@ -132,6 +132,23 @@ describe("ReactWorkspaceShell bildirim merkezi", () => {
     );
   });
 
+  it("renders tahsilat actions as links and preserves contextual notification URLs", async () => {
+    const user = userEvent.setup();
+    vi.mocked(jsonOku).mockImplementation(async (url, init) => {
+      if (url === "/api/ekran/bildirimler" && !init) return [
+        { id: 51, tur: "tahsilat", onem: "yuksek", baslik: "Yaklaşan tahsilat", mesaj: "Bir tahsilat bekliyor.", aksiyon: "Tahsilatı öne al", okundu: false },
+        { id: 52, tur: "tahsilat", onem: "normal", baslik: "Tahsilat takibi", mesaj: "Takipteki tahsilat.", aksiyon: "Tahsilatı takip et", url: "/app/tahsilat-odeme?cariId=19&faturaId=42", okundu: true }
+      ];
+      throw new Error(`Unexpected request: ${url}`);
+    });
+
+    render(shell());
+    await user.click(screen.getByRole("button", { name: "Bildirimleri göster" }));
+
+    expect(await screen.findByRole("link", { name: "Tahsilatı öne al" })).toHaveAttribute("href", "/app/tahsilat-odeme");
+    expect(screen.getByRole("link", { name: /Tahsilat takibi.*Tahsilatı takip et/ })).toHaveAttribute("href", "/app/tahsilat-odeme?cariId=19&faturaId=42");
+  });
+
   it("banka eşleştirmeyi yalnız hak aktifken menüde gösterir", () => {
     const { rerender } = render(shell({ ...ustBar, bankaMutabakatiAktif: false }));
     expect(screen.queryByRole("link", { name: "Banka eşleştirme" })).not.toBeInTheDocument();
