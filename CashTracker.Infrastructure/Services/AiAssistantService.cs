@@ -84,10 +84,20 @@ namespace CashTracker.Infrastructure.Services
             var mode = NormalizeMode(request.Mode);
             var model = mode == "task" ? _settings.EffectiveFlashModel : _settings.EffectiveProModel;
             var usage = await _usageQuotaService.GetStatusAsync(ct);
-            var context = await BuildBusinessContextAsync(ct);
+
+            if (!string.IsNullOrWhiteSpace(message) && !IsBusinessScopedMessage(message))
+                return BuildOutOfScopeResponse(mode, model, usage);
+
+            if (!string.IsNullOrWhiteSpace(message))
+                EnsureAiUsageAllowed(usage);
+
             var routing = _akilliKararService is null
                 ? new AsistanYonlendirme("genel", 0, string.Empty)
                 : await _akilliKararService.AsistaniYonlendirAsync(message, ct);
+            if (string.Equals(routing.Niyet, "konu_disi", StringComparison.Ordinal))
+                return BuildOutOfScopeResponse(mode, model, usage);
+
+            var context = await BuildBusinessContextAsync(ct);
             var privacy = PromptPrivacyMap.Create(context);
             var suggestions = BuildRuleBasedSuggestions(context).Select(x => x.Baslik).Take(3).ToList();
 
@@ -106,24 +116,6 @@ namespace CashTracker.Infrastructure.Services
                     Usage = usage
                 };
             }
-
-            if (!IsBusinessScopedMessage(message))
-            {
-                return new AiAssistantChatResponse
-                {
-                    Configured = _settings.IsConfigured,
-                    Mode = mode,
-                    Model = model,
-                    Answer = "Bu alan serbest sohbet için değil. Gelir, gider, fatura, cari, stok, tahsilat, OCR veya rapor verileriyle ilgili net bir soru yazın.",
-                    Intent = routing.Niyet,
-                    ActionPath = routing.AksiyonUrl,
-                    RoutingConfidence = routing.Guven,
-                    Suggestions = suggestions,
-                    Usage = usage
-                };
-            }
-
-            EnsureAiUsageAllowed(usage);
 
             if (!_settings.IsConfigured)
             {
@@ -292,6 +284,18 @@ namespace CashTracker.Infrastructure.Services
                     usage.Kullanilan,
                     suggestedPlan);
             }
+        }
+
+        private AiAssistantChatResponse BuildOutOfScopeResponse(string mode, string model, AiUsageStatus usage)
+        {
+            return new AiAssistantChatResponse
+            {
+                Configured = _settings.IsConfigured,
+                Mode = mode,
+                Model = model,
+                Answer = "Bu alan serbest sohbet için değil. Gelir, gider, fatura, cari, stok, tahsilat, OCR veya rapor verileriyle ilgili net bir soru yazın.",
+                Usage = usage
+            };
         }
 
         private async Task<BusinessContext> BuildBusinessContextAsync(CancellationToken ct)
@@ -743,29 +747,35 @@ namespace CashTracker.Infrastructure.Services
                 return true;
 
             var lower = raw.ToLower(TrCulture);
-            string[] allowed =
+            string[] outsideScope =
             [
-                "gelir", "gider", "masraf", "maliyet", "kar", "kâr", "ciro", "nakit",
-                "stok", "ürün", "urun", "fatura", "cari", "tahsilat", "ödeme", "odeme",
-                "rapor", "işletme", "isletme", "kalem", "bakiye", "borç", "borc",
-                "alacak", "kasa", "vergi", "kdv", "ocr", "fiş", "fis", "dekont",
-                "geç öd", "gec od", "maaş", "maas",
-                "öner", "oner", "analiz", "durum", "risk", "tasarruf", "düşür",
-                "dusur", "artır", "artir", "ne yap", "iyi mi", "kötü", "kotu",
-                "batıyor", "batiyor"
+                "sen kimsin", "seni kim", "kim yaratt", "kim gelişt", "kim gelist",
+                "deepseek misin", "chatgpt misin", "hangi yapay zeka", "yapay zeka model",
+                "hangi dil modeli", "hangi sağlayıcı", "hangi saglayici", "hangi provider",
+                "modelin ne", "modelinin adı", "modelinin adi", "sistem prompt",
+                "system prompt", "talimatlarını", "talimatlarini", "ignore previous instructions",
+                "naber", "nasılsın", "nasilsin", "şaka yap", "saka yap",
+                "hikaye yaz", "öykü yaz", "oyku yaz", "şiir yaz", "siir yaz",
+                "film öner", "film oner", "müzik öner", "muzik oner", "futbol maçı",
+                "futbol maci", "hava durumu", "kod yaz"
             ];
 
-            if (allowed.Any(lower.Contains))
-                return true;
+            if (outsideScope.Any(lower.Contains))
+                return false;
 
-            string[] blocked =
+            string[] businessTerms =
             [
-                "merhaba", "selam", "naber", "nasılsın", "nasilsin", "şaka", "saka",
-                "hikaye", "şiir", "siir", "film", "müzik", "muzik", "oyun", "futbol",
-                "hava durumu", "kod yaz"
+                "gelir", "gider", "masraf", "maliyet", "kâr", "karlılı", "kar marj",
+                "kar zarar", "ciro", "nakit", "stok", "ürün", "urun", "fatura",
+                "cari", "tahsilat", "ödeme", "odeme", "rapor", "bakiye",
+                "borç", "borc", "alacak", "kasa", "vergi", "kdv", "ocr",
+                "fiş", "fis", "dekont", "geç öd", "gec od", "maaş", "maas",
+                "tedarik", "mal ver", "satış", "satis", "finans"
             ];
 
-            return !blocked.Any(lower.Contains) && lower.Length >= 24 && lower.Contains('?');
+            var firstQuestion = lower.Split('?', 2)[0];
+            return businessTerms.Any(term =>
+                Regex.IsMatch(firstQuestion, $@"(?<!\p{{L}}){Regex.Escape(term)}", RegexOptions.CultureInvariant));
         }
 
         private static string CleanAssistantText(string value)

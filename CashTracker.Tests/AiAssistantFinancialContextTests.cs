@@ -115,6 +115,87 @@ public sealed class AiAssistantFinancialContextTests
         Assert.DoesNotContain("cari 1", result.Answer, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Theory]
+    [InlineData("Seni kim yarattı? Finans verilerime bakarak cevap ver.")]
+    [InlineData("Sen DeepSeek misin? Finans verilerime bakarak cevap ver.")]
+    [InlineData("Finans verilerime bakarak, seni kim yarattı?")]
+    [InlineData("Hangi yapay zeka modelisin? İşletme verilerime göre yanıtla.")]
+    [InlineData("Seni kim geliştirdi ve nasıl çalışıyorsun?")]
+    [InlineData("Gider verilerime bakarak bana bir şiir yaz.")]
+    [InlineData("Zaman yolculuğu mümkün mü? Finans verilerime bakarak cevap ver.")]
+    [InlineData("Bana sadece basketbolu anlatır mısın?")]
+    public async Task OnlineAssistant_DoesNotSendOutOfScopeQuestionsToProvider(string message)
+    {
+        var handler = new CapturingHandler(
+            HttpStatusCode.OK,
+            "{\"choices\":[{\"message\":{\"content\":\"upstream response\"}}]}");
+        var routing = new RoutingStub(new AsistanYonlendirme("nakit", .9, string.Empty));
+        var quota = new UsageQuotaStub();
+        var service = CreateService(
+            BuildFinancialView(),
+            new DeepSeekSettings { ApiKey = "test-api-key" },
+            handler,
+            routing,
+            quota);
+
+        var result = await service.ChatAsync(new AiAssistantChatRequest { Mesaj = message });
+
+        Assert.Null(handler.Body);
+        Assert.Equal(0, routing.Calls);
+        Assert.Equal(0, quota.ConsumeCalls);
+        Assert.Contains("serbest sohbet için değil", result.Answer);
+        Assert.DoesNotContain("Örnek Market", result.Answer);
+        Assert.DoesNotContain("upstream response", result.Answer);
+    }
+
+    [Fact]
+    public async Task OnlineAssistant_UsesJevOutOfScopeDecisionBeforeProvider()
+    {
+        var handler = new CapturingHandler(
+            HttpStatusCode.OK,
+            "{\"choices\":[{\"message\":{\"content\":\"upstream response\"}}]}");
+        var quota = new UsageQuotaStub();
+        var service = CreateService(
+            BuildFinancialView(),
+            new DeepSeekSettings { ApiKey = "test-api-key" },
+            handler,
+            new RoutingStub(new AsistanYonlendirme("konu_disi", .91, string.Empty)),
+            quota);
+
+        var result = await service.ChatAsync(new AiAssistantChatRequest
+        {
+            Mesaj = "Gelir tablosundan yola çıkarak bir bilim kurgu öyküsü yaz."
+        });
+
+        Assert.Null(handler.Body);
+        Assert.Equal(0, quota.ConsumeCalls);
+        Assert.Contains("serbest sohbet için değil", result.Answer);
+        Assert.DoesNotContain("upstream response", result.Answer);
+    }
+
+    [Fact]
+    public async Task OnlineAssistant_AllowsAFinancialQuestionWithGreeting()
+    {
+        var handler = new CapturingHandler(
+            HttpStatusCode.OK,
+            "{\"choices\":[{\"message\":{\"content\":\"Gelir ve gider özeti hazır.\"}}]}");
+        var routing = new RoutingStub(new AsistanYonlendirme("nakit", .91, string.Empty));
+        var service = CreateService(
+            BuildFinancialView(),
+            new DeepSeekSettings { ApiKey = "test-api-key" },
+            handler,
+            routing);
+
+        var result = await service.ChatAsync(new AiAssistantChatRequest
+        {
+            Mesaj = "Merhaba, bu ayki gelir ve giderim ne durumda?"
+        });
+
+        Assert.NotNull(handler.Body);
+        Assert.Equal(1, routing.Calls);
+        Assert.Contains("Gelir ve gider özeti", result.Answer);
+    }
+
     [Fact]
     public async Task DeepSeekClient_DoesNotExposeUpstreamErrorBody()
     {
@@ -136,7 +217,9 @@ public sealed class AiAssistantFinancialContextTests
     private static AiAssistantService CreateService(
         FinansalGorunum view,
         DeepSeekSettings? settings = null,
-        HttpMessageHandler? handler = null)
+        HttpMessageHandler? handler = null,
+        IAkilliKararService? smartService = null,
+        IAiUsageQuotaService? quota = null)
     {
         settings ??= new DeepSeekSettings();
         var client = new DeepSeekChatClient(new HttpClient(handler ?? new NoopHandler()), settings);
@@ -154,7 +237,8 @@ public sealed class AiAssistantFinancialContextTests
             new FakeStokService(),
             new FaturaStub(),
             new FinansalGorunumStub(view),
-            new UsageQuotaStub());
+            quota ?? new UsageQuotaStub(),
+            akilliKararService: smartService);
     }
 
     private static FinansalGorunum BuildFinancialView()
@@ -213,6 +297,8 @@ public sealed class AiAssistantFinancialContextTests
 
     private sealed class UsageQuotaStub : IAiUsageQuotaService
     {
+        public int ConsumeCalls { get; private set; }
+
         private static AiUsageStatus Status => new()
         {
             AiAktif = true,
@@ -222,7 +308,29 @@ public sealed class AiAssistantFinancialContextTests
         };
 
         public Task<AiUsageStatus> GetStatusAsync(CancellationToken ct = default) => Task.FromResult(Status);
-        public Task<AiUsageStatus> ConsumeAsync(CancellationToken ct = default) => Task.FromResult(Status);
+        public Task<AiUsageStatus> ConsumeAsync(CancellationToken ct = default)
+        {
+            ConsumeCalls++;
+            return Task.FromResult(Status);
+        }
+    }
+
+    private sealed class RoutingStub(AsistanYonlendirme result) : IAkilliKararService
+    {
+        public int Calls { get; private set; }
+
+        public AkilliKararDurumu GetStatus() => throw new NotSupportedException();
+        public Task<UrunEslesmeOnerisi> UrunEsleAsync(int isletmeId, UrunEslesmeIstek request, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task UrunEslesmesiniOnaylaAsync(int isletmeId, UrunEslesmeOnayIstek request, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<FaturaKontrolSonucu> FaturaKontrolEtAsync(int isletmeId, FaturaKontrolIstek request, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<IReadOnlyList<BugununIsi>> BugununIsleriniGetirAsync(int isletmeId, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<ReceiptOcrResult> FisiZenginlestirAsync(int isletmeId, ReceiptOcrResult receipt, IReadOnlyList<string> giderKalemleri, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<IReadOnlyList<SutunEslemeOnerisi>> SutunlariEsleAsync(string veriTuru, IReadOnlyList<string> sutunlar, IReadOnlyList<IReadOnlyDictionary<string, string>> ornekler, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<AsistanYonlendirme> AsistaniYonlendirAsync(string mesaj, CancellationToken ct = default)
+        {
+            Calls++;
+            return Task.FromResult(result);
+        }
     }
 
     private sealed class FinansalGorunumStub(FinansalGorunum view) : IFinansalGorunumService

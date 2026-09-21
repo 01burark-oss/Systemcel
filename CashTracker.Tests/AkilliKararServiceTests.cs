@@ -160,6 +160,23 @@ public sealed class AkilliKararServiceTests : IAsyncLifetime
         Assert.Equal(cash.Id, result.RelatedRecordId);
     }
 
+    [Fact]
+    public async Task AssistantRouting_OffersOutOfScopeChoiceToJev()
+    {
+        var fake = new FakeJev((key, questions) =>
+        {
+            Assert.Equal("niyet", key);
+            Assert.Contains("konu_disi", questions["niyet"].Options.Keys);
+            return Choice("konu_disi", .91);
+        });
+
+        var result = await CreateService(fake).AsistaniYonlendirAsync(
+            "Gelir tablosundan yola çıkarak bir bilim kurgu öyküsü yaz.");
+
+        Assert.Equal("konu_disi", result.Niyet);
+        Assert.Equal(string.Empty, result.AksiyonUrl);
+    }
+
     private AkilliKararService CreateService(IJevDecisionService jev) => new(
         new CashTracker.Tests.Support.SingleDbContextFactory(_db.Database.GetDbConnection() is SqliteConnection
             ? new DbContextOptionsBuilder<CashTrackerDbContext>().UseSqlite(_connection).Options

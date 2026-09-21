@@ -80,7 +80,7 @@ namespace CashTracker.Infrastructure.Services
 
             await db.SaveChangesAsync(ct);
 
-            return BuildStatus(entitlement, usage, period, consume && !allowed);
+            return BuildStatus(entitlement, usage, period, allowed);
         }
 
         private static AiUsagePeriod BuildPeriod(SubscriptionEntitlementStatus entitlement, DateTime now)
@@ -109,8 +109,9 @@ namespace CashTracker.Infrastructure.Services
             SubscriptionEntitlementStatus entitlement,
             AiKullanimDonemi usage,
             AiUsagePeriod period,
-            bool limitExceeded)
+            bool allowed)
         {
+            var limitExceeded = entitlement.AiAktif && !allowed;
             var kalan = period.Limit.HasValue
                 ? Math.Max(0, period.Limit.Value - usage.KullanilanMesaj)
                 : (int?)null;
@@ -134,7 +135,7 @@ namespace CashTracker.Infrastructure.Services
                 Kullanilan = usage.KullanilanMesaj,
                 Kalan = kalan,
                 DonemBitisAt = period.End,
-                IzinVerildi = entitlement.AiAktif && !limitExceeded,
+                IzinVerildi = allowed,
                 LimitAsildi = limitExceeded,
                 Mesaj = message
             };

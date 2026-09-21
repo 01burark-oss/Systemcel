@@ -50,7 +50,12 @@ public sealed class AiUsageQuotaServiceTests
         }
 
         Assert.NotNull(lastAllowed);
+        Assert.True(lastAllowed.IzinVerildi);
         Assert.Equal(0, lastAllowed.Kalan);
+
+        var exhaustedStatus = await service.GetStatusAsync();
+        Assert.False(exhaustedStatus.IzinVerildi);
+        Assert.True(exhaustedStatus.LimitAsildi);
 
         var blocked = await service.ConsumeAsync();
 

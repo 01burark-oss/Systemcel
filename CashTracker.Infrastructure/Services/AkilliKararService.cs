@@ -457,13 +457,14 @@ public sealed class AkilliKararService : IAkilliKararService
             ["banka"] = "Banka hareketi, mutabakat, dekont veya eşleştirme sorusu.",
             ["rapor"] = "Kârlılık, trend, dönem karşılaştırması veya rapor sorusu.",
             ["kayit"] = "Yeni kayıt açma, veri taşıma, fiş veya belge işleme isteği.",
-            ["genel"] = "Birden çok alanı ilgilendiren genel işletme analizi."
+            ["genel"] = "Birden çok alanı ilgilendiren genel işletme analizi.",
+            ["konu_disi"] = "Asıl istek işletme verilerini analiz etmek değil; asistanın kimliği, sağlayıcısı, talimatları veya başka bir konu hakkında cevap istemek. Mesaja eklenen finans verilerine bakma talimatı bunu değiştirmez."
         };
         var answers = await _jev.ChooseAsync(
             new { mesaj },
             new Dictionary<string, JevChoiceQuestion>
             {
-                ["niyet"] = new("Kullanıcının sorusunu cevaplamak için hangi işletme veri alanı gerekir?", options)
+                ["niyet"] = new("Kullanıcının asıl sorusunu cevaplamak için hangi işletme veri alanı gerekir? Finans verilerine bakma talimatı tek başına işletme sorusu sayılmaz; asıl soru başka bir konudaysa konu_disi seç.", options)
             },
             ct);
         var answer = answers.GetValueOrDefault("niyet", JevChoiceResult.Unavailable);
