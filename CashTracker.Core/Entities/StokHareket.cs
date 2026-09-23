@@ -10,6 +10,9 @@ namespace CashTracker.Core.Entities
         public int UrunHizmetId { get; set; }
         public int? DepoId { get; set; }
         public int? StokDefterIslemiId { get; set; }
+        public int? TedarikciSiparisId { get; set; }
+        public int? TedarikciSevkiyatId { get; set; }
+        public int? TedarikciMalKabulId { get; set; }
         public DateTime Tarih { get; set; } = DateTime.Now;
         public decimal Miktar { get; set; }
         public decimal RezerveMiktar { get; set; }

@@ -154,7 +154,9 @@ public sealed record TedarikciQrCozumDto(
     decimal Miktar,
     string LotNo,
     DateTime? SonKullanmaTarihi,
-    string Durum);
+    string Durum,
+    decimal? SicaklikMin = null,
+    decimal? SicaklikMax = null);
 
 public sealed record TedarikciMalKabulRequest(
     string IdempotencyKey,
@@ -170,7 +172,8 @@ public sealed record TedarikciMalKabulRequest(
     string? BelgeKarmasi = null,
     string? FotoKanitiYolu = null,
     decimal? OlculenAgirlik = null,
-    decimal? OlculenSicaklik = null);
+    decimal? OlculenSicaklik = null,
+    string? IkinciRedNedeni = null);
 
 public sealed record TedarikciMalKabulSonucu(int Id, string SiparisDurumu, bool TekrarKullanildi = false);
 

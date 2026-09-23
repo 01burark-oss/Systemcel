@@ -213,7 +213,7 @@ builder.Services.AddSingleton<IBildirimOutboxService>(sp => sp.GetRequiredServic
 builder.Services.AddSingleton<IBildirimKanalAdapter, UygulamaBildirimAdapter>();
 builder.Services.AddSingleton<IEmailDeliveryClient, SmtpEmailDeliveryClient>();
 builder.Services.AddSingleton<IBildirimKanalAdapter, EpostaBildirimAdapter>();
-builder.Services.AddSingleton<IBildirimKanalAdapter>(_ => new YapilandirilmamisBildirimAdapter(BildirimKanallari.Telegram));
+builder.Services.AddSingleton<IBildirimKanalAdapter, TelegramBildirimAdapter>();
 builder.Services.AddSingleton<BildirimDeliveryService>();
 builder.Services.AddHostedService<BildirimDeliveryHostedService>();
 builder.Services.AddSingleton<ISystemcelYonetimService, SystemcelYonetimService>();
@@ -286,6 +286,7 @@ builder.Services.AddSingleton<ITelegramApprovalService, TelegramApprovalService>
 builder.Services.AddSingleton<ITelegramReceiptSessionStore, TelegramReceiptSessionStore>();
 builder.Services.AddSingleton<ITelegramStockSessionStore, TelegramStockSessionStore>();
 builder.Services.AddSingleton<ITelegramPairingService, TelegramPairingService>();
+builder.Services.AddSingleton<ITelegramBildirimBaglantiService, TelegramBildirimBaglantiService>();
 builder.Services.AddSingleton<TelegramCommandService>();
 builder.Services.AddSingleton<TelegramPollingService>();
 if (OperatingSystem.IsWindows())

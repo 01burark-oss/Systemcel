@@ -32,6 +32,7 @@ namespace CashTracker.Infrastructure.Services
         private readonly IBarcodeReaderService _barcodeReaderService;
         private readonly ITelegramStockSessionStore _stockSessionStore;
         private readonly ITelegramPairingService? _telegramPairingService;
+        private readonly ITelegramBildirimBaglantiService? _telegramBildirimBaglantiService;
 
         public TelegramCommandService(
             TelegramBotService telegram,
@@ -50,7 +51,8 @@ namespace CashTracker.Infrastructure.Services
             IStokService stokService,
             IBarcodeReaderService barcodeReaderService,
             ITelegramStockSessionStore stockSessionStore,
-            ITelegramPairingService? telegramPairingService = null)
+            ITelegramPairingService? telegramPairingService = null,
+            ITelegramBildirimBaglantiService? telegramBildirimBaglantiService = null)
         {
             _telegram = telegram;
             _settings = settings;
@@ -69,6 +71,7 @@ namespace CashTracker.Infrastructure.Services
             _barcodeReaderService = barcodeReaderService;
             _stockSessionStore = stockSessionStore;
             _telegramPairingService = telegramPairingService;
+            _telegramBildirimBaglantiService = telegramBildirimBaglantiService;
         }
 
         public async Task ProcessUpdateAsync(TelegramUpdate update, CancellationToken ct = default)
@@ -77,7 +80,8 @@ namespace CashTracker.Infrastructure.Services
                 return;
 
             var text = (update.Text ?? string.Empty).Trim();
-            if (TryHandlePairingStart(update, text, out var pairingMessage))
+            var pairingMessage = await TryHandlePairingStartAsync(update, text, ct);
+            if (pairingMessage is not null)
             {
                 await _telegram.SendTextAsync(ToChatId(update.ChatId), pairingMessage, ct);
                 return;
@@ -291,26 +295,30 @@ namespace CashTracker.Infrastructure.Services
             }
         }
 
-        private bool TryHandlePairingStart(TelegramUpdate update, string text, out string message)
+        private async Task<string?> TryHandlePairingStartAsync(
+            TelegramUpdate update, string text, CancellationToken ct)
         {
-            message = string.Empty;
-            if (_telegramPairingService is null ||
-                string.IsNullOrWhiteSpace(text) ||
+            if (string.IsNullOrWhiteSpace(text) ||
                 !TryParseCommand(text, out var command, out var args) ||
                 command != "/start" ||
                 args.Length == 0)
             {
-                return false;
+                return null;
             }
 
             var code = args[0]?.Trim() ?? string.Empty;
+            if (_telegramBildirimBaglantiService is not null &&
+                await _telegramBildirimBaglantiService.TryCompleteAsync(code, update.ChatId, update.UserId, ct))
+                return "Systemcel bildirim bağlantısı tamamlandı. Bu bağlantı üzerinden işletme bildirimlerini alabilirsiniz.";
+            if (_telegramPairingService is null)
+                return "Eşleştirme kodu geçersiz veya süresi doldu.";
+            string message;
             if (_telegramPairingService.TryCompletePairing(code, update.ChatId, update.UserId, out message))
-                return true;
+                return message;
 
-            message = string.IsNullOrWhiteSpace(message)
+            return string.IsNullOrWhiteSpace(message)
                 ? "Eşleştirme kodu geçersiz veya süresi doldu."
                 : message;
-            return true;
         }
 
         private async Task StartReceiptSessionAsync(TelegramUpdate update, CancellationToken ct)

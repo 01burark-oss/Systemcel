@@ -32,12 +32,16 @@ public sealed class BrutKarMarjiService : IBrutKarMarjiService
         if (bitis.Date < baslangic.Date)
             throw new ArgumentException("Bitiş tarihi başlangıç tarihinden önce olamaz.", nameof(bitis));
 
+        var endExclusive = bitis.Date == DateTime.MaxValue.Date
+            ? DateTime.MaxValue
+            : bitis.Date.AddDays(1);
         var businessId = await _isletmeService.GetActiveIdAsync();
         var activeBranch = _subeKurService is null ? null : (await _subeKurService.GetContextAsync(ct)).AktifSube;
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
         var invoiceQuery = db.Faturalar.AsNoTracking()
-            .Where(x => x.IsletmeId == businessId && (x.Durum == FaturaDurum.Kesildi || x.Durum == FaturaDurum.KismiOdendi || x.Durum == FaturaDurum.Odendi));
+            .Where(x => x.IsletmeId == businessId && x.Tarih < endExclusive &&
+                (x.Durum == FaturaDurum.Kesildi || x.Durum == FaturaDurum.KismiOdendi || x.Durum == FaturaDurum.Odendi));
         if (activeBranch is not null)
             invoiceQuery = activeBranch.Varsayilan
                 ? invoiceQuery.Where(x => x.SubeId == activeBranch.Id || x.SubeId == null)
@@ -52,18 +56,18 @@ public sealed class BrutKarMarjiService : IBrutKarMarjiService
                 .Where(x => x.IsletmeId == businessId && invoiceIds.Contains(x.FaturaId) && x.UrunHizmetId.HasValue && x.StokEtkilesin)
                 .Select(x => new InvoiceLineRow(x.Id, x.FaturaId, x.UrunHizmetId!.Value, x.Miktar, x.SatirNetTutar))
                 .ToListAsync(ct);
-        var productIds = invoiceLines.Select(x => x.UrunHizmetId).Distinct().ToList();
+        var linesByInvoice = invoiceLines.ToLookup(x => x.InvoiceId);
         var movementQuery = db.StokHareketleri.AsNoTracking()
-            .Where(x => x.IsletmeId == businessId);
+            .Where(x => x.IsletmeId == businessId && x.Tarih < endExclusive);
         if (activeBranch is not null)
             movementQuery = activeBranch.Varsayilan
                 ? movementQuery.Where(x => x.SubeId == activeBranch.Id || x.SubeId == null)
                 : movementQuery.Where(x => x.SubeId == activeBranch.Id);
-        var productIdsFromMovements = await movementQuery
-            .Select(x => x.UrunHizmetId)
-            .Distinct()
+        var movements = await movementQuery
+            .Select(x => new StockMovementRow(x.Id, x.UrunHizmetId, x.SubeId, x.Tarih, x.Miktar, x.BirimMaliyetTry, x.Kaynak, x.HareketTipi))
             .ToListAsync(ct);
-        productIds = productIds.Union(productIdsFromMovements).Distinct().ToList();
+        var productIds = invoiceLines.Select(x => x.UrunHizmetId)
+            .Union(movements.Select(x => x.ProductId)).Distinct().ToList();
         var productTypes = productIds.Count == 0
             ? new Dictionary<int, string>()
             : await db.UrunHizmetleri.AsNoTracking()
@@ -71,17 +75,10 @@ public sealed class BrutKarMarjiService : IBrutKarMarjiService
                 .Select(x => new { x.Id, x.Tip })
                 .ToDictionaryAsync(x => x.Id, x => x.Tip, ct);
 
-        List<StockMovementRow> movements = productIds.Count == 0
-            ? []
-            : await movementQuery
-                .Where(x => productIds.Contains(x.UrunHizmetId))
-                .Select(x => new StockMovementRow(x.Id, x.UrunHizmetId, x.SubeId, x.Tarih, x.Miktar, x.BirimMaliyetTry, x.Kaynak, x.HareketTipi))
-                .ToListAsync(ct);
-
         var events = new List<CostEvent>();
         foreach (var invoice in invoices)
         {
-            foreach (var line in invoiceLines.Where(x => x.InvoiceId == invoice.Id && IsProduct(productTypes, x.UrunHizmetId)))
+            foreach (var line in linesByInvoice[invoice.Id].Where(x => IsProduct(productTypes, x.UrunHizmetId)))
             {
                 if (line.Quantity <= 0m)
                 {
@@ -198,7 +195,10 @@ public sealed class BrutKarMarjiService : IBrutKarMarjiService
     }
 
     private static bool IsProduct(IReadOnlyDictionary<int, string> productTypes, int productId) => productTypes.TryGetValue(productId, out var type) && string.Equals(type, "Urun", StringComparison.OrdinalIgnoreCase);
-    private static bool IsInvoiceStockSource(string source) => string.Equals(source, "Fatura", StringComparison.OrdinalIgnoreCase) || string.Equals(source, "HizliSatis", StringComparison.OrdinalIgnoreCase);
+    private static bool IsInvoiceStockSource(string source) =>
+        string.Equals(source, "Fatura", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(source, "HizliSatis", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(source, "PazaryeriMalKabul", StringComparison.OrdinalIgnoreCase);
     private static bool IsTransfer(string movementType) => movementType.StartsWith("Transfer", StringComparison.OrdinalIgnoreCase);
     private static int? ResolveCostBranchId(int? eventBranchId, SubeDto? activeBranch) =>
         activeBranch is { Varsayilan: true } && (eventBranchId is null || eventBranchId == activeBranch.Id)

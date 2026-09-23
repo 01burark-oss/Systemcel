@@ -192,8 +192,8 @@ export function TelegramBaglantisiSayfasi({ onTelegramDurumuDegisti }: TelegramB
                 <strong>Aktif</strong>
               </div>
               <div>
-                <span>Komutlar</span>
-                <strong>/yardim</strong>
+                <span>Bildirimler</span>
+                <strong>Açık</strong>
               </div>
             </div>
           </section>

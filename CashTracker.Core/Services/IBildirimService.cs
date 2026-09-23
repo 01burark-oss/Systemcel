@@ -13,6 +13,8 @@ public interface IBildirimService
 
 public interface IBildirimOutboxService
 {
+    Task<IReadOnlyList<BasarisizBildirimTeslimi>> ListFailedAsync(int limit = 100, CancellationToken ct = default);
+    Task RetryFailedAsync(long id, DateTime nowUtc, CancellationToken ct = default);
     Task EnqueueAsync(int isletmeId, string kullaniciRef, int? bildirimId, string idempotencyAnahtari, string kanal, string payloadJson, DateTime nowUtc, CancellationToken ct = default);
     Task<IReadOnlyList<BildirimOutboxClaim>> ClaimAsync(int batchSize, DateTime nowUtc, TimeSpan lease, CancellationToken ct = default);
     Task CompleteAsync(long id, string claimToken, DateTime nowUtc, CancellationToken ct = default);

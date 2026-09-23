@@ -150,6 +150,7 @@ public sealed class TedarikciMalKabul
     public decimal KabulEdilenMiktar { get; set; }
     public decimal ReddedilenMiktar { get; set; }
     public string RedNedeni { get; set; } = string.Empty;
+    public string IkinciRedNedeni { get; set; } = string.Empty;
     public string Not { get; set; } = string.Empty;
     public int? SubeId { get; set; }
     public int? DepoId { get; set; }

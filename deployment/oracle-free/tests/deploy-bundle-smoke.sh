@@ -29,6 +29,9 @@ set -euo pipefail
 printf 'backup\n' >>"${DEPLOY_TEST_LOG:?}"
 [[ "${DEPLOY_TEST_BACKUP_FAIL:-0}" != 1 ]]
 SCRIPT
+  if [[ "${version}" == v1 ]]; then
+    printf 'echo "The old backup script must not run for a new candidate." >&2\nexit 42\n' >>"${source_repo}/deployment/oracle-free/scripts/backup.sh"
+  fi
   cat >"${source_repo}/deployment/oracle-free/scripts/deploy.sh" <<'SCRIPT'
 #!/usr/bin/env bash
 set -euo pipefail

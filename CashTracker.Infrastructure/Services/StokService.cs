@@ -33,14 +33,7 @@ namespace CashTracker.Infrastructure.Services
             var branch = _subeKurService is null ? null : (await _subeKurService.GetContextAsync(ct)).AktifSube;
             await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
-            var amounts = await db.StokHareketleri
-                .AsNoTracking()
-                .Where(x => x.IsletmeId == activeIsletmeId && x.UrunHizmetId == urunHizmetId &&
-                    (branch == null || x.SubeId == branch.Id || (branch.Varsayilan && x.SubeId == null)))
-                .Select(x => x.Miktar)
-                .ToListAsync(ct);
-
-            return amounts.Sum();
+            return await SumStockMovementsAsync(db, activeIsletmeId, urunHizmetId, branch, ct);
         }
 
         public async Task<List<StokHareket>> GetRecentMovementsAsync(int limit = 20, CancellationToken ct = default)
@@ -108,18 +101,54 @@ namespace CashTracker.Infrastructure.Services
             db.StokHareketleri.Add(movement);
             await db.SaveChangesAsync(ct);
 
-            var amounts = await db.StokHareketleri
-                .AsNoTracking()
-                .Where(x => x.IsletmeId == activeIsletmeId && x.UrunHizmetId == request.UrunHizmetId &&
-                    (activeBranch == null || x.SubeId == activeBranch.Id || (activeBranch.Varsayilan && x.SubeId == null)))
-                .Select(x => x.Miktar)
-                .ToListAsync(ct);
+            var currentStock = await SumStockMovementsAsync(db, activeIsletmeId, request.UrunHizmetId, activeBranch, ct);
 
             return new StokHareketResult
             {
                 Hareket = movement,
-                MevcutStok = amounts.Sum()
+                MevcutStok = currentStock
             };
+        }
+
+        private static async Task<decimal> SumStockMovementsAsync(
+            CashTrackerDbContext db,
+            int businessId,
+            int productId,
+            SubeDto? branch,
+            CancellationToken ct)
+        {
+            if (db.Database.IsSqlite())
+            {
+                // EF Core SQLite cannot translate Sum(decimal). Keep decimal output and
+                // let SQLite perform the aggregate instead of materializing every row.
+                FormattableString query = branch switch
+                {
+                    { Varsayilan: true } => $"""
+                        SELECT COALESCE(SUM("Miktar"), 0) AS "Value"
+                        FROM "StokHareket"
+                        WHERE "IsletmeId" = {businessId} AND "UrunHizmetId" = {productId}
+                            AND ("SubeId" = {branch.Id} OR "SubeId" IS NULL)
+                        """,
+                    { } => $"""
+                        SELECT COALESCE(SUM("Miktar"), 0) AS "Value"
+                        FROM "StokHareket"
+                        WHERE "IsletmeId" = {businessId} AND "UrunHizmetId" = {productId}
+                            AND "SubeId" = {branch.Id}
+                        """,
+                    _ => $"""
+                        SELECT COALESCE(SUM("Miktar"), 0) AS "Value"
+                        FROM "StokHareket"
+                        WHERE "IsletmeId" = {businessId} AND "UrunHizmetId" = {productId}
+                        """
+                };
+
+                return await db.Database.SqlQuery<decimal>(query).SingleAsync(ct);
+            }
+
+            var movements = db.StokHareketleri.AsNoTracking()
+                .Where(x => x.IsletmeId == businessId && x.UrunHizmetId == productId &&
+                    (branch == null || x.SubeId == branch.Id || (branch.Varsayilan && x.SubeId == null)));
+            return await movements.SumAsync(x => x.Miktar, ct);
         }
 
         private static async Task<int?> ResolveWarehouseIdAsync(

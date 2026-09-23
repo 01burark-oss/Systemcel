@@ -1039,6 +1039,7 @@ namespace CashTracker.Infrastructure.Services
         private static bool ContainsDirectContactInfo(string value)
         {
             return EmailRegex.IsMatch(value) ||
+                ObfuscatedEmailRegex.IsMatch(value) ||
                 UrlRegex.IsMatch(value) ||
                 PhoneRegex.IsMatch(value) ||
                 ContainsFragmentedPhoneNumber(value) ||
@@ -1370,6 +1371,10 @@ namespace CashTracker.Infrastructure.Services
             @"[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,}",
             RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled);
 
+        private static readonly Regex ObfuscatedEmailRegex = new(
+            @"\b[A-Z0-9._%+\-]+\s*(?:@|\[(?:at)\]|\((?:at)\)|\s+at\s+)\s*[A-Z0-9\-]+(?:\s*(?:\.|\[(?:dot)\]|\((?:dot)\)|\s+dot\s+)\s*[A-Z0-9\-]+)*\s*(?:\.|\[(?:dot)\]|\((?:dot)\)|\s+dot\s+)\s*[A-Z]{2,}\b",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled);
+
         private static readonly Regex UrlRegex = new(
             @"\b(?:https?://|www\.|[a-z0-9\-]+\.(?:com|net|org|io|co|tr|com\.tr|info|biz))\S*",
             RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled);
@@ -1383,7 +1388,7 @@ namespace CashTracker.Infrastructure.Services
             RegexOptions.CultureInvariant | RegexOptions.Compiled);
 
         private static readonly Regex SocialContactRegex = new(
-            @"\b(?:instagram|whatsapp|telegram|linkedin|facebook|x\.com|twitter|tiktok|@)\b",
+            @"\b(?:instagram|whatsapp|telegram|linkedin|facebook|x\.com|twitter|tiktok)\b|(?<![\w.])@[a-z0-9_][a-z0-9._]{1,}|(?:^|\s)(?:ig|insta)\s*[:=]\s*@?[a-z0-9_][a-z0-9._]{1,}",
             RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled);
     }
 }

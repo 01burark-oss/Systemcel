@@ -248,6 +248,46 @@ namespace CashTracker.Tests
             Assert.Contains("paylaşılamaz", fragmentedError.Message, StringComparison.OrdinalIgnoreCase);
         }
 
+        [Theory]
+        [InlineData("E-posta: ada [at] example [dot] com")]
+        [InlineData("E-posta: ada (at) example (dot) com")]
+        [InlineData("Numaram 0532 (iş telefonu) 000-00-00.")]
+        [InlineData("IG: @ada.muhasebe")]
+        [InlineData("Bana @ada.muhasebe üzerinden ulaşın.")]
+        public async Task PazaryeriTalebi_ObfuscateEdilmisIletisimBilgileriniEngeller(string message)
+        {
+            using var fixture = await MuhasebeciPortalFixture.CreateAsync();
+            var ids = await fixture.CreateAccountantAndCustomerAsync();
+            await fixture.PublishDefaultProfileAsync();
+            fixture.CurrentUser.Set("customer", "customer@example.com", "Bahar Kafe");
+
+            var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                fixture.Portal.SubmitMarketplaceRequestAsync(ids.AccountantId, new MuhasebeciTalepOlusturRequest
+                {
+                    YetkiSeviyesi = MuhasebeciYetkiSeviyeleri.OkumaRapor,
+                    Mesaj = message
+                }));
+
+            Assert.Contains("paylaşılamaz", error.Message, StringComparison.OrdinalIgnoreCase);
+        }
+
+        [Fact]
+        public async Task PazaryeriTalebi_SayisalIsVeRaporMetniniIletisimBilgisiSanmaz()
+        {
+            using var fixture = await MuhasebeciPortalFixture.CreateAsync();
+            var ids = await fixture.CreateAccountantAndCustomerAsync();
+            await fixture.PublishDefaultProfileAsync();
+            fixture.CurrentUser.Set("customer", "customer@example.com", "Bahar Kafe");
+
+            var result = await fixture.Portal.SubmitMarketplaceRequestAsync(ids.AccountantId, new MuhasebeciTalepOlusturRequest
+            {
+                YetkiSeviyesi = MuhasebeciYetkiSeviyeleri.OkumaRapor,
+                Mesaj = "2026 raporunda 12 şubenin 500.000 TL gelirini ve 8 çalışanı değerlendirelim."
+            });
+
+            Assert.Equal(MuhasebeciTalepDurumlari.Beklemede, result.Durum);
+        }
+
         [Fact]
         public async Task Sohbet_BildirimDurumuOkunmamisMesajiGosterirVeAcilincaTemizler()
         {

@@ -32,7 +32,8 @@ namespace Systemcel.Api.Api
         private readonly IDashboardSnapshotService? _dashboardSnapshotService;
         private readonly BackupReportService? _backupReportService;
         private readonly TelegramSettings? _telegramSettings;
-        private readonly ITelegramPairingService? _telegramPairingService;
+        private readonly ITelegramBildirimBaglantiService? _telegramBildirimBaglantiService;
+        private readonly TelegramBotService? _telegramBotService;
         private readonly ICariService? _cariService;
         private readonly IFaturaService? _faturaService;
         private readonly IGibPortalService? _gibPortalService;
@@ -65,7 +66,6 @@ namespace Systemcel.Api.Api
             IDashboardSnapshotService dashboardSnapshotService,
             BackupReportService backupReportService,
             TelegramSettings telegramSettings,
-            ITelegramPairingService telegramPairingService,
             ICariService? cariService = null,
             IFaturaService? faturaService = null,
             IGibPortalService? gibPortalService = null,
@@ -84,7 +84,9 @@ namespace Systemcel.Api.Api
             IBelgeSaglikService? belgeSaglikService = null,
             IBildirimService? bildirimService = null,
             ICurrentUserContext? currentUserContext = null,
-            IWebHostEnvironment? hostEnvironment = null)
+            IWebHostEnvironment? hostEnvironment = null,
+            ITelegramBildirimBaglantiService? telegramBildirimBaglantiService = null,
+            TelegramBotService? telegramBotService = null)
         {
             _kasaService = kasaService;
             _summaryService = summaryService;
@@ -96,7 +98,8 @@ namespace Systemcel.Api.Api
             _dashboardSnapshotService = dashboardSnapshotService;
             _backupReportService = backupReportService;
             _telegramSettings = telegramSettings;
-            _telegramPairingService = telegramPairingService;
+            _telegramBildirimBaglantiService = telegramBildirimBaglantiService;
+            _telegramBotService = telegramBotService;
             _cariService = cariService;
             _faturaService = faturaService;
             _gibPortalService = gibPortalService;
@@ -414,11 +417,11 @@ namespace Systemcel.Api.Api
 
             if (_runtimeOptions is not null && _telegramSettings is not null)
             {
-                app.MapGet("/api/ekran/telegram", () =>
+                app.MapGet("/api/ekran/telegram", async () =>
                 {
                     try
                     {
-                        return Results.Ok(BuildTelegramScreen());
+                        return Results.Ok(await BuildTelegramScreenAsync());
                     }
                     catch (Exception ex)
                     {
@@ -431,8 +434,9 @@ namespace Systemcel.Api.Api
                     await EnsureBusinessFeatureAsync(EntitlementFeatures.TelegramAutomation);
                     try
                     {
-                        _telegramPairingService?.RenewCode();
-                        return Results.Ok(BuildTelegramScreen("Telegram bağlantı linki hazırlandı."));
+                        var (businessId, userRef) = await GetTelegramScopeAsync();
+                        await _telegramBildirimBaglantiService!.RenewCodeAsync(businessId, userRef);
+                        return Results.Ok(await BuildTelegramScreenAsync("Telegram bağlantı linki hazırlandı."));
                     }
                     catch (Exception ex)
                     {
@@ -440,14 +444,16 @@ namespace Systemcel.Api.Api
                     }
                 });
 
-                app.MapPost("/api/ekran/telegram/kontrol", () =>
+                app.MapPost("/api/ekran/telegram/kontrol", async () =>
                 {
                     try
                     {
-                        var message = _telegramSettings.IsEnabled
+                        var (businessId, userRef) = await GetTelegramScopeAsync();
+                        var linked = await _telegramBildirimBaglantiService!.GetStateAsync(businessId, userRef);
+                        var message = linked.Bagli
                             ? "Telegram bağlantısı aktif."
                             : "Bağlantı bekleniyor. Telegram'da SystemcelBot'a /start kodunu gönderdikten sonra resmi bot servisi bağlantıyı doğrulayacak.";
-                        return Results.Ok(BuildTelegramScreen(message));
+                        return Results.Ok(await BuildTelegramScreenAsync(message));
                     }
                     catch (Exception ex)
                     {
@@ -458,13 +464,17 @@ namespace Systemcel.Api.Api
                 app.MapPost("/api/ekran/telegram/test", async () =>
                 {
                     await EnsureBusinessFeatureAsync(EntitlementFeatures.TelegramAutomation);
-                    if (_backupReportService is null || !_telegramSettings!.IsEnabled)
+                    if (_telegramBotService is null || !_telegramSettings!.HasBotToken)
                         return Results.BadRequest(new ApiHata("Telegram bağlantısı aktif değil."));
 
                     try
                     {
-                        await _backupReportService.SendTextAsync("Systemcel test mesajı: Telegram bağlantınız çalışıyor.");
-                        return Results.Ok(BuildTelegramScreen("Test mesajı Telegram'a gönderildi."));
+                        var (businessId, userRef) = await GetTelegramScopeAsync();
+                        var linked = await _telegramBildirimBaglantiService!.GetStateAsync(businessId, userRef);
+                        if (!linked.Bagli)
+                            return Results.BadRequest(new ApiHata("Telegram bağlantısı aktif değil."));
+                        await _telegramBotService.SendTextAsync(linked.ChatId, "Systemcel test mesajı: Telegram bağlantınız çalışıyor.");
+                        return Results.Ok(await BuildTelegramScreenAsync("Test mesajı Telegram'a gönderildi."));
                     }
                     catch (Exception ex)
                     {
@@ -472,15 +482,13 @@ namespace Systemcel.Api.Api
                     }
                 });
 
-                app.MapDelete("/api/ekran/telegram", () =>
+                app.MapDelete("/api/ekran/telegram", async () =>
                 {
                     try
                     {
-                        _telegramSettings.ChatId = string.Empty;
-                        _telegramSettings.AllowedUserIds = string.Empty;
-                        UserTelegramSetupStore.Save(_runtimeOptions!.AppDataPath, new UserTelegramSetup());
-                        _telegramPairingService?.ClearPairing();
-                        return Results.Ok(BuildTelegramScreen("Telegram bağlantısı kaldırıldı.", false));
+                        var (businessId, userRef) = await GetTelegramScopeAsync();
+                        await _telegramBildirimBaglantiService!.ClearAsync(businessId, userRef);
+                        return Results.Ok(await BuildTelegramScreenAsync("Telegram bağlantısı kaldırıldı."));
                     }
                     catch (Exception ex)
                     {
@@ -1592,6 +1600,18 @@ namespace Systemcel.Api.Api
                 var entitlement = await _entitlementGuard.GetAsync(activeBusiness.Id, HesapTipleri.Isletme, CancellationToken.None);
                 bankaMutabakatiAktif = !entitlement.SaltOkunur && entitlement.BankaMutabakatiAktif;
             }
+            var telegramUserRef = _currentUserContext?.GetCurrentUser()?.ProviderUserId;
+            var telegramActive = false;
+            if (_telegramBildirimBaglantiService is not null &&
+                !string.IsNullOrWhiteSpace(telegramUserRef) && !access.MuhasebeciMusteriBaglami)
+            {
+                try
+                {
+                    telegramActive = (await _telegramBildirimBaglantiService.GetStateAsync(
+                        activeBusiness.Id, telegramUserRef)).Bagli;
+                }
+                catch (UnauthorizedAccessException) { }
+            }
 
             return new UstBarDto
             {
@@ -1602,7 +1622,7 @@ namespace Systemcel.Api.Api
                 muhasebeciIsletmeId = access.MuhasebeciIsletmeId,
                 muhasebeciAdi = string.IsNullOrWhiteSpace(accountant?.Ad) ? string.Empty : accountant!.Ad.Trim(),
                 muhasebeciYetkiSeviyesi = access.YetkiSeviyesi,
-                telegramAktif = _telegramSettings?.IsEnabled ?? false,
+                telegramAktif = telegramActive,
                 bankaMutabakatiAktif = bankaMutabakatiAktif,
                 bildirimVar = notifications.Any(x => !x.Okundu),
                 bildirimSayisi = notifications.Count(x => !x.Okundu),
@@ -2243,25 +2263,39 @@ namespace Systemcel.Api.Api
             };
         }
 
-        private TelegramEkranDto BuildTelegramScreen(string mesaj = "", bool? bagliOverride = null)
+        private async Task<(int BusinessId, string UserRef)> GetTelegramScopeAsync()
         {
-            var pairing = _telegramPairingService?.EnsureActiveCode() ??
-                new TelegramPairingCode("SC-000000", DateTime.UtcNow, DateTime.UtcNow.AddMinutes(10));
+            var userRef = _currentUserContext?.GetCurrentUser()?.ProviderUserId;
+            if (string.IsNullOrWhiteSpace(userRef) || _isletmeService is null)
+                throw new UnauthorizedAccessException("Telegram bağlantısı için oturum açın.");
+            return (await _isletmeService.GetActiveIdAsync(), userRef);
+        }
+
+        private async Task<TelegramEkranDto> BuildTelegramScreenAsync(string mesaj = "")
+        {
+            var (businessId, userRef) = await GetTelegramScopeAsync();
+            var linked = await _telegramBildirimBaglantiService!.GetStateAsync(businessId, userRef);
+            var pairing = linked.Bagli
+                ? null
+                : await _telegramBildirimBaglantiService.EnsureCodeAsync(businessId, userRef);
             var botUsername = string.IsNullOrWhiteSpace(_telegramSettings?.BotUsername)
                 ? "SystemcelBot"
                 : _telegramSettings.BotUsername.Trim().TrimStart('@');
-            var link = $"https://t.me/{Uri.EscapeDataString(botUsername)}?start={Uri.EscapeDataString(pairing.Code)}";
-            var isConnected = bagliOverride ?? (_telegramSettings?.IsEnabled ?? false);
+            var link = pairing is null
+                ? string.Empty
+                : $"https://t.me/{Uri.EscapeDataString(botUsername)}?start={Uri.EscapeDataString(pairing.Code)}";
+            var isConnected = linked.Bagli && (_telegramSettings?.HasBotToken ?? false);
 
             return new TelegramEkranDto
             {
                 bagli = isConnected,
                 durum = isConnected ? "Bağlı" : "Bağlı değil",
                 botKullaniciAdi = botUsername,
-                eslestirmeKodu = pairing.Code,
+                eslestirmeKodu = pairing?.Code ?? string.Empty,
                 baglantiLinki = link,
-                qrUrl = $"https://api.qrserver.com/v1/create-qr-code/?size=260x260&data={Uri.EscapeDataString(link)}",
-                gecerlilikDakika = pairing.MinutesLeft,
+                qrUrl = pairing is null ? string.Empty : "data:image/svg+xml;base64," + Convert.ToBase64String(
+                    Encoding.UTF8.GetBytes(MarketplaceQrSvgRenderer.Render(link, accessibleLabel: "Telegram bağlantı QR kodu"))),
+                gecerlilikDakika = pairing?.MinutesLeft ?? 0,
                 mesaj = mesaj
             };
         }
@@ -2342,7 +2376,13 @@ namespace Systemcel.Api.Api
 
         private async Task<ApiMesaj> SendDashboardSummaryToTelegramAsync()
         {
-            if (_telegramSettings is null || !_telegramSettings.IsEnabled || _summaryService is null || _kasaService is null || _isletmeService is null || _backupReportService is null)
+            if (_telegramSettings is null || !_telegramSettings.HasBotToken ||
+                _summaryService is null || _kasaService is null || _isletmeService is null ||
+                _telegramBotService is null || _telegramBildirimBaglantiService is null)
+                return new ApiMesaj(AppLocalization.T("main.telegram.notConfigured"));
+            var (businessId, userRef) = await GetTelegramScopeAsync();
+            var linked = await _telegramBildirimBaglantiService.GetStateAsync(businessId, userRef);
+            if (!linked.Bagli)
                 return new ApiMesaj(AppLocalization.T("main.telegram.notConfigured"));
 
             var today = DateTime.Today;
@@ -2357,7 +2397,7 @@ namespace Systemcel.Api.Api
 
             var title = AppLocalization.F("main.telegram.dynamicTitle", SummaryRangeCatalog.GetDisplay(rangeCode, today));
             var text = BuildTelegramSummaryText(title, from, to, summary, records, businessName);
-            await _backupReportService!.SendTextAsync(text);
+            await _telegramBotService.SendTextAsync(linked.ChatId, text);
 
             return new ApiMesaj(AppLocalization.T("main.telegram.sent"));
         }

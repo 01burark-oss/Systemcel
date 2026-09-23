@@ -9,6 +9,33 @@ internal static class YonetimApi
 {
     public static void MapYonetimApi(this WebApplication app)
     {
+        app.MapGet("/api/ekran/yonetim/bildirim-teslimleri", async (
+            ISystemcelYonetimService management,
+            IBildirimOutboxService outbox,
+            CancellationToken ct) =>
+        {
+            if (!await management.IsCurrentUserAdminAsync(ct))
+                return Results.Json(new ApiHata("Yönetici yetkisi gerekir."), statusCode: StatusCodes.Status403Forbidden);
+            return Results.Ok(await outbox.ListFailedAsync(ct: ct));
+        });
+
+        app.MapPost("/api/ekran/yonetim/bildirim-teslimleri/{id:long}/yeniden-dene", async (
+            long id,
+            ISystemcelYonetimService management,
+            IBildirimOutboxService outbox,
+            CancellationToken ct) =>
+        {
+            if (!await management.IsCurrentUserAdminAsync(ct))
+                return Results.Json(new ApiHata("Yönetici yetkisi gerekir."), statusCode: StatusCodes.Status403Forbidden);
+            try
+            {
+                await outbox.RetryFailedAsync(id, DateTime.UtcNow, ct);
+                return Results.NoContent();
+            }
+            catch (KeyNotFoundException ex) { return Results.NotFound(new ApiHata(ex.Message)); }
+            catch (InvalidOperationException ex) { return Results.Conflict(new ApiHata(ex.Message)); }
+        }).RequireRateLimiting("sensitive");
+
         app.MapPut("/api/ekran/yonetim/isletmeler/{isletmeId:int}/haklar", async (int isletmeId, EntitlementOverrideRequest request, ISystemcelYonetimService service, CancellationToken ct) =>
         {
             try { return Results.Ok(await service.ApplyEntitlementOverrideAsync(isletmeId, request, ct)); }

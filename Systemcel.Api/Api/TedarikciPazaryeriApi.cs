@@ -471,12 +471,39 @@ internal static class TedarikciPazaryeriApi
             var shipments = await db.TedarikciSevkiyatlari.AsNoTracking().Where(x => x.TedarikciSiparisId == siparisId)
                 .OrderBy(x => x.CreatedAt).Select(x => new { x.Id, x.SevkiyatNo, x.BelgeNo, x.BelgeUuid, x.BelgeDosyaYolu, x.SevkAt, x.RandevuAt, x.PlanlananTeslimAt, x.AracPlaka, x.SurucuAdi, x.Durum }).ToListAsync(ct);
             var receipts = await db.TedarikciMalKabulleri.AsNoTracking().Where(x => x.TedarikciSiparisId == siparisId)
-                .OrderBy(x => x.CreatedAt).Select(x => new { x.Id, x.KabulEdilenMiktar, x.ReddedilenMiktar, x.RedNedeni, x.Not, x.SubeId, x.DepoId, x.IslemYapanKullaniciRef, x.CihazRef, x.IpAdresi, x.BelgeKarmasi, x.FotoKanitiYolu, x.OlculenAgirlik, x.OlculenSicaklik, x.KabulBrutTutar, x.SerbestBirakilanNetTutar, x.HakEdisAktarimReferansi, x.HakEdisAktarimHatasi, x.CreatedAt }).ToListAsync(ct);
+                .OrderBy(x => x.CreatedAt).Select(x => new { x.Id, x.KabulEdilenMiktar, x.ReddedilenMiktar, x.RedNedeni, x.IkinciRedNedeni, x.Not, x.SubeId, x.DepoId, x.IslemYapanKullaniciRef, x.CihazRef, x.IpAdresi, x.BelgeKarmasi, x.FotoKanitiYolu, x.OlculenAgirlik, x.OlculenSicaklik, x.KabulBrutTutar, x.SerbestBirakilanNetTutar, x.HakEdisAktarimReferansi, x.HakEdisAktarimHatasi, x.CreatedAt }).ToListAsync(ct);
             var complaints = await db.TedarikciSiparisSikayetleri.AsNoTracking().Where(x => x.TedarikciSiparisId == siparisId)
                 .OrderBy(x => x.CreatedAt).Select(x => new { x.Kategori, x.Aciklama, x.Talep, x.Durum, x.TedarikciYaniti, x.KapanisNotu, x.CreatedAt, x.UpdatedAt }).ToListAsync(ct);
             var history = await db.TedarikciSiparisDurumKayitlari.AsNoTracking().Where(x => x.TedarikciSiparisId == siparisId)
                 .OrderBy(x => x.CreatedAt).Select(x => new { x.OncekiDurum, x.YeniDurum, x.IslemYapanIsletmeId, x.Aciklama, x.CreatedAt }).ToListAsync(ct);
-            return Results.Ok(new { order.Id, order.SiparisNo, order.Durum, order.GenelToplam, order.ParaBirimi, shipments, receipts, complaints, history });
+            var paymentAllocations = await (from allocation in db.PazaryeriOdemeDagitimlari.AsNoTracking()
+                                            join payment in db.PazaryeriOdemeleri.AsNoTracking() on allocation.PazaryeriOdemeId equals payment.Id
+                                            where allocation.TedarikciSiparisId == siparisId && payment.AnaSiparisId == order.AnaSiparisId
+                                            select new { payment.Id, payment.Saglayici, payment.SaglayiciIslemId, payment.Durum,
+                                                payment.Tutar, allocation.BrutTutar, allocation.IadeTutari }).ToListAsync(ct);
+            var invoiceMatch = await db.TedarikciFaturaEslesmeleri.AsNoTracking()
+                .Where(x => x.TedarikciSiparisId == siparisId)
+                .Select(x => new { x.AliciFaturaId, x.SaticiFaturaId, x.TedarikciBelgeNo, x.TedarikciBelgeUuid })
+                .SingleOrDefaultAsync(ct);
+            var invoices = invoiceMatch is null
+                ? []
+                : await db.Faturalar.AsNoTracking()
+                    .Where(x => x.Id == invoiceMatch.AliciFaturaId || x.Id == invoiceMatch.SaticiFaturaId)
+                    .Select(x => new { x.Id, x.IsletmeId, x.FaturaTipi, x.YerelFaturaNo, x.PortalBelgeNo, x.GenelToplam, x.Durum })
+                    .ToArrayAsync(ct);
+            var settlement = await db.TedarikciHakEdisleri.AsNoTracking()
+                .Where(x => x.TedarikciSiparisId == siparisId)
+                .Select(x => new { x.Id, x.Durum, x.NetTutar, x.OdenenTutar, x.AktarimReferansi })
+                .SingleOrDefaultAsync(ct);
+            var stockMovements = await db.StokHareketleri.AsNoTracking().Where(x => x.TedarikciSiparisId == siparisId)
+                .OrderBy(x => x.Id).Select(x => new { x.Id, x.IsletmeId, x.TedarikciSevkiyatId, x.TedarikciMalKabulId, x.HareketTipi, x.Miktar }).ToListAsync(ct);
+            var cariMovements = await db.CariHareketleri.AsNoTracking().Where(x => x.TedarikciSiparisId == siparisId)
+                .OrderBy(x => x.Id).Select(x => new { x.Id, x.IsletmeId, x.TedarikciMalKabulId, x.HareketTipi, x.Tutar }).ToListAsync(ct);
+            var paymentMovements = await db.TahsilatOdemeleri.AsNoTracking().Where(x => x.TedarikciSiparisId == siparisId)
+                .OrderBy(x => x.Id).Select(x => new { x.Id, x.FaturaId, x.TedarikciMalKabulId, x.Tip, x.Tutar }).ToListAsync(ct);
+            return Results.Ok(new { order.Id, order.SiparisNo, order.Durum, order.GenelToplam, order.ParaBirimi,
+                shipments, receipts, complaints, history,
+                references = new { paymentAllocations, invoiceMatch, invoices, settlement, stockMovements, cariMovements, paymentMovements } });
         }).RequireRateLimiting("sensitive");
 
         app.MapPost("/api/ekran/tedarikci-pazaryeri/tedarikci-siparisler/{siparisId:int}/fatura", async (int siparisId, TedarikciBelgeEsleRequest request, ITedarikciPazaryeriService service, CancellationToken ct) =>

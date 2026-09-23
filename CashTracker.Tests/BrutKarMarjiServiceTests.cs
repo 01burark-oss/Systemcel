@@ -78,6 +78,22 @@ public sealed class BrutKarMarjiServiceTests
         Assert.Equal(1, result.SatisSatiri);
     }
 
+    [Fact]
+    public async Task GetAsync_DoesNotCountMarketplaceReceiptStockMovementTwice()
+    {
+        await using var fixture = await MarginFixture.CreateAsync();
+        await fixture.AddInvoiceAsync("Alis", new DateTime(2026, 8, 1), 1m, 10m, 1_000m);
+        await fixture.AddManualMovementAsync(new DateTime(2026, 8, 1), 10m, 100m, "PazaryeriMalKabul");
+        await fixture.AddInvoiceAsync("Alis", new DateTime(2026, 8, 2), 1m, 10m, 2_000m);
+        await fixture.AddInvoiceAsync("Satis", new DateTime(2026, 8, 3), 1m, 10m, 4_000m);
+
+        var result = await fixture.Service.GetAsync(new DateTime(2026, 8, 1), new DateTime(2026, 8, 31));
+
+        Assert.Equal("Hazir", result.Durum);
+        Assert.Equal(1_500m, result.SatisMaliyetiTry);
+        Assert.Equal(2_500m, result.BrutKarTry);
+    }
+
     private sealed class MarginFixture : IAsyncDisposable
     {
         private readonly SqliteConnection _connection;
@@ -117,10 +133,10 @@ public sealed class BrutKarMarjiServiceTests
             await db.SaveChangesAsync();
         }
 
-        public async Task AddManualMovementAsync(DateTime date, decimal quantity, decimal costTry)
+        public async Task AddManualMovementAsync(DateTime date, decimal quantity, decimal costTry, string source = "Manuel")
         {
             await using var db = _factory.CreateDbContext();
-            db.StokHareketleri.Add(new StokHareket { IsletmeId = 1, UrunHizmetId = ProductId, Tarih = date, Miktar = quantity, BirimMaliyetTry = costTry, Kaynak = "Manuel", HareketTipi = "Giris" });
+            db.StokHareketleri.Add(new StokHareket { IsletmeId = 1, UrunHizmetId = ProductId, Tarih = date, Miktar = quantity, BirimMaliyetTry = costTry, Kaynak = source, HareketTipi = "Giris" });
             await db.SaveChangesAsync();
         }
 

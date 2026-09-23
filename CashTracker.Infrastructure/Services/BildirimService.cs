@@ -184,6 +184,47 @@ public sealed class BildirimService : IBildirimService, IBildirimOutboxService
         }
     }
 
+    public async Task<IReadOnlyList<BasarisizBildirimTeslimi>> ListFailedAsync(int limit = 100, CancellationToken ct = default)
+    {
+        if (limit is < 1 or > 200) throw new ArgumentOutOfRangeException(nameof(limit));
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+        return await db.BildirimTeslimOutboxlari.AsNoTracking()
+            .Where(x => x.Durum == BildirimTeslimDurumlari.DeadLetter || x.Durum == BildirimTeslimDurumlari.Yapilandirilmadi)
+            .OrderByDescending(x => x.UpdatedAt).ThenByDescending(x => x.Id)
+            .Take(limit)
+            .Select(x => new BasarisizBildirimTeslimi(x.Id, x.IsletmeId, x.Kanal, x.Durum,
+                x.DenemeSayisi, x.SonHataKodu, x.UpdatedAt))
+            .ToListAsync(ct);
+    }
+
+    public async Task RetryFailedAsync(long id, DateTime nowUtc, CancellationToken ct = default)
+    {
+        var now = EnsureUtc(nowUtc);
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+        var row = await db.BildirimTeslimOutboxlari.SingleOrDefaultAsync(x => x.Id == id, ct)
+            ?? throw new KeyNotFoundException("Bildirim teslim kaydı bulunamadı.");
+        if (row.Durum is not (BildirimTeslimDurumlari.DeadLetter or BildirimTeslimDurumlari.Yapilandirilmadi))
+            throw new InvalidOperationException("Yalnız başarısız teslim yeniden denenebilir.");
+        var preferences = await db.BildirimTercihleri.AsNoTracking().SingleOrDefaultAsync(x =>
+            x.IsletmeId == row.IsletmeId && x.KullaniciRef == row.KullaniciRef, ct);
+        var channelEnabled = row.Kanal switch
+        {
+            BildirimKanallari.Eposta => preferences?.EpostaAktif == true,
+            BildirimKanallari.Telegram => preferences?.TelegramAktif == true,
+            _ => preferences?.UygulamaAktif ?? true
+        };
+        if (!channelEnabled)
+            throw new InvalidOperationException("Alıcı bu bildirim kanalını kapattı.");
+        row.Durum = BildirimTeslimDurumlari.Bekliyor;
+        row.DenemeSayisi = 0;
+        row.SonrakiDenemeAt = now;
+        row.DeadLetterAt = null;
+        row.ClaimToken = string.Empty;
+        row.ClaimBitisAt = null;
+        row.UpdatedAt = now;
+        await db.SaveChangesAsync(ct);
+    }
+
     public async Task<IReadOnlyList<BildirimOutboxClaim>> ClaimAsync(int batchSize, DateTime nowUtc, TimeSpan lease, CancellationToken ct = default)
     {
         if (batchSize is < 1 or > 100) throw new ArgumentOutOfRangeException(nameof(batchSize));

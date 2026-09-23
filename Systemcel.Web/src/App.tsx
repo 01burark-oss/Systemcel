@@ -1,5 +1,5 @@
 import React from "react";
-import { Building2, ChartNoAxesCombined, House, LogOut, MessageCircle, RefreshCw, Search, UsersRound } from "lucide-react";
+import { Building2, ChartNoAxesCombined, House, LogOut, MessageCircle, Package, RefreshCw, Search, UsersRound } from "lucide-react";
 import { RequireAuth } from "./auth/AuthGate";
 import { AuthUserButton } from "./auth/AuthUserButton";
 import { useSystemcelAuth } from "./auth/SystemcelAuthProvider";
@@ -107,6 +107,9 @@ const MuhasebeciBasvurulariSayfasi = React.lazy(() =>
 );
 const OdemeIncelemeSayfasi = React.lazy(() =>
   import("./screens/yonetim/OdemeIncelemeSayfasi").then((module) => ({ default: module.OdemeIncelemeSayfasi }))
+);
+const BildirimTeslimYonetimSayfasi = React.lazy(() =>
+  import("./screens/yonetim/BildirimTeslimYonetimSayfasi").then((module) => ({ default: module.BildirimTeslimYonetimSayfasi }))
 );
 const MuhasebeciAktarimlariSayfasi = React.lazy(() =>
   import("./screens/yonetim/MuhasebeciAktarimlariSayfasi").then((module) => ({ default: module.MuhasebeciAktarimlariSayfasi }))
@@ -630,6 +633,14 @@ function WorkspaceRoutes({ path }: { path: string }) {
     );
   }
 
+  if (mobileWorkspace && routePath === "/tedarikci-pazaryeri") {
+    return (
+      <MobileWorkspaceView active="merkez">
+        <TedarikciPazaryeriSayfasi />
+      </MobileWorkspaceView>
+    );
+  }
+
   if (mobileWorkspace && routePath === "/muhasebeci/musteriler") {
     return (
       <MobileWorkspaceView active="merkez">
@@ -730,6 +741,8 @@ function WorkspaceRoutes({ path }: { path: string }) {
           <MuhasebeciBasvurulariSayfasi onUstBarYenile={ustBarYukle} />
         ) : routePath === "/yonetim/odemeler" ? (
           <OdemeIncelemeSayfasi />
+        ) : routePath === "/yonetim/bildirim-teslimleri" ? (
+          <BildirimTeslimYonetimSayfasi />
         ) : routePath === "/yonetim/muhasebeci-aktarimlari" ? (
           <MuhasebeciAktarimlariSayfasi />
         ) : routePath === "/yonetim/destek" ? (
@@ -841,6 +854,12 @@ function MobileCompanionScreen({
             <UsersRound size={18} />
             <span>{accountantMarketplaceEnabled ? "Muhasebeciler" : isAccountant ? "Müşteri bağlantıları" : "Muhasebeci bağlantısı"}</span>
           </a>
+          {!isAccountant ? (
+            <a href="/app/tedarikci-pazaryeri">
+              <Package size={18} />
+              <span>Tedarikçi pazarı ve mal kabul</span>
+            </a>
+          ) : null}
         </div>
 
         {calismaAlani || islemde ? (

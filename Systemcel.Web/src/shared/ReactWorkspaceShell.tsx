@@ -308,7 +308,11 @@ function workspacePageMeta(path: string, settingsTab: string): WorkspacePageMeta
   if (path.startsWith("/yonetim")) {
     return {
       icon: ShieldCheck,
-      title: "Muhasebeci başvuruları"
+      title: path === "/yonetim/bildirim-teslimleri" ? "Bildirim teslimleri"
+        : path === "/yonetim/odemeler" ? "Ödeme inceleme"
+          : path === "/yonetim/muhasebeci-aktarimlari" ? "Muhasebeci aktarımları"
+            : path === "/yonetim/destek" ? "Destek talepleri"
+              : "Muhasebeci başvuruları"
     };
   }
 

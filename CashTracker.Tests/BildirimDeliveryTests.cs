@@ -89,6 +89,32 @@ public sealed class BildirimDeliveryTests : IDisposable
     }
 
     [Fact]
+    public async Task FailedDelivery_CanBeListedAndRetriedOnceWithoutCreatingAnotherOutboxRecord()
+    {
+        var now = new DateTime(2026, 9, 23, 8, 0, 0, DateTimeKind.Utc);
+        await _service.SavePreferencesAsync(7, "user-a", new BildirimTercihModeli(
+            true, true, false, false, 1320, 480, "Europe/Istanbul"));
+        await _service.EnqueueAsync(7, "user-a", null, "evt-retry", BildirimKanallari.Eposta,
+            "{\"title\":\"test\"}", now);
+        var claim = Assert.Single(await _service.ClaimAsync(10, now, TimeSpan.FromMinutes(2)));
+        await _service.FailAsync(claim.Id, claim.ClaimToken, "smtp_unavailable", now, maxAttempts: 1);
+
+        var failed = Assert.Single(await _service.ListFailedAsync());
+        Assert.Equal(claim.Id, failed.Id);
+        Assert.Equal("smtp_unavailable", failed.SonHataKodu);
+        await _service.RetryFailedAsync(failed.Id, now.AddMinutes(1));
+        Assert.Empty(await _service.ListFailedAsync());
+        var retried = Assert.Single(await _service.ClaimAsync(10, now.AddMinutes(1), TimeSpan.FromMinutes(2)));
+        Assert.Equal(claim.Id, retried.Id);
+        Assert.Equal(0, retried.DenemeSayisi);
+        await _service.CompleteAsync(retried.Id, retried.ClaimToken, now.AddMinutes(1));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _service.RetryFailedAsync(failed.Id, now.AddMinutes(2)));
+
+        await using var db = _factory.CreateDbContext();
+        Assert.Equal(1, await db.BildirimTeslimOutboxlari.CountAsync());
+    }
+
+    [Fact]
     public async Task EmailAdapter_ResolvesRecipientThroughActiveTenantMembership()
     {
         await using (var db = _factory.CreateDbContext())

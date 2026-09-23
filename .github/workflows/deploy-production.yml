@@ -38,16 +38,23 @@ jobs:
           ref: ${{ github.event.workflow_run.head_sha }}
           fetch-depth: 0
 
-      - name: Verify candidate is current default branch
+      - name: Check candidate against current default branch
+        id: candidate
         shell: bash
         run: |
           set -euo pipefail
           [[ "${CANDIDATE_SHA}" =~ ^[0-9a-f]{40}$ ]]
           [[ "$(git rev-parse HEAD)" == "${CANDIDATE_SHA}" ]]
           git fetch --no-tags origin "refs/heads/${DEFAULT_BRANCH}:refs/remotes/origin/${DEFAULT_BRANCH}"
-          [[ "$(git rev-parse "refs/remotes/origin/${DEFAULT_BRANCH}")" == "${CANDIDATE_SHA}" ]]
+          if [[ "$(git rev-parse "refs/remotes/origin/${DEFAULT_BRANCH}")" == "${CANDIDATE_SHA}" ]]; then
+            printf 'current=true\n' >> "${GITHUB_OUTPUT}"
+          else
+            printf 'current=false\n' >> "${GITHUB_OUTPUT}"
+            echo "::notice::Skipping superseded CI candidate ${CANDIDATE_SHA}; the current branch candidate will run its own deploy."
+          fi
 
       - name: Configure restricted SSH identity
+        if: steps.candidate.outputs.current == 'true'
         shell: bash
         env:
           ORACLE_SSH_PRIVATE_KEY: ${{ secrets.ORACLE_SSH_PRIVATE_KEY }}
@@ -64,6 +71,7 @@ jobs:
           ssh-keygen -F "${ORACLE_HOST}" -f "${RUNNER_TEMP}/systemcel-ssh/known-hosts" >/dev/null
 
       - name: Build incremental Git bundle
+        if: steps.candidate.outputs.current == 'true'
         id: bundle
         shell: bash
         run: |
@@ -111,6 +119,7 @@ jobs:
           [[ "${deployed_sha}" == "${CANDIDATE_SHA}" ]]
 
       - name: Run public production smoke
+        if: steps.candidate.outputs.current == 'true'
         shell: pwsh
         run: |
           ./scripts/Test-SystemcelPublic.ps1 `

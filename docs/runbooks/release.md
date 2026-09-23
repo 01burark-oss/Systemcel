@@ -30,7 +30,7 @@ This runbook covers the live Oracle VM deployment. It does not authorize live pa
 
 ## Automatic production deploy
 
-A successful `CI` run caused by a push to the default branch triggers `Deploy production`. The workflow rechecks that the CI commit is still the current default-branch head, asks Oracle for its deployed SHA through a restricted SSH key, and sends only the incremental Git bundle between those two commits.
+A successful `CI` run caused by a push to the default branch triggers `Deploy production`. The workflow rechecks that the CI commit is still the current default-branch head. A superseded candidate is skipped with a notice; its newer CI candidate triggers a separate deploy. For the current candidate, the workflow asks Oracle for its deployed SHA through a restricted SSH key and sends only the incremental Git bundle between those two commits.
 
 The production SSH key is environment-scoped and forced to `/opt/systemcel/bin/systemcel-github-deploy-gateway`. It cannot open a general shell or enable port, agent, X11, or PTY forwarding. The gateway accepts only `status` and `deploy <40-character-sha>`.
 

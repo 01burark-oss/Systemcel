@@ -54,3 +54,12 @@ public sealed record BildirimOutboxClaim(
     string PayloadJson,
     string ClaimToken,
     int DenemeSayisi);
+
+public sealed record BasarisizBildirimTeslimi(
+    long Id,
+    int IsletmeId,
+    string Kanal,
+    string Durum,
+    int DenemeSayisi,
+    string SonHataKodu,
+    DateTime UpdatedAt);
