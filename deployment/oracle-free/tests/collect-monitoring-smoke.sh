@@ -24,7 +24,8 @@ query="$*"
 case "${query}" in
   *POSTGRES_USER*) echo systemcel_app ;;
   *POSTGRES_DB*) echo systemcel ;;
-  *completed_at_utc*) date -u +%Y-%m-%dT%H:%M:%SZ ;;
+  # The collector samples now before jq runs; keep the fixture safely in the past.
+  *completed_at_utc*) date -u -d '10 seconds ago' +%Y-%m-%dT%H:%M:%SZ ;;
   *) exit 2 ;;
 esac
 JQ
