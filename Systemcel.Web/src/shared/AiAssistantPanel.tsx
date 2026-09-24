@@ -55,6 +55,7 @@ interface AiChatResponse {
   intent?: string;
   actionPath?: string | null;
   routingConfidence?: number | null;
+  continuationToken?: string | null;
 }
 
 interface ChatMessage {
@@ -98,6 +99,7 @@ export function AiAssistantPanel() {
   const [status, setStatus] = React.useState<AiStatus | null>(null);
   const [suggestionData, setSuggestionData] = React.useState<AiSuggestionsResponse | null>(null);
   const [messages, setMessages] = React.useState<ChatMessage[]>([introMessage]);
+  const [continuationToken, setContinuationToken] = React.useState<string | null>(null);
   const [input, setInput] = React.useState("");
   const [loading, setLoading] = React.useState(false);
   const [sending, setSending] = React.useState(false);
@@ -155,11 +157,13 @@ export function AiAssistantPanel() {
         method: "POST",
         body: JSON.stringify({
           mesaj: text,
-          mode: "chat"
+          mode: "chat",
+          continuationToken
         })
       });
 
       setStatus((current) => current ? { ...current, usage: response.usage ?? current.usage } : current);
+      setContinuationToken(response.continuationToken ?? null);
       setMessages((current) => [
         ...current,
         {
@@ -182,7 +186,7 @@ export function AiAssistantPanel() {
     } finally {
       setSending(false);
     }
-  }, [input, sending]);
+  }, [input, sending, continuationToken]);
 
   const topSuggestions = (suggestionData?.suggestions ?? []).slice(0, 3);
   const configured = status?.configured ?? suggestionData?.configured ?? false;

@@ -61,6 +61,31 @@ public sealed class TelegramBildirimBaglantiService : ITelegramBildirimBaglantiS
         return true;
     }
 
+    public async Task<TelegramAiConnection?> FindActiveAiConnectionAsync(
+        long chatId, long? telegramUserId, CancellationToken ct = default)
+    {
+        if (chatId <= 0 || telegramUserId != chatId)
+            return null;
+
+        var id = chatId.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+        return await (
+            from connection in db.TelegramBildirimBaglantilari.AsNoTracking()
+            join user in db.Kullanicilar.AsNoTracking()
+                on connection.KullaniciRef equals user.AuthProviderUserId
+            join membership in db.IsletmeUyelikleri.AsNoTracking()
+                on new { connection.IsletmeId, KullaniciId = (int?)user.Id }
+                equals new { membership.IsletmeId, membership.KullaniciId }
+            join business in db.Isletmeler.AsNoTracking()
+                on connection.IsletmeId equals business.Id
+            where connection.ChatId == id && connection.TelegramUserId == id &&
+                  connection.BaglandiAt != null && user.Durum == "Aktif" &&
+                  membership.Durum == "Aktif"
+            orderby connection.BaglandiAt descending, connection.Id descending
+            select new TelegramAiConnection(connection.IsletmeId, connection.KullaniciRef, business.Ad)
+        ).FirstOrDefaultAsync(ct);
+    }
+
     public async Task ClearAsync(int isletmeId, string kullaniciRef, CancellationToken ct = default)
     {
         ValidateScope(isletmeId, kullaniciRef);

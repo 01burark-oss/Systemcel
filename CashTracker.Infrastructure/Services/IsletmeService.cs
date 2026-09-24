@@ -101,6 +101,24 @@ namespace CashTracker.Infrastructure.Services
         public async Task<Isletme> GetActiveAsync()
         {
             await using var db = await _dbFactory.CreateDbContextAsync();
+            var telegramScope = TelegramAiBusinessScope.Current;
+            if (telegramScope is not null)
+            {
+                var scopedBusiness = await (
+                    from business in db.Isletmeler
+                    join membership in db.IsletmeUyelikleri on business.Id equals membership.IsletmeId
+                    join linkedUser in db.Kullanicilar on membership.KullaniciId equals linkedUser.Id
+                    where business.Id == telegramScope.BusinessId &&
+                          linkedUser.AuthProviderUserId == telegramScope.UserRef &&
+                          linkedUser.Durum == "Aktif" && membership.Durum == "Aktif"
+                    select business).FirstOrDefaultAsync();
+                if (scopedBusiness is null)
+                    throw new UnauthorizedAccessException("Telegram AI için aktif işletme üyeliği gerekir.");
+
+                await EnsureDefaultKalemlerAsync(db, scopedBusiness.Id);
+                scopedBusiness.IsAktif = true;
+                return scopedBusiness;
+            }
             var user = await TryEnsureCurrentUserAsync(db);
             var isletme = user == null
                 ? await EnsureLegacyActiveIsletmeAsync(db)

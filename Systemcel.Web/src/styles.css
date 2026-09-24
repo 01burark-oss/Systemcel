@@ -5021,6 +5021,15 @@ select:disabled {
   opacity: 0.62;
 }
 
+.telegram-after-action:is(:hover, :focus-visible) {
+  border-color: #5399d6;
+}
+
+.telegram-after-action:focus-visible {
+  outline: 2px solid #277fca;
+  outline-offset: 2px;
+}
+
 .telegram-after-note {
   cursor: default;
   opacity: 0.9;
@@ -5054,6 +5063,10 @@ select:disabled {
 
 .telegram-page--connected {
   gap: 16px;
+}
+
+.telegram-page--connected > .telegram-card {
+  flex: 0 0 auto;
 }
 
 .telegram-connected-card {
@@ -5134,7 +5147,7 @@ select:disabled {
 .telegram-connected-actions {
   padding: 16px;
   display: grid;
-  grid-template-columns: repeat(3, minmax(220px, 1fr));
+  grid-template-columns: repeat(2, minmax(220px, 1fr));
   gap: 14px;
 }
 
@@ -18564,6 +18577,11 @@ tbody tr.secili {
 .mobile-workspace-view__content {
   min-height: 0;
   overflow: hidden;
+}
+
+.mobile-workspace-view__content > .telegram-page {
+  padding: 16px;
+  overflow-y: auto;
 }
 
 .mobile-workspace-view--muhasebeciler .mobile-workspace-view__content {

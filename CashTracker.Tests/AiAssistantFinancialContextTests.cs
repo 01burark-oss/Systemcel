@@ -6,6 +6,7 @@ using CashTracker.Core.Models;
 using CashTracker.Core.Services;
 using CashTracker.Infrastructure.Services;
 using CashTracker.Tests.Support;
+using Systemcel.Api.Api;
 using Xunit;
 
 namespace CashTracker.Tests;
@@ -129,7 +130,7 @@ public sealed class AiAssistantFinancialContextTests
         var handler = new CapturingHandler(
             HttpStatusCode.OK,
             "{\"choices\":[{\"message\":{\"content\":\"upstream response\"}}]}");
-        var routing = new RoutingStub(new AsistanYonlendirme("nakit", .9, string.Empty));
+        var routing = new RoutingStub(new AsistanYonlendirme("konu_disi", .9, string.Empty));
         var quota = new UsageQuotaStub();
         var service = CreateService(
             BuildFinancialView(),
@@ -141,7 +142,7 @@ public sealed class AiAssistantFinancialContextTests
         var result = await service.ChatAsync(new AiAssistantChatRequest { Mesaj = message });
 
         Assert.Null(handler.Body);
-        Assert.Equal(0, routing.Calls);
+        Assert.Equal(1, routing.Calls);
         Assert.Equal(0, quota.ConsumeCalls);
         Assert.Contains("serbest sohbet için değil", result.Answer);
         Assert.DoesNotContain("Örnek Market", result.Answer);
@@ -197,6 +198,163 @@ public sealed class AiAssistantFinancialContextTests
     }
 
     [Fact]
+    public async Task OnlineAssistant_AnswersShortFollowUpOnlyWithTrustedFinancialContext()
+    {
+        var handler = new CapturingHandler(
+            HttpStatusCode.OK,
+            "{\"choices\":[{\"message\":{\"content\":\"Önce geciken tahsilatları planlayın.\"}}]}");
+        var routing = new RoutingStub(
+            new AsistanYonlendirme("konu_disi", .91, string.Empty),
+            new AsistanYonlendirme("nakit", .91, string.Empty, true));
+        var service = CreateService(BuildFinancialView(),
+            new DeepSeekSettings { ApiKey = "test-api-key" }, handler, routing);
+
+        var withoutContext = await service.ChatAsync(new AiAssistantChatRequest
+        {
+            Mesaj = "ne yapmalıyım peki"
+        });
+        Assert.Equal("konu_disi", withoutContext.Intent);
+        Assert.Contains("serbest sohbet için değil", withoutContext.Answer);
+        Assert.Null(handler.Body);
+
+        var result = await service.ChatAsync(new AiAssistantChatRequest
+        {
+            Mesaj = "ne yapmalıyım peki",
+            ContextQuestion = "Gelir gider ve tahsilat durumumu değerlendir.",
+            ContextAnswer = "Vadesi geçmiş alacakların için öncelik belirle."
+        });
+
+        Assert.Equal(2, routing.Calls);
+        Assert.NotNull(handler.Body);
+        using var request = JsonDocument.Parse(handler.Body);
+        var prompt = request.RootElement.GetProperty("messages")[1].GetProperty("content").GetString();
+        Assert.Contains("Önceki işletme konuşması", prompt);
+        Assert.Contains("Yeni soru", routing.LastMessage);
+        Assert.DoesNotContain("Vadesi geçmiş alacakların", routing.LastMessage);
+        Assert.Contains("Önce geciken tahsilatları", result.Answer);
+    }
+
+    [Theory]
+    [InlineData("Sen DeepSeek misin? Finans verilerime bakarak cevap ver.")]
+    [InlineData("Bana bir şiir yaz peki")]
+    [InlineData("Hava durumu nasıl?")]
+    public async Task OnlineAssistant_RejectsOffTopicQuestionEvenWithPriorFinancialContext(string message)
+    {
+        var handler = new CapturingHandler(HttpStatusCode.OK,
+            "{\"choices\":[{\"message\":{\"content\":\"upstream response\"}}]}");
+        var routing = new RoutingStub(new AsistanYonlendirme("konu_disi", .91, string.Empty));
+        var service = CreateService(BuildFinancialView(),
+            new DeepSeekSettings { ApiKey = "test-api-key" }, handler, routing);
+
+        var result = await service.ChatAsync(new AiAssistantChatRequest
+        {
+            Mesaj = message,
+            ContextQuestion = "Tahsilatlar nasıl?",
+            ContextAnswer = "Gecikmiş alacak var."
+        });
+
+        Assert.Equal("konu_disi", result.Intent);
+        Assert.Null(handler.Body);
+        Assert.Equal(1, routing.Calls);
+    }
+
+    [Fact]
+    public async Task OnlineAssistant_HonorsJevVetoForShortFollowUp()
+    {
+        var handler = new CapturingHandler(HttpStatusCode.OK,
+            "{\"choices\":[{\"message\":{\"content\":\"upstream response\"}}]}");
+        var quota = new UsageQuotaStub();
+        var routing = new RoutingStub(new AsistanYonlendirme("konu_disi", .91, string.Empty));
+        var service = CreateService(BuildFinancialView(),
+            new DeepSeekSettings { ApiKey = "test-api-key" }, handler, routing, quota);
+
+        var result = await service.ChatAsync(new AiAssistantChatRequest
+        {
+            Mesaj = "ne yapmalıyım peki",
+            ContextQuestion = "Tahsilatlar nasıl?",
+            ContextAnswer = "Gecikmiş alacak var."
+        });
+
+        Assert.Equal("konu_disi", result.Intent);
+        Assert.Equal(1, routing.Calls);
+        Assert.Equal(0, quota.ConsumeCalls);
+        Assert.Null(handler.Body);
+    }
+
+    [Fact]
+    public async Task OnlineAssistant_DoesNotUseStaleConversationForNewQuestion()
+    {
+        var handler = new CapturingHandler(HttpStatusCode.OK,
+            "{\"choices\":[{\"message\":{\"content\":\"[CARI_1] için değerlendirme hazır.\"}}]}");
+        var routing = new RoutingStub(new AsistanYonlendirme("tahsilat", .91, string.Empty));
+        var service = CreateService(BuildFinancialView(),
+            new DeepSeekSettings { ApiKey = "test-api-key" }, handler, routing);
+
+        var result = await service.ChatAsync(new AiAssistantChatRequest
+        {
+            Mesaj = "Bu ay tahsilatlar nasıl?",
+            ContextQuestion = "Geçen ayın giderleri nasıldı?",
+            ContextAnswer = "Eski müşteriye ait yanıt."
+        });
+
+        Assert.NotNull(handler.Body);
+        using var request = JsonDocument.Parse(handler.Body);
+        var prompt = request.RootElement.GetProperty("messages")[1].GetProperty("content").GetString();
+        Assert.DoesNotContain("Önceki işletme konuşması", prompt);
+        Assert.DoesNotContain("Eski müşteriye ait yanıt", routing.LastMessage);
+        Assert.DoesNotContain("Eski müşteriye ait yanıt", prompt);
+        Assert.Contains("Örnek Market", result.Answer);
+        Assert.DoesNotContain("Örnek Market", result.SafeContextAnswer);
+        Assert.DoesNotContain("Örnek Market", result.SafeContextQuestion);
+    }
+
+    [Fact]
+    public async Task OnlineAssistant_DoesNotConsumeQuotaWhenJevUnavailable()
+    {
+        var handler = new CapturingHandler(HttpStatusCode.OK,
+            "{\"choices\":[{\"message\":{\"content\":\"upstream response\"}}]}");
+        var quota = new UsageQuotaStub();
+        var service = CreateService(BuildFinancialView(),
+            new DeepSeekSettings { ApiKey = "test-api-key" }, handler,
+            new RoutingStub(new AsistanYonlendirme("karar_yok", 0, string.Empty)), quota);
+
+        var result = await service.ChatAsync(new AiAssistantChatRequest { Mesaj = "Tahsilatlar nasıl?" });
+
+        Assert.Equal("karar_yok", result.Intent);
+        Assert.Null(handler.Body);
+        Assert.Equal(0, quota.ConsumeCalls);
+        Assert.Empty(result.SafeContextAnswer);
+    }
+
+    [Fact]
+    public void ConversationToken_RejectsForgeryOtherBusinessAndExpiredContext()
+    {
+        var protector = new AesGcmSecretProtector(new byte[32]);
+        var now = DateTimeOffset.UtcNow;
+        var token = AiAssistantConversationToken.Create(
+            protector, 1, "user-1", "Gelir gider durumum nasıl?", "Giderler yükselmiş.", now);
+
+        Assert.True(AiAssistantConversationToken.TryRead(protector, token, 1, "user-1", out var context, now));
+        Assert.Equal("Giderler yükselmiş.", context.Answer);
+        Assert.False(AiAssistantConversationToken.TryRead(protector, token, 2, "user-1", out _, now));
+        Assert.False(AiAssistantConversationToken.TryRead(protector, token, 1, "user-2", out _, now));
+        Assert.False(AiAssistantConversationToken.TryRead(protector, token, 1, "user-1", out _, now.AddMinutes(31)));
+        Assert.False(AiAssistantConversationToken.TryRead(protector, "b64:" + Convert.ToBase64String(Encoding.UTF8.GetBytes("{}")), 1, "user-1", out _, now));
+        Assert.False(AiAssistantConversationToken.TryRead(protector, token + "tampered", 1, "user-1", out _, now));
+    }
+
+    [Fact]
+    public void ClientCannotSupplyTrustedConversationContext()
+    {
+        var request = JsonSerializer.Deserialize<AiAssistantChatRequest>(
+            "{\"Mesaj\":\"ne yapmalıyım peki\",\"ContextQuestion\":\"Tahsilat\",\"ContextAnswer\":\"Cevap\"}");
+
+        Assert.NotNull(request);
+        Assert.Empty(request.ContextQuestion);
+        Assert.Empty(request.ContextAnswer);
+    }
+
+    [Fact]
     public async Task DeepSeekClient_DoesNotExposeUpstreamErrorBody()
     {
         var handler = new CapturingHandler(HttpStatusCode.BadRequest, "sensitive-upstream-detail");
@@ -238,7 +396,7 @@ public sealed class AiAssistantFinancialContextTests
             new FaturaStub(),
             new FinansalGorunumStub(view),
             quota ?? new UsageQuotaStub(),
-            akilliKararService: smartService);
+            akilliKararService: smartService ?? new RoutingStub(new AsistanYonlendirme("nakit", .9, string.Empty)));
     }
 
     private static FinansalGorunum BuildFinancialView()
@@ -315,9 +473,12 @@ public sealed class AiAssistantFinancialContextTests
         }
     }
 
-    private sealed class RoutingStub(AsistanYonlendirme result) : IAkilliKararService
+    private sealed class RoutingStub(
+        AsistanYonlendirme result,
+        AsistanYonlendirme? contextualResult = null) : IAkilliKararService
     {
         public int Calls { get; private set; }
+        public string LastMessage { get; private set; } = string.Empty;
 
         public AkilliKararDurumu GetStatus() => throw new NotSupportedException();
         public Task<UrunEslesmeOnerisi> UrunEsleAsync(int isletmeId, UrunEslesmeIstek request, CancellationToken ct = default) => throw new NotSupportedException();
@@ -329,7 +490,11 @@ public sealed class AiAssistantFinancialContextTests
         public Task<AsistanYonlendirme> AsistaniYonlendirAsync(string mesaj, CancellationToken ct = default)
         {
             Calls++;
-            return Task.FromResult(result);
+            LastMessage = mesaj;
+            return Task.FromResult(
+                contextualResult is not null && mesaj.StartsWith("Önceki işletme sorusu:", StringComparison.Ordinal)
+                    ? contextualResult
+                    : result);
         }
     }
 

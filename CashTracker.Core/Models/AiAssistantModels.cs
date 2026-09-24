@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text.Json.Serialization;
 
 namespace CashTracker.Core.Models
 {
@@ -32,6 +33,11 @@ namespace CashTracker.Core.Models
     {
         public string Mesaj { get; set; } = string.Empty;
         public string Mode { get; set; } = "chat";
+        public string? ContinuationToken { get; set; }
+        [JsonIgnore]
+        public string ContextQuestion { get; set; } = string.Empty;
+        [JsonIgnore]
+        public string ContextAnswer { get; set; } = string.Empty;
     }
 
     public sealed class AiAssistantChatResponse
@@ -46,6 +52,11 @@ namespace CashTracker.Core.Models
         public List<string> Suggestions { get; set; } = [];
         public DateTimeOffset GeneratedAt { get; set; } = DateTimeOffset.Now;
         public AiUsageStatus Usage { get; set; } = new();
+        public string? ContinuationToken { get; set; }
+        [JsonIgnore]
+        public string SafeContextQuestion { get; set; } = string.Empty;
+        [JsonIgnore]
+        public string SafeContextAnswer { get; set; } = string.Empty;
     }
 
     public sealed class AiBusinessSuggestion

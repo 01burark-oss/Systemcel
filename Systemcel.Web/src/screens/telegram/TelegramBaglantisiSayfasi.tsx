@@ -199,6 +199,14 @@ export function TelegramBaglantisiSayfasi({ onTelegramDurumuDegisti }: TelegramB
           </section>
 
           <section className="telegram-card telegram-connected-actions">
+            <a className="telegram-after-action" href={`https://t.me/${encodeURIComponent(data.botKullaniciAdi)}`} target="_blank" rel="noopener noreferrer">
+              <Send size={20} />
+              <span>
+                <strong>Systemcel AI'ya Sor</strong>
+                <small>İşletmenle ilgili sorunu bota yaz.</small>
+              </span>
+              <ExternalLink size={20} />
+            </a>
             <button className="telegram-after-action" disabled={islemde} type="button" onClick={testMesajiGonder}>
               <Send size={20} />
               <span>
@@ -294,7 +302,7 @@ export function TelegramBaglantisiSayfasi({ onTelegramDurumuDegisti }: TelegramB
               <h3>Bağlantı Adımları</h3>
               <ol>
                 <li><span>1</span> QR kodu okut veya linki aç</li>
-                <li><span>2</span> <code>{startKomutu}</code> komutunu gönder</li>
+                <li><span>2</span><div><code>{startKomutu}</code> komutunu gönder</div></li>
                 <li><span>3</span> Systemcel bağlantıyı doğrular</li>
               </ol>
             </aside>

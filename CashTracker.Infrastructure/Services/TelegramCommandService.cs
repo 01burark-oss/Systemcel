@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
@@ -33,6 +34,8 @@ namespace CashTracker.Infrastructure.Services
         private readonly ITelegramStockSessionStore _stockSessionStore;
         private readonly ITelegramPairingService? _telegramPairingService;
         private readonly ITelegramBildirimBaglantiService? _telegramBildirimBaglantiService;
+        private readonly IAiAssistantService? _aiAssistantService;
+        private readonly ConcurrentDictionary<(long ChatId, int BusinessId, string UserRef), TelegramAiConversation> _aiConversations = new();
 
         public TelegramCommandService(
             TelegramBotService telegram,
@@ -52,7 +55,8 @@ namespace CashTracker.Infrastructure.Services
             IBarcodeReaderService barcodeReaderService,
             ITelegramStockSessionStore stockSessionStore,
             ITelegramPairingService? telegramPairingService = null,
-            ITelegramBildirimBaglantiService? telegramBildirimBaglantiService = null)
+            ITelegramBildirimBaglantiService? telegramBildirimBaglantiService = null,
+            IAiAssistantService? aiAssistantService = null)
         {
             _telegram = telegram;
             _settings = settings;
@@ -72,6 +76,7 @@ namespace CashTracker.Infrastructure.Services
             _stockSessionStore = stockSessionStore;
             _telegramPairingService = telegramPairingService;
             _telegramBildirimBaglantiService = telegramBildirimBaglantiService;
+            _aiAssistantService = aiAssistantService;
         }
 
         public async Task ProcessUpdateAsync(TelegramUpdate update, CancellationToken ct = default)
@@ -89,6 +94,8 @@ namespace CashTracker.Infrastructure.Services
 
             if (!_settings.IsTargetChat(update.ChatId))
             {
+                if (IsAiMessage(text) && await TryHandleAiMessageAsync(update, text, ct))
+                    return;
                 if (text.StartsWith("/start", StringComparison.OrdinalIgnoreCase))
                 {
                     await _telegram.SendTextAsync(
@@ -102,6 +109,8 @@ namespace CashTracker.Infrastructure.Services
 
             if (!_settings.IsAllowedUser(update.UserId))
             {
+                if (IsAiMessage(text) && await TryHandleAiMessageAsync(update, text, ct))
+                    return;
                 await _telegram.SendTextAsync(ToChatId(update.ChatId), "Bu kullanıcı yetkili değil.", ct);
                 return;
             }
@@ -183,6 +192,9 @@ namespace CashTracker.Infrastructure.Services
                 await HandleReceiptSessionInputAsync(receiptSession, text, ct);
                 return;
             }
+
+            if (IsAiMessage(text) && await TryHandleAiMessageAsync(update, text, ct))
+                return;
 
             if (string.IsNullOrWhiteSpace(text) || !text.StartsWith('/'))
                 return;
@@ -295,6 +307,94 @@ namespace CashTracker.Infrastructure.Services
             }
         }
 
+        private static bool IsAiMessage(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text))
+                return false;
+            if (!text.StartsWith('/'))
+                return true;
+            return TryParseCommand(text, out var command, out _) && command is "/ai" or "/asistan";
+        }
+
+        private async Task<bool> TryHandleAiMessageAsync(TelegramUpdate update, string text, CancellationToken ct)
+        {
+            var explicitCommand = text.StartsWith('/');
+            if (_aiAssistantService is null || _telegramBildirimBaglantiService is null)
+                return false;
+
+            try
+            {
+                var connection = await _telegramBildirimBaglantiService.FindActiveAiConnectionAsync(
+                    update.ChatId, update.UserId, ct);
+                if (connection is null)
+                {
+                    if (!explicitCommand)
+                        return false;
+                    await _telegram.SendTextAsync(ToChatId(update.ChatId),
+                        "Systemcel AI için uygulamadaki Ayarlar > Telegram ekranından hesabını bağla.", ct);
+                    return true;
+                }
+
+                var question = explicitCommand && TryParseCommand(text, out _, out var args)
+                    ? string.Join(' ', args)
+                    : text;
+                if (string.IsNullOrWhiteSpace(question))
+                {
+                    await _telegram.SendTextAsync(ToChatId(update.ChatId),
+                        "İşletmenle ilgili sorunu /ai komutundan sonra yazabilir veya doğrudan mesaj gönderebilirsin.", ct);
+                    return true;
+                }
+
+                using var scope = TelegramAiBusinessScope.Enter(connection.IsletmeId, connection.KullaniciRef);
+                var key = (update.ChatId, connection.IsletmeId, connection.KullaniciRef);
+                var now = DateTimeOffset.UtcNow;
+                foreach (var pair in _aiConversations)
+                {
+                    if (pair.Value.ExpiresAt <= now)
+                        _aiConversations.TryRemove(pair.Key, out _);
+                }
+
+                var request = new AiAssistantChatRequest { Mesaj = question };
+                if (_aiConversations.TryGetValue(key, out var previous) && previous.ExpiresAt > now)
+                {
+                    request.ContextQuestion = previous.Question;
+                    request.ContextAnswer = previous.Answer;
+                }
+
+                var response = await _aiAssistantService.ChatAsync(request, ct);
+                if (!string.IsNullOrWhiteSpace(response.SafeContextQuestion) &&
+                    !string.IsNullOrWhiteSpace(response.SafeContextAnswer))
+                {
+                    _aiConversations[key] = new TelegramAiConversation(
+                        response.SafeContextQuestion, response.SafeContextAnswer, now.AddMinutes(30));
+                }
+
+                await _telegram.SendTextAsync(ToChatId(update.ChatId),
+                    $"Systemcel AI · {connection.IsletmeAdi}\n\n{response.Answer}", ct);
+                return true;
+            }
+            catch (EntitlementViolationException ex)
+            {
+                await _telegram.SendTextAsync(ToChatId(update.ChatId), ex.Message, ct);
+                return true;
+            }
+            catch (UnauthorizedAccessException)
+            {
+                await _telegram.SendTextAsync(ToChatId(update.ChatId),
+                    "Telegram bağlantın veya işletme üyeliğin artık geçerli değil. Uygulamadan yeniden bağlan.", ct);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"TelegramCommandService AI error: {ex}");
+                await _telegram.SendTextAsync(ToChatId(update.ChatId),
+                    "Systemcel AI şu anda yanıt veremiyor. Biraz sonra tekrar dene.", ct);
+                return true;
+            }
+        }
+
+        private sealed record TelegramAiConversation(string Question, string Answer, DateTimeOffset ExpiresAt);
+
         private async Task<string?> TryHandlePairingStartAsync(
             TelegramUpdate update, string text, CancellationToken ct)
         {
@@ -309,7 +409,7 @@ namespace CashTracker.Infrastructure.Services
             var code = args[0]?.Trim() ?? string.Empty;
             if (_telegramBildirimBaglantiService is not null &&
                 await _telegramBildirimBaglantiService.TryCompleteAsync(code, update.ChatId, update.UserId, ct))
-                return "Systemcel bildirim bağlantısı tamamlandı. Bu bağlantı üzerinden işletme bildirimlerini alabilirsiniz.";
+                return "Systemcel bağlantısı tamamlandı. Bildirimleri alabilir ve işletmenle ilgili soruları buraya yazabilirsin.";
             if (_telegramPairingService is null)
                 return "Eşleştirme kodu geçersiz veya süresi doldu.";
             string message;

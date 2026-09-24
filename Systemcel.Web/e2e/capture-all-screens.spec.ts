@@ -50,6 +50,82 @@ test.skip(!process.env.SYSTEMCEL_CAPTURE, "Run with npm run capture:screens");
 test.describe.configure({ mode: "serial" });
 test.setTimeout(240_000);
 
+test("connected Telegram page opens Systemcel AI chat", async ({ browser }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium" && testInfo.project.name !== "mobile-small");
+  for (const theme of ["light", "dark"] as const) {
+    const page = await createCapturePage(browser, theme);
+    if (testInfo.project.name === "mobile-small")
+      await page.setViewportSize({ width: 320, height: 568 });
+    else
+      await page.setViewportSize({ width: 1366, height: 768 });
+    await mockApplication(page);
+    await page.route("**/api/ekran/telegram", route => json(route, {
+      bagli: true, durum: "Bağlı", botKullaniciAdi: "SystemcelBot",
+      eslestirmeKodu: "", baglantiLinki: "", qrUrl: "", gecerlilikDakika: 0, mesaj: ""
+    }));
+    await page.goto("/app/ayarlar?sekme=telegram");
+    const action = page.getByRole("link", { name: /Systemcel AI'ya Sor/ });
+    await expect(action).toBeVisible();
+    await expect(action).toHaveAttribute("href", "https://t.me/SystemcelBot");
+    await page.getByRole("button", { name: "Reddet" }).click();
+    await action.scrollIntoViewIfNeeded();
+    await action.focus();
+    await expect(action).toBeFocused();
+    const horizontalOverflow = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1);
+    expect(horizontalOverflow).toBe(false);
+    const cardOverlap = await page.evaluate(() => {
+      const details = document.querySelector(".telegram-connected-card")?.getBoundingClientRect();
+      const actions = document.querySelector(".telegram-connected-actions")?.getBoundingClientRect();
+      return details && actions ? actions.top < details.bottom - 1 : true;
+    });
+    expect(cardOverlap).toBe(false);
+    await page.locator(".telegram-connected-actions").screenshot({
+      path: testInfo.outputPath(`telegram-ai-actions-${theme}.png`)
+    });
+    const removeConnection = page.getByRole("button", { name: /Bağlantıyı Kaldır/ });
+    await removeConnection.scrollIntoViewIfNeeded();
+    await expect(removeConnection).toBeInViewport();
+    await page.screenshot({ path: testInfo.outputPath(`telegram-ai-bottom-${theme}.png`) });
+    await page.locator(".telegram-page").screenshot({
+      path: testInfo.outputPath(`telegram-ai-${theme}.png`), fullPage: true
+    });
+    await page.context().close();
+  }
+});
+
+test("mobile Telegram pairing remains usable", async ({ browser }, testInfo) => {
+  test.skip(testInfo.project.name !== "mobile-small");
+  for (const theme of ["light", "dark"] as const) {
+    const page = await createCapturePage(browser, theme);
+    await page.setViewportSize({ width: 320, height: 568 });
+    await mockApplication(page);
+    await page.goto("/app/ayarlar?sekme=telegram");
+    await expect(page.getByRole("button", { name: "Telegram'ı Bağla" })).toBeVisible();
+    await page.getByRole("button", { name: "Reddet" }).click();
+    await page.getByRole("button", { name: "Telegram'ı Bağla" }).scrollIntoViewIfNeeded();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
+    await page.screenshot({ path: testInfo.outputPath(`telegram-pairing-${theme}.png`) });
+    for (const selector of [".telegram-link-field input", ".telegram-qr-panel", ".telegram-after-card"]) {
+      const target = page.locator(selector);
+      await target.scrollIntoViewIfNeeded();
+      const aboveNavigation = await target.evaluate(element => {
+        const navigation = document.querySelector(".mobile-workspace-nav");
+        return navigation !== null && element.getBoundingClientRect().top < navigation.getBoundingClientRect().top;
+      });
+      expect(aboveNavigation, `${selector} should scroll above mobile navigation`).toBe(true);
+    }
+    const stepsFit = await page.locator(".telegram-steps-card").evaluate(card =>
+      [...card.querySelectorAll("li")].every(step =>
+        step.getBoundingClientRect().right <= card.getBoundingClientRect().right + 1
+      )
+    );
+    expect(stepsFit).toBe(true);
+    await page.locator(".telegram-steps-card").screenshot({ path: testInfo.outputPath(`telegram-steps-${theme}.png`) });
+    await page.screenshot({ path: testInfo.outputPath(`telegram-pairing-bottom-${theme}.png`) });
+    await page.context().close();
+  }
+});
+
 test("theme geometry is identical across application screens", async ({ browser }, testInfo) => {
   test.skip(!process.env.SYSTEMCEL_GEOMETRY || testInfo.project.name !== "desktop-wide", "Explicit geometry audit");
   const page = await createCapturePage(browser, "light");

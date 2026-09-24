@@ -3258,7 +3258,7 @@
 
 :root[data-theme] .telegram-after-card,
 :root[data-theme] .telegram-connected-actions {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
   padding: 18px;
 }
@@ -6463,6 +6463,30 @@
   background: var(--telegram-blue);
 }
 
+:root[data-theme="dark"] .telegram-status.connected {
+  color: #d5ffbb;
+  border-color: #637e38;
+  background: #2b3d1d;
+}
+
+:root[data-theme="dark"] .telegram-after-action:not(.telegram-after-action--danger):not(.telegram-after-note) {
+  color: #e8f8ff;
+  border-color: #4b8491;
+  background: #193239;
+}
+
+:root[data-theme="dark"] .telegram-after-action:not(.telegram-after-action--danger):not(.telegram-after-note) strong {
+  color: #e8f8ff;
+}
+
+:root[data-theme="dark"] .telegram-after-action:not(.telegram-after-action--danger):not(.telegram-after-note) small {
+  color: #c2d9df;
+}
+
+:root[data-theme="dark"] .telegram-after-action:not(.telegram-after-action--danger):not(.telegram-after-note) > svg {
+  color: #82daf0;
+}
+
 :root[data-theme] .telegram-steps-card .telegram-hero-icon {
   width: 40px;
   height: 40px;
@@ -6481,6 +6505,12 @@
 :root[data-theme] .telegram-steps-card li span {
   color: #0b0b09;
   background: var(--telegram-blue);
+}
+
+@media (max-width: 760px) {
+  :root[data-theme] .telegram-steps-card {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 /* Ürün / Stok — kompakt sayfa başlığı */

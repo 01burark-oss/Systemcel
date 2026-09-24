@@ -150,7 +150,7 @@ const helpContent: Record<string, HelpArticle> = {
     ]
   },
   telegram: {
-    lead: "İsterseniz finans özetlerini ve önemli uyarıları Telegram'dan alabilirsiniz.",
+    lead: "Finans özetlerini ve önemli uyarıları Telegram'dan alabilir, Systemcel AI'ya işletmenizle ilgili sorular sorabilirsiniz.",
     subsections: [
       {
         title: "Bağlantı mantığı",
@@ -159,6 +159,10 @@ const helpContent: Record<string, HelpArticle> = {
       {
         title: "Hangi bildirimler gider?",
         body: "Günlük özet, bekleyen tahsilat, vadesi yaklaşan fatura, kritik stok veya dönem raporu gibi bildirimleri Telegram'dan alabilirsiniz."
+      },
+      {
+        title: "Systemcel AI'ya soru sorma",
+        body: "Bağladığınız özel Telegram sohbetine işletmenizle ilgili soruyu yazın veya /ai komutunu kullanın. Yanıt, en son bağladığınız işletmenin verilerine dayanır."
       },
       {
         title: "Fotoğraf ve belge akışı",
@@ -170,7 +174,7 @@ const helpContent: Record<string, HelpArticle> = {
       },
       {
         title: "Bağlantı kesilirse",
-        body: "Telegram bağlantısı koparsa uygulama içindeki kayıtlar ve raporlar çalışmaya devam eder. Sadece dış bildirim kanalı durur; tekrar bağlandığında bildirim akışı devam eder."
+        body: "Telegram bağlantısı koparsa uygulama içindeki kayıtlar ve raporlar çalışmaya devam eder. Telegram bildirimleri ve AI sohbeti yeniden bağlanana kadar durur."
       }
     ]
   },

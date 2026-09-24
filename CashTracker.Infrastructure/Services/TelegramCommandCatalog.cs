@@ -7,6 +7,7 @@ namespace CashTracker.Infrastructure.Services
         public static IReadOnlyList<TelegramBotCommand> BotMenu { get; } = new[]
         {
             new TelegramBotCommand("yardim", "Komut listesi ve kullanım notları"),
+            new TelegramBotCommand("ai", "İşletmenle ilgili bir soru sor"),
             new TelegramBotCommand("bugun", "Bugünün gelir/gider raporu"),
             new TelegramBotCommand("ozet", "Son N gün özetini gösterir"),
             new TelegramBotCommand("rapor", "TXT rapor dosyası oluşturur"),
@@ -23,6 +24,7 @@ namespace CashTracker.Infrastructure.Services
                 $"İşletme: {businessName}\n" +
                 "\n" +
                 "En çok kullanılan komutlar:\n" +
+                "/ai <soru> - İşletmenle ilgili Systemcel AI sorusu\n" +
                 "/bugun - Bugünün raporu\n" +
                 "/ozet [gün] - Son N gün özeti (varsayılan 30)\n" +
                 "/rapor [gün] - TXT rapor dosyası (varsayılan 30)\n" +

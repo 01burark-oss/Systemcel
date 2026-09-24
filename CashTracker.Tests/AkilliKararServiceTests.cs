@@ -177,6 +177,35 @@ public sealed class AkilliKararServiceTests : IAsyncLifetime
         Assert.Equal(string.Empty, result.AksiyonUrl);
     }
 
+    [Fact]
+    public async Task AssistantRouting_UsesJevForFollowUpDecision()
+    {
+        var fake = new FakeJev((key, questions) => key switch
+        {
+            "niyet" => Choice("tahsilat", .92),
+            "baglam" => Choice("takip", .87),
+            _ => JevChoiceResult.Unavailable
+        });
+
+        var result = await CreateService(fake).AsistaniYonlendirAsync(
+            "Önceki işletme sorusu: Tahsilatlar nasıl?\nYeni soru: Peki ne yapmalıyım?");
+
+        Assert.Equal("tahsilat", result.Niyet);
+        Assert.True(result.TakipSorusu);
+        Assert.Equal(1, fake.Calls);
+    }
+
+    [Fact]
+    public async Task AssistantRouting_DoesNotGuessWhenJevUnavailable()
+    {
+        var fake = new FakeJev((_, _) => JevChoiceResult.Unavailable);
+
+        var result = await CreateService(fake).AsistaniYonlendirAsync("Bu ay tahsilatlar nasıl?");
+
+        Assert.Equal("karar_yok", result.Niyet);
+        Assert.Empty(result.AksiyonUrl);
+    }
+
     private AkilliKararService CreateService(IJevDecisionService jev) => new(
         new CashTracker.Tests.Support.SingleDbContextFactory(_db.Database.GetDbConnection() is SqliteConnection
             ? new DbContextOptionsBuilder<CashTrackerDbContext>().UseSqlite(_connection).Options

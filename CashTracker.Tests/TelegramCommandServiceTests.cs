@@ -16,6 +16,84 @@ namespace CashTracker.Tests
 {
     public sealed class TelegramCommandServiceTests
     {
+        [Theory]
+        [InlineData("Nakit akışımı nasıl iyileştirebilirim?", "Nakit akışı yanıtı")]
+        [InlineData("/ai Bu ay giderlerim nasıl?", "Gider yanıtı")]
+        public async Task ProcessUpdateAsync_LinkedPrivateChat_SendsAiAnswerWithinBusinessScope(
+            string question, string answer)
+        {
+            var assistant = new CapturingAiAssistantService(answer);
+            var pairing = new FakeTelegramBildirimBaglantiService(42, 42,
+                new TelegramAiConnection(7, "owner-ref", "Demo İşletme"));
+            var (_, handler, service, _, _, _) = BuildService(
+                new FakeKasaService(), new FakeKalemTanimiService(), new FakeSummaryService(),
+                new FakeIsletmeService(), aiAssistantService: assistant,
+                bildirimBaglantiService: pairing);
+
+            await service.ProcessUpdateAsync(new TelegramUpdate
+            {
+                UpdateId = 100, ChatId = 42, UserId = 42, Text = question
+            });
+
+            Assert.Equal(question.StartsWith("/ai", StringComparison.Ordinal) ? "Bu ay giderlerim nasıl?" : question,
+                assistant.LastRequest?.Mesaj);
+            Assert.Equal((7, "owner-ref"), assistant.ScopeSeen);
+            Assert.Contains("Systemcel AI · Demo İşletme", handler.GetLastFormFieldValue("/sendMessage", "text"));
+            Assert.Contains(answer, handler.GetLastFormFieldValue("/sendMessage", "text"));
+        }
+
+        [Fact]
+        public async Task ProcessUpdateAsync_UnlinkedOrWrongTelegramUser_DoesNotCallAi()
+        {
+            var assistant = new CapturingAiAssistantService("should not be returned");
+            var pairing = new FakeTelegramBildirimBaglantiService(42, 42, null);
+            var (_, handler, service, _, _, _) = BuildService(
+                new FakeKasaService(), new FakeKalemTanimiService(), new FakeSummaryService(),
+                new FakeIsletmeService(), aiAssistantService: assistant,
+                bildirimBaglantiService: pairing);
+
+            await service.ProcessUpdateAsync(new TelegramUpdate
+            {
+                UpdateId = 101, ChatId = 42, UserId = 42, Text = "/ai satışlarım nasıl?"
+            });
+
+            Assert.Null(assistant.LastRequest);
+            Assert.Contains("Ayarlar > Telegram", handler.GetLastFormFieldValue("/sendMessage", "text"));
+
+            await service.ProcessUpdateAsync(new TelegramUpdate
+            {
+                UpdateId = 102, ChatId = 42, UserId = 99, Text = "özel işletme sorum"
+            });
+
+            Assert.Null(assistant.LastRequest);
+            Assert.Equal(2, pairing.LookupCount);
+        }
+
+        [Fact]
+        public async Task ProcessUpdateAsync_FollowUpUsesSafeContextFromPreviousTelegramAnswer()
+        {
+            var assistant = new CapturingAiAssistantService("Örnek Market için tahsilatı önceleyin.",
+                "[CARI_1] için tahsilatı önceleyin.");
+            var pairing = new FakeTelegramBildirimBaglantiService(42, 42,
+                new TelegramAiConnection(7, "owner-ref", "Demo İşletme"));
+            var (_, _, service, _, _, _) = BuildService(
+                new FakeKasaService(), new FakeKalemTanimiService(), new FakeSummaryService(),
+                new FakeIsletmeService(), aiAssistantService: assistant,
+                bildirimBaglantiService: pairing);
+
+            await service.ProcessUpdateAsync(new TelegramUpdate
+            {
+                UpdateId = 103, ChatId = 42, UserId = 42, Text = "Tahsilatlar nasıl?"
+            });
+            await service.ProcessUpdateAsync(new TelegramUpdate
+            {
+                UpdateId = 104, ChatId = 42, UserId = 42, Text = "Peki ne yapmalıyım?"
+            });
+
+            Assert.Equal("Tahsilatlar nasıl?", assistant.LastRequest?.ContextQuestion);
+            Assert.Equal("[CARI_1] için tahsilatı önceleyin.", assistant.LastRequest?.ContextAnswer);
+        }
+
         [Fact]
         public async Task ProcessUpdateAsync_OzetCommand_IncludesBusinessAndKalemBreakdown()
         {
@@ -745,7 +823,9 @@ namespace CashTracker.Tests
             FakeIsletmeService isletme,
             Func<HttpRequestMessage, string, HttpResponseMessage>? responder = null,
             Action<TelegramSettings>? configureSettings = null,
-            ITelegramPairingService? pairingService = null)
+            ITelegramPairingService? pairingService = null,
+            ITelegramBildirimBaglantiService? bildirimBaglantiService = null,
+            IAiAssistantService? aiAssistantService = null)
         {
             var handler = new RecordingHttpMessageHandler(responder);
             var http = new HttpClient(handler);
@@ -800,7 +880,9 @@ namespace CashTracker.Tests
                 stock,
                 barcode,
                 stockSessionStore,
-                pairingService);
+                pairingService,
+                bildirimBaglantiService,
+                aiAssistantService);
 
             return (bot, handler, service, security, ocr, sessionStore);
         }
@@ -926,6 +1008,69 @@ namespace CashTracker.Tests
             public void ClearPairing()
             {
             }
+        }
+
+        private sealed class FakeTelegramBildirimBaglantiService(
+            long linkedChatId,
+            long linkedUserId,
+            TelegramAiConnection? connection) : ITelegramBildirimBaglantiService
+        {
+            public int LookupCount { get; private set; }
+
+            public Task<TelegramPairingCode> EnsureCodeAsync(int isletmeId, string kullaniciRef, CancellationToken ct = default) =>
+                throw new NotImplementedException();
+
+            public Task<TelegramPairingCode> RenewCodeAsync(int isletmeId, string kullaniciRef, CancellationToken ct = default) =>
+                throw new NotImplementedException();
+
+            public Task<TelegramBildirimBaglantisiDurumu> GetStateAsync(int isletmeId, string kullaniciRef, CancellationToken ct = default) =>
+                throw new NotImplementedException();
+
+            public Task<bool> TryCompleteAsync(string code, long chatId, long? telegramUserId, CancellationToken ct = default) =>
+                throw new NotImplementedException();
+
+            public Task<TelegramAiConnection?> FindActiveAiConnectionAsync(long chatId, long? telegramUserId, CancellationToken ct = default)
+            {
+                LookupCount++;
+                return Task.FromResult(chatId == linkedChatId && telegramUserId == linkedUserId ? connection : null);
+            }
+
+            public Task ClearAsync(int isletmeId, string kullaniciRef, CancellationToken ct = default) =>
+                throw new NotImplementedException();
+        }
+
+        private sealed class CapturingAiAssistantService(string answer, string? safeAnswer = null) : IAiAssistantService
+        {
+            public AiAssistantChatRequest? LastRequest { get; private set; }
+            public (int BusinessId, string UserRef)? ScopeSeen { get; private set; }
+
+            public Task<AiAssistantStatus> GetStatusAsync(CancellationToken ct = default) =>
+                Task.FromResult(new AiAssistantStatus());
+
+            public Task<AiAssistantChatResponse> ChatAsync(AiAssistantChatRequest request, CancellationToken ct = default)
+            {
+                LastRequest = request;
+                var scopeType = typeof(TelegramCommandService).Assembly.GetType(
+                    "CashTracker.Infrastructure.Services.TelegramAiBusinessScope");
+                var scope = scopeType?.GetProperty("Current", System.Reflection.BindingFlags.Static |
+                    System.Reflection.BindingFlags.NonPublic)?.GetValue(null);
+                if (scope is not null)
+                {
+                    var type = scope.GetType();
+                    ScopeSeen = (
+                        (int)type.GetProperty("BusinessId")!.GetValue(scope)!,
+                        (string)type.GetProperty("UserRef")!.GetValue(scope)!);
+                }
+                return Task.FromResult(new AiAssistantChatResponse
+                {
+                    Answer = answer,
+                    SafeContextQuestion = request.Mesaj,
+                    SafeContextAnswer = safeAnswer ?? answer
+                });
+            }
+
+            public Task<AiBusinessSuggestionsResponse> GetSuggestionsAsync(CancellationToken ct = default) =>
+                Task.FromResult(new AiBusinessSuggestionsResponse());
         }
     }
 }

@@ -1,5 +1,5 @@
 import React from "react";
-import { Building2, ChartNoAxesCombined, House, LogOut, MessageCircle, Package, RefreshCw, Search, UsersRound } from "lucide-react";
+import { Building2, ChartNoAxesCombined, House, LogOut, MessageCircle, Package, RefreshCw, Search, Send, UsersRound } from "lucide-react";
 import { RequireAuth } from "./auth/AuthGate";
 import { AuthUserButton } from "./auth/AuthUserButton";
 import { useSystemcelAuth } from "./auth/SystemcelAuthProvider";
@@ -80,6 +80,9 @@ const SohbetlerSayfasi = React.lazy(() =>
 );
 const AyarlarSayfasi = React.lazy(() =>
   import("./screens/ayarlar/AyarlarSayfasi").then((module) => ({ default: module.AyarlarSayfasi }))
+);
+const TelegramBaglantisiSayfasi = React.lazy(() =>
+  import("./screens/telegram/TelegramBaglantisiSayfasi").then((module) => ({ default: module.TelegramBaglantisiSayfasi }))
 );
 const AbonelikSayfasi = React.lazy(() =>
   import("./screens/billing/AbonelikSayfasi").then((module) => ({ default: module.AbonelikSayfasi }))
@@ -633,6 +636,14 @@ function WorkspaceRoutes({ path }: { path: string }) {
     );
   }
 
+  if (mobileWorkspace && routePath === "/ayarlar" && new URLSearchParams(window.location.search).get("sekme") === "telegram") {
+    return (
+      <MobileWorkspaceView active="merkez">
+        <TelegramBaglantisiSayfasi onTelegramDurumuDegisti={ustBarYukle} />
+      </MobileWorkspaceView>
+    );
+  }
+
   if (mobileWorkspace && routePath === "/tedarikci-pazaryeri") {
     return (
       <MobileWorkspaceView active="merkez">
@@ -860,6 +871,10 @@ function MobileCompanionScreen({
               <span>Tedarikçi pazarı ve mal kabul</span>
             </a>
           ) : null}
+          <a href="/app/ayarlar?sekme=telegram">
+            <Send size={18} />
+            <span>Telegram ve Systemcel AI</span>
+          </a>
         </div>
 
         {calismaAlani || islemde ? (

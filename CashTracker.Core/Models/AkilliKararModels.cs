@@ -70,4 +70,5 @@ public sealed record SutunEslemeOnerisi(
 public sealed record AsistanYonlendirme(
     string Niyet,
     double Guven,
-    string AksiyonUrl);
+    string AksiyonUrl,
+    bool TakipSorusu = false);

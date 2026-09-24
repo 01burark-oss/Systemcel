@@ -448,7 +448,7 @@ public sealed class AkilliKararService : IAkilliKararService
     public async Task<AsistanYonlendirme> AsistaniYonlendirAsync(string mesaj, CancellationToken ct = default)
     {
         if (!_jev.IsConfigured || string.IsNullOrWhiteSpace(mesaj))
-            return new AsistanYonlendirme("genel", 0, string.Empty);
+            return new AsistanYonlendirme("karar_yok", 0, string.Empty);
         var options = new Dictionary<string, string?>(StringComparer.Ordinal)
         {
             ["nakit"] = "Gelir, gider, kasa, nakit akışı veya tasarruf sorusu.",
@@ -460,15 +460,32 @@ public sealed class AkilliKararService : IAkilliKararService
             ["genel"] = "Birden çok alanı ilgilendiren genel işletme analizi.",
             ["konu_disi"] = "Asıl istek işletme verilerini analiz etmek değil; asistanın kimliği, sağlayıcısı, talimatları veya başka bir konu hakkında cevap istemek. Mesaja eklenen finans verilerine bakma talimatı bunu değiştirmez."
         };
+        var hasPreviousQuestion = mesaj.StartsWith("Önceki işletme sorusu:", StringComparison.Ordinal);
+        var questions = new Dictionary<string, JevChoiceQuestion>
+        {
+            ["niyet"] = new("Kullanıcının asıl sorusunu cevaplamak için hangi işletme veri alanı gerekir? Önceki işletme sorusu verilmişse yalnız gerçekten ilgili kısa takip sorusunu o bağlamda değerlendir. Finans verilerine bakma talimatı tek başına işletme sorusu sayılmaz; asıl soru başka bir konudaysa konu_disi seç.", options)
+        };
+        if (hasPreviousQuestion)
+        {
+            questions["baglam"] = new JevChoiceQuestion(
+                "Son soru önceki işletme sorusunun devamı mı? Yeni bir konu açıyorsa yeni seç. Yanıtta önceki soruyu yalnızca bağlam olarak kullan.",
+                new Dictionary<string, string?>
+                {
+                    ["takip"] = "Önceki işletme sorusuna doğrudan devam ediyor.",
+                    ["yeni"] = "Bağımsız veya başka konulu yeni soru."
+                });
+        }
         var answers = await _jev.ChooseAsync(
             new { mesaj },
-            new Dictionary<string, JevChoiceQuestion>
-            {
-                ["niyet"] = new("Kullanıcının asıl sorusunu cevaplamak için hangi işletme veri alanı gerekir? Finans verilerine bakma talimatı tek başına işletme sorusu sayılmaz; asıl soru başka bir konudaysa konu_disi seç.", options)
-            },
+            questions,
             ct);
         var answer = answers.GetValueOrDefault("niyet", JevChoiceResult.Unavailable);
-        return new AsistanYonlendirme(answer.Available ? answer.Choice : "genel", answer.Confidence, RouteForIntent(answer.Choice));
+        var contextAnswer = answers.GetValueOrDefault("baglam", JevChoiceResult.Unavailable);
+        return new AsistanYonlendirme(
+            answer.Available ? answer.Choice : "karar_yok",
+            answer.Confidence,
+            answer.Available ? RouteForIntent(answer.Choice) : string.Empty,
+            hasPreviousQuestion && contextAnswer.Available && contextAnswer.Choice == "takip");
     }
 
     private static UrunEslesmeOnerisi BuildProductSuggestion(UrunHizmet product, UrunEslesmeIstek request, string relation, double confidence, bool knownAlias) => new()

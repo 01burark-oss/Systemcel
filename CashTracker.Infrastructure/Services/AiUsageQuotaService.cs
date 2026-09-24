@@ -11,9 +11,6 @@ namespace CashTracker.Infrastructure.Services
 {
     public sealed class AiUsageQuotaService : IAiUsageQuotaService
     {
-        private const int UnlimitedWindowLimit = 15;
-        private const int UnlimitedWindowHours = 1;
-
         private readonly IIsletmeService _isletmeService;
         private readonly ISubscriptionEntitlementService _entitlementService;
         private readonly IDbContextFactory<CashTrackerDbContext> _dbFactory;
@@ -87,13 +84,13 @@ namespace CashTracker.Infrastructure.Services
         {
             if (entitlement.AiSinirsiz)
             {
-                var start = new DateTime(now.Year, now.Month, now.Day, now.Hour, 0, 0);
+                var start = new DateTime(now.Year, now.Month, 1);
                 return new AiUsagePeriod(
-                    $"ai:saat:{start:yyyyMMddHH}",
-                    "Saatlik",
-                    UnlimitedWindowLimit,
+                    $"ai:ay:{start:yyyyMM}:sinirsiz",
+                    "Aylık",
+                    null,
                     start,
-                    start.AddHours(UnlimitedWindowHours));
+                    start.AddMonths(1));
             }
 
             var monthStart = new DateTime(now.Year, now.Month, 1);

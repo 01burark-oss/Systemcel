@@ -12,7 +12,7 @@ namespace CashTracker.Tests;
 public sealed class AiUsageQuotaServiceTests
 {
     [Fact]
-    public async Task SinirsizPlan_SaatlikOnBesMesajdanSonraEngellenir()
+    public async Task SinirsizPlan_AylikTakipEderAmaMesajSayisinaGoreEngellemez()
     {
         await using var connection = new SqliteConnection("Data Source=:memory:");
         await connection.OpenAsync();
@@ -37,32 +37,70 @@ public sealed class AiUsageQuotaServiceTests
         var checkedAt = DateTime.UtcNow;
         var initial = await service.GetStatusAsync();
 
-        Assert.Equal("Saatlik", initial.DonemTipi);
-        Assert.Equal(15, initial.Limit);
-        Assert.Equal(15, initial.Kalan);
-        Assert.InRange(initial.DonemBitisAt, checkedAt, checkedAt.AddHours(1));
+        Assert.Equal("Aylık", initial.DonemTipi);
+        Assert.Null(initial.Limit);
+        Assert.Null(initial.Kalan);
+        Assert.Equal(new DateTime(checkedAt.Year, checkedAt.Month, 1).AddMonths(1), initial.DonemBitisAt);
 
         AiUsageStatus? lastAllowed = null;
-        for (var i = 0; i < 15; i++)
+        for (var i = 0; i < 40; i++)
         {
             lastAllowed = await service.ConsumeAsync();
             Assert.True(lastAllowed.IzinVerildi);
+            Assert.False(lastAllowed.LimitAsildi);
+            Assert.Null(lastAllowed.Limit);
         }
 
         Assert.NotNull(lastAllowed);
         Assert.True(lastAllowed.IzinVerildi);
-        Assert.Equal(0, lastAllowed.Kalan);
+        Assert.Null(lastAllowed.Kalan);
+        Assert.Equal(40, lastAllowed.Kullanilan);
 
         var exhaustedStatus = await service.GetStatusAsync();
-        Assert.False(exhaustedStatus.IzinVerildi);
-        Assert.True(exhaustedStatus.LimitAsildi);
+        Assert.True(exhaustedStatus.IzinVerildi);
+        Assert.False(exhaustedStatus.LimitAsildi);
 
-        var blocked = await service.ConsumeAsync();
+        var next = await service.ConsumeAsync();
 
-        Assert.False(blocked.IzinVerildi);
-        Assert.True(blocked.LimitAsildi);
-        Assert.Equal(15, blocked.Kullanilan);
-        Assert.Contains("saatlik limit", blocked.Mesaj, StringComparison.OrdinalIgnoreCase);
+        Assert.True(next.IzinVerildi);
+        Assert.False(next.LimitAsildi);
+        Assert.Equal(41, next.Kullanilan);
+        Assert.Equal("AI hakkı sınırsız.", next.Mesaj);
+    }
+
+    [Fact]
+    public async Task SonluPlan_AylikLimitteEngellenir()
+    {
+        await using var connection = new SqliteConnection("Data Source=:memory:");
+        await connection.OpenAsync();
+        var options = new DbContextOptionsBuilder<CashTrackerDbContext>()
+            .UseSqlite(connection)
+            .Options;
+
+        await using (var db = new CashTrackerDbContext(options))
+            await db.Database.EnsureCreatedAsync();
+
+        var service = new AiUsageQuotaService(
+            new FakeIsletmeService(),
+            new StaticEntitlementService(new SubscriptionEntitlementStatus
+            {
+                PlanKodu = PlanKodlari.IsletmeBaslangic,
+                PlanAdi = "Başlangıç",
+                AiAktif = true,
+                AiMesajLimiti = 2
+            }),
+            new SingleDbContextFactory(options));
+
+        var first = await service.ConsumeAsync();
+        var second = await service.ConsumeAsync();
+        var third = await service.ConsumeAsync();
+
+        Assert.Equal("Aylık", first.DonemTipi);
+        Assert.Equal(2, first.Limit);
+        Assert.True(second.IzinVerildi);
+        Assert.False(third.IzinVerildi);
+        Assert.True(third.LimitAsildi);
+        Assert.Equal(2, third.Kullanilan);
     }
 
     private sealed class StaticEntitlementService(SubscriptionEntitlementStatus status)

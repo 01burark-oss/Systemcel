@@ -13,6 +13,58 @@ namespace CashTracker.Tests;
 public sealed class TelegramBildirimBaglantiTests
 {
     [Fact]
+    public async Task FindActiveAiConnection_RequiresMatchingTelegramUserAndActiveMembership()
+    {
+        await using var connection = new SqliteConnection("Data Source=:memory:");
+        await connection.OpenAsync();
+        var options = new DbContextOptionsBuilder<CashTrackerDbContext>().UseSqlite(connection).Options;
+        var factory = new SingleDbContextFactory(options);
+        await using (var db = factory.CreateDbContext())
+        {
+            await db.Database.EnsureCreatedAsync();
+            db.Isletmeler.AddRange(
+                new Isletme { Id = 1, Ad = "Eski İşletme" },
+                new Isletme { Id = 2, Ad = "Güncel İşletme" });
+            db.Kullanicilar.AddRange(
+                new Kullanici { Id = 1, AuthProviderUserId = "user-a", Eposta = "a@test.local", Durum = "Aktif" },
+                new Kullanici { Id = 2, AuthProviderUserId = "user-b", Eposta = "b@test.local", Durum = "Aktif" });
+            db.IsletmeUyelikleri.AddRange(
+                new IsletmeUyelik { IsletmeId = 1, KullaniciId = 1, Rol = "isletme_sahibi", Durum = "Aktif" },
+                new IsletmeUyelik { IsletmeId = 2, KullaniciId = 2, Rol = "isletme_sahibi", Durum = "Aktif" });
+            db.TelegramBildirimBaglantilari.AddRange(
+                new TelegramBildirimBaglantisi
+                {
+                    IsletmeId = 1, KullaniciRef = "user-a", ChatId = "1234", TelegramUserId = "1234",
+                    BaglandiAt = DateTime.UtcNow.AddDays(-1)
+                },
+                new TelegramBildirimBaglantisi
+            {
+                IsletmeId = 2, KullaniciRef = "user-b", ChatId = "1234", TelegramUserId = "1234",
+                BaglandiAt = DateTime.UtcNow
+            });
+            await db.SaveChangesAsync();
+        }
+
+        var pairing = new TelegramBildirimBaglantiService(factory);
+        var linked = await pairing.FindActiveAiConnectionAsync(1234, 1234);
+        Assert.NotNull(linked);
+        Assert.Equal(2, linked.IsletmeId);
+        Assert.Equal("user-b", linked.KullaniciRef);
+        Assert.Equal("Güncel İşletme", linked.IsletmeAdi);
+        Assert.Null(await pairing.FindActiveAiConnectionAsync(1234, 9999));
+        Assert.Null(await pairing.FindActiveAiConnectionAsync(1234, null));
+
+        await using (var db = factory.CreateDbContext())
+        {
+            foreach (var membership in await db.IsletmeUyelikleri.ToListAsync())
+                membership.Durum = "Pasif";
+            await db.SaveChangesAsync();
+        }
+
+        Assert.Null(await pairing.FindActiveAiConnectionAsync(1234, 1234));
+    }
+
+    [Fact]
     public async Task Pairing_IsScopedToActiveBusinessMemberAndDoesNotOverwriteAnotherUser()
     {
         await using var connection = new SqliteConnection("Data Source=:memory:");
