@@ -12,6 +12,11 @@ export interface DovizKuru {
   gecerliAt: string;
 }
 
+export interface EcbKurBulteni {
+  tarih: string;
+  kurlar: Array<{ paraBirimi: string; kur: number }>;
+}
+
 export interface SubeKurDurumu {
   aktifSube: SubeSecenek;
   subeler: SubeSecenek[];

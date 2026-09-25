@@ -146,6 +146,9 @@ builder.Services.AddSingleton<ICurrentUserContext, HttpCurrentUserContext>();
 builder.Services.AddSingleton<IIsletmeService, IsletmeService>();
 builder.Services.AddSingleton<IIsletmeUyelikService, IsletmeUyelikService>();
 builder.Services.AddSingleton<ISubeKurService, SubeKurService>();
+builder.Services.AddHttpClient("EcbKurlari", client => client.Timeout = TimeSpan.FromSeconds(8));
+builder.Services.AddSingleton<IEcbKurService>(sp => new EcbKurService(
+    sp.GetRequiredService<IHttpClientFactory>().CreateClient("EcbKurlari")));
 builder.Services.AddSingleton<IKalemTanimiService, KalemTanimiService>();
 builder.Services.AddSingleton<IKasaService, KasaService>();
 builder.Services.AddSingleton<ISummaryService, SummaryService>();

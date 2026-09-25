@@ -62,6 +62,24 @@ internal static class TedarikciPazaryeriApi
 
     public static void MapTedarikciPazaryeriApi(this WebApplication app)
     {
+        app.MapGet("/api/public/tedarikci-pazaryeri/urunler", async (PazaryeriOptions options, IDbContextFactory<CashTrackerDbContext> factory, CancellationToken ct) =>
+        {
+            if (!options.Aktif)
+                return Results.NotFound(new ApiHata("Tedarikçi pazaryeri şu anda kapalı."));
+
+            await using var db = await factory.CreateDbContextAsync(ct);
+            var pilotIds = options.PilotIsletmeIdleri.ToArray();
+            var urunler = await (from u in db.TedarikciUrunleri.AsNoTracking()
+                join p in db.TedarikciProfilleri.AsNoTracking() on u.TedarikciProfilId equals p.Id
+                where u.Aktif && p.Dogrulandi && p.Yayinda && p.PazaryeriSozlesmeVersiyonu != "demo-v1" && u.StokMiktari > u.RezerveMiktar
+                    && (pilotIds.Length == 0 || pilotIds.Contains(p.IsletmeId))
+                orderby u.Kategori, u.Ad
+                select new { u.Id, u.Ad, u.Aciklama, u.Kategori, u.Birim, u.BirimFiyat, u.KdvOrani, u.ParaBirimi,
+                    tedarikciUnvani = p.Unvan, tedarikciSehri = p.Sehir, p.SevkiyatBolgeleri, p.IadeKosullari, u.TahminiTeslimatGun })
+                .ToListAsync(ct);
+            return Results.Ok(new { urunler });
+        }).AllowAnonymous();
+
         app.MapGet("/api/ekran/tedarikci-pazaryeri", async (IIsletmeService isletmeler, ISystemcelYonetimService yonetim, ICurrentUserContext currentUser, IMarketplacePaymentGateway paymentGateway, IDbContextFactory<CashTrackerDbContext> factory, CancellationToken ct) =>
         {
             var aktif = await isletmeler.GetActiveAsync();

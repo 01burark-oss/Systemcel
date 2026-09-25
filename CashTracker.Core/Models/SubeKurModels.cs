@@ -32,6 +32,18 @@ public sealed class DovizKuruDto
     public DateTime GecerliAt { get; init; }
 }
 
+public sealed class EcbKurBulteniDto
+{
+    public string Tarih { get; init; } = string.Empty;
+    public List<EcbKurDto> Kurlar { get; init; } = [];
+}
+
+public sealed class EcbKurDto
+{
+    public string ParaBirimi { get; init; } = string.Empty;
+    public decimal Kur { get; init; }
+}
+
 public sealed class SubeKurDurumuDto
 {
     public SubeDto AktifSube { get; init; } = new();

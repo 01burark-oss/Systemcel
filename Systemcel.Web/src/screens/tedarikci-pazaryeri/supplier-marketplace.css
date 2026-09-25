@@ -121,6 +121,7 @@
 :root[data-theme] .supplier-marketplace__product-head { display:grid; grid-template-columns:44px minmax(0,1fr) auto; align-items:center; gap:11px; }
 :root[data-theme] .supplier-marketplace__product-head div { display:grid; min-width:0; gap:3px; }
 :root[data-theme] .supplier-marketplace__product-foot { display:flex; align-items:end; justify-content:space-between; gap:12px; }
+:root[data-theme] .supplier-marketplace__product-terms { display:grid; gap:4px; color:var(--app-muted); overflow-wrap:anywhere; }
 :root[data-theme] .supplier-marketplace__product-foot div { display:grid; gap:3px; }
 :root[data-theme] .supplier-marketplace__product-foot button,
 :root[data-theme] .supplier-marketplace__checkout button,
@@ -146,6 +147,8 @@
 :root[data-theme] .supplier-marketplace__checkout { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:end; gap:12px; padding:20px; border:1px solid var(--app-border); border-radius:18px; background:var(--app-surface); }
 :root[data-theme] .supplier-marketplace__checkout label { display:grid; gap:6px; color:var(--app-muted); font-size:12px; }
 :root[data-theme] .supplier-marketplace__checkout input { min-height:44px; padding:0 12px; border:1px solid var(--app-border); border-radius:10px; background:var(--app-bg); color:var(--app-text); }
+:root[data-theme] .supplier-marketplace__policy-links { display:flex; flex-wrap:wrap; gap:8px 16px; grid-column:1 / -1; }
+:root[data-theme] .supplier-marketplace__policy-links a { color:var(--app-text); font-size:13px; text-decoration:underline; text-underline-offset:3px; }
 :root[data-theme] .supplier-marketplace__order-group { display:grid; gap:12px; padding:22px; border:1px solid var(--app-border); border-radius:22px; background:var(--app-surface); }
 :root[data-theme] .supplier-marketplace__order-group > header { display:flex; align-items:start; justify-content:space-between; gap:16px; }
 :root[data-theme] .supplier-marketplace__order-group > header div { display:grid; gap:4px; }

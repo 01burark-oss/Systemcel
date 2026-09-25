@@ -50,6 +50,42 @@ test.skip(!process.env.SYSTEMCEL_CAPTURE, "Run with npm run capture:screens");
 test.describe.configure({ mode: "serial" });
 test.setTimeout(240_000);
 
+test("ECB kur paneli masaüstü ve en dar ayar ekranında sığar", async ({ browser }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+  for (const width of [1366, 761]) {
+    for (const theme of ["light", "dark"] as const) {
+      const page = await createCapturePage(browser, theme);
+      await page.setViewportSize({ width, height: 768 });
+      await mockApplication(page);
+      await page.goto("/app/ayarlar?sekme=isletme");
+      const panel = page.getByLabel("ECB referans kurları");
+      await expect(panel.getByText("48,932299")).toBeVisible();
+      await panel.getByRole("button", { name: "USD kurunu doldur" }).click();
+      await expect(page.getByLabel("TRY kuru")).toHaveValue("48.932299");
+      expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
+      await panel.screenshot({ path: testInfo.outputPath(`ecb-${width}-${theme}.png`) });
+      await page.context().close();
+    }
+  }
+});
+
+test("ücretsiz planda ECB kurları görünür, kur kaydı kapalı kalır", async ({ browser }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+  const page = await createCapturePage(browser, "light");
+  await page.setViewportSize({ width: 761, height: 1200 });
+  await mockApplication(page);
+  await page.route("**/api/ekran/sube-kur/", route => json(route, { ...branchSetup, kurlar: [], cokluParaBirimiAktif: false }));
+  await page.goto("/app/ayarlar?sekme=isletme");
+  const panel = page.getByLabel("ECB referans kurları");
+  await expect(panel.getByText("48,932299")).toBeVisible();
+  await expect(panel.getByRole("button", { name: "USD kurunu doldur" })).toHaveCount(0);
+  await expect(page.getByText(/Dövizli kayıt ve kur yönetimi Kurumsal planda/)).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
+  await page.getByRole("button", { name: "Reddet" }).click();
+  await page.locator(".branch-currency-card").last().screenshot({ path: testInfo.outputPath("ecb-free.png") });
+  await page.context().close();
+});
+
 test("connected Telegram page opens Systemcel AI chat", async ({ browser }, testInfo) => {
   test.skip(testInfo.project.name !== "desktop-chromium" && testInfo.project.name !== "mobile-small");
   for (const theme of ["light", "dark"] as const) {
@@ -480,6 +516,7 @@ function responseFor(endpoint: string): unknown {
   if (endpoint === "/api/ekran/ust-bar") return topbar;
   if (endpoint === "/api/ekran/kolay-kurulum") return { tamamlandi: true, isletmeId: 42, isletmeAdi: "Örnek İşletme", hesapTipi: "Isletme", isletmeTuru: "Genel", konum: "İstanbul", muhasebeciVarMi: true, mesaj: "", turler: [] };
   if (endpoint === "/api/ekran/sube-kur/") return branchSetup;
+  if (endpoint === "/api/ekran/sube-kur/ecb-kurlari") return { tarih: "2026-09-25", kurlar: [{ paraBirimi: "USD", kur: 48.932299 }, { paraBirimi: "EUR", kur: 55.7975 }, { paraBirimi: "GBP", kur: 64.846882 }] };
   if (endpoint === "/api/ekran/sube-kur/finans-ozeti") return { subeId: null, konsolide: true, gelirTry: 48_500, giderTry: 19_250, netTry: 29_250, paraBirimleri: [] };
   if (endpoint === "/api/ekran/anasayfa") return dashboard;
   if (endpoint === "/api/ekran/finansal-gorunum") return finance;

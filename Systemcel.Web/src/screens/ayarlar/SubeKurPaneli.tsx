@@ -1,7 +1,7 @@
 import React from "react";
 import { ArrowUpRight, Building2, CircleDollarSign, Info, Loader2 } from "lucide-react";
 import { jsonOku } from "../../shared/json";
-import { yeniIdempotencyAnahtari, type SubeFinansOzeti, type SubeKurDurumu } from "../../shared/subeKur";
+import { yeniIdempotencyAnahtari, type EcbKurBulteni, type SubeFinansOzeti, type SubeKurDurumu } from "../../shared/subeKur";
 import "./sube-kur.css";
 
 function PlanDurumu({ metin }: { metin: string }) {
@@ -21,6 +21,8 @@ export function SubeKurPaneli() {
   const [ozetSubeId, setOzetSubeId] = React.useState("");
   const [sube, setSube] = React.useState({ ad: "", kod: "" });
   const [kur, setKur] = React.useState({ paraBirimi: "USD", kur: "" });
+  const [ecb, setEcb] = React.useState<EcbKurBulteni | null>(null);
+  const [ecbHata, setEcbHata] = React.useState(false);
   const [islemde, setIslemde] = React.useState(false);
   const [hata, setHata] = React.useState("");
   const [mesaj, setMesaj] = React.useState("");
@@ -35,10 +37,20 @@ export function SubeKurPaneli() {
     setOzet(await jsonOku<SubeFinansOzeti>(`/api/ekran/sube-kur/finans-ozeti${query}`));
   }, []);
 
+  const ecbYukle = React.useCallback(async () => {
+    try {
+      setEcbHata(false);
+      setEcb(await jsonOku<EcbKurBulteni>("/api/ekran/sube-kur/ecb-kurlari"));
+    } catch {
+      setEcbHata(true);
+    }
+  }, []);
+
   React.useEffect(() => {
     yukle().catch((error: Error) => setHata(error.message));
     ozetiYukle("").catch((error: Error) => setHata(error.message));
-  }, [ozetiYukle, yukle]);
+    void ecbYukle();
+  }, [ecbYukle, ozetiYukle, yukle]);
 
   const calistir = async (islem: () => Promise<unknown>, basari: string) => {
     try {
@@ -123,8 +135,29 @@ export function SubeKurPaneli() {
             <span className="settings-operation-card__icon"><CircleDollarSign size={20} /></span>
             <div><h2>Döviz kurları</h2><p>Kurlar kayıt anında sabitlenir; eski kayıtların kuru değişmez.</p></div>
           </header>
-          <div className="settings-inline-notice"><Info size={17} /><span>Kuru siz girersiniz; dış kur servisi kullanılmaz.</span></div>
-          <div className="currency-list" aria-label="Güncel kurlar">
+          <div className="settings-inline-notice"><Info size={17} /><span>Avrupa Merkez Bankası (ECB) verileri ücretsizdir. TL karşılıkları euro kurlarından hesaplanır; işlemlerde kullanacağınız kuru siz belirlersiniz.</span></div>
+          <div className="ecb-rates" aria-label="ECB referans kurları">
+            <div className="ecb-rates__head"><a href="https://www.ecb.europa.eu/stats/policy_and_exchange_rates/euro_reference_exchange_rates/html/index.en.html" target="_blank" rel="noopener noreferrer">ECB referans kurları <ArrowUpRight size={13} /></a>{ecb ? <span>{ecb.tarih.split("-").reverse().join(".")}</span> : null}</div>
+            {ecb ? <>
+              <div className="ecb-rates__columns"><span>Para birimi</span><span>1 birim kaç TL?</span></div>
+              <div className="ecb-rates__list">
+                {[...ecb.kurlar].sort((a, b) => {
+                  const priority = (code: string) => ["USD", "EUR", "GBP"].indexOf(code);
+                  const aPriority = priority(a.paraBirimi);
+                  const bPriority = priority(b.paraBirimi);
+                  return (aPriority < 0 ? 99 : aPriority) - (bPriority < 0 ? 99 : bPriority) || a.paraBirimi.localeCompare(b.paraBirimi);
+                }).map((row) => <div className="ecb-rates__row" key={row.paraBirimi}>
+                  <strong>{row.paraBirimi}</strong>
+                  <span>{row.kur.toLocaleString("tr-TR", { maximumFractionDigits: 6 })}</span>
+                  {durum?.cokluParaBirimiAktif ? <button type="button" className="ecb-rates__use" aria-label={`${row.paraBirimi} kurunu doldur`} onClick={() => setKur({ paraBirimi: row.paraBirimi, kur: String(row.kur) })}>
+                    Kuru doldur
+                  </button> : null}
+                </div>)}
+              </div>
+            </> : <div className="ecb-rates__empty" role="status">{ecbHata ? <>Kurlar alınamadı. <button type="button" onClick={() => void ecbYukle()}>Tekrar dene</button></> : "Kurlar yükleniyor..."}</div>}
+          </div>
+          <h3 className="currency-list__title">İşlemlerde kullanılan kurlar</h3>
+          <div className="currency-list" aria-label="İşlemlerde kullanılan kurlar">
             <div className="currency-list__row"><strong>TRY</strong><span>1,0000</span><small>Temel para birimi</small></div>
             {durum?.kurlar.filter((row) => row.paraBirimi !== "TRY").map((row) => (
               <div className="currency-list__row" key={`${row.paraBirimi}-${row.gecerliAt}`}>

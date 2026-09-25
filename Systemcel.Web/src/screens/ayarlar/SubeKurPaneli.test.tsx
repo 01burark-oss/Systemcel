@@ -13,6 +13,7 @@ const durum = {
   cokluSubeAktif: true,
   cokluParaBirimiAktif: true
 };
+const ecb = { tarih: "2026-09-25", kurlar: [{ paraBirimi: "USD", kur: 48.932299 }, { paraBirimi: "EUR", kur: 55.7975 }] };
 
 describe("Şube ve kur ayarları", () => {
   afterEach(() => { cleanup(); vi.clearAllMocks(); });
@@ -21,6 +22,7 @@ describe("Şube ve kur ayarları", () => {
     const user = userEvent.setup();
     vi.mocked(jsonOku).mockImplementation(async (url, init) => {
       if (url === "/api/ekran/sube-kur/" && !init) return durum as never;
+      if (url === "/api/ekran/sube-kur/ecb-kurlari" && !init) return ecb as never;
       if (url === "/api/ekran/sube-kur/finans-ozeti" && !init) return { subeId: null, konsolide: true, gelirTry: 3450, giderTry: 1200, netTry: 2250, paraBirimleri: [{ paraBirimi: "USD", gelirOrijinal: 100, giderOrijinal: 0, gelirTry: 3450, giderTry: 0 }] } as never;
       if (url === "/api/ekran/sube-kur/finans-ozeti?subeId=1" && !init) return { subeId: 1, konsolide: false, gelirTry: 3450, giderTry: 1200, netTry: 2250, paraBirimleri: [] } as never;
       if (url === "/api/ekran/sube-kur/subeler" && init?.method === "POST") return durum as never;
@@ -30,7 +32,8 @@ describe("Şube ve kur ayarları", () => {
 
     render(<SubeKurPaneli />);
     expect((await screen.findAllByText("Merkez"))[0]).toBeVisible();
-    expect(screen.getByText(/dış kur servisi kullanılmaz/i)).toBeVisible();
+    expect(screen.getByText(/Avrupa Merkez Bankası \(ECB\) verileri ücretsizdir/i)).toBeVisible();
+    expect(await screen.findByText("48,932299")).toBeVisible();
     expect(await screen.findByText("₺2.250,00")).toBeVisible();
     await user.selectOptions(screen.getByRole("combobox", { name: "Özet şubesi" }), "1");
     await waitFor(() => expect(jsonOku).toHaveBeenCalledWith("/api/ekran/sube-kur/finans-ozeti?subeId=1"));
@@ -46,11 +49,12 @@ describe("Şube ve kur ayarları", () => {
 
     await user.clear(screen.getByLabelText("Para birimi"));
     await user.type(screen.getByLabelText("Para birimi"), "EUR");
-    await user.type(screen.getByLabelText("TRY kuru"), "37.25");
+    await user.click(screen.getByRole("button", { name: "EUR kurunu doldur" }));
+    expect(screen.getByLabelText("TRY kuru")).toHaveValue(55.7975);
     await user.click(screen.getByRole("button", { name: "Kuru kaydet" }));
     await waitFor(() => expect(jsonOku).toHaveBeenCalledWith("/api/ekran/sube-kur/kurlar", expect.objectContaining({
       method: "POST",
-      body: JSON.stringify({ paraBirimi: "EUR", kur: 37.25 }),
+      body: JSON.stringify({ paraBirimi: "EUR", kur: 55.7975 }),
       headers: expect.objectContaining({ "Idempotency-Key": expect.any(String) })
     })));
   });
@@ -58,6 +62,7 @@ describe("Şube ve kur ayarları", () => {
   it("plan hakkı kapalıysa ekleme alanları yerine yükseltme durumunu gösterir", async () => {
     vi.mocked(jsonOku).mockImplementation(async (url) => {
       if (url === "/api/ekran/sube-kur/") return { ...durum, cokluSubeAktif: false, cokluParaBirimiAktif: false } as never;
+      if (url === "/api/ekran/sube-kur/ecb-kurlari") return ecb as never;
       return { subeId: null, konsolide: true, gelirTry: 0, giderTry: 0, netTry: 0, paraBirimleri: [] } as never;
     });
     render(<SubeKurPaneli />);
@@ -66,5 +71,18 @@ describe("Şube ve kur ayarları", () => {
     expect(screen.getAllByRole("link", { name: "Planları gör" })).toHaveLength(2);
     expect(screen.queryByLabelText("Şube adı")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("TRY kuru")).not.toBeInTheDocument();
+    expect(await screen.findByText("48,932299")).toBeVisible();
+    expect(screen.queryByRole("button", { name: "USD kurunu doldur" })).not.toBeInTheDocument();
+  });
+
+  it("ECB erişilemezse manuel giriş kullanılmaya devam eder", async () => {
+    vi.mocked(jsonOku).mockImplementation(async (url) => {
+      if (url === "/api/ekran/sube-kur/") return durum as never;
+      if (url === "/api/ekran/sube-kur/ecb-kurlari") throw new Error("unavailable");
+      return { subeId: null, konsolide: true, gelirTry: 0, giderTry: 0, netTry: 0, paraBirimleri: [] } as never;
+    });
+    render(<SubeKurPaneli />);
+    expect(await screen.findByText(/Kurlar alınamadı/)).toBeVisible();
+    expect(screen.getByLabelText("TRY kuru")).toBeEnabled();
   });
 });

@@ -1,14 +1,16 @@
 import React from "react";
-import { ArrowLeft, ArrowRight, BriefcaseBusiness, Mail, Newspaper } from "lucide-react";
+import { ArrowLeft, ArrowRight, BriefcaseBusiness, Mail, MapPin, Newspaper, Phone } from "lucide-react";
 import { legalTexts, publicBusinessIdentity, type LegalTextKey } from "../auth/legalTexts";
+import { marketplacePolicies, type MarketplacePolicyKey } from "./marketplacePolicies";
 import "./marketing.css";
 
-export type PublicPageKind = "about" | "blog" | "careers" | "contact" | "cookies" | LegalTextKey;
+export type PublicPageKind = "about" | "blog" | "careers" | "contact" | "cookies" | LegalTextKey | MarketplacePolicyKey;
 
 export function PublicContentPage({ kind }: { kind: PublicPageKind }) {
   const language = window.localStorage.getItem("systemcel.language") === "en" ? "en" : "tr";
   const legalKey = kind === "terms" || kind === "privacy" || kind === "kvkk" || kind === "subscription" ? kind : null;
-  const legal = legalKey ? legalTexts[language][legalKey] : null;
+  const marketplaceKey = kind === "marketplaceSale" || kind === "marketplaceDelivery" || kind === "marketplaceReturns" ? kind : null;
+  const legal = legalKey ? legalTexts[language][legalKey] : marketplaceKey ? marketplacePolicies[language][marketplaceKey] : null;
 
   React.useEffect(() => {
     document.title = legal?.title ?? pageTitle(kind, language);
@@ -84,7 +86,16 @@ function CareersContent({ language }: { language: "tr" | "en" }) {
 }
 
 function ContactContent({ language }: { language: "tr" | "en" }) {
-  return <div className="marketing-content-grid marketing-content-grid--contact"><ContactCard icon={<Mail />} title={language === "tr" ? "Genel iletişim" : "General contact"} text="merhaba@systemcel.app" href="mailto:merhaba@systemcel.app" /><ContactCard icon={<BriefcaseBusiness />} title={language === "tr" ? "Satış ekibi" : "Sales team"} text="satis@systemcel.app" href="mailto:satis@systemcel.app?subject=Systemcel%20Satış%20Görüşmesi" /><ContactCard icon={<Newspaper />} title={language === "tr" ? "Destek" : "Support"} text="destek@systemcel.app" href="mailto:destek@systemcel.app?subject=Systemcel%20Destek" /></div>;
+  const tr = language === "tr";
+  const identity = publicBusinessIdentity[language];
+  return <>
+    <article className="marketing-legal-card">
+      <section><h2>{tr ? "İşletme bilgileri" : "Business details"}</h2><p>{identity.provider}<br />{identity.tax}</p></section>
+      <section><h2>{tr ? "Adres" : "Address"}</h2><p><MapPin size={18} aria-hidden="true" /> {identity.address}</p></section>
+      <section><h2>{tr ? "Telefon" : "Phone"}</h2><p><Phone size={18} aria-hidden="true" /> <a href="tel:+905300655888">{tr ? "0530 065 58 88" : "+90 530 065 58 88"}</a></p></section>
+    </article>
+    <div className="marketing-content-grid marketing-content-grid--contact"><ContactCard icon={<Mail />} title={tr ? "Genel iletişim" : "General contact"} text="merhaba@systemcel.app" href="mailto:merhaba@systemcel.app" /><ContactCard icon={<BriefcaseBusiness />} title={tr ? "Satış ekibi" : "Sales team"} text="satis@systemcel.app" href="mailto:satis@systemcel.app?subject=Systemcel%20Satış%20Görüşmesi" /><ContactCard icon={<Newspaper />} title={tr ? "Destek" : "Support"} text="destek@systemcel.app" href="mailto:destek@systemcel.app?subject=Systemcel%20Destek" /></div>
+  </>;
 }
 
 function ContactCard({ icon, title, text, href }: { icon: React.ReactNode; title: string; text: string; href: string }) { return <a className="marketing-content-card marketing-contact-link" href={href}>{icon}<h2>{title}</h2><p>{text}</p><span>İletişime geç <ArrowRight size={16} /></span></a>; }
@@ -109,7 +120,7 @@ function PublicFooter({ language }: { language: "tr" | "en" }) {
       <div><a className="marketing-brand marketing-brand--dark" href="/"><BrandMark /><strong>systemcel</strong></a><p>{tr ? "Ön muhasebe, muhasebeciyle ortak çalışma ve tedarikçi pazaryeri." : "Accounting, accountant collaboration and a supplier marketplace."}</p></div>
       <FooterGroup title={tr ? "Ürün" : "Product"} links={[[tr ? "Ön muhasebe" : "Accounting", "/#on-muhasebe"], ["Systemcel AI", "/#ai"], [tr ? "Muhasebeciyle çalışma" : "Accountant collaboration", "/#muhasebeci"], [tr ? "Tedarikçi pazaryeri" : "Supplier marketplace", "/#pazaryeri"], [tr ? "Fiyatlandırma" : "Pricing", "/#fiyat"]]} soonTitle={tr ? "Yakında" : "Coming soon"} soonItems={tr ? ["Çoklu şube ve para birimi", "Entegrasyon API'leri", "Muhasebeci dönem otomasyonu"] : ["Multiple branches and currencies", "Integration APIs", "Accountant period automation"]} />
       <FooterGroup title={tr ? "Şirket" : "Company"} links={[[tr ? "Hakkımızda" : "About", "/hakkimizda"], [tr ? "Kariyer" : "Careers", "/kariyer"], ["Blog", "/blog"], [tr ? "İletişim" : "Contact", "/iletisim"]]} />
-      <FooterGroup title={tr ? "Yasal" : "Legal"} links={[["KVKK", "/kvkk"], [tr ? "Gizlilik" : "Privacy", "/gizlilik"], [tr ? "Kullanım Şartları" : "Terms", "/kullanim-sartlari"], [tr ? "Abonelik Koşulları" : "Subscription Terms", "/abonelik-kosullari"], [tr ? "Çerezler" : "Cookies", "/cerezler"]]} />
+      <FooterGroup title={tr ? "Yasal" : "Legal"} links={[["KVKK", "/kvkk"], [tr ? "Gizlilik" : "Privacy", "/gizlilik"], [tr ? "Kullanım Şartları" : "Terms", "/kullanim-sartlari"], [tr ? "Abonelik Koşulları" : "Subscription Terms", "/abonelik-kosullari"], [tr ? "Pazaryeri satış koşulları" : "Marketplace sale terms", "/pazaryeri-satis-kosullari"], [tr ? "Teslimat ve kargo" : "Delivery and shipping", "/teslimat-ve-kargo"], [tr ? "İptal ve iade" : "Cancellation and returns", "/iptal-ve-iade"], [tr ? "Çerezler" : "Cookies", "/cerezler"]]} />
     </div>
     <div className="marketing-wrap marketing-footer__bottom"><span>© 2026 SYSTEMCEL — İSTANBUL</span><span>{tr ? "TÜM HAKLARI SAKLIDIR" : "ALL RIGHTS RESERVED"}</span></div>
   </footer>;

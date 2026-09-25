@@ -84,4 +84,20 @@ test.describe("landing header", () => {
     await expect(marketplaceHeading).toHaveText("Tek sepet.Birden fazla tedarikçi.");
     await expect(marketplaceHeading.locator("br")).toHaveCount(1);
   });
+
+  test("opens the supplier catalog without asking visitors to sign in", async ({ page }) => {
+    await page.route("**/api/public/tedarikci-pazaryeri/urunler", async (route) => {
+      await route.fulfill({ json: { urunler: [{ id: 1, ad: "Çelik boru", aciklama: "Galvanizli", kategori: "Tesisat", birim: "Adet", birimFiyat: 125, kdvOrani: 20, paraBirimi: "TRY", tedarikciUnvani: "Örnek Tedarikçi", tedarikciSehri: "İstanbul", tahminiTeslimatGun: 2 }] } });
+    });
+    await page.goto("/");
+    await page.getByRole("link", { name: "Tedarikçi pazaryerine git" }).click();
+
+    await expect(page).toHaveURL(/\/pazaryeri$/);
+    await expect(page.getByRole("heading", { name: "Tedarikçi pazaryeri" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Çelik boru" })).toBeVisible();
+    await page.getByRole("searchbox", { name: "Ürün ara" }).fill("bulunmayan");
+    await expect(page.getByText("Aramanıza uygun ürün bulunamadı.")).toBeVisible();
+    await page.getByRole("searchbox", { name: "Ürün ara" }).fill("");
+    await expect(page.getByRole("link", { name: "Sipariş ver" })).toHaveAttribute("href", "/giris?returnUrl=%2Fapp%2Ftedarikci-pazaryeri");
+  });
 });

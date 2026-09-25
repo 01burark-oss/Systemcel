@@ -11,7 +11,7 @@ test.describe("notification delivery operations", () => {
       test.skip(testInfo.project.name !== "desktop-chromium");
       await page.addInitScript((value) => localStorage.setItem("systemcel.theme", value), theme);
       await page.goto("/app/yonetim/bildirim-teslimleri");
-      await expect(page.getByRole("heading", { name: "Bildirim teslimleri" })).toBeVisible();
+      await expect(page.getByRole("main").getByRole("heading", { name: "Bildirim teslimleri" })).toBeVisible();
       await expect(page.getByText("smtp_unavailable")).toBeVisible();
       await expect(page.locator(".admin-table-wrap")).toBeVisible();
       await page.getByRole("button", { name: "Reddet" }).click();

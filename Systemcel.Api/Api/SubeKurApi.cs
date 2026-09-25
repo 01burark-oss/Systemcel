@@ -15,6 +15,17 @@ internal static class SubeKurApi
             return Results.Ok(await service.GetContextAsync(ct));
         });
 
+        group.MapGet("/ecb-kurlari", async (IIsletmeService isletmeService, IEcbKurService service, CancellationToken ct) =>
+        {
+            await EnsureReadAccessAsync(isletmeService);
+            try { return Results.Ok(await service.GetLatestAsync(ct)); }
+            catch (Exception ex) when (ex is HttpRequestException or System.IO.InvalidDataException or System.Xml.XmlException ||
+                                       ex is OperationCanceledException && !ct.IsCancellationRequested)
+            {
+                return Results.Json(new ApiHata("ECB kurları şu an alınamıyor."), statusCode: StatusCodes.Status503ServiceUnavailable);
+            }
+        });
+
         group.MapGet("/finans-ozeti", async (int? subeId, IIsletmeService isletmeService, ISubeKurService service, CancellationToken ct) =>
         {
             await EnsureReadAccessAsync(isletmeService);

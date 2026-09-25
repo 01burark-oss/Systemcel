@@ -24,6 +24,9 @@ const OAuthCallbackSayfasi = React.lazy(() =>
 const PublicContentPage = React.lazy(() =>
   import("./marketing/PublicContentPage").then((module) => ({ default: module.PublicContentPage }))
 );
+const PublicSupplierMarketplace = React.lazy(() =>
+  import("./marketing/PublicSupplierMarketplace").then((module) => ({ default: module.PublicSupplierMarketplace }))
+);
 const FaturaMusteriOnaySayfasi = React.lazy(() =>
   import("./screens/faturalar/FaturaMusteriOnaySayfasi").then((module) => ({ default: module.FaturaMusteriOnaySayfasi }))
 );
@@ -221,6 +224,10 @@ function AppRoutes() {
     return accountantMarketplaceEnabled ? <MuhasebecilerSayfasi publicMode /> : <PublicMarketplaceRedirect />;
   }
 
+  if (rawPath === "/pazaryeri") {
+    return <PublicSupplierMarketplace />;
+  }
+
   if (path === "/yardim" || safeDecodePath(path) === "/yardım") {
     return <YardimSayfasi />;
   }
@@ -239,6 +246,18 @@ function AppRoutes() {
 
   if (path === "/iletisim" || safeDecodePath(path) === "/iletişim") {
     return <PublicContentPage kind="contact" />;
+  }
+
+  if (path === "/pazaryeri-satis-kosullari") {
+    return <PublicContentPage kind="marketplaceSale" />;
+  }
+
+  if (path === "/teslimat-ve-kargo") {
+    return <PublicContentPage kind="marketplaceDelivery" />;
+  }
+
+  if (path === "/iptal-ve-iade") {
+    return <PublicContentPage kind="marketplaceReturns" />;
   }
 
   if (path === "/kvkk") {
@@ -392,6 +411,7 @@ function isClientRoute(pathname: string) {
     decoded === "/oauth-callback" ||
     decoded === "/hosgeldin" ||
     decoded === "/muhasebeciler" ||
+    decoded === "/pazaryeri" ||
     decoded === "/yardim" ||
     decoded === "/yardım" ||
     decoded === "/hakkimizda" ||
@@ -400,6 +420,9 @@ function isClientRoute(pathname: string) {
     decoded === "/kariyer" ||
     decoded === "/iletisim" ||
     decoded === "/iletişim" ||
+    decoded === "/pazaryeri-satis-kosullari" ||
+    decoded === "/teslimat-ve-kargo" ||
+    decoded === "/iptal-ve-iade" ||
     decoded === "/kvkk" ||
     decoded === "/gizlilik" ||
     decoded === "/abonelik-kosullari" ||

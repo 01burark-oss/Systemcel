@@ -763,6 +763,7 @@
 .marketing-legal-card aside { margin-top: 38px; padding: 18px; background: var(--mk-cream); border-left: 4px solid var(--mk-lime); color: var(--mk-muted); font-size: 13px; }
 .marketing-legal-meta { margin-bottom: 36px; display: flex; gap: 10px; color: var(--mk-muted); font-family: Consolas, monospace; font-size: 12px; }
 .marketing-content-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+.marketing-content-grid--contact { margin-top: 24px; }
 .marketing-content-card { min-height: 300px; padding: 28px; display: flex; flex-direction: column; align-items: flex-start; border: 1px solid var(--mk-line); border-radius: 20px; background: white; }
 .marketing-content-card > svg { color: #7ea500; }
 .marketing-content-card small { margin-top: 35px; font-family: Consolas, monospace; color: var(--mk-muted); }
