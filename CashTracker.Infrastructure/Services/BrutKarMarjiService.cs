@@ -42,10 +42,6 @@ public sealed class BrutKarMarjiService : IBrutKarMarjiService
         var invoiceQuery = db.Faturalar.AsNoTracking()
             .Where(x => x.IsletmeId == businessId && x.Tarih < endExclusive &&
                 (x.Durum == FaturaDurum.Kesildi || x.Durum == FaturaDurum.KismiOdendi || x.Durum == FaturaDurum.Odendi));
-        if (activeBranch is not null)
-            invoiceQuery = activeBranch.Varsayilan
-                ? invoiceQuery.Where(x => x.SubeId == activeBranch.Id || x.SubeId == null)
-                : invoiceQuery.Where(x => x.SubeId == activeBranch.Id);
         var invoices = await invoiceQuery
             .Select(x => new InvoiceRow(x.Id, x.SubeId, x.Tarih, x.FaturaTipi, x.KurSnapshot))
             .ToListAsync(ct);
@@ -59,12 +55,8 @@ public sealed class BrutKarMarjiService : IBrutKarMarjiService
         var linesByInvoice = invoiceLines.ToLookup(x => x.InvoiceId);
         var movementQuery = db.StokHareketleri.AsNoTracking()
             .Where(x => x.IsletmeId == businessId && x.Tarih < endExclusive);
-        if (activeBranch is not null)
-            movementQuery = activeBranch.Varsayilan
-                ? movementQuery.Where(x => x.SubeId == activeBranch.Id || x.SubeId == null)
-                : movementQuery.Where(x => x.SubeId == activeBranch.Id);
         var movements = await movementQuery
-            .Select(x => new StockMovementRow(x.Id, x.UrunHizmetId, x.SubeId, x.Tarih, x.Miktar, x.BirimMaliyetTry, x.Kaynak, x.HareketTipi))
+            .Select(x => new StockMovementRow(x.Id, x.StokDefterIslemiId, x.UrunHizmetId, x.SubeId, x.Tarih, x.Miktar, x.BirimMaliyetTry, x.Kaynak, x.HareketTipi))
             .ToListAsync(ct);
         var productIds = invoiceLines.Select(x => x.UrunHizmetId)
             .Union(movements.Select(x => x.ProductId)).Distinct().ToList();
@@ -94,14 +86,17 @@ public sealed class BrutKarMarjiService : IBrutKarMarjiService
             }
         }
 
-        foreach (var movement in movements.Where(x => !IsInvoiceStockSource(x.Source) && !IsTransfer(x.MovementType)))
+        foreach (var movement in movements.Where(x => !IsInvoiceStockSource(x.Source)))
         {
             if (!IsProduct(productTypes, movement.ProductId))
                 continue;
-            events.Add(CostEvent.Manual(movement));
+            events.Add(IsTransfer(movement.MovementType)
+                ? CostEvent.Transfer(movement)
+                : CostEvent.Manual(movement));
         }
 
         var costs = new Dictionary<ProductKey, MovingAverageState>();
+        var transferCosts = new Dictionary<int, decimal?>();
         decimal revenue = 0m;
         decimal costOfSales = 0m;
         var saleLines = 0;
@@ -133,16 +128,28 @@ public sealed class BrutKarMarjiService : IBrutKarMarjiService
                 case CostEventType.Unknown:
                     state.MarkUnknown();
                     break;
+                case CostEventType.TransferExit:
+                    var transferredCost = state.Consume(item.Quantity);
+                    if (item.TransferId.HasValue)
+                        transferCosts[item.TransferId.Value] = transferredCost;
+                    break;
+                case CostEventType.TransferEntry:
+                    if (item.TransferId.HasValue && transferCosts.TryGetValue(item.TransferId.Value, out var transferCost) && transferCost.HasValue)
+                        state.ReceiveTotal(item.Quantity, transferCost.Value);
+                    else
+                        state.ReceiveUnknown(item.Quantity);
+                    break;
                 case CostEventType.Sale:
                     var inRequestedRange = item.Date.Date >= baslangic.Date && item.Date.Date <= bitis.Date;
-                    if (inRequestedRange)
+                    var inRequestedBranch = IsInActiveBranch(item.BranchId, activeBranch);
+                    if (inRequestedRange && inRequestedBranch)
                     {
                         saleLines++;
                         revenue += item.RevenueTry;
                     }
 
                     var saleCost = state.Consume(item.Quantity);
-                    if (inRequestedRange)
+                    if (inRequestedRange && inRequestedBranch)
                     {
                         if (saleCost.HasValue)
                             costOfSales += saleCost.Value;
@@ -200,6 +207,10 @@ public sealed class BrutKarMarjiService : IBrutKarMarjiService
         string.Equals(source, "HizliSatis", StringComparison.OrdinalIgnoreCase) ||
         string.Equals(source, "PazaryeriMalKabul", StringComparison.OrdinalIgnoreCase);
     private static bool IsTransfer(string movementType) => movementType.StartsWith("Transfer", StringComparison.OrdinalIgnoreCase);
+    private static bool IsInActiveBranch(int? eventBranchId, SubeDto? activeBranch) => activeBranch is null ||
+        (activeBranch.Varsayilan
+            ? eventBranchId is null || eventBranchId == activeBranch.Id
+            : eventBranchId == activeBranch.Id);
     private static int? ResolveCostBranchId(int? eventBranchId, SubeDto? activeBranch) =>
         activeBranch is { Varsayilan: true } && (eventBranchId is null || eventBranchId == activeBranch.Id)
             ? null
@@ -207,17 +218,28 @@ public sealed class BrutKarMarjiService : IBrutKarMarjiService
 
     private sealed record InvoiceRow(int Id, int? BranchId, DateTime Date, string Type, decimal ExchangeRate);
     private sealed record InvoiceLineRow(int Id, int InvoiceId, int UrunHizmetId, decimal Quantity, decimal NetAmount);
-    private sealed record StockMovementRow(int Id, int ProductId, int? BranchId, DateTime Date, decimal Quantity, decimal UnitCostTry, string Source, string MovementType);
+    private sealed record StockMovementRow(int Id, int? TransferId, int ProductId, int? BranchId, DateTime Date, decimal Quantity, decimal UnitCostTry, string Source, string MovementType);
     private sealed record ProductKey(int ProductId, int? BranchId);
 
-    private enum CostEventType { Purchase, ManualEntry, ManualExit, Sale, Unknown }
+    private enum CostEventType { Purchase, ManualEntry, ManualExit, Sale, Unknown, TransferExit, TransferEntry }
 
-    private sealed record CostEvent(int Id, DateTime Date, int SortOrder, int ProductId, int? BranchId, decimal Quantity, decimal UnitCostTry, decimal RevenueTry, CostEventType Type)
+    private sealed record CostEvent(int Id, DateTime Date, int SortOrder, int ProductId, int? BranchId, int? TransferId, decimal Quantity, decimal UnitCostTry, decimal RevenueTry, CostEventType Type)
     {
-        public static CostEvent Purchase(InvoiceRow invoice, InvoiceLineRow line, decimal unitCostTry) => new(line.Id, invoice.Date, 0, line.UrunHizmetId, invoice.BranchId, line.Quantity, unitCostTry, 0m, CostEventType.Purchase);
-        public static CostEvent Sale(InvoiceRow invoice, InvoiceLineRow line, decimal revenueTry) => new(line.Id, invoice.Date, 2, line.UrunHizmetId, invoice.BranchId, line.Quantity, 0m, revenueTry, CostEventType.Sale);
-        public static CostEvent Unknown(InvoiceRow invoice, InvoiceLineRow line) => new(line.Id, invoice.Date, 0, line.UrunHizmetId, invoice.BranchId, 0m, 0m, 0m, CostEventType.Unknown);
-        public static CostEvent Manual(StockMovementRow movement) => new(movement.Id, movement.Date, 1, movement.ProductId, movement.BranchId, Math.Abs(movement.Quantity), movement.UnitCostTry, 0m, movement.Quantity > 0m ? CostEventType.ManualEntry : CostEventType.ManualExit);
+        public static CostEvent Purchase(InvoiceRow invoice, InvoiceLineRow line, decimal unitCostTry) => new(line.Id, invoice.Date, 0, line.UrunHizmetId, invoice.BranchId, null, line.Quantity, unitCostTry, 0m, CostEventType.Purchase);
+        public static CostEvent Sale(InvoiceRow invoice, InvoiceLineRow line, decimal revenueTry) => new(line.Id, invoice.Date, 2, line.UrunHizmetId, invoice.BranchId, null, line.Quantity, 0m, revenueTry, CostEventType.Sale);
+        public static CostEvent Unknown(InvoiceRow invoice, InvoiceLineRow line) => new(line.Id, invoice.Date, 0, line.UrunHizmetId, invoice.BranchId, null, 0m, 0m, 0m, CostEventType.Unknown);
+        public static CostEvent Manual(StockMovementRow movement) => new(movement.Id, movement.Date, 1, movement.ProductId, movement.BranchId, null, Math.Abs(movement.Quantity), movement.UnitCostTry, 0m, movement.Quantity > 0m ? CostEventType.ManualEntry : CostEventType.ManualExit);
+        public static CostEvent Transfer(StockMovementRow movement) => new(
+            movement.Id,
+            movement.Date,
+            1,
+            movement.ProductId,
+            movement.BranchId,
+            movement.TransferId,
+            Math.Abs(movement.Quantity),
+            0m,
+            0m,
+            movement.MovementType.EndsWith("Cikis", StringComparison.OrdinalIgnoreCase) ? CostEventType.TransferExit : CostEventType.TransferEntry);
     }
 
     private sealed class MovingAverageState
@@ -231,6 +253,19 @@ public sealed class BrutKarMarjiService : IBrutKarMarjiService
             if (quantity <= 0m || unitCostTry < 0m) { MarkUnknown(); return; }
             _quantity += quantity;
             _totalCost += quantity * unitCostTry;
+        }
+
+        public void ReceiveTotal(decimal quantity, decimal totalCost)
+        {
+            if (quantity <= 0m || totalCost < 0m) { MarkUnknown(); return; }
+            _quantity += quantity;
+            _totalCost += totalCost;
+        }
+
+        public void ReceiveUnknown(decimal quantity)
+        {
+            if (quantity > 0m) _quantity += quantity;
+            MarkUnknown();
         }
 
         public void MarkUnknown() => _unknown = true;

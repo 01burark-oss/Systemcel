@@ -1,0 +1,12 @@
+[Unit]
+Description=Alert on Systemcel disk and offsite backup health
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=/opt/systemcel/repo/deployment/oracle-free/.env
+ExecStart=/usr/bin/python3 /usr/local/lib/systemcel/alert-monitoring.py
+UMask=0077
+StateDirectory=systemcel-monitoring
+StateDirectoryMode=0750

@@ -43,7 +43,7 @@ public sealed class JevDecisionService : IJevDecisionService
         ArgumentNullException.ThrowIfNull(state);
         ValidateQuestions(questions);
         if (!IsConfigured)
-            return questions.Keys.ToDictionary(x => x, _ => JevChoiceResult.Unavailable, StringComparer.Ordinal);
+            return Unavailable(questions);
 
         var payload = new JevRequest(
             state,
@@ -61,23 +61,55 @@ public sealed class JevDecisionService : IJevDecisionService
             };
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _settings.ApiKey.Trim());
 
-            using var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct);
-            if (response.IsSuccessStatusCode)
-                return await ReadResultsAsync(response, questions, ct);
-
-            if (attempt < 2 && response.StatusCode is HttpStatusCode.TooManyRequests or (HttpStatusCode)529)
+            HttpResponseMessage response;
+            try
             {
-                var retryAfter = response.Headers.RetryAfter?.Delta ?? TimeSpan.FromMilliseconds(200 * (attempt + 1));
-                await Task.Delay(TimeSpan.FromMilliseconds(Math.Min(retryAfter.TotalMilliseconds, 1500)), ct);
-                continue;
+                response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct);
+            }
+            catch (HttpRequestException)
+            {
+                _logger?.LogWarning("Jev decision request failed due to a transport error.");
+                return Unavailable(questions);
+            }
+            catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+            {
+                _logger?.LogWarning("Jev decision request timed out.");
+                return Unavailable(questions);
             }
 
-            _logger?.LogWarning("Jev decision request failed. StatusCode={StatusCode}", (int)response.StatusCode);
-            return questions.Keys.ToDictionary(x => x, _ => JevChoiceResult.Unavailable, StringComparer.Ordinal);
+            using (response)
+            {
+                if (response.IsSuccessStatusCode)
+                {
+                    try
+                    {
+                        return await ReadResultsAsync(response, questions, ct);
+                    }
+                    catch (JsonException)
+                    {
+                        _logger?.LogWarning("Jev decision response was not valid JSON.");
+                        return Unavailable(questions);
+                    }
+                }
+
+                if (attempt < 2 && response.StatusCode is HttpStatusCode.TooManyRequests or (HttpStatusCode)529)
+                {
+                    var retryAfter = response.Headers.RetryAfter?.Delta ?? TimeSpan.FromMilliseconds(200 * (attempt + 1));
+                    await Task.Delay(TimeSpan.FromMilliseconds(Math.Min(retryAfter.TotalMilliseconds, 1500)), ct);
+                    continue;
+                }
+
+                _logger?.LogWarning("Jev decision request failed. StatusCode={StatusCode}", (int)response.StatusCode);
+                return Unavailable(questions);
+            }
         }
 
-        return questions.Keys.ToDictionary(x => x, _ => JevChoiceResult.Unavailable, StringComparer.Ordinal);
+        return Unavailable(questions);
     }
+
+    private static IReadOnlyDictionary<string, JevChoiceResult> Unavailable(
+        IReadOnlyDictionary<string, JevChoiceQuestion> questions) =>
+        questions.Keys.ToDictionary(x => x, _ => JevChoiceResult.Unavailable, StringComparer.Ordinal);
 
     private static async Task<IReadOnlyDictionary<string, JevChoiceResult>> ReadResultsAsync(
         HttpResponseMessage response,
@@ -87,7 +119,7 @@ public sealed class JevDecisionService : IJevDecisionService
         await using var stream = await response.Content.ReadAsStreamAsync(ct);
         var body = await JsonSerializer.DeserializeAsync<JevResponse>(stream, JsonOptions, ct);
         if (body?.Answers is null)
-            return questions.Keys.ToDictionary(x => x, _ => JevChoiceResult.Unavailable, StringComparer.Ordinal);
+            return Unavailable(questions);
 
         var results = new Dictionary<string, JevChoiceResult>(StringComparer.Ordinal);
         foreach (var pair in questions)

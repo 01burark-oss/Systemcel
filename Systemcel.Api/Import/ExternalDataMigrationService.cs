@@ -146,20 +146,24 @@ internal sealed class ExternalDataMigrationService
 
     public async Task<MigrationApplyResult> ApplyAsync(string draftId, CancellationToken ct)
     {
-        if (!_drafts.TryRemove(draftId, out var draft) || draft.ExpiresAt < DateTimeOffset.UtcNow)
+        if (!_drafts.TryGetValue(draftId, out var draft))
             throw new MigrationValidationException("Önizleme süresi doldu. Dosyayı yeniden seçin.");
-        if (draft.Parsed.Errors.Count > 0)
-            throw new MigrationValidationException("Düzeltilmesi gereken satırlar var. Önce yeni bir önizleme oluşturun.");
-        if (draft.BusinessId != await _isletmeService.GetActiveIdAsync())
-            throw new MigrationValidationException("Aktif işletme değişti. Dosyayı yeni işletmede yeniden önizleyin.");
-        if (draft.Type == "fatura")
-            throw new MigrationValidationException("Açık faturalar bu sürümde aktarılmıyor.");
 
         var applyGate = _applyGates.GetOrAdd(draft.BusinessId, static _ => new SemaphoreSlim(1, 1));
         await applyGate.WaitAsync(ct);
         try
         {
-            return draft.Type switch
+            // A prior apply may have completed while this request waited for the gate.
+            if (!_drafts.TryGetValue(draftId, out var currentDraft) || !ReferenceEquals(draft, currentDraft) || draft.ExpiresAt < DateTimeOffset.UtcNow)
+                throw new MigrationValidationException("Önizleme süresi doldu. Dosyayı yeniden seçin.");
+            if (draft.Parsed.Errors.Count > 0)
+                throw new MigrationValidationException("Düzeltilmesi gereken satırlar var. Önce yeni bir önizleme oluşturun.");
+            if (draft.BusinessId != await _isletmeService.GetActiveIdAsync())
+                throw new MigrationValidationException("Aktif işletme değişti. Dosyayı yeni işletmede yeniden önizleyin.");
+            if (draft.Type == "fatura")
+                throw new MigrationValidationException("Açık faturalar bu sürümde aktarılmıyor.");
+
+            var result = draft.Type switch
             {
                 "cari" => await ApplyCariAsync(draft.BusinessId, draft.Parsed.ValidRows, ct),
                 "urun" => await ApplyUrunAsync(draft.BusinessId, draft.Parsed.ValidRows, ct),
@@ -167,6 +171,12 @@ internal sealed class ExternalDataMigrationService
                 "kategori" => await ApplyKategoriAsync(draft.Parsed.ValidRows, ct),
                 _ => throw new MigrationValidationException("Bu veri türü desteklenmiyor.")
             };
+            // Keep incomplete drafts so transient failures and row-level service errors can be retried.
+            // Apply handlers identify imported records and opening movements by stable keys, making
+            // successful rows safe to encounter again during a resume.
+            if (result.Errors.Count == 0)
+                _drafts.TryRemove(draftId, out _);
+            return result;
         }
         finally
         {

@@ -237,21 +237,18 @@ namespace CashTracker.Tests
                     YetkiSeviyesi = MuhasebeciYetkiSeviyeleri.OkumaRapor,
                     Mesaj = "Beni +90 532 000 00 00 numarasından arayın."
                 }));
-            var fragmentedError = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-                fixture.Portal.SubmitMarketplaceRequestAsync(ids.AccountantId, new MuhasebeciTalepOlusturRequest
-                {
-                    YetkiSeviyesi = MuhasebeciYetkiSeviyeleri.OkumaRapor,
-                    Mesaj = "Bana 0530 merhaba 065 merhaba 58 merhaba 88 üzerinden ulaşın."
-                }));
+            var fragmented = await fixture.Portal.SubmitMarketplaceRequestAsync(ids.AccountantId, new MuhasebeciTalepOlusturRequest
+            {
+                YetkiSeviyesi = MuhasebeciYetkiSeviyeleri.OkumaRapor,
+                Mesaj = "Bana 0530 merhaba 065 merhaba 58 merhaba 88 üzerinden ulaşın."
+            });
 
             Assert.Contains("paylaşılamaz", error.Message, StringComparison.OrdinalIgnoreCase);
-            Assert.Contains("paylaşılamaz", fragmentedError.Message, StringComparison.OrdinalIgnoreCase);
+            Assert.Equal(MuhasebeciTalepDurumlari.IletisimIncelemesi, fragmented.Durum);
+            Assert.Single(await fixture.Portal.GetContactReviewQueueAsync());
         }
 
         [Theory]
-        [InlineData("E-posta: ada [at] example [dot] com")]
-        [InlineData("E-posta: ada (at) example (dot) com")]
-        [InlineData("Numaram 0532 (iş telefonu) 000-00-00.")]
         [InlineData("IG: @ada.muhasebe")]
         [InlineData("Bana @ada.muhasebe üzerinden ulaşın.")]
         public async Task PazaryeriTalebi_ObfuscateEdilmisIletisimBilgileriniEngeller(string message)
@@ -271,6 +268,76 @@ namespace CashTracker.Tests
             Assert.Contains("paylaşılamaz", error.Message, StringComparison.OrdinalIgnoreCase);
         }
 
+        [Theory]
+        [InlineData("E-posta: ada [at] example [dot] com")]
+        [InlineData("E-posta: ada (at) example (dot) com")]
+        public async Task PazaryeriTalebi_GizlenmisEpostaInsanIncelemesineAlinir(string message)
+        {
+            using var fixture = await MuhasebeciPortalFixture.CreateAsync();
+            var ids = await fixture.CreateAccountantAndCustomerAsync();
+            await fixture.PublishDefaultProfileAsync();
+            fixture.CurrentUser.Set("customer", "customer@example.com", "Bahar Kafe");
+
+            var result = await fixture.Portal.SubmitMarketplaceRequestAsync(ids.AccountantId, new MuhasebeciTalepOlusturRequest { Mesaj = message });
+
+            Assert.Equal(MuhasebeciTalepDurumlari.IletisimIncelemesi, result.Durum);
+            Assert.Single(await fixture.Portal.GetContactReviewQueueAsync());
+        }
+
+        [Fact]
+        public async Task PazaryeriTalebi_BelirsizSayisalMetinIncelemeyeAlinirVeKararUygulanir()
+        {
+            using var fixture = await MuhasebeciPortalFixture.CreateAsync();
+            var ids = await fixture.CreateAccountantAndCustomerAsync();
+            await fixture.PublishDefaultProfileAsync();
+            fixture.CurrentUser.Set("customer", "customer@example.com", "Bahar Kafe");
+
+            var request = await fixture.Portal.SubmitMarketplaceRequestAsync(ids.AccountantId, new MuhasebeciTalepOlusturRequest
+            {
+                Mesaj = "Numaram 0532 (iş telefonu) 000-00-00."
+            });
+            Assert.Equal(MuhasebeciTalepDurumlari.IletisimIncelemesi, request.Durum);
+            Assert.Single(await fixture.Portal.GetContactReviewQueueAsync());
+            var pendingProfile = Assert.Single((await fixture.Portal.GetMarketplaceAsync()).Profiller);
+            Assert.True(pendingProfile.TalepVar);
+            Assert.True(pendingProfile.IletisimIncelemesinde);
+            await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                fixture.Portal.SubmitMarketplaceRequestAsync(ids.AccountantId, new MuhasebeciTalepOlusturRequest
+                {
+                    Mesaj = "Aynı talebi yeniden gönderiyorum."
+                }));
+
+            var released = await fixture.Portal.DecideContactReviewAsync(request.Id, new IletisimIncelemesiKararRequest { IletisimBilgisiVar = false });
+            Assert.Equal(MuhasebeciTalepDurumlari.Beklemede, released.Durum);
+            Assert.Empty(await fixture.Portal.GetContactReviewQueueAsync());
+            var releasedProfile = Assert.Single((await fixture.Portal.GetMarketplaceAsync()).Profiller);
+            Assert.True(releasedProfile.TalepVar);
+            Assert.False(releasedProfile.IletisimIncelemesinde);
+            await using (var db = fixture.CreateDbContext())
+            {
+                var audit = await db.YonetimDenetimKayitlari.SingleAsync();
+                Assert.Equal("customer", audit.AktorProviderKullaniciId);
+                Assert.Equal("MuhasebeciPazaryeriIletisimIncelemesiKarari", audit.Islem);
+                Assert.Contains(MuhasebeciTalepDurumlari.IletisimIncelemesi, audit.OncekiDeger);
+                Assert.Contains(MuhasebeciTalepDurumlari.Beklemede, audit.YeniDeger);
+                Assert.Contains("false", audit.YeniDeger);
+            }
+
+            using var secondFixture = await MuhasebeciPortalFixture.CreateAsync();
+            var secondIds = await secondFixture.CreateAccountantAndCustomerAsync();
+            await secondFixture.PublishDefaultProfileAsync();
+            secondFixture.CurrentUser.Set("customer", "customer@example.com", "Bahar Kafe");
+            var second = await secondFixture.Portal.SubmitMarketplaceRequestAsync(secondIds.AccountantId, new MuhasebeciTalepOlusturRequest { Mesaj = "Bana 0530 merhaba 065 merhaba 58 merhaba 88 üzerinden ulaşın." });
+            var rejected = await secondFixture.Portal.DecideContactReviewAsync(second.Id, new IletisimIncelemesiKararRequest { IletisimBilgisiVar = true });
+            Assert.Equal(MuhasebeciTalepDurumlari.Red, rejected.Durum);
+            await using (var db = secondFixture.CreateDbContext())
+            {
+                var audit = await db.YonetimDenetimKayitlari.SingleAsync();
+                Assert.Contains(MuhasebeciTalepDurumlari.Red, audit.YeniDeger);
+                Assert.Contains("true", audit.YeniDeger);
+            }
+        }
+
         [Fact]
         public async Task PazaryeriTalebi_SayisalIsVeRaporMetniniIletisimBilgisiSanmaz()
         {
@@ -286,6 +353,39 @@ namespace CashTracker.Tests
             });
 
             Assert.Equal(MuhasebeciTalepDurumlari.Beklemede, result.Durum);
+        }
+
+        [Fact]
+        public async Task PazaryeriTalebi_IletisimIncelemesiYarisindaTekKararVeTekAuditUygulanir()
+        {
+            using var fixture = await MuhasebeciPortalFixture.CreateAsync();
+            var ids = await fixture.CreateAccountantAndCustomerAsync();
+            await fixture.PublishDefaultProfileAsync();
+            fixture.CurrentUser.Set("customer", "customer@example.com", "Bahar Kafe");
+            var request = await fixture.Portal.SubmitMarketplaceRequestAsync(ids.AccountantId, new MuhasebeciTalepOlusturRequest
+            {
+                Mesaj = "Numaram 0532 merhaba 111 merhaba 22 merhaba 33 üzerinden ulaşın."
+            });
+
+            async Task<bool> TryDecisionAsync(bool hasContact)
+            {
+                try
+                {
+                    await fixture.Portal.DecideContactReviewAsync(request.Id, new IletisimIncelemesiKararRequest { IletisimBilgisiVar = hasContact });
+                    return true;
+                }
+                catch (InvalidOperationException)
+                {
+                    return false;
+                }
+            }
+
+            var results = await Task.WhenAll(TryDecisionAsync(false), TryDecisionAsync(true));
+
+            Assert.Single(results, x => x);
+            await using var db = fixture.CreateDbContext();
+            Assert.Single(await db.YonetimDenetimKayitlari.ToListAsync());
+            Assert.NotEqual(MuhasebeciTalepDurumlari.IletisimIncelemesi, (await db.MuhasebeciMusteriTalepleri.SingleAsync(x => x.Id == request.Id)).Durum);
         }
 
         [Fact]

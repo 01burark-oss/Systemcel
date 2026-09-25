@@ -108,6 +108,9 @@ const WelcomeSayfasi = React.lazy(() =>
 const MuhasebeciBasvurulariSayfasi = React.lazy(() =>
   import("./screens/yonetim/MuhasebeciBasvurulariSayfasi").then((module) => ({ default: module.MuhasebeciBasvurulariSayfasi }))
 );
+const MuhasebeciIletisimIncelemeleriSayfasi = React.lazy(() =>
+  import("./screens/yonetim/MuhasebeciIletisimIncelemeleriSayfasi").then((module) => ({ default: module.MuhasebeciIletisimIncelemeleriSayfasi }))
+);
 const OdemeIncelemeSayfasi = React.lazy(() =>
   import("./screens/yonetim/OdemeIncelemeSayfasi").then((module) => ({ default: module.OdemeIncelemeSayfasi }))
 );
@@ -652,6 +655,14 @@ function WorkspaceRoutes({ path }: { path: string }) {
     );
   }
 
+  if (mobileWorkspace && routePath === "/yonetim/muhasebeci-iletisim-incelemeleri") {
+    return (
+      <MobileWorkspaceView active="merkez">
+        <MuhasebeciIletisimIncelemeleriSayfasi />
+      </MobileWorkspaceView>
+    );
+  }
+
   if (mobileWorkspace && routePath === "/muhasebeci/musteriler") {
     return (
       <MobileWorkspaceView active="merkez">
@@ -750,6 +761,8 @@ function WorkspaceRoutes({ path }: { path: string }) {
           <MuhasebeciMusterilerSayfasi onUstBarYenile={ustBarYukle} />
         ) : routePath === "/yonetim/muhasebeci-basvurulari" ? (
           <MuhasebeciBasvurulariSayfasi onUstBarYenile={ustBarYukle} />
+        ) : routePath === "/yonetim/muhasebeci-iletisim-incelemeleri" ? (
+          <MuhasebeciIletisimIncelemeleriSayfasi />
         ) : routePath === "/yonetim/odemeler" ? (
           <OdemeIncelemeSayfasi />
         ) : routePath === "/yonetim/bildirim-teslimleri" ? (

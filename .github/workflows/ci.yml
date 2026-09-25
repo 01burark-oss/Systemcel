@@ -122,20 +122,21 @@ jobs:
       postgres:
         image: postgres:18-alpine
         env:
-          POSTGRES_DB: systemcel_ci
+          POSTGRES_DB: systemcel_test_ci
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: systemcel_ci_password
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U postgres -d systemcel_ci"
+          --health-cmd "pg_isready -U postgres -d systemcel_test_ci"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 12
     env:
       ASPNETCORE_ENVIRONMENT: Development
       SYSTEMCEL_CLERK_ENABLED: "false"
-      SYSTEMCEL_DATABASE_CONNECTION_STRING: Host=127.0.0.1;Port=5432;Database=systemcel_ci;Username=postgres;Password=systemcel_ci_password
+      SYSTEMCEL_DATABASE_CONNECTION_STRING: Host=127.0.0.1;Port=5432;Database=systemcel_test_ci;Username=postgres;Password=systemcel_ci_password
+      SYSTEMCEL_POSTGRES_TEST_CONNECTION: Host=127.0.0.1;Port=5432;Database=systemcel_test_ci;Username=postgres;Password=systemcel_ci_password
       SYSTEMCEL_APPDATA: ${{ github.workspace }}/.ci-appdata
 
     steps:
@@ -151,6 +152,9 @@ jobs:
         run: |
           dotnet restore ./Systemcel.Api/Systemcel.Api.csproj
           dotnet build ./Systemcel.Api/Systemcel.Api.csproj --configuration Release --no-restore
+
+      - name: Test marketplace PostgreSQL concurrency
+        run: dotnet test ./CashTracker.Tests/CashTracker.Tests.csproj --configuration Release --filter 'FullyQualifiedName~PostgreSql_'
 
       - name: Validate and apply PostgreSQL migrations
         run: |
@@ -215,4 +219,5 @@ jobs:
         run: |
           bash ./deployment/oracle-free/tests/backup-offsite-smoke.sh
           bash ./deployment/oracle-free/tests/collect-monitoring-smoke.sh
+          python3 ./deployment/oracle-free/tests/alert-monitoring-smoke.py
           bash ./deployment/oracle-free/tests/deploy-bundle-smoke.sh

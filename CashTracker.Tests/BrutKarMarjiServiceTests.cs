@@ -2,6 +2,7 @@ using System;
 using System.Threading.Tasks;
 using CashTracker.Core.Entities;
 using CashTracker.Core.Models;
+using CashTracker.Core.Services;
 using CashTracker.Infrastructure.Persistence;
 using CashTracker.Infrastructure.Services;
 using CashTracker.Tests.Support;
@@ -94,19 +95,38 @@ public sealed class BrutKarMarjiServiceTests
         Assert.Equal(2_500m, result.BrutKarTry);
     }
 
+    [Fact]
+    public async Task GetAsync_CarriesMovingAverageCostAcrossBranchWarehouseTransfer()
+    {
+        await using var fixture = await MarginFixture.CreateAsync();
+        var (sourceBranchId, destinationBranchId, sourceWarehouseId, destinationWarehouseId) = await fixture.AddBranchesAndWarehousesAsync();
+        fixture.SelectBranch(destinationBranchId);
+        await fixture.AddInvoiceAsync("Alis", new DateTime(2026, 8, 1), 1m, 10m, 1_000m, sourceBranchId);
+        await fixture.AddTransferAsync(new DateTime(2026, 8, 2), sourceBranchId, destinationBranchId, sourceWarehouseId, destinationWarehouseId, 5m);
+        await fixture.AddInvoiceAsync("Satis", new DateTime(2026, 8, 3), 1m, 5m, 1_000m, destinationBranchId);
+
+        var result = await fixture.Service.GetAsync(new DateTime(2026, 8, 1), new DateTime(2026, 8, 31));
+
+        Assert.Equal("Hazir", result.Durum);
+        Assert.Equal(1_000m, result.SatisGeliriTry);
+        Assert.Equal(500m, result.SatisMaliyetiTry);
+        Assert.Equal(500m, result.BrutKarTry);
+        Assert.Equal(1, result.SatisSatiri);
+    }
+
     private sealed class MarginFixture : IAsyncDisposable
     {
         private readonly SqliteConnection _connection;
         private readonly SingleDbContextFactory _factory;
-        public BrutKarMarjiService Service { get; }
+        public BrutKarMarjiService Service { get; private set; }
         public int ProductId { get; }
 
-        private MarginFixture(SqliteConnection connection, SingleDbContextFactory factory, int productId)
+        private MarginFixture(SqliteConnection connection, SingleDbContextFactory factory, int productId, ISubeKurService? branchService)
         {
             _connection = connection;
             _factory = factory;
             ProductId = productId;
-            Service = new BrutKarMarjiService(factory, new FakeIsletmeService { Active = new Isletme { Id = 1, Ad = "Test" } });
+            Service = new BrutKarMarjiService(factory, new FakeIsletmeService { Active = new Isletme { Id = 1, Ad = "Test" } }, branchService);
         }
 
         public static async Task<MarginFixture> CreateAsync()
@@ -117,19 +137,58 @@ public sealed class BrutKarMarjiServiceTests
             var factory = new SingleDbContextFactory(options);
             await using var db = factory.CreateDbContext();
             await db.Database.EnsureCreatedAsync();
+            db.Isletmeler.Add(new Isletme { Id = 1, Ad = "Test" });
             var product = new UrunHizmet { IsletmeId = 1, Tip = "Urun", Ad = "Kablo", Aktif = true };
             db.UrunHizmetleri.Add(product);
             await db.SaveChangesAsync();
-            return new MarginFixture(connection, factory, product.Id);
+            return new MarginFixture(connection, factory, product.Id, null);
         }
 
-        public async Task AddInvoiceAsync(string type, DateTime date, decimal rate, decimal quantity, decimal netAmount)
+        public void SelectBranch(int branchId) => Service = new BrutKarMarjiService(
+            _factory,
+            new FakeIsletmeService { Active = new Isletme { Id = 1, Ad = "Test" } },
+            new FixedBranchService(new SubeDto { Id = branchId, Ad = "Seçili Şube", Varsayilan = false, Aktif = true }));
+
+        public async Task AddInvoiceAsync(string type, DateTime date, decimal rate, decimal quantity, decimal netAmount, int? branchId = null)
         {
             await using var db = _factory.CreateDbContext();
-            var invoice = new Fatura { IsletmeId = 1, CariKartId = 1, Tarih = date, FaturaTipi = type, Durum = FaturaDurum.Kesildi, KurSnapshot = rate, ParaBirimi = "USD" };
+            var invoice = new Fatura { IsletmeId = 1, SubeId = branchId, CariKartId = 1, Tarih = date, FaturaTipi = type, Durum = FaturaDurum.Kesildi, KurSnapshot = rate, ParaBirimi = "USD" };
             db.Faturalar.Add(invoice);
             await db.SaveChangesAsync();
             db.FaturaSatirlari.Add(new FaturaSatir { IsletmeId = 1, FaturaId = invoice.Id, UrunHizmetId = ProductId, Miktar = quantity, SatirNetTutar = netAmount, StokEtkilesin = true });
+            await db.SaveChangesAsync();
+        }
+
+        public async Task<(int SourceBranchId, int DestinationBranchId, int SourceWarehouseId, int DestinationWarehouseId)> AddBranchesAndWarehousesAsync()
+        {
+            await using var db = _factory.CreateDbContext();
+            var sourceBranch = new Sube { IsletmeId = 1, Ad = "Şube A", Kod = "A", OlusturmaAnahtari = "margin-test-branch-a", IcerikOzeti = new string('A', 64), Aktif = true };
+            var destinationBranch = new Sube { IsletmeId = 1, Ad = "Şube B", Kod = "B", OlusturmaAnahtari = "margin-test-branch-b", IcerikOzeti = new string('B', 64), Aktif = true };
+            db.Subeler.AddRange(sourceBranch, destinationBranch);
+            await db.SaveChangesAsync();
+            var sourceWarehouse = new StokDepo { IsletmeId = 1, SubeId = sourceBranch.Id, Ad = "Depo A", Kod = "DEPO-A", Aktif = true };
+            var destinationWarehouse = new StokDepo { IsletmeId = 1, SubeId = destinationBranch.Id, Ad = "Depo B", Kod = "DEPO-B", Aktif = true };
+            db.StokDepolari.AddRange(sourceWarehouse, destinationWarehouse);
+            await db.SaveChangesAsync();
+            return (sourceBranch.Id, destinationBranch.Id, sourceWarehouse.Id, destinationWarehouse.Id);
+        }
+
+        public async Task AddTransferAsync(DateTime date, int sourceBranchId, int destinationBranchId, int sourceWarehouseId, int destinationWarehouseId, decimal quantity)
+        {
+            await using var db = _factory.CreateDbContext();
+            var operation = new StokDefterIslemi
+            {
+                IsletmeId = 1,
+                IslemAnahtari = "branch-transfer-1",
+                IcerikOzeti = new string('A', 64),
+                IslemTipi = "Transfer",
+                CreatedAt = date
+            };
+            db.StokDefterIslemleri.Add(operation);
+            await db.SaveChangesAsync();
+            db.StokHareketleri.AddRange(
+                new StokHareket { IsletmeId = 1, SubeId = sourceBranchId, UrunHizmetId = ProductId, DepoId = sourceWarehouseId, StokDefterIslemiId = operation.Id, Tarih = date, Miktar = -quantity, HareketTipi = "TransferCikis", Kaynak = "GelismisStok" },
+                new StokHareket { IsletmeId = 1, SubeId = destinationBranchId, UrunHizmetId = ProductId, DepoId = destinationWarehouseId, StokDefterIslemiId = operation.Id, Tarih = date, Miktar = quantity, HareketTipi = "TransferGiris", Kaynak = "GelismisStok" });
             await db.SaveChangesAsync();
         }
 
@@ -159,5 +218,15 @@ public sealed class BrutKarMarjiServiceTests
         }
 
         public ValueTask DisposeAsync() => _connection.DisposeAsync();
+    }
+
+    private sealed class FixedBranchService(SubeDto activeBranch) : ISubeKurService
+    {
+        public Task<SubeKurDurumuDto> GetContextAsync(CancellationToken ct = default) => Task.FromResult(new SubeKurDurumuDto { AktifSube = activeBranch, Subeler = [activeBranch], CokluSubeAktif = true });
+        public Task<SubeFinansOzetiDto> GetFinancialSummaryAsync(int? branchId = null, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<SubeOlusturResult> CreateBranchAsync(SubeOlusturRequest request, string idempotencyKey, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task SetActiveBranchAsync(int branchId, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<KurKaydetResult> SaveRateAsync(DovizKuruKaydetRequest request, string idempotencyKey, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<IslemKurSnapshot> ResolveSnapshotAsync(string? currency, decimal originalAmount, CancellationToken ct = default) => throw new NotSupportedException();
     }
 }

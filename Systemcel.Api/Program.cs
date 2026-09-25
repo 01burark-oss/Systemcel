@@ -867,7 +867,26 @@ static PazaryeriOptions ResolvePazaryeriOptions(IConfiguration configuration)
         pilotIds.Add(id);
     }
 
-    return new PazaryeriOptions { Aktif = active, PilotIsletmeIdleri = pilotIds };
+    var categoryRules = configuration.GetSection("Pazaryeri:KategoriKurallari")
+        .Get<Dictionary<string, PazaryeriKategoriSevkKabulKurali>>()
+        ?? new Dictionary<string, PazaryeriKategoriSevkKabulKurali>(StringComparer.OrdinalIgnoreCase);
+    var normalizedCategoryRules = new Dictionary<string, PazaryeriKategoriSevkKabulKurali>(StringComparer.OrdinalIgnoreCase);
+    foreach (var (configuredCategory, rule) in categoryRules)
+    {
+        var category = configuredCategory.Trim();
+        if (string.IsNullOrWhiteSpace(category) || rule.AgirlikToleransiYuzde is < 0m or > 100m ||
+            !normalizedCategoryRules.TryAdd(category, rule))
+            throw new InvalidOperationException("Pazaryeri kategori kuralları geçerli kategori adları ve 0-100 arası ağırlık toleransı kullanmalıdır.");
+        if (rule.AgirlikToleransiYuzde is not null && !rule.AgirlikGerekli)
+            throw new InvalidOperationException($"Pazaryeri:{category} için ağırlık toleransı tanımlandığında AgirlikGerekli true olmalıdır.");
+    }
+
+    return new PazaryeriOptions
+    {
+        Aktif = active,
+        PilotIsletmeIdleri = pilotIds,
+        KategoriKurallari = normalizedCategoryRules
+    };
 }
 
 static void ConfigureDatabase(DbContextOptionsBuilder options, DatabaseRuntimeOptions databaseOptions)

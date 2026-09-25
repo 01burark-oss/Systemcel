@@ -70,26 +70,67 @@ function OzetMetrik({
   onDonemChange?: (value: string) => void;
 }) {
   const degerDurumu = Math.abs(deger) < 0.005 ? "bos" : deger < 0 ? "negatif" : "pozitif";
+  const [donemMenusuAcik, setDonemMenusuAcik] = React.useState(false);
+  const donemMenuRef = React.useRef<HTMLDivElement | null>(null);
+  const donemMenuId = React.useId();
+
+  React.useEffect(() => {
+    if (!donemMenusuAcik) return;
+
+    function kapatDisTiklamada(event: PointerEvent) {
+      if (!donemMenuRef.current?.contains(event.target as Node)) setDonemMenusuAcik(false);
+    }
+
+    function kapatEscapeIle(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setDonemMenusuAcik(false);
+        donemMenuRef.current?.querySelector("button")?.focus();
+      }
+    }
+
+    document.addEventListener("pointerdown", kapatDisTiklamada);
+    document.addEventListener("keydown", kapatEscapeIle);
+    return () => {
+      document.removeEventListener("pointerdown", kapatDisTiklamada);
+      document.removeEventListener("keydown", kapatEscapeIle);
+    };
+  }, [donemMenusuAcik]);
 
   if (ton === "net") {
     return (
-      <article className={`snapshot-card snapshot-card--net snapshot-card--benchmark snapshot-card--${degerDurumu}`}>
+      <article className={`snapshot-card snapshot-card--net snapshot-card--benchmark snapshot-card--${degerDurumu}${donemMenusuAcik ? " snapshot-card--menu-open" : ""}`}>
         <div className="snapshot-card__head">
           <h3>{baslik}</h3>
-          <label className="snapshot-period-chip">
-            <select
-              aria-label="Net kâr dönemi"
-              value={donem ?? "Bugun"}
-              onChange={(event) => onDonemChange?.(event.target.value)}
+          <div className="snapshot-period-chip" ref={donemMenuRef}>
+            <button
+              type="button"
+              className="snapshot-period-chip__trigger"
+              aria-label={`Net kâr dönemi: ${ozetEtiketi(donem ?? "Bugun")}`}
+              aria-expanded={donemMenusuAcik}
+              aria-controls={donemMenuId}
+              onClick={() => setDonemMenusuAcik((acik) => !acik)}
             >
-              {(donemSecenekleri ?? []).map((secenek) => (
-                <option key={secenek.etiket} value={secenek.etiket}>
-                  {ozetEtiketi(secenek.etiket)}
-                </option>
-              ))}
-            </select>
-            <ChevronDown size={14} />
-          </label>
+              <span>{ozetEtiketi(donem ?? "Bugun")}</span>
+              <ChevronDown size={14} aria-hidden="true" />
+            </button>
+            {donemMenusuAcik && (
+              <div className="snapshot-period-chip__menu" id={donemMenuId} aria-label="Net kâr dönemi seçenekleri">
+                {(donemSecenekleri ?? []).map((secenek) => (
+                  <button
+                    key={secenek.etiket}
+                    type="button"
+                    aria-pressed={secenek.etiket === donem}
+                    onClick={() => {
+                      onDonemChange?.(secenek.etiket);
+                      setDonemMenusuAcik(false);
+                    }}
+                  >
+                    {ozetEtiketi(secenek.etiket)}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="snapshot-card__value">
@@ -176,18 +217,24 @@ function NetBenchmarkMetni(veriSayisi: number, ortalama: number, bugunNet: numbe
 
 function PastaChart({ odemeler }: { odemeler: OdemeDagilim[] }) {
   const toplam = odemeler.reduce((sum, item) => sum + item.toplam, 0);
-  let oncekiOran = 0;
-  const dilimler = odemeler
-    .map((item, index) => {
-      const baslangic = oncekiOran;
-      const oran = toplam > 0 ? Math.max(item.toplam, 0) / toplam : 0;
-      oncekiOran += oran;
-      return `${ODEME_RENKLERI[index % ODEME_RENKLERI.length]} ${baslangic * 100}% ${oncekiOran * 100}%`;
-    })
-    .filter((_, index) => odemeler[index]?.toplam > 0);
-  const pastaArkaPlani = toplam > 0 && dilimler.length > 0
-    ? `conic-gradient(from -90deg, ${dilimler.join(", ")})`
-    : "#dedbcc";
+  if (toplam <= 0) {
+    return (
+      <div className="payment-chart payment-chart--empty">
+        <div className="payment-chart__empty">Henüz ödeme yok</div>
+        <div className="payment-chart__summary"><span>Toplam</span><strong>{paraBic(0)}</strong></div>
+      </div>
+    );
+  }
+
+  const { dilimler } = odemeler.reduce<{ dilimler: string[]; oran: number }>((biriken, item, index) => {
+    if (item.toplam <= 0) return biriken;
+    const sonrakiOran = biriken.oran + item.toplam / toplam;
+    return {
+      dilimler: [...biriken.dilimler, `${ODEME_RENKLERI[index % ODEME_RENKLERI.length]} ${biriken.oran * 100}% ${sonrakiOran * 100}%`],
+      oran: sonrakiOran
+    };
+  }, { dilimler: [], oran: 0 });
+  const pastaArkaPlani = `conic-gradient(from -90deg, ${dilimler.join(", ")})`;
 
   return (
     <div
@@ -410,7 +457,7 @@ export function DashboardSayfasi({
   const son30Gun = React.useMemo(() => ozetBul(ekran, "Son 30 Gun"), [ekran]);
   const son1Yil = React.useMemo(() => ozetBul(ekran, "Son 1 Yil"), [ekran]);
   const netDonemSecenekleri = React.useMemo(
-    () => ekran ? [{ ...ekran.bugun, etiket: "Bugun" }, ...ekran.paneller] : [],
+    () => ekran ? [{ ...ekran.bugun, etiket: "Bugun" }, ...ekran.paneller.filter((item) => item.etiket !== "Bugun")] : [],
     [ekran]
   );
   const seciliNetDonem = React.useMemo(

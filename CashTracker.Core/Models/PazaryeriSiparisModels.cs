@@ -177,6 +177,27 @@ public sealed record TedarikciMalKabulRequest(
 
 public sealed record TedarikciMalKabulSonucu(int Id, string SiparisDurumu, bool TekrarKullanildi = false);
 
+public static class TedarikciStokUzlastirmaDurumlari
+{
+    public const string Uygulanmaz = "Uygulanmaz";
+    public const string Bekliyor = "Bekliyor";
+    public const string ManuelInceleme = "ManuelInceleme";
+    public const string Kayip = "Kayip";
+    public const string TedarikciyeIade = "TedarikciyeIade";
+    public const string YenidenSevk = "YenidenSevk";
+}
+
+public sealed record TedarikciMalKabulStokUzlastirmaRequest(
+    string IdempotencyKey,
+    string Karar,
+    string Not);
+
+public sealed record TedarikciMalKabulStokUzlastirmaSonucu(
+    int MalKabulId,
+    string Durum,
+    decimal UzlastirilanMiktar,
+    bool TekrarKullanildi = false);
+
 public static class TedarikciSikayetKategorileri
 {
     public const string Eksik = "Eksik";

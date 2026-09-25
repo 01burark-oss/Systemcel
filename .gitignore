@@ -48,6 +48,8 @@ telegram-setup.json
 **/dist/
 **/TestResults/
 **/coverage/
+**/__pycache__/
+*.pyc
 **/test-results/
 **/test-results-*/
 **/playwright-report/

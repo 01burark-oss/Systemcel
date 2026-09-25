@@ -44,6 +44,7 @@ interface MuhasebeciProfil {
   planAdi: string;
   pro: boolean;
   talepVar: boolean;
+  iletisimIncelemesinde: boolean;
   bagli: boolean;
   eslesmeSkoru: number | null;
   eslesmeNedenleri: string[];
@@ -202,6 +203,11 @@ export function MuhasebecilerSayfasi({ mobileMode = false, publicMode = false, u
       return;
     }
 
+    if (profil.iletisimIncelemesinde) {
+      setMesaj("Talebin incelemede. Sonuçlandığında yeniden işlem yapabilirsin.");
+      return;
+    }
+
     if (profil.bagli || profil.talepVar) {
       sohbetAc(profil).catch(() => undefined);
       return;
@@ -228,12 +234,15 @@ export function MuhasebecilerSayfasi({ mobileMode = false, publicMode = false, u
           mesaj: talepMesaji
         })
       });
-      setMesaj(`${sonuc.muhasebeciAdi} için talep gönderildi.`);
+      setMesaj(sonuc.durum === "IletisimIncelemesi"
+        ? "Talebin incelemeye alındı. Sonuçlanana kadar yeni talep gönderemezsin."
+        : `${sonuc.muhasebeciAdi} için talep gönderildi.`);
       const profil = seciliProfil;
       setSeciliProfil(null);
       setTalepMesaji("");
       await yukle();
-      await sohbetAc(profil);
+      if (sonuc.durum !== "IletisimIncelemesi")
+        await sohbetAc(profil);
     } catch (error) {
       setHata(error instanceof Error ? error.message : "Talep gönderilemedi.");
     } finally {
@@ -540,6 +549,7 @@ export function MuhasebecilerSayfasi({ mobileMode = false, publicMode = false, u
                     <button
                       type="button"
                       className="accountant-card__action"
+                      disabled={profil.iletisimIncelemesinde}
                       onClick={() => {
                         if (profil.bagli || profil.talepVar) {
                           sohbetAc(profil).catch(() => undefined);
@@ -550,8 +560,8 @@ export function MuhasebecilerSayfasi({ mobileMode = false, publicMode = false, u
                         setTalepMesaji("");
                       }}
                     >
-                      {profil.bagli || profil.talepVar ? <MessageCircle size={16} /> : <Send size={16} />}
-                      <span>{profil.bagli ? "Sohbet et" : profil.talepVar ? "Talep sohbeti" : "Talep gönder"}</span>
+                      {profil.iletisimIncelemesinde ? <Clock3 size={16} /> : profil.bagli || profil.talepVar ? <MessageCircle size={16} /> : <Send size={16} />}
+                      <span>{profil.iletisimIncelemesinde ? "İncelemede" : profil.bagli ? "Sohbet et" : profil.talepVar ? "Talep sohbeti" : "Talep gönder"}</span>
                     </button>
                   )}
                 </article>
@@ -805,6 +815,8 @@ function YetkiSecimi({ value, onChange }: { value: YetkiSeviyesi; onChange: (val
 function profilDurumu(profil: MuhasebeciProfil) {
   if (profil.bagli)
     return "Bağlı";
+  if (profil.iletisimIncelemesinde)
+    return "İncelemede";
   if (profil.talepVar)
     return "Talep var";
   return "";

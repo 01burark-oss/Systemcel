@@ -157,6 +157,24 @@ public sealed class ExternalDataMigrationTests
     }
 
     [Fact]
+    public async Task ApplyAsync_RetainsDraftAfterPartialFailureSoItCanResume()
+    {
+        await using var fixture = await MigrationFixture.CreateAsync();
+        var preview = await fixture.PreviewAsync("stok", "kayitAnahtari;ad;miktar\nstock-1;Kablo;4");
+
+        var firstAttempt = await fixture.ApplyAsync(preview.DraftId);
+        Assert.Single(firstAttempt.Errors);
+        Assert.Empty(fixture.Stock.Requests);
+
+        await fixture.Products.CreateAsync(new UrunHizmetCreateRequest { Tip = "Urun", Ad = "Kablo" });
+        var resumedAttempt = await fixture.ApplyAsync(preview.DraftId);
+
+        Assert.Empty(resumedAttempt.Errors);
+        Assert.Equal(1, resumedAttempt.Applied);
+        Assert.Single(fixture.Stock.Requests);
+    }
+
+    [Fact]
     public async Task PreviewAsync_DoesNotApplyAmbiguousLowConfidenceColumnMapping()
     {
         await using var fixture = await MigrationFixture.CreateWithSmartMappingAsync("Ürün İsmi", "ad", .66);
@@ -184,14 +202,16 @@ public sealed class ExternalDataMigrationTests
         private readonly SqliteConnection _connection;
         private readonly ExternalDataMigrationService _service;
 
-        private MigrationFixture(SqliteConnection connection, ExternalDataMigrationService service, FakeStokService stock)
+        private MigrationFixture(SqliteConnection connection, ExternalDataMigrationService service, FakeStokService stock, FakeUrunHizmetService products)
         {
             _connection = connection;
             _service = service;
             Stock = stock;
+            Products = products;
         }
 
         public FakeStokService Stock { get; }
+        public FakeUrunHizmetService Products { get; }
 
         public static async Task<MigrationFixture> CreateAsync(params UrunHizmet[] products)
             => await CreateCoreAsync(null, products);
@@ -225,7 +245,7 @@ public sealed class ExternalDataMigrationTests
                 new FakeKalemTanimiService(),
                 smartService);
 
-            return new MigrationFixture(connection, service, stock);
+            return new MigrationFixture(connection, service, stock, productsService);
         }
 
         public async Task PreviewAndApplyAsync(string type, string csv)
@@ -234,6 +254,8 @@ public sealed class ExternalDataMigrationTests
             Assert.Empty(preview.Errors);
             await _service.ApplyAsync(preview.DraftId, CancellationToken.None);
         }
+
+        public Task<MigrationApplyResult> ApplyAsync(string draftId) => _service.ApplyAsync(draftId, CancellationToken.None);
 
         public async Task<MigrationPreview> PreviewAsync(string type, string csv)
         {

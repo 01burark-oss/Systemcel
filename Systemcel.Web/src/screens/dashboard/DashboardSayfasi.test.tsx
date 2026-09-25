@@ -111,6 +111,42 @@ describe("DashboardSayfasi belge sağlığı", () => {
     expect(basliklar).toEqual(["Toplam Gider", "Toplam Gelir", "Brüt kâr", "Net Kâr"]);
   });
 
+  it("net kâr dönemlerini kartın kendi menüsünden seçer", async () => {
+    const user = userEvent.setup();
+    vi.mocked(jsonOku).mockResolvedValue({
+      ...dashboard,
+      paneller: [{ ...dashboard.bugun, etiket: "Son 30 Gun", net: 3_000 }]
+    });
+
+    render(<DashboardSayfasi onIsletmeDegistir={vi.fn()} ustBar={null} ustBarIslemde={false} yenileAnahtari={0} />);
+
+    const secici = await screen.findByRole("button", { name: "Net kâr dönemi: Bugün" });
+    await user.click(secici);
+    await user.click(screen.getByRole("button", { name: "Son 30 Gün" }));
+
+    expect(secici).toHaveAttribute("aria-expanded", "false");
+    expect(secici).toHaveTextContent("Son 30 Gün");
+  });
+
+  it("ödeme toplamı sıfırken pasta yerine boş durum gösterir", async () => {
+    render(<DashboardSayfasi onIsletmeDegistir={vi.fn()} ustBar={null} ustBarIslemde={false} yenileAnahtari={0} />);
+
+    expect(await screen.findByText("Henüz ödeme yok")).toBeVisible();
+    expect(document.querySelector(".payment-chart__pie")).not.toBeInTheDocument();
+  });
+
+  it("ödeme varsa dağılım grafiğini göstermeyi sürdürür", async () => {
+    vi.mocked(jsonOku).mockResolvedValue({
+      ...dashboard,
+      odemeDagilimi: [{ yontem: "Nakit", gelir: 100, gider: 0, net: 100, toplam: 100 }]
+    });
+    render(<DashboardSayfasi onIsletmeDegistir={vi.fn()} ustBar={null} ustBarIslemde={false} yenileAnahtari={0} />);
+
+    expect(await screen.findByRole("img", { name: /Ödeme yöntemleri pasta grafiği/ })).toBeVisible();
+    expect(document.querySelector(".payment-chart__pie")).toHaveStyle({ background: expect.stringContaining("conic-gradient") });
+    expect(screen.queryByText("Henüz ödeme yok")).not.toBeInTheDocument();
+  });
+
   it("bağlı muhasebeci için sohbet yolunu gösterir", async () => {
     vi.mocked(jsonOku).mockResolvedValue({
       ...dashboard,

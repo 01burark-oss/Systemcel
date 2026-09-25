@@ -16,6 +16,7 @@ public interface ITedarikciPazaryeriService
     Task<TedarikciQrCozumDto> ResolveShipmentQrAsync(string code, CancellationToken ct = default);
     Task ValidateReceiptEvidenceAccessAsync(string code, int? branchId, int? warehouseId, CancellationToken ct = default);
     Task<TedarikciMalKabulSonucu> ReceiveShipmentQrAsync(string code, TedarikciMalKabulRequest request, CancellationToken ct = default);
+    Task<TedarikciMalKabulStokUzlastirmaSonucu> ReconcileRejectedReceiptStockAsync(int receiptId, TedarikciMalKabulStokUzlastirmaRequest request, CancellationToken ct = default);
     Task<TedarikciSiparisSikayeti> CreateComplaintAsync(int supplierOrderId, TedarikciSikayetOlusturRequest request, CancellationToken ct = default);
     Task<TedarikciSiparisSikayeti> RespondToComplaintAsync(int complaintId, TedarikciSikayetYanitRequest request, CancellationToken ct = default);
     Task<TedarikciSiparisSikayeti> CloseComplaintAsync(int complaintId, TedarikciSikayetKapatRequest request, CancellationToken ct = default);

@@ -10,6 +10,10 @@ cat >"${test_dir}/bin/rclone" <<'RCLONE'
 set -euo pipefail
 operation="$1"
 shift
+if [[ -n "${RCLONE_CRYPT_REMOTE:-}" ]]; then
+  echo 'Systemcel offsite destination shadows the rclone crypt backend option.' >&2
+  exit 11
+fi
 remote_path() {
   local value="$1"
   printf '%s/%s' "${FAKE_REMOTE_ROOT}" "${value#*:}"
@@ -38,7 +42,10 @@ case "${operation}" in
     cp -- "$1" "${destination}"
     ;;
   cat)
-    cat "$(remote_path "$1")"
+    marker="$(remote_path "$1")"
+    if [[ -f "${marker}" ]]; then
+      cat "${marker}"
+    fi
     ;;
   *)
     echo "Beklenmeyen fake rclone işlemi: ${operation}" >&2
@@ -55,7 +62,10 @@ chmod +x "${test_dir}/bin/flock"
 cat >"${test_dir}/bin/jq" <<'JQ'
 #!/usr/bin/env bash
 set -euo pipefail
-[[ "${1:-}" != -e ]] || exit 0
+if [[ "${1:-}" == -e ]]; then
+  [[ -s "${*: -1}" ]]
+  exit
+fi
 package_id=''
 completed_at=''
 manifest_sha256=''
@@ -92,7 +102,7 @@ env \
   BACKUP_DIR="${test_dir}/backups" \
   OFFSITE_BACKUP_STATE_DIR="${test_dir}/state" \
   OFFSITE_BACKUP_LOCK_FILE="${test_dir}/run/offsite.lock" \
-  RCLONE_CRYPT_REMOTE='fake:systemcel' \
+  SYSTEMCEL_OFFSITE_REMOTE='fake:systemcel' \
   FAKE_REMOTE_ROOT="${test_dir}/remote" \
   OFFSITE_BACKUP_ATTEMPTS=1 \
   "$(dirname "${BASH_SOURCE[0]}")/../scripts/backup-offsite.sh" --transfer-only
@@ -106,7 +116,7 @@ env \
   BACKUP_DIR="${test_dir}/backups" \
   OFFSITE_BACKUP_STATE_DIR="${test_dir}/state" \
   OFFSITE_BACKUP_LOCK_FILE="${test_dir}/run/offsite.lock" \
-  RCLONE_CRYPT_REMOTE='fake:systemcel' \
+  SYSTEMCEL_OFFSITE_REMOTE='fake:systemcel' \
   FAKE_REMOTE_ROOT="${test_dir}/remote" \
   OFFSITE_BACKUP_ATTEMPTS=1 \
   "$(dirname "${BASH_SOURCE[0]}")/../scripts/backup-offsite.sh" --transfer-only
@@ -118,7 +128,7 @@ if env \
   BACKUP_DIR="${test_dir}/backups" \
   OFFSITE_BACKUP_STATE_DIR="${test_dir}/state" \
   OFFSITE_BACKUP_LOCK_FILE="${test_dir}/run/offsite.lock" \
-  RCLONE_CRYPT_REMOTE='fake:systemcel' \
+  SYSTEMCEL_OFFSITE_REMOTE='fake:systemcel' \
   FAKE_REMOTE_ROOT="${test_dir}/remote" \
   FAKE_RCLONE_FAIL_CHECK=1 \
   OFFSITE_BACKUP_ATTEMPTS=1 \

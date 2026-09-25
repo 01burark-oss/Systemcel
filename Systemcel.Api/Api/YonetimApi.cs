@@ -19,6 +19,30 @@ internal static class YonetimApi
             return Results.Ok(await outbox.ListFailedAsync(ct: ct));
         });
 
+        app.MapGet("/api/ekran/yonetim/muhasebeci-iletisim-incelemeleri", async (
+            ISystemcelYonetimService management,
+            IMuhasebeciPortalService marketplace,
+            CancellationToken ct) =>
+        {
+            if (!await management.IsCurrentUserAdminAsync(ct))
+                return Results.Json(new ApiHata("Yönetici yetkisi gerekir."), statusCode: StatusCodes.Status403Forbidden);
+            return Results.Ok(await marketplace.GetContactReviewQueueAsync(ct));
+        });
+
+        app.MapPost("/api/ekran/yonetim/muhasebeci-iletisim-incelemeleri/{talepId:int}/karar", async (
+            int talepId,
+            IletisimIncelemesiKararRequest request,
+            ISystemcelYonetimService management,
+            IMuhasebeciPortalService marketplace,
+            CancellationToken ct) =>
+        {
+            if (!await management.IsCurrentUserAdminAsync(ct))
+                return Results.Json(new ApiHata("Yönetici yetkisi gerekir."), statusCode: StatusCodes.Status403Forbidden);
+            try { return Results.Ok(await marketplace.DecideContactReviewAsync(talepId, request, ct)); }
+            catch (KeyNotFoundException ex) { return Results.NotFound(new ApiHata(ex.Message)); }
+            catch (InvalidOperationException ex) { return Results.Conflict(new ApiHata(ex.Message)); }
+        }).RequireRateLimiting("sensitive");
+
         app.MapPost("/api/ekran/yonetim/bildirim-teslimleri/{id:long}/yeniden-dene", async (
             long id,
             ISystemcelYonetimService management,

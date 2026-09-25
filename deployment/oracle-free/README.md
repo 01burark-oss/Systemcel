@@ -76,13 +76,25 @@ sudo jq . /var/lib/systemcel-backup/offsite-last-success.json
 
 Betik tek-çalışan kilidi kullanır, işlemleri tekrar dener, uzak dosyaları yeniden indirerek checksum kontrolü yapar ve `COMPLETED.json` işaretini en son yazar. Yalnız bundan sonra yerel son-başarı durumu atomik güncellenir. Tamamlanma işareti olmayan paketler kurtarılabilir başarı sayılmaz. Loglara rclone yapılandırması ya da sırlar yazılmaz.
 
+Canlı hedef Oracle Frankfurt'taki private `systemcel-backups-2026` Object Storage bucket'ıdır. VM yalnız bu bucket'taki nesneleri oluşturabilir, listeleyebilir ve okuyabilir; silme yetkisi yoktur. `systemcel-oracle` rclone remote'u instance principal kullanır ve `no_check_bucket=true` ayarlıdır. `systemcel-crypt` şifreleme remote'u `/etc/systemcel/rclone.conf` içinde 0600 izinle tutulur. Şifreleme parolası ve salt, VM'nin okuyamadığı Oracle Vault `systemcel-recovery` içindeki `systemcel-backup-rclone-recovery-2026` secret'ında kurtarma amacıyla ayrıca saklanır. Yeni VM ile felaket kurtarmada bucket IAM iznini yeni instance OCID'sine açıkça taşıyın; mevcut dinamik grup yalnız `systemcel-free` VM'siyle eşleşir. Sırları komut satırına veya loga yazmayın.
+
+Uzak paketten canlı veritabanına dokunmadan izole geri yükleme denemesi:
+
+```bash
+sudo env RCLONE_CONFIG=/etc/systemcel/rclone.conf \
+  SYSTEMCEL_OFFSITE_REMOTE=systemcel-crypt:systemcel-production \
+  bash ./scripts/verify-offsite-restore.sh
+```
+
+Bu komut son uzak paketi doğrudan nesne depolamadan indirir, tamamlanma işaretini ve SHA-256 manifestini doğrular, uygulama arşivini okur ve PostgreSQL dump'ını ağsız geçici bir `postgres:18-alpine` konteynerine geri yükler. Çıktıda tablo sayısı, indirme ve geri yükleme süresi ile paket yaşı yer alır. Paket yaşı tek başına gerçek işlem bazlı RPO ölçümü değildir. Belirli bir paketi sınamak için paket kimliğini son argüman olarak verin. Geçici konteyner ve indirilen dosyalar işlem sonunda silinir.
+
 Sunucu dışı aktarım başarısızsa yeni yerel paketler 14 günü geçse de silinmez. Bu veri kaybına karşı güvenli varsayılan diski doldurabilir; disk alarmı bu nedenle zorunludur. Uzak retention (pilot başlangıcı: 14 gün) depolama tarafı lifecycle kuralıyla, tamamlanmış paketlere uygulanmalıdır.
 
 Yerel-only yedek veya mevcut bir yerel paketi tekrar aktarmak için:
 
 ```bash
 ./scripts/backup.sh --quiesce
-sudo --preserve-env=RCLONE_CONFIG,RCLONE_CRYPT_REMOTE ./scripts/backup-offsite.sh --transfer-only
+sudo --preserve-env=RCLONE_CONFIG,SYSTEMCEL_OFFSITE_REMOTE ./scripts/backup-offsite.sh --transfer-only
 ```
 
 Kurulum ve zamanlayıcı kontrolü:
@@ -111,6 +123,16 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now systemcel-monitoring.timer
 ./scripts/collect-monitoring.sh --stdout
 sudo cat /var/lib/systemcel-monitoring/systemcel.prom
+```
+
+Disk ve uzak yedek yaşı için sunucu içi e-posta uyarısını açmadan önce `.env` içinde `SYSTEMCEL_ALERT_EMAIL` alıcısını ayarlayın. Servis aynı SMTP ayarlarını kullanır; kritik durumda 30 dakikada bir tekrar, normale dönüşte tek bildirim gönderir. Collector üç dakikadan uzun süre güncellenmezse ayrıca uyarır:
+
+```bash
+sudo install -Dm755 scripts/alert-monitoring.py /usr/local/lib/systemcel/alert-monitoring.py
+sudo install -m 644 systemcel-monitoring-alert.service systemcel-monitoring-alert.timer /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now systemcel-monitoring-alert.timer
+sudo systemctl start systemcel-monitoring-alert.service
 ```
 
 Textfile yolu bir node exporter/ajan tarafından kalıcı metric hedefine alınmalıdır. VM tamamen kapandığında bu collector çalışamayacağı için HTTPS/readiness probe'u ayrı bir VM dışı serviste kurulmalıdır. Eşikler, kuru test ve teslim kanıtı [monitoring runbook](../../docs/runbooks/monitoring.md) içindedir.

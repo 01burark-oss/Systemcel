@@ -283,15 +283,16 @@ namespace CashTracker.Infrastructure.Services
 
             await EnsureNoActiveOrPendingPairAsync(db, muhasebeciIsletmeId, customer.Id, ct);
             var now = DateTime.Now;
+            var message = NormalizeMarketplaceRequestText(request.Mesaj, allowEmpty: true, out var needsContactReview);
             var talep = new MuhasebeciMusteriTalebi
             {
                 MuhasebeciIsletmeId = muhasebeciIsletmeId,
                 MusteriIsletmeId = customer.Id,
                 TalepEdenIsletmeId = customer.Id,
                 Tur = MuhasebeciTalepTurleri.Pazaryeri,
-                Durum = MuhasebeciTalepDurumlari.Beklemede,
+                Durum = needsContactReview ? MuhasebeciTalepDurumlari.IletisimIncelemesi : MuhasebeciTalepDurumlari.Beklemede,
                 YetkiSeviyesi = NormalizeYetki(request.YetkiSeviyesi),
-                Mesaj = NormalizeConversationText(request.Mesaj, allowEmpty: true),
+                Mesaj = message,
                 Sektor = customer.IsletmeTuru,
                 VergiMukellefiTipi = NormalizeText(request.VergiMukellefiTipi, customer.VergiMukellefiTipi),
                 IsletmeOlcegi = NormalizeText(request.IsletmeOlcegi, customer.IsletmeOlcegi),
@@ -475,6 +476,60 @@ namespace CashTracker.Infrastructure.Services
                 await transaction.CommitAsync(ct);
 
             return BuildTalepDto(talep, accountant, customer);
+        }
+
+        public async Task<IReadOnlyList<MuhasebeciTalepDto>> GetContactReviewQueueAsync(CancellationToken ct = default)
+        {
+            await using var db = await _dbFactory.CreateDbContextAsync(ct);
+            var pending = await db.MuhasebeciMusteriTalepleri.AsNoTracking()
+                .Where(x => x.Tur == MuhasebeciTalepTurleri.Pazaryeri && x.Durum == MuhasebeciTalepDurumlari.IletisimIncelemesi)
+                .OrderBy(x => x.CreatedAt)
+                .ToListAsync(ct);
+            var accountantIds = pending.Select(x => x.MuhasebeciIsletmeId).Distinct().ToList();
+            var accountants = await db.Isletmeler.AsNoTracking().Where(x => accountantIds.Contains(x.Id)).ToDictionaryAsync(x => x.Id, ct);
+            var customerIds = pending.Where(x => x.MusteriIsletmeId.HasValue).Select(x => x.MusteriIsletmeId!.Value).Distinct().ToList();
+            var customers = await db.Isletmeler.AsNoTracking().Where(x => customerIds.Contains(x.Id)).ToDictionaryAsync(x => x.Id, ct);
+            return pending.Select(x => BuildTalepDto(x, accountants[x.MuhasebeciIsletmeId], x.MusteriIsletmeId.HasValue && customers.TryGetValue(x.MusteriIsletmeId.Value, out var customer) ? customer : null)).ToList();
+        }
+
+        public async Task<MuhasebeciTalepDto> DecideContactReviewAsync(int talepId, IletisimIncelemesiKararRequest request, CancellationToken ct = default)
+        {
+            await using var db = await _dbFactory.CreateDbContextAsync(ct);
+            await using var transaction = await db.Database.BeginTransactionAsync(ct);
+            var talep = await db.MuhasebeciMusteriTalepleri.FirstOrDefaultAsync(x => x.Id == talepId && x.Tur == MuhasebeciTalepTurleri.Pazaryeri, ct)
+                ?? throw new KeyNotFoundException("Pazaryeri talebi bulunamadı.");
+            if (talep.Durum != MuhasebeciTalepDurumlari.IletisimIncelemesi)
+                throw new InvalidOperationException("Talep iletişim incelemesi beklemiyor.");
+            var identity = _currentUserContext.GetCurrentUser()
+                ?? throw new UnauthorizedAccessException("Yönetici kimliği bulunamadı.");
+            var before = new { talep.Durum, talep.SonucAt };
+            var now = DateTime.UtcNow;
+            var nextStatus = request.IletisimBilgisiVar ? MuhasebeciTalepDurumlari.Red : MuhasebeciTalepDurumlari.Beklemede;
+            var affected = await db.MuhasebeciMusteriTalepleri
+                .Where(x => x.Id == talepId && x.Tur == MuhasebeciTalepTurleri.Pazaryeri && x.Durum == MuhasebeciTalepDurumlari.IletisimIncelemesi)
+                .ExecuteUpdateAsync(update => update
+                    .SetProperty(x => x.Durum, nextStatus)
+                    .SetProperty(x => x.SonucAt, request.IletisimBilgisiVar ? now : null)
+                    .SetProperty(x => x.UpdatedAt, now), ct);
+            if (affected != 1)
+                throw new InvalidOperationException("Talep iletişim incelemesi beklemiyor.");
+            talep.Durum = nextStatus;
+            talep.SonucAt = request.IletisimBilgisiVar ? now : null;
+            talep.UpdatedAt = now;
+            db.YonetimDenetimKayitlari.Add(new YonetimDenetimKaydi
+            {
+                IsletmeId = talep.MuhasebeciIsletmeId,
+                AktorProviderKullaniciId = identity.ProviderUserId,
+                Islem = "MuhasebeciPazaryeriIletisimIncelemesiKarari",
+                KaynakTuru = nameof(MuhasebeciMusteriTalebi),
+                OncekiDeger = System.Text.Json.JsonSerializer.Serialize(before),
+                YeniDeger = System.Text.Json.JsonSerializer.Serialize(new { talep.Durum, talep.SonucAt, request.IletisimBilgisiVar }),
+                Gerekce = request.IletisimBilgisiVar ? "İletişim bilgisi bulundu; talep reddedildi." : "İletişim bilgisi bulunmadı; talep normal akışa bırakıldı.",
+                CreatedAt = now
+            });
+            await db.SaveChangesAsync(ct);
+            await transaction.CommitAsync(ct);
+            return await BuildTalepDtoAsync(db, talep, ct);
         }
 
         public async Task<MuhasebeciTalepDto> AcceptRequestAsync(int talepId, MuhasebeciTalepKararRequest request, CancellationToken ct = default)
@@ -772,17 +827,21 @@ namespace CashTracker.Infrastructure.Services
                 .ToHashSet();
             var proIds = await GetActiveProAccountantIdsAsync(db, accountantIds, ct);
             var pendingIds = new HashSet<int>();
+            var reviewIds = new HashSet<int>();
             var connectedIds = new HashSet<int>();
 
             if (viewerBusinessId.HasValue)
             {
-                pendingIds = (await db.MuhasebeciMusteriTalepleri.AsNoTracking()
+                var pendingRequests = await db.MuhasebeciMusteriTalepleri.AsNoTracking()
                         .Where(x => x.MusteriIsletmeId == viewerBusinessId.Value &&
                             (x.Durum == MuhasebeciTalepDurumlari.Beklemede ||
-                             x.Durum == MuhasebeciTalepDurumlari.OdemeBekliyor))
-                        .Select(x => x.MuhasebeciIsletmeId)
-                        .ToListAsync(ct))
-                    .ToHashSet();
+                             x.Durum == MuhasebeciTalepDurumlari.OdemeBekliyor ||
+                             x.Durum == MuhasebeciTalepDurumlari.IletisimIncelemesi))
+                        .Select(x => new { x.MuhasebeciIsletmeId, x.Durum })
+                        .ToListAsync(ct);
+                pendingIds = pendingRequests.Select(x => x.MuhasebeciIsletmeId).ToHashSet();
+                reviewIds = pendingRequests.Where(x => x.Durum == MuhasebeciTalepDurumlari.IletisimIncelemesi)
+                    .Select(x => x.MuhasebeciIsletmeId).ToHashSet();
                 connectedIds = (await db.MuhasebeciMusterileri.AsNoTracking()
                         .Where(x => x.MusteriIsletmeId == viewerBusinessId.Value && x.Durum == "Aktif")
                         .Select(x => x.MuhasebeciIsletmeId)
@@ -806,6 +865,7 @@ namespace CashTracker.Infrastructure.Services
                         pro: isPro,
                         talepVar: pendingIds.Contains(x.MuhasebeciIsletmeId),
                         bagli: connectedIds.Contains(x.MuhasebeciIsletmeId),
+                        incelemeBekliyor: reviewIds.Contains(x.MuhasebeciIsletmeId),
                         telefonGoster: false,
                         konumGoster: false,
                         matchBusiness: viewerBusiness);
@@ -981,7 +1041,8 @@ namespace CashTracker.Infrastructure.Services
                 x.MuhasebeciIsletmeId == muhasebeciIsletmeId &&
                 x.MusteriIsletmeId == musteriIsletmeId &&
                 (x.Durum == MuhasebeciTalepDurumlari.Beklemede ||
-                 x.Durum == MuhasebeciTalepDurumlari.OdemeBekliyor), ct);
+                 x.Durum == MuhasebeciTalepDurumlari.OdemeBekliyor ||
+                 x.Durum == MuhasebeciTalepDurumlari.IletisimIncelemesi), ct);
             if (pending)
                 throw new InvalidOperationException("Bu muhasebeci için bekleyen talep var.");
         }
@@ -1297,6 +1358,7 @@ namespace CashTracker.Infrastructure.Services
             bool pro,
             bool talepVar,
             bool bagli,
+            bool incelemeBekliyor = false,
             bool telefonGoster = true,
             bool konumGoster = true,
             Isletme? matchBusiness = null)
@@ -1321,6 +1383,7 @@ namespace CashTracker.Infrastructure.Services
                 PlanAdi = planAdi,
                 Pro = pro,
                 TalepVar = talepVar,
+                IletisimIncelemesinde = incelemeBekliyor,
                 Bagli = bagli,
                 EslesmeSkoru = CalculateMatchScore(profile, matchBusiness),
                 EslesmeNedenleri = BuildMatchReasons(profile, matchBusiness)
@@ -1507,13 +1570,39 @@ namespace CashTracker.Infrastructure.Services
             return normalized;
         }
 
+        private static string NormalizeMarketplaceRequestText(string? value, bool allowEmpty, out bool needsContactReview)
+        {
+            var normalized = (value ?? string.Empty).Trim();
+            needsContactReview = false;
+            if (string.IsNullOrWhiteSpace(normalized))
+            {
+                if (allowEmpty) return string.Empty;
+                throw new InvalidOperationException("Mesaj boş olamaz.");
+            }
+            if (normalized.Length > 1_000)
+                throw new InvalidOperationException("Mesaj en fazla 1000 karakter olabilir.");
+            if (ContainsClearContactInfo(normalized))
+                throw new InvalidOperationException("Telefon, e-posta, web adresi veya sosyal medya bilgisi paylaşılamaz. Lütfen iletişimi Systemcel sohbeti üzerinden sürdürün.");
+
+            needsContactReview = PhoneRegex.IsMatch(normalized) ||
+                ContainsFragmentedPhoneNumber(normalized) ||
+                ContainsNumberWordContact(normalized) ||
+                SocialContactRegex.IsMatch(normalized);
+            return normalized;
+        }
+
+        private static bool ContainsClearContactInfo(string value)
+        {
+            return EmailRegex.IsMatch(value) || UrlRegex.IsMatch(value) ||
+                HighConfidenceTurkishPhoneRegex.IsMatch(value) ||
+                Regex.IsMatch(value, @"@[\p{L}\p{N}_.]{3,}", RegexOptions.CultureInvariant) ||
+                Regex.IsMatch(value, @"\b(?:whatsapp|telegram)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        }
+
         private static bool ContainsDirectContactInfo(string value)
         {
-            return EmailRegex.IsMatch(value) ||
-                UrlRegex.IsMatch(value) ||
-                PhoneRegex.IsMatch(value) ||
-                ContainsFragmentedPhoneNumber(value) ||
-                ContainsNumberWordContact(value) ||
+            return ContainsClearContactInfo(value) || PhoneRegex.IsMatch(value) ||
+                ContainsFragmentedPhoneNumber(value) || ContainsNumberWordContact(value) ||
                 SocialContactRegex.IsMatch(value);
         }
 
@@ -1576,6 +1665,10 @@ namespace CashTracker.Infrastructure.Services
 
         private static readonly Regex PhoneRegex = new(
             @"(?<!\d)(?:\+?\d[\s().\-]*){7,}\d(?!\d)",
+            RegexOptions.CultureInvariant | RegexOptions.Compiled);
+
+        private static readonly Regex HighConfidenceTurkishPhoneRegex = new(
+            @"(?<!\d)(?:(?:\+?90[\s().\-]*)(?:5|[2-4])|0(?:5|[2-4]))(?:[\s().\-]*\d){9}(?!\d)",
             RegexOptions.CultureInvariant | RegexOptions.Compiled);
 
         private static readonly Regex DigitGroupRegex = new(

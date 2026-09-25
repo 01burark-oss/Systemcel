@@ -109,6 +109,39 @@ public sealed class BankaMutabakatServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task CandidateLookup_IncludesSameCurrencyForeignCurrencyRecordsOnly()
+    {
+        await using (var db = _factory.CreateDbContext())
+        {
+            db.Faturalar.AddRange(
+                new Fatura
+                {
+                    IsletmeId = _tenantA, Tarih = new DateTime(2026, 8, 24), FaturaTipi = "Satis",
+                    YerelFaturaNo = "USD-1", GenelToplam = 1000m, ParaBirimi = "USD",
+                    Durum = "Kesildi", Aciklama = "ABC LTD"
+                },
+                new Fatura
+                {
+                    IsletmeId = _tenantA, Tarih = new DateTime(2026, 8, 24), FaturaTipi = "Satis",
+                    YerelFaturaNo = "EUR-1", GenelToplam = 1000m, ParaBirimi = "EUR",
+                    Durum = "Kesildi", Aciklama = "ABC LTD"
+                });
+            await db.SaveChangesAsync();
+        }
+
+        await ImportAsync(_tenantA, "Tarih;Açıklama;Tutar;Para Birimi\n24.08.2026;ABC LTD USD-1;1000,00;usd");
+        var movement = Assert.Single(await _service.ListeleAsync(_tenantA));
+
+        var candidates = await _service.AdaylariGetirAsync(_tenantA, movement.Id);
+
+        var candidate = Assert.Single(candidates);
+        Assert.Equal(BankaEslesmeKaynakTurleri.Fatura, candidate.KaynakTuru);
+        Assert.Equal("USD-1", candidate.Baslik[^5..]);
+        Assert.Equal(1000m, candidate.Tutar);
+        Assert.Equal(100, candidate.Skor);
+    }
+
+    [Fact]
     public async Task SmartCandidate_LowConfidenceIsNotPromoted()
     {
         await using (var db = _factory.CreateDbContext())

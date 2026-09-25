@@ -212,17 +212,13 @@ public sealed class BankaMutabakatService : IBankaMutabakatService
 
     private static async Task<IReadOnlyList<BankaEslesmeAdayi>> BuildCandidatesAsync(CashTrackerDbContext db, BankaHareketi hareket, CancellationToken ct)
     {
-        // Mevcut finansal kayıtlar para birimi taşımıyor; TRY dışı hareketlerde yanlış aday üretme.
-        if (!string.Equals(hareket.ParaBirimi, "TRY", StringComparison.Ordinal))
-            return Array.Empty<BankaEslesmeAdayi>();
-
         var from = hareket.Tarih.Date.AddDays(-30);
         var to = hareket.Tarih.Date.AddDays(31);
         var cariNames = await db.CariKartlari.AsNoTracking()
             .Where(x => x.IsletmeId == hareket.IsletmeId)
             .Select(x => new { x.Id, x.Unvan })
             .ToDictionaryAsync(x => x.Id, x => x.Unvan, ct);
-        var raw = new List<(string Type, int Id, string Title, decimal Amount, DateTime Date, string Text)>();
+        var raw = new List<(string Type, int Id, string Title, decimal Amount, DateTime Date, string Text, string Currency)>();
 
         var invoices = await db.Faturalar.AsNoTracking()
             .Where(x => x.IsletmeId == hareket.IsletmeId && x.Tarih >= from && x.Tarih < to)
@@ -233,7 +229,8 @@ public sealed class BankaMutabakatService : IBankaMutabakatService
             $"Fatura {x.YerelFaturaNo.DefaultIfBlank($"#{x.Id}")}",
             string.Equals(x.FaturaTipi, "Alis", StringComparison.OrdinalIgnoreCase) ? -x.GenelToplam : x.GenelToplam,
             x.Tarih,
-            $"{x.Aciklama} {cariNames.GetValueOrDefault(x.CariKartId)} {x.YerelFaturaNo}")));
+            $"{x.Aciklama} {cariNames.GetValueOrDefault(x.CariKartId)} {x.YerelFaturaNo}",
+            x.ParaBirimi)));
 
         var payments = await db.TahsilatOdemeleri.AsNoTracking()
             .Where(x => x.IsletmeId == hareket.IsletmeId && x.Tarih >= from && x.Tarih < to)
@@ -244,7 +241,8 @@ public sealed class BankaMutabakatService : IBankaMutabakatService
             $"{(x.Tip == "Odeme" ? "Ödeme" : "Tahsilat")} #{x.Id}",
             x.Tip == "Odeme" ? -x.Tutar : x.Tutar,
             x.Tarih,
-            $"{x.Aciklama} {cariNames.GetValueOrDefault(x.CariKartId)}")));
+            $"{x.Aciklama} {cariNames.GetValueOrDefault(x.CariKartId)}",
+            x.ParaBirimi)));
 
         var ledger = await db.CariHareketleri.AsNoTracking()
             .Where(x => x.IsletmeId == hareket.IsletmeId && x.Tarih >= from && x.Tarih < to)
@@ -255,9 +253,11 @@ public sealed class BankaMutabakatService : IBankaMutabakatService
             $"Cari hareket #{x.Id}",
             x.HareketTipi is "Odeme" or "Alacak" ? -x.Tutar : x.Tutar,
             x.Tarih,
-            $"{x.Aciklama} {cariNames.GetValueOrDefault(x.CariKartId)}")));
+            $"{x.Aciklama} {cariNames.GetValueOrDefault(x.CariKartId)}",
+            x.ParaBirimi)));
 
         return raw
+            .Where(x => string.Equals(x.Currency?.Trim(), hareket.ParaBirimi, StringComparison.OrdinalIgnoreCase))
             .Select(x => Score(hareket, x.Type, x.Id, x.Title, x.Amount, x.Date, x.Text))
             .Where(x => x.Skor >= 60)
             .OrderByDescending(x => x.Skor)

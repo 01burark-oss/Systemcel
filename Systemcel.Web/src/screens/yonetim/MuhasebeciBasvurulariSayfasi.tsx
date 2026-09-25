@@ -109,6 +109,7 @@ export function MuhasebeciBasvurulariSayfasi({ onUstBarYenile }: { onUstBarYenil
     <main className="admin-page">
       <nav className="admin-subnav" aria-label="Yönetim bölümleri">
         <a className="active" href="/app/yonetim/muhasebeci-basvurulari">Muhasebeci başvuruları</a>
+        <a href="/app/yonetim/muhasebeci-iletisim-incelemeleri">İletişim incelemeleri</a>
         <a href="/app/yonetim/odemeler">Ödeme inceleme</a>
         <a href="/app/yonetim/muhasebeci-aktarimlari">Muhasebeci aktarımları</a>
         <a href="/app/yonetim/destek">Destek talepleri</a>

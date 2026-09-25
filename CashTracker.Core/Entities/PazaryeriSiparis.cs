@@ -149,6 +149,11 @@ public sealed class TedarikciMalKabul
     public string IdempotencyAnahtari { get; set; } = string.Empty;
     public decimal KabulEdilenMiktar { get; set; }
     public decimal ReddedilenMiktar { get; set; }
+    public string StokUzlastirmaDurumu { get; set; } = "Uygulanmaz";
+    public string StokUzlastirmaAnahtari { get; set; } = string.Empty;
+    public string StokUzlastiranKullaniciRef { get; set; } = string.Empty;
+    public string StokUzlastirmaNotu { get; set; } = string.Empty;
+    public DateTime? StokUzlastirmaAt { get; set; }
     public string RedNedeni { get; set; } = string.Empty;
     public string IkinciRedNedeni { get; set; } = string.Empty;
     public string Not { get; set; } = string.Empty;

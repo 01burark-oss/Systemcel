@@ -174,9 +174,94 @@ test("yönetici itirazında ödeme ve muhasebe referansları izlenir", async ({ 
   await page.screenshot({ path: testInfo.outputPath("review-references.png") });
 });
 
-async function mockWorkspace(page: Page, options: { temperatureRange?: boolean; adminReview?: boolean } = {}) {
+test("yönetici reddedilen stoğu idempotent olarak uzlaştırır ve eski kaydı manuel incelemeye bırakır", async ({ page }, testInfo) => {
+  test.skip(!["desktop-chromium", "desktop-wide", "mobile-small", "mobile-360"].includes(testInfo.project.name), "Yönetim stok uzlaştırma görünümü");
+  const api = await mockWorkspace(page, { adminReview: true, stockReconciliation: true, reviewDelayMs: 350 });
+  await page.addInitScript((dark) => {
+    window.localStorage.setItem("systemcel.analyticsConsent", "denied");
+    window.localStorage.setItem("systemcel.theme", dark ? "dark" : "light");
+  }, ["desktop-wide", "mobile-small"].includes(testInfo.project.name));
+  await page.goto("/app/tedarikci-pazaryeri");
+  await page.getByRole("button", { name: "Yönetim" }).click();
+  await expect(page.getByText("İtiraz yaşı: 28,5 sa. · Tedarikçi ilk yanıtı: Yanıt yok")).toBeVisible();
+  const openReview = page.getByRole("button", { name: "İtirazı incele" }).click();
+  const dialog = page.getByRole("dialog", { name: /itirazını çöz/ });
+  await expect(dialog.getByText("İnceleme paketi yükleniyor…")).toBeVisible();
+  await openReview;
+  const resolveButton = dialog.getByRole("button", { name: "Kararı uygula" });
+  await expect(resolveButton).toBeDisabled();
+  await dialog.getByRole("combobox", { name: "Karar", exact: true }).selectOption("YenidenTeslim");
+  await expect(resolveButton).toBeEnabled();
+  await dialog.getByRole("combobox", { name: "Karar", exact: true }).selectOption("TedarikciyeAktar");
+  await expect(resolveButton).toBeDisabled();
+  const actionPanel = dialog.getByRole("region", { name: "Kabul #61 stok uzlaştırması" });
+  const decision = actionPanel.getByRole("combobox", { name: "Stok kararı" });
+  const note = actionPanel.getByRole("textbox", { name: /Karar notu/ });
+  await expect(actionPanel.getByRole("button", { name: "Stok kararını kaydet" })).toBeDisabled();
+  await decision.focus();
+  await page.screenshot({ path: testInfo.outputPath("stock-review-focused.png") });
+  await decision.selectOption("Kayip");
+  await note.fill("Hasarlı kutudaki ürün stoktan düşüldü.");
+  await note.focus();
+  await page.screenshot({ path: testInfo.outputPath("stock-review-selected.png") });
+  if (testInfo.project.name === "mobile-small" || testInfo.project.name === "mobile-360")
+    await page.screenshot({ path: testInfo.outputPath("stock-review-selected-viewport.png") });
+  await actionPanel.getByRole("button", { name: "Stok kararını kaydet" }).click();
+  await expect(actionPanel.getByText("Kayıp olarak kaydet")).toBeVisible();
+  await expect(dialog).toBeVisible();
+  expect(api.reconciliationBodies).toHaveLength(1);
+  expect(api.reconciliationBodies[0]).toEqual(expect.objectContaining({ karar: "Kayip", not: "Hasarlı kutudaki ürün stoktan düşüldü.", idempotencyKey: expect.any(String) }));
+  expect(api.reviewFetches).toBeGreaterThanOrEqual(2);
+  await expect(actionPanel.getByRole("combobox", { name: "Stok kararı" })).toHaveCount(0);
+  await expect(dialog.getByText("Eski kayıt: stok geçmişi manuel incelenmeli")).toBeVisible();
+  await expect(dialog.getByText("Önceki uzlaştırma notu")).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath("stock-review-complete.png"), fullPage: true });
+  if (testInfo.project.name === "mobile-small") {
+    await page.setViewportSize({ width: 360, height: 800 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await page.screenshot({ path: testInfo.outputPath("stock-review-mobile-360.png"), fullPage: true });
+    await page.screenshot({ path: testInfo.outputPath("stock-review-mobile-360-viewport.png") });
+  }
+});
+
+test("stok uzlaştırma belirsiz tekrarında kayıt başına anahtar korunur, değişen karar yeniler", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium", "İdempotency anahtarı yönetim testi");
+  const api = await mockWorkspace(page, { adminReview: true, stockReconciliation: true, reconciliationFailureCount: 3 });
+  await page.addInitScript(() => window.localStorage.setItem("systemcel.analyticsConsent", "denied"));
+  await page.goto("/app/tedarikci-pazaryeri");
+  await page.getByRole("button", { name: "Yönetim" }).click();
+  await page.getByRole("button", { name: "İtirazı incele" }).click();
+  const dialog = page.getByRole("dialog", { name: /itirazını çöz/ });
+  const pending = dialog.getByRole("region", { name: "Kabul #61 stok uzlaştırması" });
+  const other = dialog.getByRole("region", { name: "Kabul #63 stok uzlaştırması" });
+  await pending.getByRole("combobox", { name: "Stok kararı" }).selectOption("Kayip");
+  await pending.getByRole("textbox", { name: /Karar notu/ }).fill("İlk not");
+  const submit = pending.locator(".supplier-marketplace__stock-reconciliation-submit");
+  const submitting = submit.click();
+  await expect(submit).toHaveAttribute("aria-busy", "true");
+  await page.screenshot({ path: testInfo.outputPath("stock-review-loading.png") });
+  await submitting;
+  await expect(pending.getByRole("alert")).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("stock-review-error.png") });
+  const firstKey = (api.reconciliationBodies[0] as { idempotencyKey: string }).idempotencyKey;
+  await other.getByRole("combobox", { name: "Stok kararı" }).selectOption("TedarikciyeIade");
+  await other.getByRole("textbox", { name: /Karar notu/ }).fill("Diğer kabul notu");
+  await other.locator(".supplier-marketplace__stock-reconciliation-submit").click();
+  const otherKey = (api.reconciliationBodies[1] as { idempotencyKey: string }).idempotencyKey;
+  await expect(other.getByRole("alert")).toBeVisible();
+  await pending.locator(".supplier-marketplace__stock-reconciliation-submit").click();
+  expect((api.reconciliationBodies[2] as { idempotencyKey: string }).idempotencyKey).toBe(firstKey);
+  await pending.getByRole("textbox", { name: /Karar notu/ }).fill("İkinci not");
+  await pending.locator(".supplier-marketplace__stock-reconciliation-submit").click();
+  expect((api.reconciliationBodies[3] as { idempotencyKey: string }).idempotencyKey).not.toBe(firstKey);
+  expect((api.reconciliationBodies[1] as { idempotencyKey: string }).idempotencyKey).toBe(otherKey);
+});
+
+async function mockWorkspace(page: Page, options: { temperatureRange?: boolean; adminReview?: boolean; stockReconciliation?: boolean; reconciliationFailureCount?: number; reviewDelayMs?: number } = {}) {
   let state = "";
-  const api: { createdBody?: unknown; lastReceiptBody?: unknown } = {};
+  const api: { createdBody?: unknown; lastReceiptBody?: unknown; reconciliationBodies: unknown[]; reviewFetches: number } = { reconciliationBodies: [], reviewFetches: 0 };
+  let pendingReconciliationFailures = options.reconciliationFailureCount ?? 0;
 
   await page.route("**/api/**", async route => {
     const request = route.request();
@@ -195,10 +280,12 @@ async function mockWorkspace(page: Page, options: { temperatureRange?: boolean; 
     });
     if (path === "/api/ekran/sohbetler") return json(route, { sohbetler: [], okunmamisMesajSayisi: 0 });
     if (path === "/api/ekran/tedarikci-pazaryeri" && request.method() === "GET") return json(route, marketplace(state, options.adminReview));
-    if (path === "/api/ekran/yonetim/tedarikci-siparisler/88/inceleme" && options.adminReview)
-      return json(route, {
+    if (path === "/api/ekran/yonetim/tedarikci-siparisler/88/inceleme" && options.adminReview) {
+      api.reviewFetches++;
+      if (options.reviewDelayMs) await new Promise((resolve) => setTimeout(resolve, options.reviewDelayMs));
+      const review = {
         shipments: [{ id: 21, sevkiyatNo: "SEVK-21", belgeNo: "IRS-21", belgeUuid: "", belgeDosyaYolu: "", durum: "Sorunlu" }],
-        receipts: [{ id: 61, kabulEdilenMiktar: 1, reddedilenMiktar: 0, redNedeni: "", not: "", islemYapanKullaniciRef: "depo", belgeKarmasi: "", fotoKanitiYolu: "", createdAt: "2026-09-23T12:00:00Z" }],
+        receipts: [{ id: 61, kabulEdilenMiktar: 0, reddedilenMiktar: 1, redNedeni: "Hasarlı ürün", not: "", islemYapanKullaniciRef: "depo", belgeKarmasi: "", fotoKanitiYolu: "", createdAt: "2026-09-23T12:00:00Z", ...(options.stockReconciliation ? { stokUzlastirmaDurumu: "Bekliyor" } : {}) }, ...(options.stockReconciliation ? [{ id: 62, kabulEdilenMiktar: 0, reddedilenMiktar: 1, redNedeni: "Eski kabul", not: "", islemYapanKullaniciRef: "depo", belgeKarmasi: "", fotoKanitiYolu: "", createdAt: "2025-01-01T12:00:00Z", stokUzlastirmaDurumu: "ManuelInceleme", stokUzlastirmaNotu: "Önceki uzlaştırma notu" }, { id: 63, kabulEdilenMiktar: 0, reddedilenMiktar: 1, redNedeni: "Eksik ürün", not: "", islemYapanKullaniciRef: "depo", belgeKarmasi: "", fotoKanitiYolu: "", createdAt: "2026-09-24T12:00:00Z", stokUzlastirmaDurumu: "Bekliyor" }] : [])] as Array<Record<string, unknown>>,
         complaints: [], history: [], references: {
           paymentAllocations: [{ id: 31, saglayici: "Fake", saglayiciIslemId: "PSP-31", durum: "Basarili", tutar: 120, brutTutar: 120, iadeTutari: 0 }],
           invoiceMatch: { aliciFaturaId: 41, saticiFaturaId: 42, tedarikciBelgeNo: "F-42", tedarikciBelgeUuid: "" },
@@ -208,7 +295,23 @@ async function mockWorkspace(page: Page, options: { temperatureRange?: boolean; 
           cariMovements: [{ id: 71, isletmeId: 42, tedarikciMalKabulId: 61, hareketTipi: "Borc", tutar: 120 }],
           paymentMovements: []
         }
-      });
+      };
+      if (options.stockReconciliation && api.reconciliationBodies.some((body) => (body as { not: string }).not === "Hasarlı kutudaki ürün stoktan düşüldü.")) {
+        review.receipts[0].stokUzlastirmaDurumu = "Kayip";
+        review.receipts[0].stokUzlastirmaNotu = "Hasarlı kutudaki ürün stoktan düşüldü.";
+        review.receipts[0].stokUzlastirmaAt = "2026-09-24T12:00:00Z";
+      }
+      return json(route, review);
+    }
+    if (/^\/api\/ekran\/yonetim\/tedarikci-mal-kabulleri\/(61|63)\/stok-uzlastir$/.test(path) && request.method() === "POST") {
+      api.reconciliationBodies.push(request.postDataJSON());
+      if (pendingReconciliationFailures > 0) {
+        pendingReconciliationFailures--;
+        await new Promise((resolve) => setTimeout(resolve, 150));
+        return json(route, { mesaj: "Stok uzlaştırma geçici olarak tamamlanamadı." }, 503);
+      }
+      return json(route, { mesaj: "Stok kararı kaydedildi." });
+    }
     if (path === "/api/ekran/tedarikci-pazaryeri/siparisler" && request.method() === "POST") {
       api.createdBody = request.postDataJSON();
       state = "OdemeBekliyor";
@@ -241,7 +344,7 @@ function marketplace(state: string, adminReview = false) {
   const hasOrder = Boolean(state);
   return {
     aktifIsletmeId: 42, guvenliOdemeHazir: true, malKabulYetkisi: true, yonetici: adminReview, profiller: [], talepler: [], acikTalepler: [], gelenTeklifler: [],
-    yonetimProfilleri: [], yonetimSiparisler: adminReview ? [{ id: 88, siparisNo: "PAZ-77-01", tedarikciUnvani: "Marmara Gıda", durum: "Itirazli", genelToplam: 120, paraBirimi: "TRY", hakedisDurumu: "Bloke" }] : [],
+    yonetimProfilleri: [], yonetimSiparisler: adminReview ? [{ id: 88, siparisNo: "PAZ-77-01", tedarikciUnvani: "Marmara Gıda", durum: "Itirazli", genelToplam: 120, paraBirimi: "TRY", hakedisDurumu: "Bloke", itirazYasiSaat: 28.5, tedarikciIlkYanitSuresiSaat: null }] : [],
     profil: null, benimUrunlerim: [], kaynakUrunler: [],
     urunler: [{
       id: 10, tedarikciProfilId: 20, tedarikciUnvani: "Marmara Gıda", tedarikciSehri: "İstanbul",

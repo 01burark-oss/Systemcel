@@ -16,6 +16,7 @@ namespace CashTracker.Core.Models
         public const string Kabul = "Kabul";
         public const string Red = "Red";
         public const string Iptal = "Iptal";
+        public const string IletisimIncelemesi = "IletisimIncelemesi";
     }
 
     public static class MuhasebeciHizmetOdemeDurumlari
@@ -131,6 +132,7 @@ namespace CashTracker.Core.Models
         public string PlanAdi { get; init; } = string.Empty;
         public bool Pro { get; init; }
         public bool TalepVar { get; init; }
+        public bool IletisimIncelemesinde { get; init; }
         public bool Bagli { get; init; }
         public int? EslesmeSkoru { get; init; }
         public List<string> EslesmeNedenleri { get; init; } = new();
@@ -145,6 +147,11 @@ namespace CashTracker.Core.Models
         public string Durum { get; init; } = string.Empty;
         public DateTime BaslangicAt { get; init; }
         public BelgeSaglikOzeti? BelgeSagligi { get; init; }
+    }
+
+    public sealed class IletisimIncelemesiKararRequest
+    {
+        public bool IletisimBilgisiVar { get; init; }
     }
 
     public sealed class MuhasebeciLinkDavetOlusturRequest

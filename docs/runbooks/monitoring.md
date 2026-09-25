@@ -41,6 +41,7 @@ Metric mappings:
 - `increase(systemcel_container_restart_count[15m]) >= 2` warning; `increase(...[10m]) >= 3` critical. Container recreation can reset the gauge, so also retain Docker events.
 - `systemcel_postgres_connections / systemcel_postgres_max_connections`: 70% warning, 85% critical.
 - `systemcel_offsite_backup_state_valid != 1` or backup age over 26/36 hours. Age `-1` means unknown and is critical after initial setup grace.
+- `systemcel-monitoring-alert.timer` checks local disk, verified offsite backup age, and collector freshness every five minutes. It sends SMTP warnings at >70% disk or >26 hours backup age, critical alerts at >85% or >36 hours, repeats critical alerts every 30 minutes, and sends one recovery message. This local route depends on the VM and does not replace the external HTTPS probe or persistent off-VM metrics.
 - `systemcel_readiness_success`: two failures within five minutes warning; five consecutive failures critical. The external probe is authoritative for a VM outage.
 - `rate(systemcel.http.server.request.error.count{error.type="server"}[10m]) / rate(systemcel.http.server.request.count[10m])`: 2% warning; use a five-minute window and 5% for critical.
 
@@ -56,6 +57,9 @@ journalctl -u systemcel-monitoring.service --no-pager -n 30
 ```
 
 Test rules in an isolated/silenced route or staging alert policy. Inject a synthetic metric into the monitoring backend (for example disk `86`, backup age `129601`, readiness `0`) and then remove it to prove both alert and recovery delivery. Do not fill the live disk, stop the production database, age/delete the real backup state, or create restart loops. Record UTC time, rule name, receiving channel, alert receipt and recovery receipt; do not attach secrets or customer data.
+
+The local alert evaluator can be tested without changing the production collector output or alert state: run `python3 deployment/oracle-free/tests/alert-monitoring-smoke.py`, then pass a separate synthetic metric file and state path to `scripts/alert-monitoring.py --metrics ... --state ... --dry-run`. An SMTP delivery test uses the same isolated paths without `--dry-run`.
+Confirm the critical alert in the recipient's inbox or spam folder, not only in the SMTP sender's “Delivered” list. On 25 September the first synthetic critical message was classified as spam while recovery reached the inbox; the critical message was marked “Not spam” for this sender. Do not disable spam filtering account-wide.
 
 Before enabling paging, verify these failure paths separately:
 

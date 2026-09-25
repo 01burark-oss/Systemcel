@@ -59,6 +59,51 @@ describe("MuhasebecilerSayfasi", () => {
     );
   }, 10_000);
 
+  it("iletişim incelemesindeki talebi tekrar göndermez veya sohbet açmaz", async () => {
+    const user = userEvent.setup();
+    let reviewPending = false;
+    vi.mocked(jsonOku).mockImplementation(async (url) => {
+      if (url === "/api/ekran/muhasebeciler/9/talep") {
+        reviewPending = true;
+        return { muhasebeciAdi: "Ada Muhasebe", durum: "IletisimIncelemesi" } as never;
+      }
+      return {
+        mesaj: "",
+        profiller: [{
+          muhasebeciIsletmeId: 9,
+          unvan: "Ada Muhasebe",
+          konum: "",
+          telefon: "",
+          deneyimYili: 4,
+          profilResmiUrl: "",
+          ucretBilgisi: "",
+          uzmanliklar: "Kafe muhasebesi",
+          musteriTipleri: "Kafe",
+          sektorDeneyimleri: "Kafe",
+          vergiMukellefiTipleri: "Şahıs",
+          uygunIsletmeOlcekleri: "Küçük",
+          calismaSekilleri: "Online",
+          kisaAciklama: "Dönem takibi.",
+          planAdi: "",
+          pro: false,
+          talepVar: reviewPending,
+          iletisimIncelemesinde: reviewPending,
+          bagli: false,
+          eslesmeSkoru: null,
+          eslesmeNedenleri: []
+        }]
+      } as never;
+    });
+
+    render(<MuhasebecilerSayfasi ustBar={{ hesapTipi: "Isletme" } as never} />);
+    await user.click(await screen.findByRole("button", { name: "Talep gönder" }));
+    await user.click(within(screen.getByRole("dialog", { name: "Ada Muhasebe" })).getByRole("button", { name: "Talep gönder" }));
+
+    expect(await screen.findByText("Talebin incelemeye alındı. Sonuçlanana kadar yeni talep gönderemezsin.")).toBeVisible();
+    expect(await screen.findByRole("button", { name: "İncelemede" })).toBeDisabled();
+    expect(jsonOku).not.toHaveBeenCalledWith("/api/ekran/sohbetler/muhasebeciler/9");
+  });
+
   it("sayısal eşleşme skorunu gerekçeleriyle gösterir ve uygun sıralamayı varsayılan seçer", async () => {
     vi.mocked(jsonOku).mockResolvedValue({
       mesaj: "",

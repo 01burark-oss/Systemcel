@@ -64,7 +64,11 @@ public sealed class JevDecisionServiceTests
         Assert.Equal("Bearer", handler.AuthorizationScheme);
         Assert.Equal("jev-secret", handler.AuthorizationParameter);
         using var body = JsonDocument.Parse(request.Body);
-        Assert.Equal("choice", body.RootElement.GetProperty("questions").GetProperty("nextAction").GetProperty("type").GetString());
+        var question = body.RootElement.GetProperty("questions").GetProperty("nextAction");
+        Assert.Equal("choice", question.GetProperty("type").GetString());
+        Assert.Equal("Approve", question.GetProperty("criteria").GetProperty("approve").GetString());
+        Assert.Equal("Review", question.GetProperty("criteria").GetProperty("review").GetString());
+        Assert.False(question.TryGetProperty("options", out _));
 
         var choice = result["nextAction"];
         Assert.True(choice.Available);
@@ -105,6 +109,57 @@ public sealed class JevDecisionServiceTests
         Assert.False(result["nextAction"].Available);
         Assert.DoesNotContain(secret, result["nextAction"].Choice, StringComparison.Ordinal);
         Assert.Single(handler.Requests);
+    }
+
+    [Fact]
+    public async Task TransportFailure_ReturnsUnavailable()
+    {
+        var handler = new RecordingHttpMessageHandler((_, _) => throw new HttpRequestException("connection failed"));
+        var service = new JevDecisionService(new HttpClient(handler), new JevSettings { ApiKey = "key" });
+
+        var result = await service.ChooseAsync(new { }, Questions);
+
+        Assert.False(result["nextAction"].Available);
+        Assert.Single(handler.Requests);
+    }
+
+    [Fact]
+    public async Task InvalidJson_ReturnsUnavailable()
+    {
+        var handler = new RecordingHttpMessageHandler((_, _) => RecordingHttpMessageHandler.OkJson("{not-json"));
+        var service = new JevDecisionService(new HttpClient(handler), new JevSettings { ApiKey = "key" });
+
+        var result = await service.ChooseAsync(new { }, Questions);
+
+        Assert.False(result["nextAction"].Available);
+        Assert.Single(handler.Requests);
+    }
+
+    [Fact]
+    public async Task ProviderTimeout_ReturnsUnavailable()
+    {
+        var handler = new RecordingHttpMessageHandler((_, _) => throw new OperationCanceledException());
+        var service = new JevDecisionService(new HttpClient(handler), new JevSettings { ApiKey = "key" });
+
+        var result = await service.ChooseAsync(new { }, Questions);
+
+        Assert.False(result["nextAction"].Available);
+        Assert.Single(handler.Requests);
+    }
+
+    [Fact]
+    public async Task CallerCancellation_IsPropagated()
+    {
+        using var cancellation = new CancellationTokenSource();
+        var handler = new RecordingHttpMessageHandler((_, _) =>
+        {
+            cancellation.Cancel();
+            throw new OperationCanceledException(cancellation.Token);
+        });
+        var service = new JevDecisionService(new HttpClient(handler), new JevSettings { ApiKey = "key" });
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            service.ChooseAsync(new { }, Questions, cancellation.Token));
     }
 
     private sealed class CapturingHandler(HttpResponseMessage response) : HttpMessageHandler

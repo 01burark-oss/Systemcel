@@ -6,7 +6,7 @@ backup_dir="${BACKUP_DIR:-/opt/systemcel/backups}"
 state_dir="${OFFSITE_BACKUP_STATE_DIR:-/var/lib/systemcel-backup}"
 state_file="${OFFSITE_BACKUP_STATE_FILE:-${state_dir}/offsite-last-success.json}"
 lock_file="${OFFSITE_BACKUP_LOCK_FILE:-/run/systemcel-backup/offsite.lock}"
-remote="${RCLONE_CRYPT_REMOTE:-}"
+remote="${SYSTEMCEL_OFFSITE_REMOTE:-}"
 attempts="${OFFSITE_BACKUP_ATTEMPTS:-4}"
 transfer_only=false
 
@@ -25,7 +25,7 @@ for command_name in cmp flock jq rclone sha256sum; do
 done
 
 if [[ -z "${remote}" || "${remote}" != *:* ]]; then
-  echo "RCLONE_CRYPT_REMOTE, rclone crypt hedefi olarak ayarlanmalıdır." >&2
+  echo "SYSTEMCEL_OFFSITE_REMOTE, rclone crypt hedefi olarak ayarlanmalıdır." >&2
   exit 1
 fi
 if [[ ! "${attempts}" =~ ^[1-9][0-9]*$ ]]; then
@@ -95,7 +95,7 @@ retry() {
 }
 
 final_remote="${remote}/packages/${package_id}"
-include_args=(--include "/${db_name}" --include "/${appdata_name}" --include "/${manifest_name}" --exclude '*')
+include_args=(--filter "+ /${db_name}" --filter "+ /${appdata_name}" --filter "+ /${manifest_name}" --filter '- **')
 retry rclone copy "${backup_dir}" "${final_remote}" "${include_args[@]}" --immutable --retries 1 --low-level-retries 1 --log-level ERROR
 retry rclone check "${backup_dir}" "${final_remote}" "${include_args[@]}" --one-way --download --checkers 2 --log-level ERROR
 
@@ -105,7 +105,7 @@ marker="$(mktemp "${state_dir}/completed.XXXXXX")"
 state_tmp="$(mktemp "${state_dir}/state.XXXXXX")"
 cleanup() { rm -f -- "${marker}" "${state_tmp}"; }
 trap cleanup EXIT
-if rclone cat "${final_remote}/COMPLETED.json" --retries 1 --low-level-retries 1 --log-level ERROR >"${marker}" 2>/dev/null; then
+if rclone cat "${final_remote}/COMPLETED.json" --retries 1 --low-level-retries 1 --log-level ERROR >"${marker}" 2>/dev/null && [[ -s "${marker}" ]]; then
   jq -e --arg package_id "${package_id}" --arg manifest_sha256 "${manifest_sha256}" \
     '.package_id == $package_id and .manifest_sha256 == $manifest_sha256' "${marker}" >/dev/null || {
       echo "Uzak tamamlanma işareti yerel paketle uyuşmuyor." >&2

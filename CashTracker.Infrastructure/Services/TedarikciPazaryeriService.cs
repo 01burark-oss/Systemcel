@@ -575,7 +575,7 @@ public sealed class TedarikciPazaryeriService : ITedarikciPazaryeriService
             ?? throw new KeyNotFoundException("Tedarikçi siparişi bulunamadı.");
         if (order.TedarikciIsletmeId != supplierBusinessId)
             throw new UnauthorizedAccessException("Bu sipariş için sevkiyat oluşturamazsınız.");
-        if (order.Durum is not (PazaryeriSiparisDurumlari.Hazirlaniyor or PazaryeriSiparisDurumlari.SevkeHazir or PazaryeriSiparisDurumlari.KismenSevkEdildi or PazaryeriSiparisDurumlari.KismenKabul))
+        if (order.Durum is not (PazaryeriSiparisDurumlari.Hazirlaniyor or PazaryeriSiparisDurumlari.SevkeHazir or PazaryeriSiparisDurumlari.KismenSevkEdildi or PazaryeriSiparisDurumlari.KismenKabul or PazaryeriSiparisDurumlari.Itirazli))
             throw new InvalidOperationException("Sevkiyat yalnızca hazırlanan sipariş için oluşturulabilir.");
         if (request.VarisDeposu is not null && !await db.StokDepolari.AnyAsync(
                 x => x.Id == request.VarisDeposu && x.IsletmeId == order.AliciIsletmeId && x.Aktif, ct))
@@ -589,6 +589,10 @@ public sealed class TedarikciPazaryeriService : ITedarikciPazaryeriService
             .ToDictionaryAsync(x => x.Id, ct);
         if (orderLines.Count != request.Kalemler.Count)
             throw new ArgumentException("Sevkiyat kalemlerinden biri bu siparişe ait değil.");
+        var productIds = orderLines.Values.Select(line => line.TedarikciUrunId).Distinct().ToList();
+        var products = await db.TedarikciUrunleri
+            .Where(x => productIds.Contains(x.Id))
+            .ToDictionaryAsync(x => x.Id, ct);
 
         var shipment = new TedarikciSevkiyat
         {
@@ -622,6 +626,7 @@ public sealed class TedarikciPazaryeriService : ITedarikciPazaryeriService
             if (requested.Agirlik is < 0m || requested.PaletKoli < 0)
                 throw new ArgumentException("Ağırlık ve palet/koli bilgisi negatif olamaz.");
             var orderLine = orderLines[requested.SiparisKalemiId];
+            ValidateShipmentCategoryRule(products[orderLine.TedarikciUrunId].Kategori, shipment, request, requested);
             if (orderLine.SevkEdilenMiktar + requested.Miktar > orderLine.Miktar)
                 throw new InvalidOperationException($"{orderLine.Ad} için sipariş miktarından fazla ürün sevk edilemez.");
             await ConsumeShipmentStockAsync(db, order, orderLine, requested.Miktar, shipment.SevkiyatNo, shipment.Id, ct);
@@ -669,11 +674,13 @@ public sealed class TedarikciPazaryeriService : ITedarikciPazaryeriService
         }
 
         var allLines = await db.TedarikciSiparisKalemleri.Where(x => x.TedarikciSiparisId == order.Id).ToListAsync(ct);
-        var nextState = allLines.Any(x => x.KabulEdilenMiktar > 0m || x.ReddedilenMiktar > 0m)
-            ? PazaryeriSiparisDurumlari.KismenKabul
-            : allLines.All(x => x.SevkEdilenMiktar >= x.Miktar)
-                ? PazaryeriSiparisDurumlari.MalKabulBekliyor
-                : PazaryeriSiparisDurumlari.KismenSevkEdildi;
+        var nextState = order.Durum == PazaryeriSiparisDurumlari.Itirazli
+            ? PazaryeriSiparisDurumlari.Itirazli
+            : allLines.Any(x => x.KabulEdilenMiktar > 0m || x.ReddedilenMiktar > 0m)
+                ? PazaryeriSiparisDurumlari.KismenKabul
+                : allLines.All(x => x.SevkEdilenMiktar >= x.Miktar)
+                    ? PazaryeriSiparisDurumlari.MalKabulBekliyor
+                    : PazaryeriSiparisDurumlari.KismenSevkEdildi;
         AddStateHistory(db, order, nextState, supplierBusinessId, $"{shipment.SevkiyatNo} oluşturuldu.");
         await SyncMasterStateAsync(db, order.AnaSiparisId, ct);
         await db.SaveChangesAsync(ct);
@@ -773,6 +780,37 @@ public sealed class TedarikciPazaryeriService : ITedarikciPazaryeriService
             throw new ArgumentException("Kabul ve ret miktarlarının toplamı etiket miktarına eşit olmalıdır.");
         if (request.OlculenAgirlik is < 0m)
             throw new ArgumentException("Ölçülen ağırlık negatif olamaz.");
+        var productCategory = await db.TedarikciUrunleri
+            .Where(x => x.Id == row.orderLine.TedarikciUrunId)
+            .Select(x => x.Kategori)
+            .SingleAsync(ct);
+        var categoryRule = _options.GetCategoryRule(productCategory);
+        if (request.KabulEdilenMiktar > 0m)
+        {
+            if (categoryRule.LotNoGerekli && string.IsNullOrWhiteSpace(row.shipmentLine.LotNo))
+                throw new ArgumentException("Bu ürün kategorisinde lot numarası zorunludur.");
+            if (categoryRule.SeriNoGerekli && string.IsNullOrWhiteSpace(row.shipmentLine.SeriNo))
+                throw new ArgumentException("Bu ürün kategorisinde seri numarası zorunludur.");
+            if (categoryRule.SonKullanmaTarihiGerekli && row.shipmentLine.SonKullanmaTarihi is null)
+                throw new ArgumentException("Bu ürün kategorisinde son kullanma tarihi zorunludur.");
+            if (categoryRule.SicaklikAraligiGerekli && (row.shipmentLine.SicaklikMin is null || row.shipmentLine.SicaklikMax is null))
+                throw new ArgumentException("Bu ürün kategorisinde sevkiyat sıcaklık aralığı zorunludur.");
+            if (categoryRule.SicaklikOlcumuGerekli && request.OlculenSicaklik is null)
+                throw new ArgumentException("Bu ürün kategorisinde kabul için sıcaklık ölçümü zorunludur.");
+            if (categoryRule.AgirlikGerekli && request.OlculenAgirlik is null)
+                throw new ArgumentException("Bu ürün kategorisinde kabul için ağırlık ölçümü zorunludur.");
+            if (categoryRule.AgirlikGerekli && categoryRule.AgirlikToleransiYuzde is { } tolerancePercent)
+            {
+                if (row.shipmentLine.Agirlik is not { } declaredWeight || declaredWeight <= 0m)
+                    throw new ArgumentException("Bu ürün kategorisinde sevk öncesi bildirilen ağırlık gereklidir.");
+                var expectedWeight = declaredWeight * row.label.Miktar / row.shipmentLine.Miktar;
+                var allowedDifference = expectedWeight * tolerancePercent / 100m;
+                if (Math.Abs(request.OlculenAgirlik!.Value - expectedWeight) > allowedDifference)
+                    throw new ArgumentException("Ölçülen ağırlık kategori toleransının dışında; kabul yerine ret veya inceleme kaydı oluşturun.");
+            }
+            if (categoryRule.EkBelgeGerekli && string.IsNullOrWhiteSpace(row.shipment.BelgeDosyaYolu))
+                throw new ArgumentException("Bu ürün kategorisinde sevkiyat ek belgesi yüklenmeden mal kabul edilemez.");
+        }
         if (request.KabulEdilenMiktar > 0m && row.shipmentLine.SonKullanmaTarihi is { } expiryDate &&
             expiryDate.Date < TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow,
                 TimeZoneInfo.FindSystemTimeZoneById("Europe/Istanbul")).Date)
@@ -811,6 +849,9 @@ public sealed class TedarikciPazaryeriService : ITedarikciPazaryeriService
             IdempotencyAnahtari = request.IdempotencyKey.Trim(),
             KabulEdilenMiktar = request.KabulEdilenMiktar,
             ReddedilenMiktar = request.ReddedilenMiktar,
+            StokUzlastirmaDurumu = request.ReddedilenMiktar > 0m
+                ? TedarikciStokUzlastirmaDurumlari.Bekliyor
+                : TedarikciStokUzlastirmaDurumlari.Uygulanmaz,
             RedNedeni = primaryReason,
             IkinciRedNedeni = secondaryReason,
             Not = (request.Not ?? string.Empty).Trim(),
@@ -879,6 +920,110 @@ public sealed class TedarikciPazaryeriService : ITedarikciPazaryeriService
         await db.SaveChangesAsync(ct);
         await transaction.CommitAsync(ct);
         return new TedarikciMalKabulSonucu(receipt.Id, row.order.Durum);
+    }
+
+    public async Task<TedarikciMalKabulStokUzlastirmaSonucu> ReconcileRejectedReceiptStockAsync(
+        int receiptId,
+        TedarikciMalKabulStokUzlastirmaRequest request,
+        CancellationToken ct = default)
+    {
+        if (!await _yonetimService.IsCurrentUserAdminAsync(ct))
+            throw new UnauthorizedAccessException("Bu işlem için yönetici yetkisi gerekir.");
+        var idempotencyKey = (request.IdempotencyKey ?? string.Empty).Trim();
+        var decision = (request.Karar ?? string.Empty).Trim();
+        var note = (request.Not ?? string.Empty).Trim();
+        if (idempotencyKey.Length is < 1 or > 100)
+            throw new ArgumentException("Uzlaştırma işlem anahtarı 1-100 karakter olmalıdır.");
+        if (note.Length is < 1 or > 500)
+            throw new ArgumentException("Uzlaştırma notu 1-500 karakter olmalıdır.");
+        if (decision is not (TedarikciStokUzlastirmaDurumlari.Kayip
+                or TedarikciStokUzlastirmaDurumlari.TedarikciyeIade
+                or TedarikciStokUzlastirmaDurumlari.YenidenSevk))
+            throw new ArgumentException("Kayıp, tedarikçiye iade veya yeniden sevk kararı seçin.");
+
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+        await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
+        var receipt = await db.TedarikciMalKabulleri.SingleOrDefaultAsync(x => x.Id == receiptId, ct)
+            ?? throw new KeyNotFoundException("Mal kabul kaydı bulunamadı.");
+        if (receipt.StokUzlastirmaDurumu != TedarikciStokUzlastirmaDurumlari.Bekliyor)
+        {
+            if (receipt.StokUzlastirmaAnahtari == idempotencyKey &&
+                receipt.StokUzlastirmaDurumu == decision && receipt.StokUzlastirmaNotu == note)
+                return new(receipt.Id, receipt.StokUzlastirmaDurumu, receipt.ReddedilenMiktar, true);
+            throw new InvalidOperationException("Bu mal kabul kaydının stok farkı daha önce uzlaştırıldı.");
+        }
+        if (receipt.ReddedilenMiktar <= 0m)
+            throw new InvalidOperationException("Reddedilen miktarı olmayan mal kabul stok uzlaştırmasına uygun değildir.");
+
+        var row = await (from label in db.TedarikciSevkiyatEtiketleri
+                         join shipmentLine in db.TedarikciSevkiyatKalemleri on label.TedarikciSevkiyatKalemiId equals shipmentLine.Id
+                         join shipment in db.TedarikciSevkiyatlari on shipmentLine.TedarikciSevkiyatId equals shipment.Id
+                         join orderLine in db.TedarikciSiparisKalemleri on shipmentLine.TedarikciSiparisKalemiId equals orderLine.Id
+                         join order in db.TedarikciSiparisleri on shipment.TedarikciSiparisId equals order.Id
+                         where label.Id == receipt.TedarikciSevkiyatEtiketiId
+                         select new { label, shipment, shipmentLine, orderLine, order }).SingleAsync(ct);
+        var product = await db.TedarikciUrunleri.SingleAsync(x => x.Id == row.orderLine.TedarikciUrunId, ct);
+        var quantity = receipt.ReddedilenMiktar;
+        var now = DateTime.UtcNow;
+        var actorReference = Truncate(_currentUserContext.GetCurrentUser()?.ProviderUserId ?? "system-admin", 160);
+
+        if (decision == TedarikciStokUzlastirmaDurumlari.TedarikciyeIade)
+        {
+            product.StokMiktari += quantity;
+            product.UpdatedAt = now;
+            if (product.KaynakUrunHizmetId is { } sourceProductId)
+            {
+                db.StokHareketleri.Add(new StokHareket
+                {
+                    IsletmeId = row.order.TedarikciIsletmeId,
+                    TedarikciSiparisId = row.order.Id,
+                    TedarikciSevkiyatId = row.shipment.Id,
+                    TedarikciMalKabulId = receipt.Id,
+                    UrunHizmetId = sourceProductId,
+                    Tarih = now,
+                    Miktar = quantity,
+                    HareketTipi = "Giris",
+                    Kaynak = "PazaryeriTedarikciIadesi",
+                    Aciklama = $"Mal kabul {receipt.Id}: fiziksel olarak iade alınan {quantity} {row.orderLine.Birim}. {note}"
+                });
+            }
+        }
+        else if (decision == TedarikciStokUzlastirmaDurumlari.YenidenSevk)
+        {
+            if (row.orderLine.ReddedilenMiktar < quantity || row.orderLine.SevkEdilenMiktar < quantity)
+                throw new InvalidOperationException("Reddedilen miktar sipariş satırıyla eşleşmiyor; yeniden sevk ayrı inceleme gerektirir.");
+            if (product.StokMiktari - product.RezerveMiktar < quantity)
+                throw new InvalidOperationException($"{row.orderLine.Ad} için yeniden sevk edilecek kullanılabilir stok yok.");
+            product.RezerveMiktar += quantity;
+            product.UpdatedAt = now;
+            row.orderLine.SevkEdilenMiktar -= quantity;
+            row.orderLine.ReddedilenMiktar -= quantity;
+            if (product.KaynakUrunHizmetId is { } sourceProductId)
+            {
+                db.StokHareketleri.Add(new StokHareket
+                {
+                    IsletmeId = row.order.TedarikciIsletmeId,
+                    TedarikciSiparisId = row.order.Id,
+                    TedarikciSevkiyatId = row.shipment.Id,
+                    TedarikciMalKabulId = receipt.Id,
+                    UrunHizmetId = sourceProductId,
+                    Tarih = now,
+                    RezerveMiktar = quantity,
+                    HareketTipi = "Rezervasyon",
+                    Kaynak = "PazaryeriYenidenSevkRezervasyonu",
+                    Aciklama = $"Mal kabul {receipt.Id}: yeniden sevk için ayrılan {quantity} {row.orderLine.Birim}. {note}"
+                });
+            }
+        }
+
+        receipt.StokUzlastirmaDurumu = decision;
+        receipt.StokUzlastirmaAnahtari = idempotencyKey;
+        receipt.StokUzlastiranKullaniciRef = actorReference;
+        receipt.StokUzlastirmaNotu = note;
+        receipt.StokUzlastirmaAt = now;
+        await db.SaveChangesAsync(ct);
+        await transaction.CommitAsync(ct);
+        return new(receipt.Id, receipt.StokUzlastirmaDurumu, quantity);
     }
 
     public async Task<TedarikciSiparisSikayeti> CreateComplaintAsync(
@@ -1269,6 +1414,13 @@ public sealed class TedarikciPazaryeriService : ITedarikciPazaryeriService
                 or PazaryeriItirazKararlari.YenidenTeslim))
             throw new ArgumentException("Geçerli bir itiraz kararı seçin.");
 
+        if (decision != PazaryeriItirazKararlari.YenidenTeslim &&
+            await db.TedarikciMalKabulleri.AnyAsync(x =>
+                x.TedarikciSiparisId == order.Id &&
+                x.ReddedilenMiktar > 0m &&
+                x.StokUzlastirmaDurumu == TedarikciStokUzlastirmaDurumlari.Bekliyor, ct))
+            throw new InvalidOperationException("İtirazı kapatmadan önce bekleyen ret stoklarını uzlaştırın.");
+
         var disputeHistory = await db.TedarikciSiparisDurumKayitlari
             .Where(x => x.TedarikciSiparisId == order.Id && x.YeniDurum == PazaryeriSiparisDurumlari.Itirazli)
             .OrderByDescending(x => x.CreatedAt)
@@ -1283,19 +1435,52 @@ public sealed class TedarikciPazaryeriService : ITedarikciPazaryeriService
         var auditNote = $"Yönetici {adminReference}. İtiraz kararı: {decision}. {request.Not.Trim()}";
         if (decision == PazaryeriItirazKararlari.YenidenTeslim)
         {
-            var rejectedLines = await db.TedarikciSiparisKalemleri
-                .Where(x => x.TedarikciSiparisId == order.Id && x.ReddedilenMiktar > 0m)
-                .ToListAsync(ct);
-            if (rejectedLines.Count == 0)
+            var pendingRejections = await (from receipt in db.TedarikciMalKabulleri
+                                           join label in db.TedarikciSevkiyatEtiketleri on receipt.TedarikciSevkiyatEtiketiId equals label.Id
+                                           join shipmentLine in db.TedarikciSevkiyatKalemleri on label.TedarikciSevkiyatKalemiId equals shipmentLine.Id
+                                           join orderLine in db.TedarikciSiparisKalemleri on shipmentLine.TedarikciSiparisKalemiId equals orderLine.Id
+                                           where receipt.TedarikciSiparisId == order.Id &&
+                                                 receipt.ReddedilenMiktar > 0m &&
+                                                 receipt.StokUzlastirmaDurumu == TedarikciStokUzlastirmaDurumlari.Bekliyor
+                                           select new { Receipt = receipt, OrderLine = orderLine }).ToListAsync(ct);
+            if (pendingRejections.Count == 0)
                 throw new InvalidOperationException("Yeniden teslim için reddedilmiş bir sipariş kalemi bulunmuyor.");
-            foreach (var line in rejectedLines)
+            foreach (var group in pendingRejections.GroupBy(x => x.OrderLine.Id))
             {
+                var line = group.First().OrderLine;
+                var quantity = group.Sum(x => x.Receipt.ReddedilenMiktar);
                 var product = await db.TedarikciUrunleri.SingleAsync(x => x.Id == line.TedarikciUrunId, ct);
-                if (product.StokMiktari - product.RezerveMiktar < line.ReddedilenMiktar)
+                if (line.ReddedilenMiktar < quantity || line.SevkEdilenMiktar < quantity)
+                    throw new InvalidOperationException($"{line.Ad} reddedilen miktarı sipariş satırıyla eşleşmiyor.");
+                if (product.StokMiktari - product.RezerveMiktar < quantity)
                     throw new InvalidOperationException($"{line.Ad} için yeniden sevk edilecek stok bulunmuyor.");
-                product.RezerveMiktar += line.ReddedilenMiktar;
-                line.SevkEdilenMiktar -= line.ReddedilenMiktar;
-                line.ReddedilenMiktar = 0m;
+                product.RezerveMiktar += quantity;
+                product.UpdatedAt = DateTime.UtcNow;
+                line.SevkEdilenMiktar -= quantity;
+                line.ReddedilenMiktar -= quantity;
+                foreach (var pending in group)
+                {
+                    pending.Receipt.StokUzlastirmaDurumu = TedarikciStokUzlastirmaDurumlari.YenidenSevk;
+                    pending.Receipt.StokUzlastirmaAnahtari = $"legacy-{Guid.NewGuid():N}";
+                    pending.Receipt.StokUzlastiranKullaniciRef = adminReference;
+                    pending.Receipt.StokUzlastirmaNotu = request.Not.Trim();
+                    pending.Receipt.StokUzlastirmaAt = DateTime.UtcNow;
+                    if (product.KaynakUrunHizmetId is { } sourceProductId)
+                    {
+                        db.StokHareketleri.Add(new StokHareket
+                        {
+                            IsletmeId = order.TedarikciIsletmeId,
+                            TedarikciSiparisId = order.Id,
+                            TedarikciMalKabulId = pending.Receipt.Id,
+                            UrunHizmetId = sourceProductId,
+                            Tarih = DateTime.UtcNow,
+                            RezerveMiktar = pending.Receipt.ReddedilenMiktar,
+                            HareketTipi = "Rezervasyon",
+                            Kaynak = "PazaryeriYenidenSevkRezervasyonu",
+                            Aciklama = $"Mal kabul {pending.Receipt.Id}: yönetici yeniden sevk kararıyla ayrılan {pending.Receipt.ReddedilenMiktar} {line.Birim}. {request.Not.Trim()}"
+                        });
+                    }
+                }
             }
             target = PazaryeriSiparisDurumlari.Hazirlaniyor;
             if (settlement is not null)
@@ -1824,6 +2009,34 @@ public sealed class TedarikciPazaryeriService : ITedarikciPazaryeriService
         if (paid)
             invoice.OdenenTutar = invoice.GenelToplam;
         invoice.UpdatedAt = now;
+    }
+
+    private void ValidateShipmentCategoryRule(
+        string? category,
+        TedarikciSevkiyat shipment,
+        TedarikciSevkiyatOlusturRequest request,
+        TedarikciSevkiyatKalemiRequest line)
+    {
+        var rule = _options.GetCategoryRule(category);
+        var missing = new List<string>();
+        if (rule.BelgeNoGerekli && string.IsNullOrWhiteSpace(shipment.BelgeNo)) missing.Add("belge numarası");
+        if (rule.BelgeUuidGerekli && string.IsNullOrWhiteSpace(shipment.BelgeUuid)) missing.Add("belge UUID");
+        if (rule.TasimaTipiGerekli && string.IsNullOrWhiteSpace(shipment.TasimaTipi)) missing.Add("taşıma tipi");
+        if (rule.AracPlakaGerekli && string.IsNullOrWhiteSpace(shipment.AracPlaka)) missing.Add("araç plakası");
+        if (rule.TasiyiciGerekli && string.IsNullOrWhiteSpace(shipment.Tasiyici)) missing.Add("taşıyıcı");
+        if (rule.SurucuAdiGerekli && string.IsNullOrWhiteSpace(shipment.SurucuAdi)) missing.Add("sürücü adı");
+        if (rule.CikisDeposuGerekli && string.IsNullOrWhiteSpace(shipment.CikisDeposu)) missing.Add("çıkış deposu");
+        if (rule.SevkZamaniGerekli && request.SevkAt is null) missing.Add("sevk zamanı");
+        if (rule.VarisDeposuGerekli && request.VarisDeposu is null) missing.Add("varış deposu");
+        if (rule.PlanlananTeslimGerekli && request.PlanlananTeslimAt is null) missing.Add("planlanan teslim zamanı");
+        if (rule.RandevuGerekli && request.RandevuAt is null) missing.Add("randevu zamanı");
+        if (rule.LotNoGerekli && string.IsNullOrWhiteSpace(line.LotNo)) missing.Add("lot numarası");
+        if (rule.SeriNoGerekli && string.IsNullOrWhiteSpace(line.SeriNo)) missing.Add("seri numarası");
+        if (rule.AgirlikGerekli && line.Agirlik is null or <= 0m) missing.Add("pozitif ağırlık");
+        if (rule.SicaklikAraligiGerekli && (line.SicaklikMin is null || line.SicaklikMax is null)) missing.Add("sıcaklık aralığı");
+        if (rule.SonKullanmaTarihiGerekli && line.SonKullanmaTarihi is null) missing.Add("son kullanma tarihi");
+        if (missing.Count > 0)
+            throw new ArgumentException($"{category} kategorisi için zorunlu sevkiyat alanları eksik: {string.Join(", ", missing)}.");
     }
 
     private static string NormalizeQrCode(string code)

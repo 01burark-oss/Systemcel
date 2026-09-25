@@ -84,15 +84,49 @@ test.describe("workspace accessibility", () => {
     const cards = page.locator(".snapshot-grid > .snapshot-card");
     await expect(cards).toHaveCount(4);
     const [grossProfitBox, netProfitBox, periodBox] = await Promise.all([
-      cards.nth(2).boundingBox(), cards.nth(3).boundingBox(), page.getByLabel("Net kâr dönemi").locator("..").boundingBox()
+      cards.nth(2).boundingBox(), cards.nth(3).boundingBox(), page.getByRole("button", { name: "Net kâr dönemi: Bugün" }).locator("..").boundingBox()
     ]);
 
     expect(Math.abs(grossProfitBox!.y - netProfitBox!.y)).toBeLessThanOrEqual(1);
     expect(netProfitBox!.x).toBeGreaterThan(grossProfitBox!.x);
-    expect(periodBox!.width).toBeLessThanOrEqual(128);
+    expect(periodBox!.width).toBeLessThanOrEqual(148);
     expect(periodBox!.height).toBeLessThanOrEqual(46);
     await page.locator(".snapshot-grid").screenshot({ path: testInfo.outputPath("dashboard-tablet.png") });
   });
+
+  for (const theme of ["light", "dark"]) {
+    test(`dashboard period menu and empty payment state fit in ${theme}`, async ({ page }, testInfo) => {
+      test.skip(testInfo.project.name !== "desktop-chromium");
+      await page.addInitScript(value => localStorage.setItem("systemcel.theme", value), theme);
+      for (const width of [820, 1366]) {
+        await page.setViewportSize({ width, height: 900 });
+        await page.goto("/app");
+        const cookieReject = page.getByRole("button", { name: "Reddet" });
+        if (await cookieReject.isVisible()) await cookieReject.click();
+
+        const trigger = page.getByRole("button", { name: "Net kâr dönemi: Bugün" });
+        await trigger.scrollIntoViewIfNeeded();
+        await trigger.click();
+        const menu = page.locator(".snapshot-period-chip__menu");
+        await expect(menu.getByRole("button", { name: "Son 30 Gün" })).toBeVisible();
+        const menuBox = await menu.boundingBox();
+        expect(menuBox!.x).toBeGreaterThanOrEqual(0);
+        expect(menuBox!.x + menuBox!.width).toBeLessThanOrEqual(page.viewportSize()!.width);
+        await page.locator(".snapshot-card--benchmark").screenshot({ path: testInfo.outputPath(`dashboard-period-${theme}-${width}.png`) });
+        await page.keyboard.press("Escape");
+        await expect(menu).toHaveCount(0);
+        await expect(trigger).toBeFocused();
+        await trigger.click();
+        await menu.getByRole("button", { name: "Son 30 Gün" }).click();
+        await expect(page.getByRole("button", { name: "Net kâr dönemi: Son 30 Gün" })).toBeVisible();
+
+        const chart = page.locator(".payment-chart");
+        await expect(chart.getByText("Henüz ödeme yok")).toBeVisible();
+        await expect(chart.locator(".payment-chart__pie")).toHaveCount(0);
+        await chart.screenshot({ path: testInfo.outputPath(`dashboard-payments-empty-${theme}-${width}.png`) });
+      }
+    });
+  }
 
   test("theme changes preserve settings geometry", async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== "desktop-chromium", "Settings route");

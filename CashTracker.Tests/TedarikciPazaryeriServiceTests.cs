@@ -7,6 +7,8 @@ using CashTracker.Infrastructure.Services;
 using CashTracker.Tests.Support;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
+using System.Data.Common;
 using Xunit;
 
 namespace CashTracker.Tests;
@@ -295,6 +297,107 @@ public sealed class TedarikciPazaryeriServiceTests
     }
 
     [Fact]
+    public async Task ShipmentAndReceipt_EnforceConfiguredCategoryRequirementsAndWeightTolerance()
+    {
+        await using var f = await Fixture.CreateAsync();
+        await using (var db = f.Db())
+        {
+            var product = await db.TedarikciUrunleri.SingleAsync(x => x.Id == f.ProductA);
+            product.Kategori = "Taze Gıda";
+            await db.SaveChangesAsync();
+        }
+        var rule = new PazaryeriKategoriSevkKabulKurali
+        {
+            BelgeNoGerekli = true,
+            AracPlakaGerekli = true,
+            TasiyiciGerekli = true,
+            CikisDeposuGerekli = true,
+            LotNoGerekli = true,
+            SeriNoGerekli = true,
+            AgirlikGerekli = true,
+            AgirlikToleransiYuzde = 5m,
+            SicaklikAraligiGerekli = true,
+            SicaklikOlcumuGerekli = true,
+            SonKullanmaTarihiGerekli = true,
+            EkBelgeGerekli = true
+        };
+        var configured = new PazaryeriOptions
+        {
+            KomisyonKdvOrani = 20m,
+            TevkifatOrani = 1m,
+            KategoriKurallari = new Dictionary<string, PazaryeriKategoriSevkKabulKurali>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["Taze Gıda"] = rule
+            }
+        };
+        await f.Service(1, options: configured).CreateOrderAsync(new PazaryeriSiparisOlusturRequest(
+            "Depo", "category-rules", new[] { new PazaryeriSepetKalemiRequest(f.ProductA, 2) }, Vadeli: true));
+        int supplierOrderId;
+        int lineId;
+        await using (var db = f.Db())
+        {
+            supplierOrderId = await db.TedarikciSiparisleri.Select(x => x.Id).SingleAsync();
+            lineId = await db.TedarikciSiparisKalemleri.Select(x => x.Id).SingleAsync();
+        }
+        await f.Service(2, options: configured).UpdateSupplierOrderStateAsync(supplierOrderId,
+            new(PazaryeriSiparisDurumlari.TedarikciOnayladi, null, null, null));
+        await f.Service(2, options: configured).UpdateSupplierOrderStateAsync(supplierOrderId,
+            new(PazaryeriSiparisDurumlari.Hazirlaniyor, null, null, null));
+
+        var missingDispatchFields = await Assert.ThrowsAsync<ArgumentException>(() => f.Service(2, options: configured).CreateShipmentAsync(supplierOrderId, new(
+            "Tedarikçi aracı", null, null, null, null, null, null, null,
+            new[] { new TedarikciSevkiyatKalemiRequest(lineId, 2, 1, null, null, null, null) })));
+        Assert.Contains("belge numarası", missingDispatchFields.Message);
+        var missingMaximumTemperature = await Assert.ThrowsAsync<ArgumentException>(() => f.Service(2, options: configured).CreateShipmentAsync(supplierOrderId, new(
+            "Tedarikçi aracı", "Taşıyıcı", "IRS-CATEGORY-MIN", "34 ABC 1", "Sürücü", "Çıkış deposu", null, null,
+            new[] { new TedarikciSevkiyatKalemiRequest(lineId, 2, 1, "LOT-MIN", DateTime.UtcNow.AddDays(10), -2m, null,
+                SeriNo: "SERIAL-MIN", Agirlik: 10m) })));
+        Assert.Contains("sıcaklık aralığı", missingMaximumTemperature.Message);
+        var missingMinimumTemperature = await Assert.ThrowsAsync<ArgumentException>(() => f.Service(2, options: configured).CreateShipmentAsync(supplierOrderId, new(
+            "Tedarikçi aracı", "Taşıyıcı", "IRS-CATEGORY-MAX", "34 ABC 1", "Sürücü", "Çıkış deposu", null, null,
+            new[] { new TedarikciSevkiyatKalemiRequest(lineId, 2, 1, "LOT-MAX", DateTime.UtcNow.AddDays(10), null, 5m,
+                SeriNo: "SERIAL-MAX", Agirlik: 10m) })));
+        Assert.Contains("sıcaklık aralığı", missingMinimumTemperature.Message);
+        await using (var unchanged = f.Db())
+        {
+            Assert.Empty(await unchanged.TedarikciSevkiyatlari.ToListAsync());
+            Assert.Equal(10m, await unchanged.TedarikciUrunleri.Where(x => x.Id == f.ProductA)
+                .Select(x => x.StokMiktari).SingleAsync());
+        }
+
+        var shipment = await f.Service(2, options: configured).CreateShipmentAsync(supplierOrderId, new(
+            "Tedarikçi aracı", "Taşıyıcı", "IRS-CATEGORY", "34 ABC 1", "Sürücü", "Çıkış deposu", null, null,
+            new[] { new TedarikciSevkiyatKalemiRequest(lineId, 2, 1, "LOT-CAT", DateTime.UtcNow.AddDays(10), -2m, 5m,
+                SeriNo: "SERIAL-CAT", Agirlik: 10m) }));
+        var qr = Assert.Single(shipment.Etiketler).QrIcerigi;
+        await Assert.ThrowsAsync<ArgumentException>(() => f.Service(1, options: configured).ReceiveShipmentQrAsync(qr,
+            new("category-no-weight", 2, 0, null, null, OlculenSicaklik: 0m)));
+        await Assert.ThrowsAsync<ArgumentException>(() => f.Service(1, options: configured).ReceiveShipmentQrAsync(qr,
+            new("category-bad-weight", 2, 0, null, null, OlculenAgirlik: 11m, OlculenSicaklik: 0m)));
+        await Assert.ThrowsAsync<ArgumentException>(() => f.Service(1, options: configured).ReceiveShipmentQrAsync(qr,
+            new("category-no-document", 2, 0, null, null, OlculenAgirlik: 10m, OlculenSicaklik: 0m)));
+        await using (var beforeDocument = f.Db())
+        {
+            var record = await beforeDocument.TedarikciSevkiyatlari.SingleAsync();
+            record.BelgeDosyaYolu = "/api/ekran/tedarikci-pazaryeri/sevkiyatlar/1/belge/document.pdf";
+            (await beforeDocument.TedarikciSevkiyatKalemleri.SingleAsync()).SicaklikMax = null;
+            await beforeDocument.SaveChangesAsync();
+        }
+        var missingMaximumAtReceipt = await Assert.ThrowsAsync<ArgumentException>(() => f.Service(1, options: configured).ReceiveShipmentQrAsync(qr,
+            new("category-no-temperature-maximum", 2, 0, null, null, OlculenAgirlik: 10m, OlculenSicaklik: 0m)));
+        Assert.Contains("sıcaklık aralığı", missingMaximumAtReceipt.Message);
+        await using (var restoreTemperatureRange = f.Db())
+        {
+            (await restoreTemperatureRange.TedarikciSevkiyatKalemleri.SingleAsync()).SicaklikMax = 5m;
+            await restoreTemperatureRange.SaveChangesAsync();
+        }
+        await f.Service(1, options: configured).ReceiveShipmentQrAsync(qr, new("category-ok", 2, 0, null, null,
+            OlculenAgirlik: 10m, OlculenSicaklik: 0m));
+        await using var verified = f.Db();
+        Assert.Equal(10m, await verified.TedarikciMalKabulleri.Select(x => x.OlculenAgirlik).SingleAsync());
+    }
+
+    [Fact]
     public async Task CreateShipment_ConcurrentRequestsOnSeparateConnectionsConsumeStockOnce()
     {
         await using var f = await Fixture.CreateAsync(separateConnections: true);
@@ -398,6 +501,161 @@ public sealed class TedarikciPazaryeriServiceTests
             .Select(x => x.StokMiktari).SingleAsync());
     }
 
+    [Fact]
+    public async Task ReceiveShipmentQr_RacingDisputeOpenKeepsOrderAndSettlementConsistent()
+    {
+        await using var f = await Fixture.CreateAsync(separateConnections: true);
+        for (var attempt = 0; attempt < 6; attempt++)
+        {
+            var order = await f.Service(1).CreateOrderAsync(new PazaryeriSiparisOlusturRequest(
+                "Depo", $"dispute-race-{attempt}", new[] { new PazaryeriSepetKalemiRequest(f.ProductA, 1) }, Vadeli: true));
+            int supplierOrderId;
+            int lineId;
+            await using (var db = f.Db())
+            {
+                supplierOrderId = await db.TedarikciSiparisleri
+                    .Where(x => x.AnaSiparisId == order.Id)
+                    .Select(x => x.Id).SingleAsync();
+                lineId = await db.TedarikciSiparisKalemleri
+                    .Where(x => x.TedarikciSiparisId == supplierOrderId)
+                    .Select(x => x.Id).SingleAsync();
+            }
+            await f.Service(2).UpdateSupplierOrderStateAsync(supplierOrderId,
+                new(PazaryeriSiparisDurumlari.TedarikciOnayladi, null, null, null));
+            await f.Service(2).UpdateSupplierOrderStateAsync(supplierOrderId,
+                new(PazaryeriSiparisDurumlari.Hazirlaniyor, null, null, null));
+            var shipment = await f.Service(2).CreateShipmentAsync(supplierOrderId, new(
+                "Tedarikçi aracı", null, $"IRS-RACE-{attempt}", null, null, null, null, null,
+                new[] { new TedarikciSevkiyatKalemiRequest(lineId, 1, 1, null, null, null, null) }));
+            var qr = Assert.Single(shipment.Etiketler).QrIcerigi;
+
+            var start = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var buyer = f.Service(1);
+            var receiptAttempt = RunConcurrentAttemptAsync(start.Task,
+                () => buyer.ReceiveShipmentQrAsync(qr, new($"receipt-race-{attempt}", 1, 0, null, null)));
+            var disputeAttempt = RunConcurrentAttemptAsync(start.Task, async () =>
+            {
+                await buyer.DisputeSupplierOrderAsync(supplierOrderId, "Eşzamanlı teslimat itirazı");
+                return true;
+            });
+            start.SetResult();
+            await Task.WhenAll(receiptAttempt, disputeAttempt);
+            var receiptOutcome = await receiptAttempt;
+            var disputeOutcome = await disputeAttempt;
+            Assert.True(receiptOutcome.Result is not null || disputeOutcome.Error is null,
+                "At least one serialized operation must commit for this receipt/dispute race.");
+
+            await using var assertDb = f.Db();
+            var storedOrder = await assertDb.TedarikciSiparisleri.SingleAsync(x => x.Id == supplierOrderId);
+            var receipt = await assertDb.TedarikciMalKabulleri
+                .SingleOrDefaultAsync(x => x.TedarikciSiparisId == supplierOrderId);
+            Assert.Equal(receiptOutcome.Result is not null, receipt is not null);
+            if (disputeOutcome.Error is null)
+            {
+                Assert.Equal(PazaryeriSiparisDurumlari.Itirazli, storedOrder.Durum);
+                var settlement = await assertDb.TedarikciHakEdisleri
+                    .SingleOrDefaultAsync(x => x.TedarikciSiparisId == supplierOrderId);
+                Assert.NotEqual("SerbestBirakildi", settlement?.Durum);
+            }
+            if (receiptOutcome.Result is not null && disputeOutcome.Error is null)
+            {
+                Assert.Equal(PazaryeriSiparisDurumlari.Itirazli, storedOrder.Durum);
+                Assert.Equal(1m, receipt!.KabulEdilenMiktar);
+            }
+        }
+    }
+
+    [PostgreSqlFact]
+    public async Task PostgreSql_CreateShipmentConcurrentRequestsConsumeStockOnce()
+    {
+        await using var f = await Fixture.CreatePostgresAsync();
+        await f.Service(1).CreateOrderAsync(new PazaryeriSiparisOlusturRequest(
+            "Depo", "postgres-parallel-shipment", new[] { new PazaryeriSepetKalemiRequest(f.ProductA, 1) }, Vadeli: true));
+        int supplierOrderId;
+        int lineId;
+        await using (var db = f.Db())
+        {
+            supplierOrderId = await db.TedarikciSiparisleri.Select(x => x.Id).SingleAsync();
+            lineId = await db.TedarikciSiparisKalemleri.Select(x => x.Id).SingleAsync();
+        }
+        var supplier = f.Service(2);
+        await supplier.UpdateSupplierOrderStateAsync(supplierOrderId, new(PazaryeriSiparisDurumlari.TedarikciOnayladi, null, null, null));
+        await supplier.UpdateSupplierOrderStateAsync(supplierOrderId, new(PazaryeriSiparisDurumlari.Hazirlaniyor, null, null, null));
+
+        await using (var first = f.Db())
+        await using (var second = f.Db())
+            Assert.NotSame(first.Database.GetDbConnection(), second.Database.GetDbConnection());
+
+        var request = new TedarikciSevkiyatOlusturRequest("Tedarikçi aracı", null, "IRS-PG-RACE", null, null, null, null, null,
+            new[] { new TedarikciSevkiyatKalemiRequest(lineId, 1, 1, null, null, null, null) });
+        var start = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var firstAttempt = RunConcurrentAttemptAsync(start.Task, () => f.Service(2).CreateShipmentAsync(supplierOrderId, request));
+        var secondAttempt = RunConcurrentAttemptAsync(start.Task, () => f.Service(2).CreateShipmentAsync(supplierOrderId, request));
+        start.SetResult();
+        var attempts = await Task.WhenAll(firstAttempt, secondAttempt);
+
+        Assert.Single(attempts, x => x.Result is not null);
+        Assert.Single(attempts, x => x.Error is not null);
+        await using var assertDb = f.Db();
+        Assert.Single(await assertDb.TedarikciSevkiyatlari.ToListAsync());
+        Assert.Single(await assertDb.TedarikciSevkiyatEtiketleri.ToListAsync());
+        Assert.Equal(1m, await assertDb.TedarikciSiparisKalemleri.Select(x => x.SevkEdilenMiktar).SingleAsync());
+        Assert.Equal(9m, await assertDb.TedarikciUrunleri.Where(x => x.Id == f.ProductA).Select(x => x.StokMiktari).SingleAsync());
+        Assert.Equal(0m, await assertDb.TedarikciUrunleri.Where(x => x.Id == f.ProductA).Select(x => x.RezerveMiktar).SingleAsync());
+    }
+
+    [PostgreSqlFact]
+    public async Task PostgreSql_ConcurrentQrReceiptAndDisputeKeepOrderAndSettlementConsistent()
+    {
+        await using var f = await Fixture.CreatePostgresAsync();
+        var order = await f.Service(1).CreateOrderAsync(new PazaryeriSiparisOlusturRequest(
+            "Depo", "postgres-receipt-dispute", new[] { new PazaryeriSepetKalemiRequest(f.ProductA, 1) }, Vadeli: true));
+        int supplierOrderId;
+        int lineId;
+        await using (var db = f.Db())
+        {
+            supplierOrderId = await db.TedarikciSiparisleri.Where(x => x.AnaSiparisId == order.Id).Select(x => x.Id).SingleAsync();
+            lineId = await db.TedarikciSiparisKalemleri.Where(x => x.TedarikciSiparisId == supplierOrderId).Select(x => x.Id).SingleAsync();
+        }
+        var supplier = f.Service(2);
+        await supplier.UpdateSupplierOrderStateAsync(supplierOrderId, new(PazaryeriSiparisDurumlari.TedarikciOnayladi, null, null, null));
+        await supplier.UpdateSupplierOrderStateAsync(supplierOrderId, new(PazaryeriSiparisDurumlari.Hazirlaniyor, null, null, null));
+        var shipment = await supplier.CreateShipmentAsync(supplierOrderId, new("Tedarikçi aracı", null, "IRS-PG-DISPUTE", null, null, null, null, null,
+            new[] { new TedarikciSevkiyatKalemiRequest(lineId, 1, 1, null, null, null, null) }));
+        var qr = Assert.Single(shipment.Etiketler).QrIcerigi;
+
+        var start = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var receiptAttempt = RunConcurrentAttemptAsync(start.Task,
+            () => f.Service(1).ReceiveShipmentQrAsync(qr, new("postgres-dispute-race-receipt", 1, 0, null, null)));
+        var disputeAttempt = RunConcurrentAttemptAsync(start.Task, async () =>
+        {
+            await f.Service(1).DisputeSupplierOrderAsync(supplierOrderId, "PostgreSQL eşzamanlı teslimat itirazı");
+            return true;
+        });
+        start.SetResult();
+        await Task.WhenAll(receiptAttempt, disputeAttempt);
+        var receiptOutcome = await receiptAttempt;
+        var disputeOutcome = await disputeAttempt;
+
+        Assert.True(receiptOutcome.Result is not null || disputeOutcome.Error is null,
+            "At least one serialized operation must commit for the receipt/dispute race.");
+        await using var assertDb = f.Db();
+        var storedOrder = await assertDb.TedarikciSiparisleri.SingleAsync(x => x.Id == supplierOrderId);
+        var receipt = await assertDb.TedarikciMalKabulleri.SingleOrDefaultAsync(x => x.TedarikciSiparisId == supplierOrderId);
+        Assert.Equal(receiptOutcome.Result is not null, receipt is not null);
+        if (disputeOutcome.Error is null)
+        {
+            Assert.Equal(PazaryeriSiparisDurumlari.Itirazli, storedOrder.Durum);
+            var settlement = await assertDb.TedarikciHakEdisleri.SingleOrDefaultAsync(x => x.TedarikciSiparisId == supplierOrderId);
+            Assert.NotEqual("SerbestBirakildi", settlement?.Durum);
+        }
+        if (receiptOutcome.Result is not null && disputeOutcome.Error is null)
+        {
+            Assert.Equal(PazaryeriSiparisDurumlari.Itirazli, storedOrder.Durum);
+            Assert.Equal(1m, receipt!.KabulEdilenMiktar);
+        }
+    }
+
     private static async Task<ConcurrentAttempt<T>> RunConcurrentAttemptAsync<T>(Task start, Func<Task<T>> operation)
     {
         await start;
@@ -474,6 +732,201 @@ public sealed class TedarikciPazaryeriServiceTests
     }
 
     [Fact]
+    public async Task ReconcileRejectedReceipt_ReturnCreditsSupplierStockOnceAndIsIdempotent()
+    {
+        await using var f = await Fixture.CreateAsync();
+        var rejected = await CreateRejectedReceiptAsync(f, "return-reject");
+        var request = new TedarikciMalKabulStokUzlastirmaRequest(
+            "stock-return-1", TedarikciStokUzlastirmaDurumlari.TedarikciyeIade, "Depoya fiziksel dönüş teyit edildi.");
+
+        var first = await f.Service(1).ReconcileRejectedReceiptStockAsync(rejected.ReceiptId, request);
+        var repeat = await f.Service(1).ReconcileRejectedReceiptStockAsync(rejected.ReceiptId, request);
+        Assert.Equal(first.MalKabulId, repeat.MalKabulId);
+        Assert.True(repeat.TekrarKullanildi);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => f.Service(1).ReconcileRejectedReceiptStockAsync(
+            rejected.ReceiptId, request with { IdempotencyKey = "stock-return-other" }));
+        await using var db = f.Db();
+        Assert.Equal(10m, await db.TedarikciUrunleri.Where(x => x.Id == f.ProductA).Select(x => x.StokMiktari).SingleAsync());
+        var receipt = await db.TedarikciMalKabulleri.SingleAsync(x => x.Id == rejected.ReceiptId);
+        Assert.Equal(TedarikciStokUzlastirmaDurumlari.TedarikciyeIade, receipt.StokUzlastirmaDurumu);
+        Assert.Equal("stock-return-1", receipt.StokUzlastirmaAnahtari);
+        Assert.Equal("Depoya fiziksel dönüş teyit edildi.", receipt.StokUzlastirmaNotu);
+        var movement = Assert.Single(await db.StokHareketleri.Where(x =>
+            x.TedarikciMalKabulId == rejected.ReceiptId && x.Kaynak == "PazaryeriTedarikciIadesi").ToListAsync());
+        Assert.Equal(1m, movement.Miktar);
+        Assert.Equal("Giris", movement.HareketTipi);
+        Assert.Equal(PazaryeriSiparisDurumlari.Itirazli,
+            await db.TedarikciSiparisleri.Select(x => x.Durum).SingleAsync());
+        Assert.Empty(await db.PazaryeriOdemeleri.ToListAsync());
+    }
+
+    [Fact]
+    public async Task ReconcileRejectedReceipt_LegacyReshipMarkedForManualReviewCannotApplyStockAgain()
+    {
+        await using var f = await Fixture.CreateAsync();
+        var rejected = await CreateRejectedReceiptAsync(f, "legacy-reship-review");
+        await using (var db = f.Db())
+        {
+            var receipt = await db.TedarikciMalKabulleri.SingleAsync(x => x.Id == rejected.ReceiptId);
+            receipt.StokUzlastirmaDurumu = TedarikciStokUzlastirmaDurumlari.ManuelInceleme;
+            receipt.StokUzlastirmaNotu = "Eski yeniden teslim kararı; elle doğrulanmalı.";
+            await db.SaveChangesAsync();
+        }
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => f.Service(1).ReconcileRejectedReceiptStockAsync(
+            rejected.ReceiptId, new("legacy-retry", TedarikciStokUzlastirmaDurumlari.TedarikciyeIade, "Stok iadesi.")));
+
+        await using var assertDb = f.Db();
+        var receiptAfterAttempt = await assertDb.TedarikciMalKabulleri.SingleAsync(x => x.Id == rejected.ReceiptId);
+        Assert.Equal(TedarikciStokUzlastirmaDurumlari.ManuelInceleme, receiptAfterAttempt.StokUzlastirmaDurumu);
+        Assert.Equal("Eski yeniden teslim kararı; elle doğrulanmalı.", receiptAfterAttempt.StokUzlastirmaNotu);
+        Assert.Equal(9m, await assertDb.TedarikciUrunleri.Where(x => x.Id == f.ProductA).Select(x => x.StokMiktari).SingleAsync());
+        Assert.Equal(1m, await assertDb.TedarikciSiparisKalemleri.Select(x => x.SevkEdilenMiktar).SingleAsync());
+        Assert.Equal(1m, await assertDb.TedarikciSiparisKalemleri.Select(x => x.ReddedilenMiktar).SingleAsync());
+        Assert.Empty(await assertDb.StokHareketleri.Where(x => x.TedarikciMalKabulId == rejected.ReceiptId).ToListAsync());
+    }
+
+    [Fact]
+    public async Task ReconcileRejectedReceipt_LossDoesNotChangeStockOrFinancialState()
+    {
+        await using var f = await Fixture.CreateAsync();
+        var rejected = await CreateRejectedReceiptAsync(f, "loss-reject");
+        await f.Service(1).ReconcileRejectedReceiptStockAsync(rejected.ReceiptId,
+            new("stock-loss-1", TedarikciStokUzlastirmaDurumlari.Kayip, "Taşıma sırasında kayıp teyit edildi."));
+
+        await using var db = f.Db();
+        Assert.Equal(9m, await db.TedarikciUrunleri.Where(x => x.Id == f.ProductA).Select(x => x.StokMiktari).SingleAsync());
+        var receipt = await db.TedarikciMalKabulleri.SingleAsync(x => x.Id == rejected.ReceiptId);
+        Assert.Equal(TedarikciStokUzlastirmaDurumlari.Kayip, receipt.StokUzlastirmaDurumu);
+        Assert.Equal(1m, receipt.ReddedilenMiktar);
+        Assert.Empty(await db.StokHareketleri.Where(x => x.TedarikciMalKabulId == rejected.ReceiptId).ToListAsync());
+        Assert.Equal(PazaryeriSiparisDurumlari.Itirazli,
+            await db.TedarikciSiparisleri.Select(x => x.Durum).SingleAsync());
+        Assert.Empty(await db.PazaryeriOdemeleri.ToListAsync());
+    }
+
+    [Fact]
+    public async Task ReconcileRejectedReceipt_ReshipReservesOnceAndShipmentConsumesReplacementStock()
+    {
+        await using var f = await Fixture.CreateAsync();
+        var rejected = await CreateRejectedReceiptAsync(f, "reship-reject");
+        var request = new TedarikciMalKabulStokUzlastirmaRequest(
+            "stock-reship-1", TedarikciStokUzlastirmaDurumlari.YenidenSevk, "Yeni ürünle değiştirilecek.");
+        await f.Service(1).ReconcileRejectedReceiptStockAsync(rejected.ReceiptId, request);
+        var repeat = await f.Service(1).ReconcileRejectedReceiptStockAsync(rejected.ReceiptId, request);
+        Assert.True(repeat.TekrarKullanildi);
+        await using (var reserved = f.Db())
+        {
+            var product = await reserved.TedarikciUrunleri.SingleAsync(x => x.Id == f.ProductA);
+            Assert.Equal(9m, product.StokMiktari);
+            Assert.Equal(1m, product.RezerveMiktar);
+            var orderLine = await reserved.TedarikciSiparisKalemleri.SingleAsync();
+            Assert.Equal(0m, orderLine.SevkEdilenMiktar);
+            Assert.Equal(0m, orderLine.ReddedilenMiktar);
+            var movement = Assert.Single(await reserved.StokHareketleri.Where(x =>
+                x.TedarikciMalKabulId == rejected.ReceiptId && x.Kaynak == "PazaryeriYenidenSevkRezervasyonu").ToListAsync());
+            Assert.Equal(0m, movement.Miktar);
+            Assert.Equal(1m, movement.RezerveMiktar);
+        }
+
+        await f.Service(2).CreateShipmentAsync(rejected.SupplierOrderId, new(
+            "Tedarikçi aracı", null, "IRS-RESHIP", null, null, null, null, null,
+            new[] { new TedarikciSevkiyatKalemiRequest(rejected.OrderLineId, 1, 1, null, null, null, null) }));
+        await using var db = f.Db();
+        Assert.Equal(8m, await db.TedarikciUrunleri.Where(x => x.Id == f.ProductA).Select(x => x.StokMiktari).SingleAsync());
+        Assert.Equal(0m, await db.TedarikciUrunleri.Where(x => x.Id == f.ProductA).Select(x => x.RezerveMiktar).SingleAsync());
+        Assert.Equal(PazaryeriSiparisDurumlari.Itirazli,
+            await db.TedarikciSiparisleri.Select(x => x.Durum).SingleAsync());
+        var shipmentMovements = await db.StokHareketleri.Where(x =>
+            x.TedarikciSiparisId == rejected.SupplierOrderId && x.Kaynak == "PazaryeriSevkiyat").ToListAsync();
+        Assert.Equal(2, shipmentMovements.Count);
+        Assert.All(shipmentMovements, movement => Assert.Equal(-1m, movement.Miktar));
+    }
+
+    [Fact]
+    public async Task ReconcileRejectedReceipt_ConcurrentDecisionsNeverDoubleRestock()
+    {
+        await using var f = await Fixture.CreateAsync(separateConnections: true);
+        var rejected = await CreateRejectedReceiptAsync(f, "concurrent-reconcile");
+        await using (var first = f.Db())
+        await using (var second = f.Db())
+        {
+            Assert.NotSame(first.Database.GetDbConnection(), second.Database.GetDbConnection());
+        }
+        var start = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var firstAttempt = RunConcurrentAttemptAsync(start.Task, () => f.Service(1).ReconcileRejectedReceiptStockAsync(
+            rejected.ReceiptId, new("stock-race-a", TedarikciStokUzlastirmaDurumlari.TedarikciyeIade, "İade teyidi.")));
+        var secondAttempt = RunConcurrentAttemptAsync(start.Task, () => f.Service(1).ReconcileRejectedReceiptStockAsync(
+            rejected.ReceiptId, new("stock-race-b", TedarikciStokUzlastirmaDurumlari.TedarikciyeIade, "İade teyidi.")));
+        start.SetResult();
+        var attempts = await Task.WhenAll(firstAttempt, secondAttempt);
+        Assert.Single(attempts, x => x.Result is not null);
+        Assert.Single(attempts, x => x.Error is not null);
+
+        await using (var db = f.Db())
+        {
+            Assert.Equal(10m, await db.TedarikciUrunleri.Where(x => x.Id == f.ProductA).Select(x => x.StokMiktari).SingleAsync());
+            Assert.Single(await db.StokHareketleri.Where(x =>
+                x.TedarikciMalKabulId == rejected.ReceiptId && x.Kaynak == "PazaryeriTedarikciIadesi").ToListAsync());
+        }
+        string committedKey;
+        await using (var db = f.Db())
+            committedKey = await db.TedarikciMalKabulleri.Select(x => x.StokUzlastirmaAnahtari).SingleAsync();
+        var retry = await f.Service(1).ReconcileRejectedReceiptStockAsync(rejected.ReceiptId,
+            new(committedKey, TedarikciStokUzlastirmaDurumlari.TedarikciyeIade, "İade teyidi."));
+        Assert.True(retry.TekrarKullanildi);
+    }
+
+    [Fact]
+    public async Task ReconcileRejectedReceipt_ReshipWithoutAvailableStockLeavesDecisionPending()
+    {
+        await using var f = await Fixture.CreateAsync(stockA: 1m);
+        var rejected = await CreateRejectedReceiptAsync(f, "reship-no-stock");
+        await Assert.ThrowsAsync<InvalidOperationException>(() => f.Service(1).ReconcileRejectedReceiptStockAsync(
+            rejected.ReceiptId, new("stock-reship-short", TedarikciStokUzlastirmaDurumlari.YenidenSevk, "Yeni stok gerekli.")));
+
+        await using var db = f.Db();
+        var receipt = await db.TedarikciMalKabulleri.SingleAsync(x => x.Id == rejected.ReceiptId);
+        Assert.Equal(TedarikciStokUzlastirmaDurumlari.Bekliyor, receipt.StokUzlastirmaDurumu);
+        Assert.Equal(string.Empty, receipt.StokUzlastirmaAnahtari);
+        var product = await db.TedarikciUrunleri.SingleAsync(x => x.Id == f.ProductA);
+        Assert.Equal(0m, product.StokMiktari);
+        Assert.Equal(0m, product.RezerveMiktar);
+        var line = await db.TedarikciSiparisKalemleri.SingleAsync();
+        Assert.Equal(1m, line.SevkEdilenMiktar);
+        Assert.Equal(1m, line.ReddedilenMiktar);
+    }
+
+    private static async Task<RejectedReceiptContext> CreateRejectedReceiptAsync(Fixture f, string suffix)
+    {
+        await f.Service(1).CreateOrderAsync(new PazaryeriSiparisOlusturRequest(
+            "Depo", $"{suffix}-order", new[] { new PazaryeriSepetKalemiRequest(f.ProductA, 1) }, Vadeli: true));
+        int supplierOrderId;
+        int orderLineId;
+        await using (var db = f.Db())
+        {
+            supplierOrderId = await db.TedarikciSiparisleri.Select(x => x.Id).SingleAsync();
+            orderLineId = await db.TedarikciSiparisKalemleri.Select(x => x.Id).SingleAsync();
+        }
+        await f.Service(2).UpdateSupplierOrderStateAsync(supplierOrderId,
+            new(PazaryeriSiparisDurumlari.TedarikciOnayladi, null, null, null));
+        await f.Service(2).UpdateSupplierOrderStateAsync(supplierOrderId,
+            new(PazaryeriSiparisDurumlari.Hazirlaniyor, null, null, null));
+        var shipment = await f.Service(2).CreateShipmentAsync(supplierOrderId, new(
+            "Tedarikçi aracı", null, $"IRS-{suffix}", null, null, null, null, null,
+            new[] { new TedarikciSevkiyatKalemiRequest(orderLineId, 1, 1, null, null, null, null) }));
+        var qr = Assert.Single(shipment.Etiketler).QrIcerigi;
+        await f.Service(1).ReceiveShipmentQrAsync(qr,
+            new($"{suffix}-receipt", 0, 1, "Eksik", "Eksik veya hasarlı ürün."));
+        await using var assertDb = f.Db();
+        var receiptId = await assertDb.TedarikciMalKabulleri.Select(x => x.Id).SingleAsync();
+        return new(receiptId, supplierOrderId, orderLineId, qr);
+    }
+
+    private sealed record RejectedReceiptContext(int ReceiptId, int SupplierOrderId, int OrderLineId, string Qr);
+
+    [Fact]
     public async Task ResolveDispute_PartialShareRefundsBuyerAndLeavesOnlySupplierSharePayable()
     {
         await using var f = await Fixture.CreateAsync();
@@ -492,14 +945,19 @@ public sealed class TedarikciPazaryeriServiceTests
         var shipment = await f.Service(2).CreateShipmentAsync(supplierOrderId, new(
             "Dağıtım ağı", null, "IRS-DISPUTE", null, null, null, null, null,
             new[] { new TedarikciSevkiyatKalemiRequest(lineId, 1, 1, null, null, null, null) }));
-        await f.Service(1).ReceiveShipmentQrAsync(
+        var receipt = await f.Service(1).ReceiveShipmentQrAsync(
             shipment.Etiketler[0].QrIcerigi, new("dispute-share-receipt", 0, 1, "Hasarlı", "Ürün hasarlı"));
 
-        await f.Service(1).ResolveDisputeAsync(supplierOrderId, new(
+        var decision = new PazaryeriItirazCozRequest(
             true,
             "Hasar bedeli alıcıya iade edildi.",
             PazaryeriItirazKararlari.KismiPaylas,
-            5m));
+            5m);
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            f.Service(1).ResolveDisputeAsync(supplierOrderId, decision));
+        await f.Service(1).ReconcileRejectedReceiptStockAsync(receipt.Id,
+            new("dispute-share-stock", TedarikciStokUzlastirmaDurumlari.Kayip, "Hasarlı ürün kayıp olarak uzlaştırıldı."));
+        await f.Service(1).ResolveDisputeAsync(supplierOrderId, decision);
 
         await using var assertDb = f.Db();
         var settlement = await assertDb.TedarikciHakEdisleri.SingleAsync();
@@ -837,17 +1295,81 @@ public sealed class TedarikciPazaryeriServiceTests
         Assert.Equal(0m, (await db.TedarikciUrunleri.SingleAsync(x => x.Id == f.ProductA)).RezerveMiktar);
     }
 
-    private sealed class Fixture : IAsyncDisposable
+    internal sealed class Fixture : IAsyncDisposable
     {
-        private readonly SqliteConnection _connection; private readonly DbContextOptions<CashTrackerDbContext> _options; private readonly string? _dbPath; private readonly FakeIsletme _business = new();
+        private readonly DbConnection _connection; private readonly DbContextOptions<CashTrackerDbContext> _options; private readonly string? _dbPath; private readonly string? _schema; private readonly string? _postgresConnectionString; private readonly FakeIsletme _business = new();
         public int ProductA { get; private set; } public int ProductB { get; private set; }
-        private Fixture(SqliteConnection connection, DbContextOptions<CashTrackerDbContext> options, string? dbPath = null) { _connection = connection; _options = options; _dbPath = dbPath; }
+        private Fixture(DbConnection connection, DbContextOptions<CashTrackerDbContext> options, string? dbPath = null, string? schema = null, string? postgresConnectionString = null) { _connection = connection; _options = options; _dbPath = dbPath; _schema = schema; _postgresConnectionString = postgresConnectionString; }
         public static async Task<Fixture> CreateAsync(decimal stockA = 10m, bool separateConnections = false)
         { string? dbPath = null; SqliteConnection c; DbContextOptions<CashTrackerDbContext> o; if (separateConnections) { dbPath = Path.Combine(Path.GetTempPath(), $"systemcel_marketplace_race_{Guid.NewGuid():N}.db"); var connectionString = $"Data Source={dbPath};Cache=Shared;Pooling=False"; c = new SqliteConnection(connectionString); await c.OpenAsync(); o = new DbContextOptionsBuilder<CashTrackerDbContext>().UseSqlite(connectionString).Options; } else { c = new SqliteConnection("DataSource=:memory:"); await c.OpenAsync(); o = new DbContextOptionsBuilder<CashTrackerDbContext>().UseSqlite(c).Options; } var f = new Fixture(c, o, dbPath); await using var db = f.Db(); await db.Database.EnsureCreatedAsync(); db.Isletmeler.AddRange(new Isletme { Id = 1, Ad = "Buyer" }, new Isletme { Id = 2, Ad = "Supplier A" }, new Isletme { Id = 3, Ad = "Other" }); db.Kullanicilar.Add(new Kullanici { Id = 1, AuthProvider = "clerk", AuthProviderUserId = "buyer-owner", Eposta = "buyer@example.com", AdSoyad = "Buyer Owner" }); db.IsletmeUyelikleri.Add(new IsletmeUyelik { IsletmeId = 1, KullaniciId = 1, Rol = "isletme_sahibi", Durum = "Aktif", DavetEposta = "buyer@example.com" }); db.UrunHizmetleri.AddRange(new UrunHizmet { Id = 200, IsletmeId = 2, Tip = "Urun", Ad = "A", Barkod = "A", Birim = "Adet", Aktif = true }, new UrunHizmet { Id = 201, IsletmeId = 3, Tip = "Urun", Ad = "B", Barkod = "B", Birim = "Adet", Aktif = true }); db.TedarikciProfilleri.AddRange(new TedarikciProfil { Id = 10, IsletmeId = 2, Unvan = "A", Dogrulandi = true, Yayinda = true, KomisyonOrani = 10, VergiNo = "1", Iban = "TR1", Adres = "x", YetkiliAdSoyad = "x", PazaryeriSozlesmeVersiyonu = "1" }, new TedarikciProfil { Id = 11, IsletmeId = 3, Unvan = "B", Dogrulandi = true, Yayinda = true, KomisyonOrani = 10, VergiNo = "2", Iban = "TR2", Adres = "x", YetkiliAdSoyad = "x", PazaryeriSozlesmeVersiyonu = "1" }); db.TedarikciUrunleri.AddRange(new TedarikciUrun { Id = 100, TedarikciProfilId = 10, TedarikciIsletmeId = 2, KaynakUrunHizmetId = 200, Sku = "A", Ad = "A", BirimFiyat = 20, KdvOrani = 20, StokMiktari = stockA, MinimumSiparisMiktari = 1 }, new TedarikciUrun { Id = 101, TedarikciProfilId = 11, TedarikciIsletmeId = 3, KaynakUrunHizmetId = 201, Sku = "B", Ad = "B", BirimFiyat = 30, KdvOrani = 20, StokMiktari = 10, MinimumSiparisMiktari = 1 }); await db.SaveChangesAsync(); f.ProductA = 100; f.ProductB = 101; return f; }
-        public CashTrackerDbContext Db() => new(_options); public TedarikciPazaryeriService Service(int id, ICurrentUserContext? currentUser = null) { _business.Active = new Isletme { Id = id, Ad = id == 1 ? "Buyer" : id == 2 ? "Supplier A" : "Other" }; return new(new SingleDbContextFactory(_options), _business, new FakeManagement(), new FakeMarketplacePaymentGateway(), new PazaryeriOptions { KomisyonKdvOrani = 20, TevkifatOrani = 1 }, currentUser ?? new FakeCurrentUser(id == 1 ? "buyer-owner" : $"business-{id}-user")); }
-        public async ValueTask DisposeAsync() { await _connection.DisposeAsync(); if (_dbPath is null) return; SqliteConnection.ClearAllPools(); if (File.Exists(_dbPath)) File.Delete(_dbPath); }
+        public static async Task<Fixture> CreatePostgresAsync(decimal stockA = 10m)
+        {
+            AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
+            var configuredConnectionString = Environment.GetEnvironmentVariable("SYSTEMCEL_POSTGRES_TEST_CONNECTION");
+            if (string.IsNullOrWhiteSpace(configuredConnectionString))
+                throw new InvalidOperationException("PostgreSQL fixture requires SYSTEMCEL_POSTGRES_TEST_CONNECTION.");
+
+            var builder = new NpgsqlConnectionStringBuilder(configuredConnectionString!);
+            var databaseName = builder.Database ?? string.Empty;
+            if (!(databaseName.StartsWith("test_", StringComparison.OrdinalIgnoreCase)
+                  || databaseName.StartsWith("systemcel_test", StringComparison.OrdinalIgnoreCase)
+                  || databaseName.EndsWith("_test", StringComparison.OrdinalIgnoreCase)))
+                throw new InvalidOperationException("PostgreSQL integration tests require a dedicated test database named test_* / systemcel_test* / *_test.");
+
+            var schema = $"marketplace_test_{Guid.NewGuid():N}";
+            var connectionString = new NpgsqlConnectionStringBuilder(builder.ConnectionString) { SearchPath = schema, Pooling = false }.ConnectionString;
+            await using (var admin = new NpgsqlConnection(builder.ConnectionString))
+            {
+                await admin.OpenAsync();
+                await using var createSchema = admin.CreateCommand();
+                createSchema.CommandText = $"CREATE SCHEMA \"{schema}\"";
+                await createSchema.ExecuteNonQueryAsync();
+            }
+
+            var connection = new NpgsqlConnection(connectionString);
+            var options = new DbContextOptionsBuilder<CashTrackerDbContext>().UseNpgsql(connectionString).Options;
+            var fixture = new Fixture(connection, options, schema: schema, postgresConnectionString: builder.ConnectionString);
+            try
+            {
+                await connection.OpenAsync();
+                await fixture.InitializeAsync(stockA);
+                return fixture;
+            }
+            catch
+            {
+                await fixture.DisposeAsync();
+                throw;
+            }
+        }
+
+        private async Task InitializeAsync(decimal stockA)
+        {
+            await using var db = Db();
+            await db.Database.EnsureCreatedAsync();
+            db.Isletmeler.AddRange(new Isletme { Id = 1, Ad = "Buyer" }, new Isletme { Id = 2, Ad = "Supplier A" }, new Isletme { Id = 3, Ad = "Other" });
+            db.Kullanicilar.Add(new Kullanici { Id = 1, AuthProvider = "clerk", AuthProviderUserId = "buyer-owner", Eposta = "buyer@example.com", AdSoyad = "Buyer Owner" });
+            db.IsletmeUyelikleri.Add(new IsletmeUyelik { IsletmeId = 1, KullaniciId = 1, Rol = "isletme_sahibi", Durum = "Aktif", DavetEposta = "buyer@example.com" });
+            db.UrunHizmetleri.AddRange(new UrunHizmet { Id = 200, IsletmeId = 2, Tip = "Urun", Ad = "A", Barkod = "A", Birim = "Adet", Aktif = true }, new UrunHizmet { Id = 201, IsletmeId = 3, Tip = "Urun", Ad = "B", Barkod = "B", Birim = "Adet", Aktif = true });
+            db.TedarikciProfilleri.AddRange(new TedarikciProfil { Id = 10, IsletmeId = 2, Unvan = "A", Dogrulandi = true, Yayinda = true, KomisyonOrani = 10, VergiNo = "1", Iban = "TR1", Adres = "x", YetkiliAdSoyad = "x", PazaryeriSozlesmeVersiyonu = "1" }, new TedarikciProfil { Id = 11, IsletmeId = 3, Unvan = "B", Dogrulandi = true, Yayinda = true, KomisyonOrani = 10, VergiNo = "2", Iban = "TR2", Adres = "x", YetkiliAdSoyad = "x", PazaryeriSozlesmeVersiyonu = "1" });
+            db.TedarikciUrunleri.AddRange(new TedarikciUrun { Id = 100, TedarikciProfilId = 10, TedarikciIsletmeId = 2, KaynakUrunHizmetId = 200, Sku = "A", Ad = "A", BirimFiyat = 20, KdvOrani = 20, StokMiktari = stockA, MinimumSiparisMiktari = 1 }, new TedarikciUrun { Id = 101, TedarikciProfilId = 11, TedarikciIsletmeId = 3, KaynakUrunHizmetId = 201, Sku = "B", Ad = "B", BirimFiyat = 30, KdvOrani = 20, StokMiktari = 10, MinimumSiparisMiktari = 1 });
+            await db.SaveChangesAsync();
+            ProductA = 100;
+            ProductB = 101;
+        }
+
+        public CashTrackerDbContext Db() => new(_options); public TedarikciPazaryeriService Service(int id, ICurrentUserContext? currentUser = null, PazaryeriOptions? options = null) { _business.Active = new Isletme { Id = id, Ad = id == 1 ? "Buyer" : id == 2 ? "Supplier A" : "Other" }; return new(new SingleDbContextFactory(_options), _business, new FakeManagement(), new FakeMarketplacePaymentGateway(), options ?? new PazaryeriOptions { KomisyonKdvOrani = 20, TevkifatOrani = 1 }, currentUser ?? new FakeCurrentUser(id == 1 ? "buyer-owner" : $"business-{id}-user")); }
+        public async ValueTask DisposeAsync() { await _connection.DisposeAsync(); if (_dbPath is not null) { SqliteConnection.ClearAllPools(); if (File.Exists(_dbPath)) File.Delete(_dbPath); } if (_schema is not null && _postgresConnectionString is not null) { await using var admin = new NpgsqlConnection(_postgresConnectionString); await admin.OpenAsync(); await using var dropSchema = admin.CreateCommand(); dropSchema.CommandText = $"DROP SCHEMA IF EXISTS \"{_schema}\" CASCADE"; await dropSchema.ExecuteNonQueryAsync(); } }
     }
     private sealed class FakeIsletme : IIsletmeService { public Isletme Active { get; set; } = new() { Id = 1, Ad = "Buyer" }; public Task<List<Isletme>> GetAllAsync()=>Task.FromResult(new List<Isletme>{Active}); public Task<Isletme?> GetByIdAsync(int id)=>Task.FromResult<Isletme?>(id==Active.Id?Active:null); public Task<Isletme> GetActiveAsync()=>Task.FromResult(Active); public Task<int> GetActiveIdAsync()=>Task.FromResult(Active.Id); public Task<int> CreateAsync(string ad,bool makeActive=false)=>Task.FromResult(0); public Task RenameAsync(int id,string ad)=>Task.CompletedTask; public Task UpdateSetupAsync(int id,string ad,string t,string k,bool c,string? h=null,bool? m=null,MuhasebeciProfilKaydetRequest? p=null,string? v=null,string? o=null,string? s=null)=>Task.CompletedTask; public Task SetActiveAsync(int id)=>Task.CompletedTask; public Task SetActiveCustomerContextAsync(int id)=>Task.CompletedTask; public Task ClearActiveCustomerContextAsync()=>Task.CompletedTask; public Task<ActiveBusinessAccess> GetActiveAccessAsync()=>Task.FromResult(default(ActiveBusinessAccess)!); public Task DeleteAsync(int id)=>Task.CompletedTask; }
     private sealed class FakeManagement : ISystemcelYonetimService { public Task<bool> IsCurrentUserAdminAsync(CancellationToken ct=default)=>Task.FromResult(true); public Task<MuhasebeciBasvuruListeDto> GetMuhasebeciBasvurulariAsync(string? d=null,CancellationToken ct=default)=>Task.FromResult(default(MuhasebeciBasvuruListeDto)!); public Task<MuhasebeciBasvuruDto> ApproveMuhasebeciBasvurusuAsync(int i,CancellationToken ct=default)=>Task.FromResult(default(MuhasebeciBasvuruDto)!); public Task<MuhasebeciBasvuruDto> RejectMuhasebeciBasvurusuAsync(int i,MuhasebeciBasvuruRedRequest r,CancellationToken ct=default)=>Task.FromResult(default(MuhasebeciBasvuruDto)!); public Task<YonetimOdemeIncelemeDto> GetOdemeIncelemeAsync(string? d=null,bool s=false,int l=100,CancellationToken ct=default)=>Task.FromResult(default(YonetimOdemeIncelemeDto)!); public Task<MuhasebeciAktarimListeDto> GetMuhasebeciAktarimlariAsync(string d,int? i=null,CancellationToken ct=default)=>Task.FromResult(default(MuhasebeciAktarimListeDto)!); public Task<MuhasebeciAktarimOzetDto> CompleteMuhasebeciAktarimiAsync(int i,MuhasebeciAktarimTamamlaRequest r,CancellationToken ct=default)=>Task.FromResult(default(MuhasebeciAktarimOzetDto)!); public Task<DestekTalebiListeDto> GetDestekTalepleriAsync(CancellationToken ct=default)=>Task.FromResult(default(DestekTalebiListeDto)!); public Task<DestekTalebiDto> UpdateDestekTalebiAsync(int i,DestekTalebiGuncelleRequest r,CancellationToken ct=default)=>Task.FromResult(default(DestekTalebiDto)!); public Task<EntitlementOverrideResult> ApplyEntitlementOverrideAsync(int i,EntitlementOverrideRequest r,CancellationToken ct=default)=>Task.FromResult(default(EntitlementOverrideResult)!); }
     private sealed class FakeCurrentUser(string providerUserId) : ICurrentUserContext { public CurrentUserIdentity? GetCurrentUser() => new(providerUserId, null, null, true); }
+}
+
+internal sealed class PostgreSqlFactAttribute : FactAttribute
+{
+    public PostgreSqlFactAttribute()
+    {
+        if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("SYSTEMCEL_POSTGRES_TEST_CONNECTION")))
+            Skip = "Set SYSTEMCEL_POSTGRES_TEST_CONNECTION to a disposable PostgreSQL test database to run this integration test.";
+    }
 }

@@ -1,41 +1,108 @@
 # Systemcel — Öncelikli Yapılacaklar
 
-> Son güncelleme: 21 Eylül 2026
-> Durum kontrolü: `7ea166e` yerel sürümü, mevcut kod/testler ve önceki pilot kayıtları. Bu düzenlemede testler yeniden çalıştırılmadı; canlı ortam yeniden doğrulanmadı.
+> Son güncelleme: 25 Eylül 2026
+> Son doğrulanmış canlı aday: `6a1ad80`; [CI #35939579315](https://github.com/01burark-oss/Systemcel/actions/runs/35939579315) ve [production deploy #35940792670](https://github.com/01burark-oss/Systemcel/actions/runs/35940792670) başarılı. Oracle aday SHA eşleşmesi ve public production smoke geçti. Gerçek kullanıcıyla AI/Telegram kabulü ayrıca açık.
 > `[x]` yalnız belirtilen kapsamın tamamlandığını gösterir. Kodun ve testin bulunması, canlı kabulün tamamlandığı anlamına gelmez.
 > 21 Eylül kullanıcı kararı: tedarikçi pazaryeri, sevkiyat ve mal kabul ilk ücretli yayına dahildir. Satış belgesi, canlı sürüm/geri dönüş ve Jev gerçek kullanım kontrolleri listeye eklendi.
 > Kural: Tamamlanan paketler bu dosyada ayrıntılı günlük olarak tutulmaz; yalnız kısa özet bırakılır.
-> PayTR başvurusu yapıldı ve değerlendirmede; sağlayıcı erişimi, testler ve gerçek tahsilat kabulü bekliyor.
+> PayTR, 24 Eylül yanıtında mevcut Sanal POS teklifinin pazaryeri için geçerli olduğunu ve teklif dışında kurulum/yıllık/aylık/işlem başı ek ücret olmadığını bildirdi. Hesap yetkileri, sözleşme koşulları, test erişimi ve gerçek tahsilat kabulü açık.
 > Ayrıntılı kapanış planı: [`docs/design/2026-09-11-yayin-ve-yazilim-kapanis-plani.md`](docs/design/2026-09-11-yayin-ve-yazilim-kapanis-plani.md)
+
+### Dış onay ve canlı kabul sırası
+
+1. Kullanıcının PayTR görüşmesinden aktardığı onaya kadar bekleme ve 7 günlük valör dönemi bilgisini yazılı teyit ettir; onay sonrası aktarım gününü ve hesapta kalma koşullarını netleştir. Chargeback kanıt/bloke/rezerv ayrıntıları, alt satıcı belgeleri ve abonelik yetkisi için yazılı yanıt al; pazaryeri hesabının test erişimini doğrula. PayTR, chargeback sorumluluğunun pazaryerinde olduğunu ve test bilgilerinin mağaza başvurusu test moduna geçince verileceğini e-postayla bildirdi.
+2. Mali müşavir ve hukukla şahıs işletmesi MERSİS/KEP gerekliliğini, Systemcel abonelik satış belgesi yöntemini, PSP sözleşmesini ve DeepSeek yurt dışı veri aktarımı metinlerini karara bağla.
+3. Canlı SMTP, şifreli Oracle Object Storage yedeği, üç Oracle VM alarmı ve UptimeRobot HTTPS kontrolü açıldı. İlk zamanlanmış yedek ve uzak geri yükleme geçti; üç ardışık günlük yedeği, uygulama içi posta teslimini, gerçek kesinti/düzelme bildirimini ve ikinci alarm alıcısını doğrula. DeepSeek API veri işleme ve yurt dışı aktarım koşulları için hukuk incelemesi açık.
+4. Sağlayıcı erişimi açılınca gerçek checkout, imzalı webhook, kısmi hakediş, iade, ters ibraz ve günlük mutabakatı sandbox ve sınırlı canlı işlemle doğrula.
+5. Tek tedarik zinciri ve sınırlı depo pilotunda gerçek mobil cihaz, yetkili kullanıcı, muhasebe mutabakatı ve geri alma provasını tamamla; hukuk/finans, operasyon ve güvenlik onaylarıyla yayın kararı ver.
+
+### PayTR yanıtı — 24 Eylül 2026
+
+- [x] PayTR, gönderdiği Sanal POS teklifinin pazaryeri için geçerli olduğunu ve teklif dışında kurulum, yıllık, aylık veya işlem başı ek ücret uygulanmayacağını e-postayla bildirdi. Teklifteki komisyon oranları ayrıca geçerlidir; sözleşme ve mağaza yetkileri henüz doğrulanmadı.
+- [x] [Resmi pazaryeri dokümanı](https://dev.paytr.com/platform-transfer-talebi), aynı sepette birden fazla satıcıyı, farklı satıcı komisyonlarını ve parçalı iadeyi anlatıyor. [Transfer API'si](https://dev.paytr.com/platform-transfer-talebi/transfer-talimatinin-verilmesi) sipariş ve benzersiz transfer numarasıyla tutar/IBAN talimatı alıyor; çok satıcılı örnekte her satıcı için ayrı `trans_id`, `submerchant_amount` ve `total_amount` ile talimat veriliyor. Satıcı hakedişi ve farklı komisyonları Systemcel hesaplamalı. Aynı gün transfer talebi yapılamıyor; en erken ertesi gün ve istenen aktarım gününde saat 10.00'a kadar talimat gerekiyor. [Transfer sonucu bildirimi](https://dev.paytr.com/platform-transfer-talebi/transfer-talimatinin-sonucunun-alinmasi) isteğe bağlıdır: tamamlanan `trans_id` değerleri mağazanın panelde tanımladığı URL'ye imzalı POST ile gönderilir; `OK` yanıtı alınmazsa PayTR bildirimi tekrarlar. API talimatına başarılı yanıt ile transferin tamamlanması ayrı aşamalardır. [İade API'si](https://dev.paytr.com/iade-api) tutarın bir kısmını iade etmeyi destekliyor. Bunlar genel teknik doküman kanıtıdır, bizim mağazanın canlı yetki veya sözleşme kabulü değildir.
+- [x] [Pazaryeri Durum Sorgu API'si](https://dev.paytr.com/durum-sorgu) sipariş bazında `submerchant_payments` ve iadeleri döndürüyor; [Pazaryeri Ödeme Detay servisi](https://dev.paytr.com/odeme-rapor-servisi/odeme-detayi) günlük alt satıcı transferlerini raporluyor. [Geri dönen transferleri listeleme](https://dev.paytr.com/platform-transfer-talebi/geri-donen-odemeleri-listele), [alt hesaptan yeniden gönderme](https://dev.paytr.com/platform-transfer-talebi/geri-donen-odemeleri-hesaptan-gonder) ve [sonuç callback'i](https://dev.paytr.com/platform-transfer-talebi/geri-donen-odemeleri-hesaptan-gonder-2) ayrıca belgelenmiş. Bunlar transfer bildirimine ek durum ve mutabakat yollarıdır; gerçek mağaza yanıt şeması test modunda doğrulanmalıdır.
+- [x] [Kayıtlı kartla tekrarlayan ödeme API'si](https://dev.paytr.com/direkt-api/kart-saklama-api/kayitli-kart-tekrarlayan-odeme) teknik olarak mevcut; işlem Non3D yürür ve mağazada Non3D yetkisi gerekir. Systemcel mağazasına bu yetkinin tanınıp tanınmadığı hâlâ açık.
+- [x] PayTR'ın 24 Eylül ikinci yanıtına göre transfer talimatı, ödeme istenen gün en geç 10.00'da Transfer API'sine gönderilmeli; daha geç gelen talimatlar ertesi gün işleme alınır. İtiraz ve chargeback sorumluluğu pazaryerine aittir. Test bilgileri mağaza başvurusu alınıp mağaza test moduna geçince iletilir. Bunlar genel e-posta açıklamalarıdır; ayrıntılı sözleşme ve mağaza yetkisi hâlâ doğrulanmalıdır.
+- [x] Kullanıcının PayTR görüşmesinden aktardığına göre alt satıcı transferi pazaryeri onay verene kadar bekliyor; net bir azami süre söylenmedi. Örneğin 7 günlük valörle çalışılıyorsa 7. gün onay verilmediğinde ödeme bir sonraki 7 günlük döneme kalıyor. Bu sözlü bilgi henüz PayTR e-postasında veya mağaza sözleşmesinde doğrulanmadı; "koruma/emanet hesabı" niteliği olarak yorumlanmamalı.
+- [ ] PayTR'dan şu noktaları yazılı teyit et: onay bekleyen tahsilatın hangi hesapta ve hangi koşullarda tutulduğu; 7 günlük dönem örneğinde onay 8. gün verilirse aktarımın tam günü, dönemlerin nasıl tekrarlandığı ve varsa sözleşmesel üst sınır; transfer sonucu bildirimi, `submerchant_payments` sorgusu ve günlük rapordaki durumların gerçek mağazadaki kesinlik anlamı; teslim edilmeme itirazında hangi kanıtların incelendiği, bloke/rezerv ve mali yük; alt satıcı doğrulama belgeleri, güvenli evrak yükleme bağlantısı ve entegrasyon desteği; Systemcel abonelikleri için aynı mağazada kart saklama ve Non3D yetkisi. Mağaza başvurusunun test moduna geçişini ve test bilgilerinin teslimini takip et. Yanıtları sözleşme ve hesap yetkileriyle karşılaştır. Transfer dokümanındaki stopaj hesabı ve PayTR komisyonunun faturalandırılmasını mali müşavirle ayrıca doğrula.
+
+### Sıradaki yazılım işleri
+
+1. **P0:** Kategori bazlı sevk/kabul kuralının gerçek kategori ve depo pilotuyla kabulünü tamamla. Yapılandırılabilir lot/seri, tartım toleransı ve ek belge doğrulaması kodu/testi yerelde tamamlandı.
+2. **P0:** Tutar/risk eşiği ve karar yetkisi netleşince çift onay, süreli çevrimdışı taslak ve çakışma inceleme akışını tamamla.
+3. **P0:** Ret farkının stok uzlaştırmasını pilotta doğrula; sonradan değişen kararda ters stok, cari, fatura ve hakediş hareketlerini üret. Kayıp/iade/yeniden sevk için yönetici ekranı, idempotency, denetim izi ve açık ret stoku varken itirazı kapatmama kuralı yerelde tamamlandı.
+4. **P0:** İtiraz SLA'sı, risk puanı ve manuel inceleme kuyruğunu sözleşme eşikleriyle uygula. Yönetim kuyruğunda itiraz yaşı ve ilk yanıt süresinin salt okunur hesabı yerelde tamamlandı; kabul/itiraz eşzamanlılığı izole PostgreSQL'de doğrulandı.
+5. **P1:** İletişim filtresinin insan incelemesini, şube/transfer stok maliyetini, yarım kalan eski aktarım tekrarını ve aynı dövizli banka adaylarını gerçek pilot verisiyle kabul et. Kod ve hedefli testler yerelde tamamlandı; canlı kabul açık.
+6. **P2:** Çoklu şube/kur konsolidasyonu, OAuth/webhook portalı ve müşteri sağlığı/destek SLA otomasyonunu ayrı kabul senaryolarıyla geliştir.
+
+### 24 Eylül 2026 ekran düzeltmeleri (yerel)
+
+- [x] Net kâr dönem filtresindeki yerel seçim listesini kartın kendi menüsüyle değiştir; seçeneklerin kart tarafından kesilmesini önle. Açık/koyu tema ve 820/1366 px tarayıcı kontrolü geçti.
+- [x] Ödeme dağılımı toplamı `0,00 TL` iken büyük düz renkli daire yerine `Henüz ödeme yok` durumunu göster; ödeme varsa pasta grafiğini koru. Birim ve tarayıcı kontrolleri geçti.
+
+Bu turdaki yerel değişiklikler henüz commitlenmedi ve canlıya yayımlanmadı.
+
+### 25 Eylül 2026 yerel doğrulama
+
+- [x] Ret stok uzlaştırması yönetici ekranında masaüstü açık/koyu tema ve 320/360 px mobil görünümde doğrulandı; hedefli tarayıcı akışı 5/5 geçti. Bekleyen ret stoku bulunan itiraz, yeniden teslim dışındaki kararla kapatılamıyor; servis testleri 31/31 geçti.
+- [x] Muhasebeci iletişim inceleme kuyruğunda eşzamanlı yönetici kararının tek sonuç üretmesi hedefli servis testlerinde doğrulandı (2/2). İncelemedeki istekler artık ikinci başvuruyu engelliyor; müşteri ekranı inceleme durumunu gösteriyor ve henüz açılmamış sohbete yönlendirmiyor. Hedefli web testleri 5/5, ilgili servis testi 1/1, lint ve web build geçti. Muhasebeci pazaryeri özelliği hâlen bayrakla kapalı; canlı kullanıcı kabulü açık.
+- [x] QR mal kabulü ile itiraz açma yarışı ayrı SQLite bağlantılarıyla ve izole PostgreSQL'de geçti. PostgreSQL'de eşzamanlı sevk testi de geçti (2/2); geçici test konteyneri kaldırıldı.
+- [x] Yayın öncesi yerel doğrulamada web lint, tip kontrolü, 160 test ve üretim derlemesi; .NET Release derlemesi ve 385 test geçti. Yeni PostgreSQL yarış testleri izole veritabanında 2/2 geçti ve PostgreSQL CI işine eklendi. Tam Playwright paketi 307 başarılı, 473 proje koşuluyla atlanan senaryoyla geçti. Uzak yedek, monitoring collector/alarm ve deploy-bundle smoke testleri de geçti.
+- Yerel kod henüz commitlenmedi ve canlıya yayımlanmadı. Aşağıdaki canlı yapılandırma değişiklikleri mevcut yayımlı sürüm üzerinde yapıldı; uygulama bildirim akışı ve çoklu işletme AI kabulü ayrıca açık.
+
+### 25 Eylül 2026 canlı işletim kontrolü
+
+- Zoho hesabına giriş açıldı; `merhaba@systemcel.app` ana adresi ve `destek@systemcel.app` takma adı görüldü. `destek@systemcel.app` adresine gönderilen Zoho parola sıfırlama iletileri gelen kutusunda doğrulandı. Bu, Systemcel uygulamasından SMTP teslimi kanıtı değildir.
+- Oracle Cloud Shell'de SSH anahtarı olmadığından VM erişimi `Permission denied (publickey)` döndü; kullanıcının İndirilenler klasöründeki mevcut anahtarla yetkili SSH erişimi doğrulandı. Yeni erişim anahtarı açılmadı.
+- Kullanıcı onayıyla Zoho üretim uygulama parolası oluşturuldu ve Oracle VM'nin yalnız sahibi tarafından okunabilen `.env` dosyasına kaydedildi. `smtp.zoho.eu:587` STARTTLS ile VM'den gönderilen kontrollü test, `merhaba@systemcel.app` adresinden `01burark@gmail.com` gelen kutusuna 25 Eylül 02:23'te ulaştı. Uygulama yeniden başlatıldı ve readiness başarılı. 25 Eylül'de kendi aktif işletme üyeliğine bağlı idempotent bir test satırı canlı bildirim outbox'ına eklendi; uygulama `Eposta` satırını `TeslimEdildi` durumuna taşıdı ve Gmail gelen kutusunda 15:50'de görüldü. Fiyat değişikliği ve yenileme olaylarının kendi iş akışından teslim kabulü açık.
+- Canlı Jev arızasının somut nedeni VM'de `TYPESAFE_API_KEY`/`Jev__ApiKey` bulunmamasıydı. Kullanıcı onayıyla yeni TypeSafe anahtarı oluşturuldu, doğru `criteria` alanlı tanı isteği başarıyla yanıtlandı, anahtar VM'ye kaydedildi ve uygulama readiness geçti. Gerçek kullanıcı oturumundaki işletme sorusu artık işletme verisine dayalı yanıt verdi; çoklu işletme/tenant ayrımı ve öneri karar akışlarının canlı kabulü açık. `criteria` alanını sabitleyen .NET testi dâhil Jev testleri 9/9 geçti.
+- `systemcel-monitoring.timer` etkin; readiness ve üç konteyner çalışıyor. Şifreli Oracle Object Storage yedeği sonrası collector'da `systemcel_offsite_backup_state_valid=1` doğrulandı. Metriklerin kalıcı dış hedefe aktarımı ve eşik alarmları açık.
+- Oracle Frankfurt'ta yalnız `systemcel-free` VM'sine tanımlı, silme yetkisi olmayan bucket erişimiyle private `systemcel-backups-2026` hedefi kuruldu. `systemcel-backup.service` elle ve 25 Eylül 03:02 UTC'deki ilk zamanlanmış çalışmasında başarılı oldu; `systemcel-20260925T030214Z` paketi ve tamamlanma işareti doğrulandı. Şifre çözme kurtarma bilgisi VM'nin okuyamadığı Oracle Vault `systemcel-recovery` içinde Active durumda. Yalnız uzak paketin izole PostgreSQL konteynerine geri yüklemesi 73 tabloyla geçti; bu örnekte indirme ve restore 4 saniye sürdü. Üç ardışık günlük çalıştırma ve farklı makinede tam felaket kurtarma provası açık.
+- OneDrive hedefinde boş alan `0 B` olduğundan yedek hedefi olarak kullanılmadı. Deneme için verilen rclone Microsoft erişimi hesaptan geri alındı ve VM'deki kullanılmayan OneDrive remote'u kaldırıldı.
+- Disk >%70/%85, doğrulanmış uzak yedek yaşı >26/36 saat ve collector durması için beş dakikalık yerel SMTP alarm timer'ı 25 Eylül'de etkinleştirildi. Sahte metrik ve ayrı durum dosyasıyla birleşik kritik/toparlanma iletileri gönderildi; ikisi de Gmail'de görüldü. Kritik ileti önce Spam'e düştü ve “Spam değil” olarak işaretlendi; Gmail, bu gönderenden sonraki iletileri Gelen Kutusu'na alacağını bildirdi. Yerel rota VM kapalıyken çalışmaz; kalıcı dış metrik hedefi ve ikinci kanal ayrıca açık.
+- Oracle `instance_status > 0` (5 dakika), `CpuUtilization > 95` (10 dakika) ve `MemoryUtilization > 90` (5 dakika) kritik alarmları yalnız Systemcel VM'si için etkin; üçünün de mevcut durumu `Ok`. `01burark@gmail.com` aboneliği Active ve kontrollü Oracle test iletisi gelen kutusunda doğrulandı. UptimeRobot ücretsiz 5 dakikalık `https://systemcel.app/api/health/ready` dış kontrolü etkin ve durumu `Up`; test amaçlı UP ve DOWN bildirimleri 25 Eylül 15:06'da Gmail'e ulaştı. Yerel disk/yedek alarmının kontrollü kritik ve toparlanma iletileri de Gmail'de görüldü. Gerçek kesinti/düzelme olayı ve ikinci alıcı/kanal açık.
+
+### 24 Eylül 2026 canlı işletim kontrolü (yerel)
+
+- DeepSeek Chat hesabındaki “Herkes için modeli geliştir” seçeneği kapatıldı ve kapalı konumu ekranda doğrulandı. Bu hesap tercihi API veri işleme sözleşmesi ile KVKK/hukuk onayını kapatmaz.
+- Gerçek oturumda işletmeyle ilgili AI sorusu “Sorunun işletmeyle ilgili olup olmadığını şu anda doğrulayamıyorum” yanıtını verdi. Jev yönlendirmesi canlıda kullanılamıyor; sağlayıcıda son 24 saatte başarılı istek görünmedi. Anahtar/istek ve sunucu logu doğrulaması açık.
+- Jev istemcisinde ağ hatası, sağlayıcı zaman aşımı ve bozuk JSON yanıtı artık güvenli `karar_yok` sonucuna dönüyor; kullanıcı isteğini iptal ederse iptal korunuyor. Yerel hedefli testler 9/9 geçti; canlı Jev arızasının nedeni henüz belirlenmedi.
+- Oracle `systemcel-free` örneği çalışıyor, CPU/RAM metrikleri geliyor. Başlangıçta OCI boot volume yedek listesi boştu ve otomatik yedek politikası atanmamıştı. 24 Eylül'de `systemcel-free-manual-2026-09-24` adlı tam yedek oluşturuldu; `Available`, 15/47 GB ve 30 gün saklama (24 Ekim 2026 bitiş) doğrulandı. Bu tek seferlik, çökme tutarlı volume anlık görüntüsü; uygulamanın ayrı PostgreSQL/uygulama verisi yedek zamanlayıcısı, bağımsız uzak hedefi ve geri yükleme kanıtının yerine geçmez.
+- Oracle ana sayfasında root compartment için alarm görünmüyor. Kalıcı alarm/VM dışı probe ve iki kanalda teslim kanıtı açık.
+- Oracle Instance Run Command ile sır değerlerini yazdırmayan salt okunur tanı komutu istendi; komut `Accepted` durumunda kaldı ve yanıt üretmedi. Agent eklentisi IAM politikasını kontrol etmeyi öneriyor; ayrıca VM'nin Ubuntu 24.04 imajı [Oracle'ın Run Command için listelediği hazır imajlar](https://docs.oracle.com/en-us/iaas/Content/Compute/Tasks/runningcommands.htm) arasında yok. IAM erişimi genişletilmedi. VM içindeki yedek timer, `rclone` ve Jev anahtarının canlı varlığı bu yolla doğrulanamadı; desteklenen alternatif erişim gerekli.
+- Telegram uygulama ayarında bot bağlantısı yok; kullanıcı isteğiyle bu turun dışında bırakıldı, gerçek sohbet/AI kabulü açık. Gmail gelen kutusundaki eski manuel teslim testi, güncel uygulama SMTP ve yenileme bildirimi kabulü sayılmıyor. Zoho yönetim oturumu mevcut Zoho parolasıyla doğrulama bekliyor.
 
 ## 1. P0 — Yayın öncesi temel işler
 
 ### 1. Aday sürüm, hesap ve temel kullanım kabulü
 
-- [ ] Aday commit, başarılı CI ve canlı sürümü eşleştir; önceki doğrulanmış sürüme şema uyumlu geri dönüşü izole ortamda prova et. Otomatik yayın kodu hazır; çalışmış olması ayrıca kanıtlanmalı.
+- [ ] Önceki doğrulanmış sürüme şema uyumlu geri dönüşü izole ortamda prova et. Aday `5e43c7c`, başarılı CI #35803872143 ve canlı deploy #35804918141 aynı SHA'da eşleşti; public smoke geçti.
 - [ ] Sıfırdan yeni kimlikle Clerk kayıt → provision → kolay kurulum smoke testi çalıştır.
-- [ ] Canlı SMTP'yi yapılandır; doğrulanmış göndericiden kontrollü gelen kutusuna genel ve fiyat/yenileme bildirimi teslimini kanıtla.
-- [ ] Maskeli DeepSeek istemcisinin aday sürümde bulunduğunu ve gerçek oturumla işletmeye bağlı asistan yanıtını doğrula; başka işletmenin verisinin yanıta karışmadığını kontrol et.
+- [ ] Canlı SMTP ve genel uygulama outbox'ı kontrollü testle Gmail'e teslim edildi. Fiyat değişikliği ve yenileme bildiriminin kendi olay akışından teslimini ayrıca kanıtla.
+- [ ] Gerçek oturumla işletmeye bağlı asistan sorusu 25 Eylül'de Jev ve DeepSeek üzerinden yanıtlandı. Başka işletmenin verisinin yanıta karışmadığını kontrollü ikinci tenant ile doğrula. Sınırsız AI paketlerindeki 15 mesaj/saat sınırı kaldırıldı; işletmeyle ilgili soru ve takip sorusu kararını yalnız Jev veriyor. Jev kullanılamazsa asistan işletme verisiyle yanıt üretmiyor ve mesaj hakkı tüketmiyor. Bağlam belirteci kullanıcıya ve işletmeye bağlı; ilgili .NET testleri, CI ve önceki yayın geçti. Yeni yerel kod henüz yayımlanmadı.
 - [ ] Jev önerilerini gerçek kullanıcı senaryolarında doğrula: düşük güvenli öneriyi incelemeye yönlendirme, kullanıcı onayı, yanlış öneriyi reddetme ve tekrar işlemde mükerrer kayıt oluşmaması. Yeni karar akışları için kod/test mevcut; canlı kabul açık.
 - [ ] İşletme ve muhasebeci sohbetlerinde kontrollü dosya gönderme/indirme kabulünü tamamla; dosya ve hedef kullanıcı onayı bekliyor.
-- [ ] Kritik akışlarda kalan klavye sırası, focus, Escape ve boş/yükleniyor/hata durumlarını doğrula. Plan penceresinin odak kapanı ve geri dönüş testi mevcut; kalan kapsamı tamamla.
+- [ ] Kritik akışlarda kalan klavye sırası, focus, Escape ve boş/yükleniyor/hata durumlarını doğrula. Plan penceresinin odak kapanı ve geri dönüşü, bildirim hata/yeniden deneme, yönetim inceleme durumları ve mobil mal kabulün ilgili Playwright akışları 25 Eylül'de geçti; diğer rotaların kapsamı açık.
 - [ ] Fiziksel iOS/Safari smoke'unu sınırlı pilot sırasında çalıştır; WebKit emülasyonunu gerçek cihaz kanıtı sayma.
 
 ### 2. Yedek, izleme ve veri işleme
 
-- [ ] Hazır `rclone crypt` akışını bağımsız nesne depolamaya bağla; üç ardışık uzak yedek ve yalnız uzak kopyadan bağımsız restore ile RPO/RTO'yu ölç.
-- [ ] Hazır Oracle metric collector'ını kalıcı izleme hedefine bağla; VM dışı HTTPS probe ile alarm ve düzelme mesajlarını iki kanalda doğrula.
-- [ ] DeepSeek hesabında model geliştirme için veri kullanımını kapat; sağlayıcıyı, Çin'de veri işleme/saklama ihtimalini ve yurt dışı aktarım dayanağını alt işleyen/KVKK metinlerinde hukuk onayıyla güncelle.
+- [x] `rclone crypt` akışını private Oracle Object Storage'a bağla, kurtarma parolası/salt'ını ayrı Vault'ta sakla; elle ve ilk zamanlanmış systemd yedeğini, yalnız uzak paketten izole PostgreSQL restore'unu doğrula. 25 Eylül'deki zamanlanmış pakette 73 tablo ve 4 saniyelik indirme/restore süresi ölçüldü. [Kurtarma denemesi](deployment/oracle-free/scripts/verify-offsite-restore.sh).
+- [ ] Üç ardışık günlük uzak yedeği ve farklı makineden tam felaket kurtarma provasını gör; gerçek işlem bazlı RPO ile kabul RTO'sunu ölç, 14 günlük uzak saklama kuralını kararlaştır.
+- [x] Oracle VM altyapı, CPU ve bellek alarmlarını aç; Gmail aboneliğini onayla ve kontrollü test bildiriminin teslimini doğrula. UptimeRobot ile VM dışı `/api/health/ready` kontrolünü etkinleştir; durum `Up`, test UP/DOWN e-postaları Gmail'e ulaştı.
+- [ ] Yerel collector metriklerini kalıcı dış hedefe bağla. Disk ve yedek yaşı için yerel SMTP alarmı, sahte kritik/normal metriklerle Gmail tesliminde doğrulandı; alarmın smoke testi CI altyapı işine eklendi. Canlı VM'de kurulu kopyanın sonraki kod değişiklikleriyle güncellenmesi yayın adımı olarak takip edilmeli. Gerçek kesinti/düzelme mesajlarını ikinci bağımsız alıcı veya kanalla doğrula; Telegram kullanıcı isteğiyle kapsam dışında.
+- [x] DeepSeek Chat hesabında model geliştirme için veri kullanımı kapatıldı; ayarın kapalı olduğu 24 Eylül 2026'da ekranda doğrulandı.
+- [ ] DeepSeek API veri işleme koşullarını, Çin'de veri işleme/saklama ihtimalini ve yurt dışı aktarım dayanağını alt işleyen/KVKK metinlerinde hukuk onayıyla güncelle. Chat hesap ayarı tek başına bu işi kapatmaz.
 
 ### 3. Ücretli yayın — sağlayıcı ve belge doğrulamaları
 
-Yasal hazırlık kaydında işe başlama tarihi 14 Eylül 2026. PayTR başvurusu yapıldı; erişim ve gerçek ödeme kabulü açık.
+Yasal hazırlık kaydında işe başlama tarihi 14 Eylül 2026. PayTR pazaryeri teklif kapsamını e-postayla doğruladı; hesap erişimi ve gerçek ödeme kabulü açık.
 
 - [ ] Sunulan belgelerde bulunmayan MERSİS/ticaret sicil ve KEP bilgisinin şahıs işletmesi için gerekliliğini doğrula; varsa yasal metinlere ekle.
 - [ ] PayTR başvuru sonucunu ve mağazaya tanımlanan ödeme yeteneklerini doğrula; test mağazası/erişim açıldıktan sonra gerçek sağlayıcı adapter'ını ve sandbox sözleşme testlerini tamamla.
 - [ ] Canlı checkout, imzalı webhook, yenileme, başarısız tahsilat, iade ve mutabakatı gerçek sağlayıcıda doğrula; 30 günlük fiyat korumasının gerçek tahsilat yolunda da uygulandığını kanıtla.
 - [ ] Systemcel'in kendi abonelik satış belgesi sürecini netleştir: manuel veya otomatik düzenleme yöntemini seç; tahsilat–belge referansı, müşteriye sunma ve iade/iptal bağlantısını doğrula. Uygulamada müşterilerin kestiği faturalar bu işten ayrıdır.
-- [ ] Tedarikçi ödemeleri için sağlayıcının alt üye işyeri, bloke ve kısmi hakediş desteğini doğrula; abonelik başvurusunu pazaryeri ödeme yetkisi olarak kabul etme. Ayrıntılı kabul maddeleri aşağıdaki tedarikçi bölümünde.
+- [ ] Tedarikçi ödemeleri için mağazaya tanımlanan pazaryeri transfer yetkisini, teslimat sonrası bekletme koşullarını ve kısmi hakediş/iade davranışını sözleşme ve sandbox'ta doğrula. Genel API dokümanını canlı hesap yetkisi sayma; abonelik tekrarlayan tahsilatını ayrıca doğrula. Ayrıntılı kabul maddeleri aşağıdaki tedarikçi bölümünde.
 
 ## 2. P0 — Tedarikçi pazaryeri, sevkiyat ve mal kabul
 
@@ -61,7 +128,7 @@ Mevcut Fake ödeme akışında tam kabul için muhasebe/hakediş kodu mevcut; re
 - [x] Sevkiyatın e-İrsaliye UUID/sevk tarihi, varış deposu ve randevu alanları; API, arayüz ve kalıcı veri modeliyle tamamlandı.
 - [x] Lot, son kullanma tarihi, sıcaklık aralığı ve miktarı etiketlere bölme temeli eklendi.
 - [x] Seri numarası, ağırlık ve palet/koli alanları ile temel aralık doğrulamaları tamamlandı.
-- [ ] Ürün kategorisine göre zorunlu sevk alanı kurallarını tanımla.
+- [x] Ürün kategorisine göre yapılandırılabilir zorunlu sevk alanı kuralları eklendi; yerel servis testleri geçti. Pilot kategori yapılandırması ve canlı kabul ayrıca açık.
 - [x] Sevkiyat QR'ı opak rastgele kodla üretildi; fiyat veya hassas işletme verisi QR içeriğine yazılmıyor, çözümleme işletme erişimine bağlı.
 - [x] e-Belge adapter'ına tenant ve idempotency bağlı e-İrsaliye gönderme, durum sorgulama ve yanıt alma sözleşmesi eklendi; gerçek sağlayıcı erişimi açılana kadar yapılandırılmamış adapter güvenli hata döndürüyor.
 - [x] Kağıt irsaliye veya entegrasyonsuz tedarikçi için dosya imzası/boyutu doğrulanan fotoğraf/PDF yükleme ve manuel belge numarası yedeği eklendi.
@@ -73,7 +140,7 @@ Mevcut Fake ödeme akışında tam kabul için muhasebe/hakediş kodu mevcut; re
 - [ ] Kamera ile QR okutma, irsaliye eşleştirme ve beklenen/gelen miktar karşılaştırmasını gerçek mobil cihazda tamamla.
 - [x] QR etiketi bazında tam/kısmi kabul, ret, ret nedeni ve not kaydı eklendi; tekrar işlem aynı kabulü çoğaltmıyor.
 - [x] Mal kabul kaydına QR etiketi, alıcı işletme ve şube/depo rolü erişimine bağlı, dosya imzası ve boyutu doğrulanan JPG/PNG/WEBP/PDF kanıt yükleme eklendi; dosya yolu kabul denetim izinde saklanıyor.
-- [ ] Tartım, sıcaklık, lot/seri ve son kullanma tarihi kontrolünü ürün kategorisine göre açılabilir doğrulama adımları yap.
+- [x] Tartım, sıcaklık, lot/seri, son kullanma tarihi ve ek belge için kategoriye bağlı sevk/kabul doğrulaması eklendi; ağırlık toleransı yapılandırılabiliyor. Yerel servis testleri geçti; gerçek kategori ve cihaz kabulü açık.
 - [x] Kabul kaydına sunucudan doğrulanan kullanıcı, işletme, şube/depo, cihaz, IP, tarih-saat ve SHA-256 belge karmasıyla denetim izi eklendi.
 - [ ] Yüksek tutar/risk eşiğinde iki yetkili onayı; küçük ve düzenli teslimatlarda tek yetkili onayı uygula.
 - [ ] Çevrimdışı depolar için süreli ve imzalı taslak oluştur; ağ geldiğinde sunucu zamanıyla uzlaştır, çakışmayı manuel incelemeye düşür.
@@ -99,7 +166,7 @@ Mevcut Fake ödeme akışında tam kabul için muhasebe/hakediş kodu mevcut; re
 - [x] Bir etikette itiraz açıkken aynı siparişin uyuşmazlık dışındaki etiketleri kabul edilebiliyor ve yalnız onların hakedişi serbest bırakılıyor; sipariş yönetici kararı verilene kadar `İtirazlı` kalıyor.
 - [x] Yönetici inceleme paketinde sipariş, sevkiyat, irsaliye dosyası/UUID, mal kabul, fotoğraf kanıtı, kullanıcı izi, durum geçmişi ve taraf açıklamaları tek ekranda gösteriliyor.
 - [x] Yönetici kararları `tedarikçiye aktar`, `alıcıya iade`, `kısmi paylaş`, `yeniden teslim` olarak gerekçe, durum geçmişi ve ödeme/hakediş kayıtlarıyla uygulanıyor.
-- [ ] Taraflara yanıt süresi ve yönetici inceleme SLA'sı tanımla; süre dolunca otomatik para aktarımı yerine risk kuralına göre üst inceleme veya sözleşmesel karar uygula.
+- [ ] Taraflara yanıt süresi ve yönetici inceleme SLA'sı tanımla; süre dolunca otomatik para aktarımı yerine risk kuralına göre üst inceleme veya sözleşmesel karar uygula. Yönetim kuyruğunda itiraz yaşı ve yanıtlanan ilk şikâyetin yanıt süresi salt okunur hesaplanıyor; eşik, otomatik üst inceleme ve sözleşmesel karar açık.
 - [ ] Sürekli asılsız itiraz, sürekli eksik sevk ve olağandışı kabul/red örüntüleri için alıcı/tedarikçi risk puanı üret.
 - [ ] Riskli hesaplarda daha uzun bloke, çift onay, işlem limiti veya manuel inceleme uygula; otomatik kalıcı yaptırım verme.
 
@@ -107,10 +174,10 @@ Mevcut Fake ödeme akışında tam kabul için muhasebe/hakediş kodu mevcut; re
 
 - [x] Alıcı stok girişi, alış faturası ve borç carisi her kısmi kabulde yalnız kabul edilen miktar/tutar üzerinden oluşturuluyor.
 - [x] Tedarikçi stok çıkışı peşin/vadeli ödeme türünden bağımsız olarak sevk edilen miktar kadar rezervasyondan ve stoktan düşüyor; kaynak stok hareketi sevkiyat referansıyla yazılıyor.
-- [ ] Kabul farklarını kayıp, iade veya yeniden sevk kararıyla stokta uzlaştır.
+- [x] Ret kaydı başına yönetici kararıyla kayıp, tedarikçiye fiziksel iade veya yeniden sevk stok uzlaştırması; idempotency, denetim alanları, migration ve yönetici ekranı eklendi. Bekleyen ret stoku varken itirazın yeniden teslim dışındaki kararla kapanması engellendi. Geçmiş `YenidenTeslim` kayıtları manuel incelemeye ayrıldı. Yerel servis/tarayıcı testleri geçti; pilot operasyon kabulü açık.
 - [ ] Kısmi kabul/red için e-İrsaliye yanıtı ve gerekiyorsa iade e-İrsaliyesi/e-Fatura süreçlerini e-Belge adapter'ına bağla.
 - [ ] Sonradan değişen kabul kararlarında silme yerine ters stok, cari, fatura ve hakediş kayıtları üret.
-- [ ] Aynı sipariş, irsaliye, fatura, cari, stok hareketi, PSP tahsilatı ve hakediş arasında izlenebilir referans zinciri kur.
+- [ ] Aynı sipariş, irsaliye, fatura, cari, stok hareketi, PSP tahsilatı ve hakediş arasında izlenebilir referans zinciri kur. Yeni stok, cari ve tahsilat hareketlerine sipariş/kabul, stok çıkışına sevkiyat yabancı anahtarları eklendi; fatura eşlemesi, PSP dağıtımı ve hakediş yönetim inceleme ekranında aynı sipariş altında gösteriliyor. Eski hareketlerin güvenli geriye dönük eşlemesi ve canlı PSP referans doğrulaması açık (23 Eylül 2026).
 
 ### Ekranlar ve bildirimler
 
@@ -127,13 +194,13 @@ Mevcut Fake ödeme akışında tam kabul için muhasebe/hakediş kodu mevcut; re
 
 - [x] Tam kabul, çoklu sevkiyat, kısmi kabul, eksik/tam ret, hasar, kısmi iade ve kısmi hakediş servis testleri eklendi.
 - [x] Sipariş miktarını aşan sevkiyat transaction içinde reddediliyor; stok ve rezervasyon değişmediği regresyon testinde doğrulandı.
-- [ ] Yeniden sevk ve eşzamanlı sevkiyat yarışları için kalan servis/integrasyon kapsamını tamamla.
+- [ ] Yeniden sevkin gerçek depo pilotundaki kabulünü tamamla. Yeniden sevk akışı, ayrı SQLite bağlantılarında tek başarılı sevk/tek stok düşümü ve izole PostgreSQL'de eşzamanlı sevk yarışı doğrulandı.
 - [x] Yabancı işletmenin QR erişimi, aynı kabulün tekrar gönderimi, tam kabulde tek stok/muhasebe işlemi ve rette hakediş blokesi için regresyon testleri eklendi.
 - [x] Depo/mal kabul rolü sınırı, yabancı tenant ve aynı işlem anahtarıyla mükerrer QR regresyonları eklendi.
 - [x] Farklı işlem anahtarıyla aynı QR'ın ikinci kez kabul edilmesi regresyon testinde reddediliyor.
-- [ ] Eşzamanlı kabul/itiraz yarışının kalan regresyon kapsamını tamamla.
+- [x] Aynı QR'ın farklı işlem anahtarlarıyla eşzamanlı kabulünde tek stok ve muhasebe etkisi ayrı SQLite bağlantılarıyla; QR kabulü ile itiraz açma yarışında tutarlı durum ve hakediş hem SQLite hem izole PostgreSQL'de doğrulandı.
 - [ ] PSP tahsilat/serbest bırakma/iade webhook tekrarları, zaman aşımı ve günlük mutabakat farkını sağlayıcı sözleşme testleriyle doğrula.
-- [ ] Mobil mal kabul akışını kamera izni, çevrimdışı taslak, en küçük ekran ve depo eldiveniyle kullanılabilir hedef boyutlarıyla Playwright'ta doğrula.
+- [ ] Mobil mal kabul akışını çevrimdışı taslak, gerçek cihaz ve depo eldiveniyle kullanılabilir hedef boyutlarıyla tamamla. 320 px Chromium ve mobil WebKit'te kamera izni reddi, QR koduyla kabul, iki ret nedeni ve alan hizası 25 Eylül Playwright koşusunda yeniden geçti. Emülasyon fiziksel cihaz kanıtı değildir.
 - [x] Pazaryeri API'si `Pazaryeri:Aktif` ve `Pazaryeri:PilotIsletmeIdleri` yapılandırmasıyla tamamen kapatılabilir veya işletme izin listesine sınırlandırılabilir duruma getirildi.
 - [ ] Canlı yapılandırmada tek tedarik zinciri ve sınırlı depo pilot işletmelerini seç; kısmi kabul ve muhasebe mutabakatı kanıtlanmadan izin listesini genişletme.
 - [ ] Pilot çıkışında hukuk/finans, operasyon, muhasebe, güvenlik ve geri alma runbook onaylarını yayın kaydına ekle.
@@ -147,20 +214,20 @@ Mevcut Fake ödeme akışında tam kabul için muhasebe/hakediş kodu mevcut; re
 Tedarikçi pazaryeri, sevkiyat ve mal kabul 21 Eylül kullanıcı kararıyla P0'a alındı. Aşağıdaki işler genel yayın sonrasındaki sıradır; ilk yayında kullanılan depo/rol, stok ve bildirim parçaları P0 kabulüne dahildir.
 
 1. [ ] Üyelik/rol/sahiplik: mevcut davet, rol değiştirme, üye kaldırma ve sahiplik devrini gerçek hesaplarla doğrula; açık sekmede yetki kaldırma ve arayüz kabulünü tamamla.
-2. [ ] Bildirim operasyonu: işletme/kullanıcıya bağlı Telegram eşleştirmesi ve başarısız bildirimleri kontrollü yeniden gönderme görünürlüğü. Canlı SMTP teslimi P0'da.
+2. [ ] Bildirim operasyonu: işletme/kullanıcıya bağlı Telegram eşleştirmesi ve başarısız bildirimleri kontrollü yeniden gönderme görünürlüğü. Yöneticiye başarısız teslim listesi ve kontrollü yeniden deneme eklendi. Telegram eşleştirmesi ve bildirim gönderimi kullanıcı/işletme bazında saklanıyor; kodlu eşleştirme ve ayrılma test edildi, QR yerel üretiliyor. Bağlı özel sohbette Systemcel AI soruları aktif üyelik ve son bağlanan işletme kapsamında çalışıyor; mobil bağlantı ekranı açıldı. Kod, test, CI ve yayın geçti; eski global bot komutları çoklu işletme bağlamına taşınmadı. Canlı botla gerçek sohbet ve kullanıcı kabulü açık (24 Eylül 2026). Canlı SMTP teslimi P0'da.
 3. [ ] Hata ve kullanım görünürlüğü: mevcut istek kimliği/log altyapısını kalıcı hata izlemeye bağla; aktivasyon ve ürün dönüşüm ölçümlerini tamamla. Altyapı alarmları P0'da.
-4. [ ] Banka eşleştirme: mevcut CSV, aday önerisi ve insan onayını gerçek anonimleştirilmiş dosyalarla doğrula; kısmi/toplu eşleştirme kapsamını netleştir.
-5. [ ] Eski veri aktarımı: mevcut önizleme/uygulama ve akıllı alan eşleştirmesini gerçek formatlar, yarım kalan aktarım ve tekrar denemeyle doğrula; masaüstü aracı sürümle ve imzala.
-6. [ ] Stok defteri: mevcut depo, rezervasyon, transfer, sayım ve ters kaydı pilotta doğrula; kalan konum, maliyet ve mutabakat ihtiyaçlarını tamamla.
+4. [ ] Banka eşleştirme: mevcut CSV, aday önerisi ve insan onayını gerçek anonimleştirilmiş dosyalarla doğrula; kısmi/toplu eşleştirme kapsamını netleştir. TRY dışı hareketler aynı para birimindeki fatura/ödeme/cari kayıtlarıyla aday eşleştiriliyor; kur çevrimi yapılmıyor. Yerel hedefli testler 8/8 geçti; gerçek dosya kabulü açık.
+5. [ ] Eski veri aktarımı: mevcut önizleme/uygulama ve akıllı alan eşleştirmesini gerçek formatlar, yarım kalan aktarım ve tekrar denemeyle doğrula; masaüstü aracı sürümle ve imzala. Satır hatasında taslak korunuyor ve başarılı satırlar tekrar uygulanmıyor; yerel hedefli testler 19/19 geçti. Gerçek veri kabulü ve masaüstü araç yayını açık.
+6. [ ] Stok defteri: mevcut depo, rezervasyon, transfer, sayım ve ters kaydı pilotta doğrula; kalan konum, maliyet ve mutabakat ihtiyaçlarını tamamla. Şubeler arası alış geçmişi ve transferde taşınan hareketli ortalama maliyet brüt kâr hesabında düzeltildi; hedefli testler 6/6 geçti. Pilot maliyet mutabakatı açık.
 7. [ ] Genel e-Belge kapsamını tamamla: UBL-TR, e-Fatura/e-Arşiv, webhook/polling, iptal/itiraz ve mutabakat. Tedarikçi sevk/kabulü için gereken e-İrsaliye ve iade bağlantıları P0'dadır; bu madde kalan genel kapsamdır.
-8. [ ] Pazaryeri iletişim güvenliği: iletişim tespiti ve 30 dakika kuralının mevcut kapsamını doğrula; yanlış pozitif ve insan incelemesini tamamla.
-9. [ ] Frontend: mevcut rota bazlı lazy-load'u koru; bundle/CSS ve API yanıt sürelerini ölçerek gerekli modül ve ortak durum bileşeni düzenlemelerini yap.
+8. [ ] Pazaryeri iletişim güvenliği: iletişim tespiti ve 30 dakika kuralının mevcut kapsamını doğrula; yanlış pozitif ve insan incelemesini tamamla. Kesin iletişim bilgisi engelleniyor; belirsiz sayısal/sosyal eşleşme yönetici inceleme kuyruğuna alınıyor. Karar ekranı, denetim izi ve mobil/dark görsel kontrol yerelde tamamlandı; canlı gerçek mesaj kabulü açık.
+9. [ ] Frontend: mevcut rota bazlı lazy-load'u koru; bundle/CSS ve API yanıt sürelerini ölçerek gerekli modül ve ortak durum bileşeni düzenlemelerini yap. Pazaryeri CSS'i rota ile yüklenir hale getirildi; ilk global CSS 702,85 KB'den 676,97 KB'ye (gzip 115,84 KB'den 112,43 KB'ye) indi. Diğer modüller ve API süreleri açık (23 Eylül 2026).
 10. [ ] Mevcut şube/kur temelinin üzerine konsolidasyon, entegrasyon ve Pro muhasebeci otomasyonlarında kalan kapsamı netleştir; P2 işleriyle birlikte planla.
 
 ## 5. P2 — Sonraki ürün derinliği
 
 - [ ] Sektör/NACE tabanlı mevzuat ve teşvik bildirimleri; yalnız doğrulanmış kaynaklarla.
-- [ ] Gelişmiş stok maliyetleme, performans ve 100 bin+ hareket testleri.
+- [ ] Gelişmiş stok maliyetleme, performans ve 100 bin+ hareket testleri. Stok bakiyesi veritabanında toplama taşındı ve 100 bin hareketlik SQLite testi eklendi. Brüt kâr hesabında tekrarlı fatura taraması, dönem dışı kayıtlar ve çift stok sorgusu düzeltildi; pazaryeri mal kabulü alış faturasıyla iki kez maliyete eklenmiyor. Şubeler arası alış geçmişi ve transfer maliyeti düzeltildi; gerçek pilot ölçümü ve diğer maliyet yöntemleri açık.
 - [ ] OAuth, webhook abonelikleri ve geliştirici portalı; API anahtarlı, yetki kapsamlı salt okunur v1 mevcut.
 - [ ] Çoklu şube konsolidasyonu, kur farkı ve çoklu para birimi raporlaması.
 - [ ] Gelişmiş müşteri sağlık skoru, dönem sonu görevleri ve destek SLA otomasyonu.
@@ -265,7 +332,7 @@ Kalan dosya, AI ve ortak arayüz işleri yukarıdaki P0 maddelerinin kabul kapsa
 ## 9. Operasyon notları
 
 - Canlı alan: `https://systemcel.app`
-- PayTR başvurusu değerlendirmede; gerçek tahsilat henüz denenmedi (21 Eylül kullanıcı beyanı).
+- PayTR pazaryeri teklif kapsamı ve ek sabit ücret olmaması e-postayla doğrulandı (24 Eylül kullanıcı tarafından paylaşılan yanıt); mağaza yetkisi ve gerçek tahsilat henüz denenmedi.
 - Canlı uygulama Oracle üzerinde çalışır; genel yayın kararı verilmeden ödeme sağlayıcısı `Fake` kalır.
 - Canlı AI sağlayıcısı DeepSeek, model `deepseek-flash`tır; anahtar yalnız Oracle `.env` dosyasında tutulur.
 - PostgreSQL yalnız `systemcel_app` kullanıcısı ve uygulama trusted source'u üzerinden erişilir.
