@@ -2,19 +2,21 @@ import React from "react";
 import { ArrowLeft, ArrowRight, BriefcaseBusiness, Mail, MapPin, Newspaper, Phone } from "lucide-react";
 import { legalTexts, publicBusinessIdentity, type LegalTextKey } from "../auth/legalTexts";
 import { marketplacePolicies, type MarketplacePolicyKey } from "./marketplacePolicies";
+import { blogPosts, findBlogPost } from "./blogPosts";
 import "./marketing.css";
 
 export type PublicPageKind = "about" | "blog" | "careers" | "contact" | "cookies" | LegalTextKey | MarketplacePolicyKey;
 
-export function PublicContentPage({ kind }: { kind: PublicPageKind }) {
+export function PublicContentPage({ kind, articleSlug }: { kind: PublicPageKind; articleSlug?: string }) {
   const language = window.localStorage.getItem("systemcel.language") === "en" ? "en" : "tr";
+  const article = kind === "blog" && articleSlug ? findBlogPost(articleSlug)?.[language] : null;
   const legalKey = kind === "terms" || kind === "privacy" || kind === "kvkk" || kind === "subscription" ? kind : null;
   const marketplaceKey = kind === "marketplaceSale" || kind === "marketplaceDelivery" || kind === "marketplaceReturns" ? kind : null;
   const legal = legalKey ? legalTexts[language][legalKey] : marketplaceKey ? marketplacePolicies[language][marketplaceKey] : null;
 
   React.useEffect(() => {
-    document.title = legal?.title ?? pageTitle(kind, language);
-  }, [kind, language, legal?.title]);
+    document.title = article ? `${article.title} | Systemcel` : legal?.title ?? pageTitle(kind, language);
+  }, [kind, language, legal?.title, article]);
 
   return (
     <main className="marketing-page marketing-public-page">
@@ -25,13 +27,13 @@ export function PublicContentPage({ kind }: { kind: PublicPageKind }) {
       <section className="marketing-public-hero marketing-grid-bg">
         <div className="marketing-public-wrap">
           <span className="marketing-eyebrow"><i />SYSTEMCEL</span>
-          <h1>{legal?.title ?? pageTitle(kind, language)}</h1>
-          <p>{legal?.intro ?? pageLead(kind, language)}</p>
+          <h1>{article?.title ?? legal?.title ?? pageTitle(kind, language)}</h1>
+          <p>{article?.intro ?? legal?.intro ?? pageLead(kind, language)}</p>
         </div>
       </section>
       <section className="marketing-public-content">
         <div className="marketing-public-wrap">
-          {legal ? <LegalContent legal={legal} /> : kind === "about" ? <AboutContent language={language} /> : kind === "blog" ? <BlogContent language={language} /> : kind === "careers" ? <CareersContent language={language} /> : kind === "contact" ? <ContactContent language={language} /> : <CookiesContent language={language} />}
+          {legal ? <LegalContent legal={legal} /> : kind === "about" ? <AboutContent language={language} /> : kind === "blog" ? articleSlug ? <BlogArticleContent language={language} articleSlug={articleSlug} /> : <BlogContent language={language} /> : kind === "careers" ? <CareersContent language={language} /> : kind === "contact" ? <ContactContent language={language} /> : <CookiesContent language={language} />}
         </div>
       </section>
       <PublicFooter language={language} />
@@ -69,16 +71,17 @@ function AboutContent({ language }: { language: "tr" | "en" }) {
 }
 
 function BlogContent({ language }: { language: "tr" | "en" }) {
-  const posts = language === "tr" ? [
-    ["Ön muhasebede tek veri kaynağı neden önemli?", "Gelir-gider, cari, stok ve faturaların aynı işletme bağlamında tutulmasının günlük kararları nasıl sadeleştirdiğini anlatıyoruz."],
-    ["e-Arşiv fatura akışını düzenlemek", "Taslak, müşteri bilgi teyidi ve işletme telefonuna gelen GİB koduyla resmi kesim adımları."],
-    ["Muhasebeciyle dijital çalışma alanı", "Talep, sohbet ve finansal veri paylaşımını e-posta zincirlerinden çıkarmanın pratik faydaları."],
-  ] : [
-    ["Why one source of truth matters in accounting", "How keeping income, expenses, accounts, inventory and invoices in one business context simplifies daily decisions."],
-    ["Organizing the e-Archive invoice flow", "Drafting, customer detail confirmation, and issuing with the GİB code sent to the business phone."],
-    ["A digital workspace with your accountant", "Practical benefits of moving requests, chat and financial data sharing beyond email chains."],
-  ];
-  return <div className="marketing-content-grid">{posts.map(([title, text], index) => <article className="marketing-content-card" key={title}><Newspaper /><small>0{index + 1}</small><h2>{title}</h2><p>{text}</p><a href="mailto:merhaba@systemcel.app?subject=Systemcel%20Blog">{language === "tr" ? "Bu konu hakkında konuş" : "Talk about this topic"}<ArrowRight size={16} /></a></article>)}</div>;
+  return <div className="marketing-content-grid">{blogPosts.map((post, index) => <article className="marketing-content-card" key={post.slug}><Newspaper /><small>0{index + 1}</small><h2>{post[language].title}</h2><p>{post[language].intro}</p><a href={`/blog/${post.slug}`}>{language === "tr" ? "Yazıyı oku" : "Read article"}<ArrowRight size={16} /></a></article>)}</div>;
+}
+
+function BlogArticleContent({ language, articleSlug }: { language: "tr" | "en"; articleSlug: string }) {
+  const article = findBlogPost(articleSlug)?.[language];
+  if (!article) return <div className="marketing-blog-article marketing-blog-article--missing"><p>{language === "tr" ? "Bu yazı bulunamadı." : "This article was not found."}</p><a href="/blog"><ArrowLeft size={16} />{language === "tr" ? "Tüm yazılar" : "All articles"}</a></div>;
+  return <article className="marketing-blog-article">
+    <a className="marketing-blog-article__back" href="/blog"><ArrowLeft size={16} />{language === "tr" ? "Tüm yazılar" : "All articles"}</a>
+    {article.sections.map((section) => <section key={section.title}><h2>{section.title}</h2>{section.paragraphs.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}</section>)}
+    {article.source ? <p className="marketing-blog-article__source">{language === "tr" ? "Resmî kaynak: " : "Official source: "}<a href={article.source.href} target="_blank" rel="noopener noreferrer">{article.source.label}<ArrowRight size={15} /></a></p> : null}
+  </article>;
 }
 
 function CareersContent({ language }: { language: "tr" | "en" }) {

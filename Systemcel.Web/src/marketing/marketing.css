@@ -776,6 +776,15 @@
 .marketing-contact-card p { max-width: 62ch; color: var(--mk-muted); }
 .marketing-contact-link { color: inherit; }
 .marketing-contact-link p { font-family: Consolas, monospace; }
+.marketing-blog-article { max-width: 760px; margin: 0 auto; padding: clamp(28px, 5vw, 56px); border: 1px solid var(--mk-line); border-radius: 22px; background: white; }
+.marketing-blog-article__back, .marketing-blog-article__source a, .marketing-blog-article--missing a { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 750; text-decoration: underline !important; text-underline-offset: 4px; }
+.marketing-blog-article__back { margin-bottom: 38px; }
+.marketing-blog-article section + section { margin-top: 38px; padding-top: 34px; border-top: 1px solid var(--mk-line-soft); }
+.marketing-blog-article h2 { margin: 0 0 16px; font-family: Georgia, serif; font-size: clamp(27px, 3vw, 34px); font-weight: 400; line-height: 1.2; }
+.marketing-blog-article p { margin: 0 0 16px; color: var(--mk-muted); font-size: 16px; line-height: 1.78; }
+.marketing-blog-article p:last-child { margin-bottom: 0; }
+.marketing-blog-article__source { margin-top: 38px !important; padding-top: 22px; border-top: 1px solid var(--mk-line-soft); font-size: 13px !important; }
+.marketing-blog-article--missing { min-height: 220px; }
 @media (max-width: 760px) { .marketing-public-header { padding: 0 18px; } .marketing-public-header .marketing-button { padding-inline: 15px; } .marketing-public-hero { padding: 76px 0 60px; } .marketing-public-content { padding: 45px 0 75px; } .marketing-legal-card { padding: 27px 22px; } .marketing-content-grid { grid-template-columns: 1fr; } .marketing-content-card { min-height: 245px; } .marketing-contact-card { padding: 36px 24px; } }
 
 /* Landing AI conversation flow */

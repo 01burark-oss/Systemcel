@@ -57,17 +57,17 @@ export function PublicSupplierMarketplace() {
         <div className="public-supplier-marketplace__wrap">
           <span className="marketing-eyebrow"><i />SYSTEMCEL</span>
           <h1>{tr ? "Tedarikçi pazaryeri" : "Supplier marketplace"}</h1>
-          <p>{tr ? "Doğrulanmış tedarikçilerin yayındaki ürünlerini inceleyin. Sipariş vermek için giriş yapabilirsiniz." : "Browse products from verified suppliers. Sign in when you are ready to order."}</p>
+          <p>{status === "ready" && products.length === 0 ? (tr ? "Şu anda satışa açık ürün bulunmuyor. Tedarikçiler ürün yayınladığında burada görebilirsiniz." : "No products are available for sale right now. Supplier listings will appear here when published.") : (tr ? "Doğrulanmış tedarikçilerin yayındaki ürünlerini inceleyin. Sipariş vermek için giriş yapabilirsiniz." : "Browse products from verified suppliers. Sign in when you are ready to order.")}</p>
         </div>
       </section>
       <section className="public-supplier-marketplace__body public-supplier-marketplace__wrap" aria-label={tr ? "Ürün kataloğu" : "Product catalog"}>
         <div className="public-supplier-marketplace__toolbar">
-          <div><span>{tr ? "KATALOG" : "CATALOG"}</span><h2>{tr ? "Ürünleri keşfedin" : "Explore products"}</h2></div>
-          <label className="public-supplier-marketplace__search"><Search size={19} aria-hidden="true" /><input type="search" aria-label={tr ? "Ürün ara" : "Search products"} value={query} onChange={(event) => setQuery(event.target.value)} placeholder={tr ? "Ürün, kategori veya tedarikçi ara" : "Search products, categories or suppliers"} /></label>
+          <div><span>{tr ? "KATALOG" : "CATALOG"}</span><h2>{status === "ready" && products.length === 0 ? (tr ? "Henüz yayında ürün yok" : "No products listed yet") : (tr ? "Ürünleri keşfedin" : "Explore products")}</h2></div>
+          {products.length > 0 ? <label className="public-supplier-marketplace__search"><Search size={19} aria-hidden="true" /><input type="search" aria-label={tr ? "Ürün ara" : "Search products"} value={query} onChange={(event) => setQuery(event.target.value)} placeholder={tr ? "Ürün, kategori veya tedarikçi ara" : "Search products, categories or suppliers"} /></label> : null}
         </div>
         {status === "loading" ? <p className="public-supplier-marketplace__notice" role="status">{tr ? "Ürünler yükleniyor…" : "Loading products…"}</p> : null}
         {status === "error" ? <p className="public-supplier-marketplace__notice" role="alert">{tr ? "Ürünler şu anda gösterilemiyor. Lütfen daha sonra tekrar deneyin." : "Products are unavailable right now. Please try again later."}</p> : null}
-        {status === "ready" && visibleProducts.length === 0 ? <div className="public-supplier-marketplace__empty"><PackageSearch size={32} aria-hidden="true" /><p>{query ? (tr ? "Aramanıza uygun ürün bulunamadı." : "No products match your search.") : (tr ? "Henüz yayında ürün yok. Daha sonra tekrar bakın." : "No products are listed yet. Check back later.")}</p></div> : null}
+        {status === "ready" && visibleProducts.length === 0 ? <div className="public-supplier-marketplace__empty"><PackageSearch size={32} aria-hidden="true" /><p>{query ? (tr ? "Aramanıza uygun ürün bulunamadı." : "No products match your search.") : (tr ? "Katalogda henüz doğrulanmış bir tedarikçinin satışa açık ürünü bulunmuyor. Tedarikçiyseniz ürünlerinizi yayınlama süreci için bize yazın." : "No verified supplier has listed a product for sale yet. If you are a supplier, contact us about listing your products.")}</p>{!query ? <a href="mailto:merhaba@systemcel.app?subject=Tedarik%C3%A7i%20pazaryeri%20ba%C5%9Fvurusu">{tr ? "Tedarikçi başvurusu" : "Supplier inquiry"}<ArrowRight size={16} aria-hidden="true" /></a> : null}</div> : null}
         {status === "ready" && visibleProducts.length > 0 ? <div className="public-supplier-marketplace__grid">{visibleProducts.map((product) => (
           <article className="public-supplier-marketplace__card" key={product.id}>
             <div className="public-supplier-marketplace__card-top"><span className="public-supplier-marketplace__icon"><Store size={22} aria-hidden="true" /></span><span className="public-supplier-marketplace__category">{product.kategori}</span></div>

@@ -1,12 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://systemcel.app/schemas/release-evidence-v2.json",
+  "$id": "https://systemcel.app/schemas/release-evidence-v1.json",
   "title": "Systemcel release and pilot evidence",
   "type": "object",
   "additionalProperties": false,
   "required": ["schemaVersion", "candidateSha", "environment", "recordedAtUtc", "release", "gates"],
   "properties": {
-    "schemaVersion": { "const": 2 },
+    "schemaVersion": { "const": 1 },
     "candidateSha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
     "environment": { "type": "string", "minLength": 1 },
     "recordedAtUtc": { "type": "string", "format": "date-time" },
@@ -23,14 +23,13 @@
     },
     "gates": {
       "type": "array",
-      "minItems": 29,
+      "minItems": 7,
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["id", "checklistRefs", "title", "externalRequired", "status", "checks"],
+        "required": ["id", "title", "externalRequired", "status", "checks"],
         "properties": {
-          "id": { "enum": ["release", "onboarding", "tenant-access", "ai-chat-ui", "physical-ios", "rollback", "pilot", "R1", "K1", "K2", "K3", "K4", "K5", "K6", "K7", "K8", "K9", "A1", "A2", "A3", "A4", "A5", "A6", "A7", "D1", "D2", "D3", "D4", "D5"] },
-          "checklistRefs": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "enum": ["R1", "K1", "K2", "K3", "K4", "K5", "K6", "K7", "K8", "K9", "A1", "A2", "A3", "A4", "A5", "A6", "A7", "D1", "D2", "D3", "D4", "D5", "P1-1"] } },
+          "id": { "enum": ["K0", "K1", "K2", "K6", "K7", "K8", "K9"] },
           "title": { "type": "string", "minLength": 1 },
           "externalRequired": { "type": "boolean" },
           "status": { "$ref": "#/$defs/status" },

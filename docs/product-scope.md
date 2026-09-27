@@ -1,6 +1,6 @@
 # Systemcel ürün kapsamı
 
-Bu dosya güncel ürün kapsamının tek belge kaynağıdır. `plan.md` tarihsel/legacy planlama kaydıdır; `YAPILACAKLAR.md` yalnız uygulanabilir operasyon checklistidir. Lansmanda ücretsiz deneme yoktur: abonelik, açık onay ve başarılı anlık tahsilatla başlar. Şirket kurulumu ve gerçek sağlayıcı kapısı açılana kadar ödeme sağlayıcısı `Fake` kalır.
+Bu dosya güncel ürün kapsamının tek belge kaynağıdır. `plan.md` tarihsel/legacy planlama kaydıdır; `YAPILACAKLAR.md` yalnız uygulanabilir operasyon checklistidir. İlk ücretli yayında ücretsiz deneme yoktur: abonelik, açık onay ve başarılı anlık tahsilatla başlar. Son doğrulanan canlı ödeme sağlayıcısı `Unconfigured` durumundadır; gerçek tahsilat kapalıdır. `Fake` yalnız yerel ve kontrollü test akışlarında kullanılır. PayTR erişimi ve ücretli yayın kapıları `YAPILACAKLAR.md` içinde açıktır.
 
 ## Fiyat kaynağı
 
@@ -12,7 +12,7 @@ Kurucu kampanyası katalogdaki `kurucu-100-2026` koduyla ilk 50 işletme hesabı
 
 Aktif kapsam işletme ve muhasebeci çalışma alanları, tenant izolasyonu, gelir-gider ve cari akışları, ürün/stok, hızlı satış, fatura taslağı, raporlar, muhasebeci eşleşmesi, abonelik özeti, ödeme geçmişi, dönem sonu iptal, Fake ödeme ve katalogdan çözülen plan haklarıdır.
 
-Teknik kapanış; yeni Clerk kimliğiyle kayıt ve kurulum, gerçek SMTP teslim kanıtı, canlı AI yanıtı, sınırlı gerçek kullanıcı pilotu, fiziksel iOS/Safari kontrolü ve taşınabilir sunucu dışı yedektir. Hizmet sağlayıcının doğrulanan vergi ve adres bilgileri yasal metinlerde yayımlanır; MERSİS/ticaret sicil ve KEP gerekliliği ile gerçek PayTR tahsilatı ayrı yayın kapılarıdır. Gerçek GİB veya Telegram işlemleri yalnız kullanıcı tarafından açıkça yetkilendirilen kontrollü pilotta yapılır.
+Teknik kapanış; yeni Clerk kimliğiyle kayıt ve kurulum, olay bazlı posta teslimi, iki işletme arasında AI ayrımı, sınırlı gerçek tedarikçi pilotu, fiziksel iOS/Safari kontrolü, tam kurtarma provası ve gerçek PayTR tahsilatını kapsar. Genel SMTP teslimi, gerçek AI yanıtı ve şifreli sunucu dışı yedek temeli doğrulanmıştır; kalan kabul kanıtları `YAPILACAKLAR.md` içindedir. Hizmet sağlayıcının doğrulanan vergi ve adres bilgileri yasal metinlerde yayımlanır; MERSİS/ticaret sicil ve KEP gerekliliği ayrı karar kapısıdır. Gerçek GİB veya Telegram işlemleri yalnız kullanıcı tarafından açıkça yetkilendirilen kontrollü pilotta yapılır.
 
 ## Yayın ortamı
 

@@ -10,7 +10,7 @@ This runbook covers the live Oracle VM deployment. It does not authorize live pa
 - `SYSTEMCEL_DATABASE_CONNECTION_STRING` pointing to the private PostgreSQL 18 container.
 - `SYSTEMCEL_SECRET_ENCRYPTION_KEY` stable across releases; do not rotate without a re-encryption plan.
 - Exact HTTPS origins and Clerk production configuration.
-- Payment provider `Fake` until the company/PayTR gate is opened.
+- Keep production payment mode `Unconfigured` until the PayTR adapter, merchant permissions and paid-release acceptance are verified. Use `Fake` only in controlled tests.
 
 ## Pre-deploy gate
 
@@ -64,7 +64,7 @@ pwsh ./scripts/New-SystemcelReleaseEvidence.ps1 -CandidateSha <40-character-sha>
 pwsh ./scripts/Test-SystemcelReleaseEvidence.ps1 -Path ./artifacts/release-evidence.json
 ```
 
-K1, K2, K6, K7 and K9 require controlled accounts, provider access, a physical device or pilot participants as stated in the generated checklist. An executed check needs an anonymous `actorLabel`, UTC time, actual result and a non-secret evidence reference. Do not record names, e-mail addresses, tokens, passwords, customer data or full request bodies.
+The v2 release evidence template uses named gates (`onboarding`, `tenant-access`, `ai-chat-ui`, `physical-ios`, and `pilot`) plus individual current P0 gates, with `checklistRefs` pointing to IDs in `YAPILACAKLAR.md`. These gates require controlled accounts, provider access, a physical device or pilot participants as stated in the generated checklist. An executed check needs an anonymous `actorLabel`, UTC time, actual result and a non-secret evidence reference. Do not record names, e-mail addresses, tokens, passwords, customer data or full request bodies. The validator still accepts archived v1 evidence against its original schema but warns that former `K1`–`K9` IDs had different meanings; they do not close current checklist items.
 
 ## Controlled release bundle
 

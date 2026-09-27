@@ -240,6 +240,10 @@ function AppRoutes() {
     return <PublicContentPage kind="blog" />;
   }
 
+  if (path.startsWith("/blog/")) {
+    return <PublicContentPage kind="blog" articleSlug={path.slice("/blog/".length)} />;
+  }
+
   if (path === "/kariyer") {
     return <PublicContentPage kind="careers" />;
   }
@@ -417,6 +421,7 @@ function isClientRoute(pathname: string) {
     decoded === "/hakkimizda" ||
     decoded === "/hakkımızda" ||
     decoded === "/blog" ||
+    decoded.startsWith("/blog/") ||
     decoded === "/kariyer" ||
     decoded === "/iletisim" ||
     decoded === "/iletişim" ||

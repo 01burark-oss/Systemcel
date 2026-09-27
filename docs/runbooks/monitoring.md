@@ -1,6 +1,6 @@
 # Systemcel Oracle monitoring baseline
 
-This baseline applies to the Oracle VM Docker deployment. Production thresholds must be tuned from observed traffic; the current payment provider remains `Fake` until the company/provider gate.
+This baseline applies to the Oracle VM Docker deployment. Production thresholds must be tuned from observed traffic. The last verified production payment mode is `Unconfigured`; the real provider and paid-release gates remain open in `YAPILACAKLAR.md`.
 
 ## Collection and ownership
 
