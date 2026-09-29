@@ -196,6 +196,7 @@ builder.Services.AddSingleton<IMarketplacePaymentGateway>(_ => paymentOptions.Us
 builder.Services.AddSingleton<ITedarikciPazaryeriService, TedarikciPazaryeriService>();
 builder.Services.AddSingleton<ISevkIrsaliyesiAdapter, UnconfiguredSevkIrsaliyesiAdapter>();
 builder.Services.AddHostedService<MarketplaceOrderExpiryHostedService>();
+builder.Services.AddHostedService<MarketplaceMoneyInstructionHostedService>();
 builder.Services.AddSingleton<ISubscriptionLifecycleService, SubscriptionLifecycleService>();
 builder.Services.AddSingleton<ISubscriptionPriceProtectionService, SubscriptionPriceProtectionService>();
 builder.Services.AddSingleton<IMuhasebeciOdemeService, MuhasebeciOdemeService>();

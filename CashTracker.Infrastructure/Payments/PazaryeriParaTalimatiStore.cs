@@ -1,5 +1,6 @@
 using System.Data;
 using CashTracker.Core.Entities;
+using CashTracker.Core.Models;
 using CashTracker.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -72,19 +73,11 @@ public sealed class PazaryeriParaTalimatiStore(IDbContextFactory<CashTrackerDbCo
     {
         if (nowUtc.Kind != DateTimeKind.Utc) throw new ArgumentException("UTC time required.", nameof(nowUtc));
         await using var db = await dbFactory.CreateDbContextAsync(ct);
-        await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
-        var instruction = await db.PazaryeriParaTalimatlari
-            .Where(x => x.Durum == PazaryeriParaTalimatiDurumlari.Hazir)
+        var instructionId = await ReadyForDispatch(db)
             .OrderBy(x => x.CreatedAt).ThenBy(x => x.Id)
-            .FirstOrDefaultAsync(ct);
-        if (instruction is null) return null;
-        instruction.Durum = PazaryeriParaTalimatiDurumlari.Gonderiliyor;
-        instruction.DenemeSayisi++;
-        instruction.GonderimBasladiAt = nowUtc;
-        instruction.UpdatedAt = nowUtc;
-        await db.SaveChangesAsync(ct);
-        await tx.CommitAsync(ct);
-        return instruction;
+            .Select(x => (long?)x.Id).FirstOrDefaultAsync(ct);
+        if (instructionId is not { } id || !await ClaimByIdAsync(id, nowUtc, ct)) return null;
+        return await db.PazaryeriParaTalimatlari.AsNoTracking().SingleAsync(x => x.Id == id, ct);
     }
 
     public async Task<bool> ClaimByIdAsync(long instructionId, DateTime nowUtc, CancellationToken ct = default)
@@ -92,8 +85,8 @@ public sealed class PazaryeriParaTalimatiStore(IDbContextFactory<CashTrackerDbCo
         if (nowUtc.Kind != DateTimeKind.Utc) throw new ArgumentException("UTC time required.", nameof(nowUtc));
         await using var db = await dbFactory.CreateDbContextAsync(ct);
         await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
-        var instruction = await db.PazaryeriParaTalimatlari.SingleAsync(x => x.Id == instructionId, ct);
-        if (instruction.Durum != PazaryeriParaTalimatiDurumlari.Hazir) return false;
+        var instruction = await ReadyForDispatch(db).SingleOrDefaultAsync(x => x.Id == instructionId, ct);
+        if (instruction is null) return false;
         instruction.Durum = PazaryeriParaTalimatiDurumlari.Gonderiliyor;
         instruction.DenemeSayisi++;
         instruction.GonderimBasladiAt = nowUtc;
@@ -103,12 +96,38 @@ public sealed class PazaryeriParaTalimatiStore(IDbContextFactory<CashTrackerDbCo
         return true;
     }
 
+    internal static IQueryable<PazaryeriParaTalimati> ReadyForDispatch(CashTrackerDbContext db) =>
+        db.PazaryeriParaTalimatlari.Where(instruction =>
+            instruction.Durum == PazaryeriParaTalimatiDurumlari.Hazir &&
+            (instruction.Tur != PazaryeriParaTalimatiTurleri.Aktarim ||
+             (!db.TedarikciSiparisleri.Any(x => x.Id == instruction.TedarikciSiparisId &&
+                 ((x.Durum == PazaryeriSiparisDurumlari.Itirazli && !instruction.KaynakRef.StartsWith("receipt:")) ||
+                  x.Durum == PazaryeriSiparisDurumlari.IptalEdildi ||
+                  x.Durum == PazaryeriSiparisDurumlari.IadeEdildi)) &&
+              !db.PazaryeriParaTalimatlari.Any(x =>
+                  x.Id != instruction.Id && x.TedarikciSiparisId == instruction.TedarikciSiparisId &&
+                  x.Tur == PazaryeriParaTalimatiTurleri.Aktarim &&
+                  (x.Durum == PazaryeriParaTalimatiDurumlari.Gonderiliyor ||
+                   x.Durum == PazaryeriParaTalimatiDurumlari.SonucBekliyor ||
+                   x.Durum == PazaryeriParaTalimatiDurumlari.IncelemeGerekli)) &&
+              !db.PazaryeriParaTalimatlari.Any(x =>
+                  x.PazaryeriOdemeId == instruction.PazaryeriOdemeId &&
+                  x.Tur == PazaryeriParaTalimatiTurleri.Iade &&
+                  x.Durum != PazaryeriParaTalimatiDurumlari.Tamamlandi))) &&
+            (instruction.Tur != PazaryeriParaTalimatiTurleri.Iade ||
+             !db.PazaryeriParaTalimatlari.Any(x =>
+                 x.Id != instruction.Id && x.PazaryeriOdemeId == instruction.PazaryeriOdemeId &&
+                 (x.Durum == PazaryeriParaTalimatiDurumlari.Gonderiliyor ||
+                  x.Durum == PazaryeriParaTalimatiDurumlari.SonucBekliyor ||
+                  x.Durum == PazaryeriParaTalimatiDurumlari.IncelemeGerekli))));
+
     public async Task MarkUnknownAsync(long instructionId, string errorCode, DateTime nowUtc, CancellationToken ct = default)
     {
         if (nowUtc.Kind != DateTimeKind.Utc) throw new ArgumentException("UTC time required.", nameof(nowUtc));
         if (string.IsNullOrWhiteSpace(errorCode) || errorCode.Length > 80)
             throw new ArgumentException("A short error code is required.", nameof(errorCode));
         await using var db = await dbFactory.CreateDbContextAsync(ct);
+        await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
         var instruction = await db.PazaryeriParaTalimatlari.SingleAsync(x => x.Id == instructionId, ct);
         if (instruction.Durum == PazaryeriParaTalimatiDurumlari.SonucBekliyor &&
             instruction.SonHataKodu == errorCode) return;
@@ -117,7 +136,23 @@ public sealed class PazaryeriParaTalimatiStore(IDbContextFactory<CashTrackerDbCo
         instruction.Durum = PazaryeriParaTalimatiDurumlari.SonucBekliyor;
         instruction.SonHataKodu = errorCode;
         instruction.UpdatedAt = nowUtc;
+        if (instruction.Tur is PazaryeriParaTalimatiTurleri.Aktarim or PazaryeriParaTalimatiTurleri.Iade)
+        {
+            var settlements = await db.TedarikciHakEdisleri.Where(x =>
+                instruction.TedarikciSiparisId != null
+                    ? x.TedarikciSiparisId == instruction.TedarikciSiparisId
+                    : db.TedarikciSiparisleri.Any(o => o.Id == x.TedarikciSiparisId &&
+                        db.PazaryeriOdemeleri.Any(p => p.Id == instruction.PazaryeriOdemeId && p.AnaSiparisId == o.AnaSiparisId)))
+                .ToListAsync(ct);
+            foreach (var settlement in settlements)
+            {
+                settlement.Durum = instruction.Tur == PazaryeriParaTalimatiTurleri.Iade
+                    ? "IadeBekliyor" : "MutabakatFarki";
+                settlement.UpdatedAt = nowUtc;
+            }
+        }
         await db.SaveChangesAsync(ct);
+        await tx.CommitAsync(ct);
     }
 
     public static async Task ApplyCompletedAsync(

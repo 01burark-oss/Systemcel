@@ -28,6 +28,7 @@ public interface ITedarikciPazaryeriService
     Task MatchSupplierInvoiceAsync(int supplierOrderId, TedarikciBelgeEsleRequest request, CancellationToken ct = default);
     Task CompleteSettlementAsync(int supplierOrderId, PazaryeriHakEdisTamamlaRequest request, CancellationToken ct = default);
     Task<int> ExpirePendingOrdersAsync(DateTime nowUtc, CancellationToken ct = default);
+    Task ProcessReadyMoneyInstructionsAsync(CancellationToken ct = default);
 }
 
 public interface IMarketplacePaymentGateway

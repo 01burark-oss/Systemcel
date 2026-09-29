@@ -2,7 +2,19 @@
 
 28 Eylül 2026 kod incelemesi. İlk ücretli yayının K1–K5 işleri için uygulanacak teknik sınırlar. Bu dosya ödeme sağlayıcısı yetkisini veya hukuk/muhasebe kararını vermez.
 
-## Somut mevcut durum
+## 29 Eylül uygulanan dilim
+
+`codex/payment-foundation` dalında tahsilat, iade ve hakediş aktarımı kalıcı `PazaryeriParaTalimati` kayıtlarını kullanır. İş kararı ve talimat aynı transaction'da kaydedilir; sağlayıcı yalnız commit sonrası çağrılır. Sonuç kesinleşirse para ve defter etkisi ayrı transaction'da yazılır. Bu dilim gerçek PayTR adaptörünü veya günlük sağlayıcı mutabakatını açmaz.
+
+- `MarketplacePaymentResult.IsFinal` varsayılan olarak `false` değerindedir. Talimatın kabul edilmesi veya ağ zaman aşımı tamamlanmış ödeme/iade/aktarım sayılmaz. Fake sağlayıcı kesin sonuçları açıkça işaretler.
+- Seri transaction ile claim edilen talimat otomatik olarak yeniden gönderilmez. Sonucu bekleyen aktarım aynı siparişin sonraki aktarımlarını; sonucu bekleyen veya reddedilmiş iade aynı ödemenin yeni aktarımlarını durdurur. Başka anahtarla tahsilat denemesi, bekleyen tahsilatı aşamaz; bu sırada rezervasyonun süreyle kaldırılması ve iptal engellenir.
+- Bir dakikalık iş yalnız gönderim engeli olmayan `Hazir` iade/aktarım talimatlarını alır. Engelli kayıtlar 100 kayıtlık seçimden önce elenir; bir siparişin inceleme kuyruğu başka siparişleri durdurmaz. `Gonderiliyor`, `SonucBekliyor` ve inceleme durumları için körlemesine tekrar gönderim yoktur. Claim sonrası süreç kaybı gerçek sağlayıcı sorgusu gerektirir.
+- Belirsiz aktarım `MutabakatFarki`, bekleyen iade `IadeBekliyor` olarak yönetim kuyruğunda görünür. Yeni aktarım düğmesi sunulmaz; sunucu da bağımsız olarak yeni aktarımı engeller. Tam/kısmi iptalde `IadeEdildi` ve iade defter kaydı ancak kesin sağlayıcı sonucundan sonra yazılır.
+- Kabulün stok/cari/fatura kayıtları sağlayıcı zaman aşımında geri alınmaz. Önceden geçerli olan etiket bazlı kabul/itiraz ayrımı korunur; sonucu bilinmeyen para talimatı ise sonraki aktarımı durdurur. Sevk edilmiş veya itirazlı sipariş normal iptal yoluyla muhasebe düzeltmesini aşamaz.
+
+Gerçek PayTR başlatma/bildirim/sorgu bağlantısı, geç kalmış `Gonderiliyor` kaydının sağlayıcı sorgusuyla çözülmesi ve K3 günlük rapor karşılaştırması D1 yetki/test yanıtı bekler. K5 kabul düzeltme belgesi ve yetkisi D3/D4 kararına bağlıdır. Üretim ödeme modu `Unconfigured` kalır.
+
+## 28 Eylül incelemesindeki durum
 
 - `TedarikciPazaryeriService.ReceiveShipmentQrAsync` seri hale getirilmiş veritabanı işlemi başlatıyor ve `ApplyAcceptedReceiptAsync` çağrısını bu işlem içinde yapıyor. Bu yordam kabul edilen miktarı fatura, cari, stok ve uygun durumda hakedişe işliyor.
 - `ApplyAcceptedReceiptAsync` içinde `_paymentGateway.ReleaseAsync` çağrısı var. `FinalizeAcceptedDeliveryAsync` ve `CompleteSettlementAsync` de sağlayıcı aktarımını veritabanı işlemi kapanmadan çağırabiliyor. İade yollarında aynı desen `RefundAsync` için bulunuyor.

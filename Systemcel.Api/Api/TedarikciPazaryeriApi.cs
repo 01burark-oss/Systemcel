@@ -225,7 +225,7 @@ internal static class TedarikciPazaryeriApi
                     from h in hg.DefaultIfEmpty()
                     where s.Durum == PazaryeriSiparisDurumlari.Itirazli ||
                           (s.Durum == PazaryeriSiparisDurumlari.MalKabulBekliyor && db.TedarikciSevkiyatlari.Any(v => v.TedarikciSiparisId == s.Id && v.PlanlananTeslimAt != null && v.PlanlananTeslimAt <= DateTime.UtcNow)) ||
-                          (h != null && (h.Durum == "AktarimBasarisiz" || h.Durum == "AktarimBekliyor" || (h.Durum == "Bekliyor" && h.PlanlananAt <= DateTime.UtcNow)))
+                          (h != null && (h.Durum == "IadeBekliyor" || h.Durum == "MutabakatFarki" || h.Durum == "AktarimBasarisiz" || h.Durum == "AktarimBekliyor" || (h.Durum == "Bekliyor" && h.PlanlananAt <= DateTime.UtcNow)))
                     orderby s.UpdatedAt
                     select new YonetimSiparisiSatiri(
                         s.Id,
@@ -236,7 +236,7 @@ internal static class TedarikciPazaryeriApi
                         s.ParaBirimi,
                         h == null ? "" : h.Durum,
                         h == null ? (DateTime?)null : h.PlanlananAt,
-                        s.Durum == PazaryeriSiparisDurumlari.Itirazli ? "Açık itiraz" : h != null && h.Durum == "AktarimBasarisiz" ? "Başarısız aktarım" : h != null && h.Durum == "AktarimBekliyor" ? "Aktarım yeniden denenecek" : s.Durum == PazaryeriSiparisDurumlari.MalKabulBekliyor ? "Geciken mal kabul" : "Geciken hakediş")).ToListAsync(ct);
+                        h != null && h.Durum == "IadeBekliyor" ? "İade sonucu incelenecek" : h != null && h.Durum == "MutabakatFarki" ? "Ödeme sonucu incelenecek" : s.Durum == PazaryeriSiparisDurumlari.Itirazli ? "Açık itiraz" : h != null && h.Durum == "AktarimBasarisiz" ? "Başarısız aktarım" : h != null && h.Durum == "AktarimBekliyor" ? "Aktarım bekliyor" : s.Durum == PazaryeriSiparisDurumlari.MalKabulBekliyor ? "Geciken mal kabul" : "Geciken hakediş")).ToListAsync(ct);
                 var itirazSiparisIds = yonetimSiparisiSatirlari
                     .Where(x => x.Durum == PazaryeriSiparisDurumlari.Itirazli)
                     .Select(x => x.Id)

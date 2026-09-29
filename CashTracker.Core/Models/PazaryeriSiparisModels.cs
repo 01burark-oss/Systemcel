@@ -252,7 +252,8 @@ public sealed record MarketplacePaymentResult(
     string Provider,
     string ProviderTransactionId,
     bool Succeeded,
-    string Error = "");
+    string Error = "",
+    bool IsFinal = false);
 
 public sealed record MarketplacePayoutCommand(
     string ProviderTransactionId,

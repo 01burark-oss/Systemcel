@@ -93,6 +93,39 @@ public sealed class TedarikciPazaryeriServiceTests
         Assert.All(instructions, x => Assert.Equal(PazaryeriParaTalimatiDurumlari.Tamamlandi, x.Durum));
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task PayOrder_UnknownCollectionBlocksNewKeyCancellationAndExpiry(bool timesOut)
+    {
+        await using var f = await Fixture.CreateAsync();
+        var gateway = new PendingCollectionGateway(timesOut);
+        var buyer = f.Service(1, gateway: gateway);
+        var order = await buyer.CreateOrderAsync(new("Depo", "pending-collection",
+            new[] { new PazaryeriSepetKalemiRequest(f.ProductA, 1) }));
+        if (timesOut)
+            await Assert.ThrowsAsync<InvalidOperationException>(() => buyer.PayOrderAsync(order.Id, new("pending-first")));
+        else
+            await buyer.PayOrderAsync(order.Id, new("pending-first"));
+
+        var replay = await buyer.PayOrderAsync(order.Id, new("pending-first"));
+        var changedKey = await buyer.PayOrderAsync(order.Id, new("pending-new-key"));
+        Assert.True(replay.TekrarKullanildi);
+        Assert.True(changedKey.TekrarKullanildi);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => buyer.CancelOrderAsync(order.Id, new("İptal")));
+        Assert.Equal(0, await buyer.ExpirePendingOrdersAsync(DateTime.UtcNow.AddHours(1)));
+        await buyer.ProcessReadyMoneyInstructionsAsync();
+
+        await using var db = f.Db();
+        Assert.Equal(1, gateway.CollectCalls);
+        Assert.Single(await db.PazaryeriOdemeleri.ToListAsync());
+        var instruction = Assert.Single(await db.PazaryeriParaTalimatlari.ToListAsync());
+        Assert.Equal(PazaryeriParaTalimatiDurumlari.SonucBekliyor, instruction.Durum);
+        Assert.Empty(await db.PazaryeriDefterKayitlari.ToListAsync());
+        Assert.Equal(PazaryeriSiparisDurumlari.OdemeBekliyor, (await db.PazaryeriAnaSiparisleri.SingleAsync()).Durum);
+        Assert.Equal(1m, await db.TedarikciUrunleri.Where(x => x.Id == f.ProductA).Select(x => x.RezerveMiktar).SingleAsync());
+    }
+
     [Fact]
     public async Task CreateOrder_WithInsufficientStockLeavesNoRecords()
     {
@@ -122,6 +155,125 @@ public sealed class TedarikciPazaryeriServiceTests
         await using var db = f.Db();
         Assert.Equal(PazaryeriSiparisDurumlari.IadeEdildi, (await db.PazaryeriAnaSiparisleri.SingleAsync()).Durum);
         Assert.Equal(10m, await db.TedarikciUrunleri.Where(x => x.Id == f.ProductA).Select(x => x.StokMiktari).SingleAsync());
+    }
+
+    [Fact]
+    public async Task CancelOrder_RefundTimeoutKeepsCancellationAndDoesNotRetryProvider()
+    {
+        await using var f = await Fixture.CreateAsync();
+        var service = f.Service(1);
+        var order = await service.CreateOrderAsync(new PazaryeriSiparisOlusturRequest(
+            "A", "cancel-unknown-refund", new[] { new PazaryeriSepetKalemiRequest(f.ProductA, 1) }));
+        await service.PayOrderAsync(order.Id, new PazaryeriOdemeRequest("cancel-unknown-refund-payment"));
+        int supplierOrderId;
+        await using (var db = f.Db())
+            supplierOrderId = await db.TedarikciSiparisleri.Select(x => x.Id).SingleAsync();
+        var gateway = new TimeoutObservingRefundGateway(f, supplierOrderId, order.Id, f.ProductA);
+        var buyer = f.Service(1, gateway: gateway);
+        var cancel = new PazaryeriIptalRequest("Alıcı siparişi iptal etti.");
+
+        await buyer.CancelOrderAsync(order.Id, cancel);
+
+        Assert.Equal(1, gateway.RefundCalls);
+        Assert.Equal(PazaryeriParaTalimatiDurumlari.Gonderiliyor, gateway.IntentStatusAtCall);
+        Assert.True(gateway.OrderCancelledAtCall);
+        Assert.Equal(0m, gateway.ReservationAtCall);
+        Assert.Equal(0m, gateway.RefundedAmountAtCall);
+        await using (var afterTimeout = f.Db())
+        {
+            Assert.Equal(PazaryeriSiparisDurumlari.IptalEdildi,
+                await afterTimeout.PazaryeriAnaSiparisleri.Where(x => x.Id == order.Id).Select(x => x.Durum).SingleAsync());
+            Assert.Equal(0m, await afterTimeout.TedarikciUrunleri.Where(x => x.Id == f.ProductA).Select(x => x.RezerveMiktar).SingleAsync());
+            Assert.Equal(0m, await afterTimeout.PazaryeriOdemeleri.Select(x => x.IadeTutari).SingleAsync());
+            var intent = await afterTimeout.PazaryeriParaTalimatlari.SingleAsync(x => x.Tur == PazaryeriParaTalimatiTurleri.Iade);
+            Assert.Equal(PazaryeriParaTalimatiDurumlari.SonucBekliyor, intent.Durum);
+            Assert.Equal("provider-call-error", intent.SonHataKodu);
+            Assert.Equal(1, intent.DenemeSayisi);
+            Assert.Equal("IadeBekliyor", await afterTimeout.TedarikciHakEdisleri.Select(x => x.Durum).SingleAsync());
+        }
+
+        await buyer.CancelOrderAsync(order.Id, cancel);
+        Assert.Equal(1, gateway.RefundCalls);
+        await using var finalDb = f.Db();
+        Assert.Equal(0m, await finalDb.PazaryeriOdemeleri.Select(x => x.IadeTutari).SingleAsync());
+        Assert.Single(await finalDb.PazaryeriParaTalimatlari.Where(x => x.Tur == PazaryeriParaTalimatiTurleri.Iade).ToListAsync());
+    }
+
+    [Fact]
+    public async Task CancelSupplierOrder_RefundTimeoutKeepsAllocationAndDoesNotRetryProvider()
+    {
+        await using var f = await Fixture.CreateAsync();
+        var service = f.Service(1);
+        var master = await service.CreateOrderAsync(new PazaryeriSiparisOlusturRequest("A", "cancel-supplier-unknown", new[]
+        {
+            new PazaryeriSepetKalemiRequest(f.ProductA, 1),
+            new PazaryeriSepetKalemiRequest(f.ProductB, 1)
+        }));
+        await service.PayOrderAsync(master.Id, new PazaryeriOdemeRequest("cancel-supplier-unknown-payment"));
+        int supplierOrderId;
+        await using (var db = f.Db())
+            supplierOrderId = await db.TedarikciSiparisleri.Where(x => x.TedarikciIsletmeId == 2).Select(x => x.Id).SingleAsync();
+        var gateway = new TimeoutObservingRefundGateway(f, supplierOrderId, master.Id, f.ProductA);
+        var buyer = f.Service(1, gateway: gateway);
+        var cancel = new PazaryeriIptalRequest("Tedarikçi siparişi iptal edildi.");
+
+        await buyer.CancelSupplierOrderAsync(supplierOrderId, cancel);
+
+        Assert.Equal(1, gateway.RefundCalls);
+        Assert.Equal(PazaryeriParaTalimatiDurumlari.Gonderiliyor, gateway.IntentStatusAtCall);
+        Assert.True(gateway.OrderCancelledAtCall);
+        Assert.Equal(0m, gateway.ReservationAtCall);
+        Assert.Equal(0m, gateway.RefundedAmountAtCall);
+        await using (var afterTimeout = f.Db())
+        {
+            Assert.Equal(PazaryeriSiparisDurumlari.IptalEdildi,
+                await afterTimeout.TedarikciSiparisleri.Where(x => x.Id == supplierOrderId).Select(x => x.Durum).SingleAsync());
+            Assert.Equal(0m, await afterTimeout.TedarikciUrunleri.Where(x => x.Id == f.ProductA).Select(x => x.RezerveMiktar).SingleAsync());
+            Assert.Equal(1m, await afterTimeout.TedarikciUrunleri.Where(x => x.Id == f.ProductB).Select(x => x.RezerveMiktar).SingleAsync());
+            Assert.Equal(0m, await afterTimeout.PazaryeriOdemeleri.Select(x => x.IadeTutari).SingleAsync());
+            var allocation = await afterTimeout.PazaryeriOdemeDagitimlari.SingleAsync(x => x.TedarikciSiparisId == supplierOrderId);
+            Assert.Equal(0m, allocation.IadeTutari);
+            var intent = await afterTimeout.PazaryeriParaTalimatlari.SingleAsync(x => x.Tur == PazaryeriParaTalimatiTurleri.Iade);
+            Assert.Equal(PazaryeriParaTalimatiDurumlari.SonucBekliyor, intent.Durum);
+            Assert.Equal("provider-call-error", intent.SonHataKodu);
+            Assert.Equal(1, intent.DenemeSayisi);
+        }
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => buyer.CancelSupplierOrderAsync(supplierOrderId, cancel));
+        Assert.Equal(1, gateway.RefundCalls);
+        await using var finalDb = f.Db();
+        Assert.Equal(0m, await finalDb.PazaryeriOdemeleri.Select(x => x.IadeTutari).SingleAsync());
+        Assert.Equal(0m, await finalDb.PazaryeriOdemeDagitimlari
+            .Where(x => x.TedarikciSiparisId == supplierOrderId).Select(x => x.IadeTutari).SingleAsync());
+        Assert.Single(await finalDb.PazaryeriParaTalimatlari.Where(x => x.Tur == PazaryeriParaTalimatiTurleri.Iade).ToListAsync());
+    }
+
+    [Fact]
+    public async Task CancelOrder_AcceptedButNonFinalRefundStaysPendingAndIsNotResent()
+    {
+        await using var f = await Fixture.CreateAsync();
+        var service = f.Service(1);
+        var order = await service.CreateOrderAsync(new PazaryeriSiparisOlusturRequest(
+            "A", "nonfinal-refund", new[] { new PazaryeriSepetKalemiRequest(f.ProductA, 1) }));
+        await service.PayOrderAsync(order.Id, new PazaryeriOdemeRequest("nonfinal-refund-payment"));
+        var gateway = new CountingFakeMarketplacePaymentGateway(pendingRefund: true);
+        var buyer = f.Service(1, gateway: gateway);
+
+        await buyer.CancelOrderAsync(order.Id, new PazaryeriIptalRequest("Alıcı siparişi iptal etti."));
+
+        Assert.Equal(1, gateway.RefundCalls);
+        await buyer.ProcessReadyMoneyInstructionsAsync();
+        Assert.Equal(1, gateway.RefundCalls);
+        await using var db = f.Db();
+        var payment = await db.PazaryeriOdemeleri.SingleAsync();
+        Assert.Equal(0m, payment.IadeTutari);
+        Assert.Equal(PazaryeriParaTalimatiDurumlari.SonucBekliyor,
+            await db.PazaryeriParaTalimatlari.Where(x => x.Tur == PazaryeriParaTalimatiTurleri.Iade)
+                .Select(x => x.Durum).SingleAsync());
+        Assert.Equal("IadeBekliyor", await db.TedarikciHakEdisleri.Select(x => x.Durum).SingleAsync());
+        Assert.False(await db.PazaryeriDefterKayitlari.AnyAsync(x => x.Hesap == "Iade"));
+        Assert.Equal(PazaryeriSiparisDurumlari.IptalEdildi,
+            await db.PazaryeriAnaSiparisleri.Select(x => x.Durum).SingleAsync());
     }
 
     [Fact]
@@ -586,6 +738,52 @@ public sealed class TedarikciPazaryeriServiceTests
                 Assert.Equal(1m, receipt!.KabulEdilenMiktar);
             }
         }
+    }
+
+    [PostgreSqlFact]
+    public async Task PostgreSql_ConcurrentRefundClaimsSendOnlyOneInstructionUntilReviewed()
+    {
+        await using var f = await Fixture.CreatePostgresAsync();
+        var buyer = f.Service(1);
+        var order = await buyer.CreateOrderAsync(new("Depo", "refund-claim-race",
+            new[] { new PazaryeriSepetKalemiRequest(f.ProductA, 1) }));
+        await buyer.PayOrderAsync(order.Id, new("refund-claim-payment"));
+        long firstId;
+        long secondId;
+        await using (var db = f.Db())
+        await using (var tx = await db.Database.BeginTransactionAsync())
+        {
+            var payment = await db.PazaryeriOdemeleri.SingleAsync();
+            var supplierOrderId = await db.TedarikciSiparisleri.Select(x => x.Id).SingleAsync();
+            var first = await PazaryeriParaTalimatiStore.EnqueueAsync(db, new(1, supplierOrderId,
+                payment.Id, PazaryeriParaTalimatiTurleri.Iade, "Fake", "refund-claim-1", "test-refund-1", 1m, "TRY"));
+            var second = await PazaryeriParaTalimatiStore.EnqueueAsync(db, new(1, supplierOrderId,
+                payment.Id, PazaryeriParaTalimatiTurleri.Iade, "Fake", "refund-claim-2", "test-refund-2", 1m, "TRY"));
+            await db.SaveChangesAsync();
+            firstId = first.Id;
+            secondId = second.Id;
+            await tx.CommitAsync();
+        }
+        var store = new PazaryeriParaTalimatiStore(f.Factory);
+        var start = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var firstAttempt = RunConcurrentAttemptAsync(start.Task, () => store.ClaimByIdAsync(firstId, DateTime.UtcNow));
+        var secondAttempt = RunConcurrentAttemptAsync(start.Task, () => store.ClaimByIdAsync(secondId, DateTime.UtcNow));
+        start.SetResult();
+        var outcomes = await Task.WhenAll(firstAttempt, secondAttempt);
+        Assert.Single(outcomes, x => x.Result == true);
+        long claimedId;
+        long waitingId;
+        await using (var db = f.Db())
+        {
+            var instructions = await db.PazaryeriParaTalimatlari
+                .Where(x => x.Tur == PazaryeriParaTalimatiTurleri.Iade).ToListAsync();
+            claimedId = Assert.Single(instructions, x => x.Durum == PazaryeriParaTalimatiDurumlari.Gonderiliyor).Id;
+            waitingId = Assert.Single(instructions, x => x.Durum == PazaryeriParaTalimatiDurumlari.Hazir).Id;
+        }
+        await store.MarkUnknownAsync(claimedId, "timeout", DateTime.UtcNow);
+        Assert.False(await store.ClaimByIdAsync(waitingId, DateTime.UtcNow));
+        await using var verified = f.Db();
+        Assert.Equal("IadeBekliyor", await verified.TedarikciHakEdisleri.Select(x => x.Durum).SingleAsync());
     }
 
     [PostgreSqlFact]
@@ -1138,6 +1336,257 @@ public sealed class TedarikciPazaryeriServiceTests
     }
 
     [Fact]
+    public async Task ShipmentQr_UnknownPayoutKeepsCommittedReceiptAndBlocksFurtherTransfers()
+    {
+        await using var f = await Fixture.CreateAsync();
+        var service = f.Service(1);
+        var master = await service.CreateOrderAsync(new PazaryeriSiparisOlusturRequest(
+            "Depo", "unknown-payout", new[] { new PazaryeriSepetKalemiRequest(f.ProductA, 2) }));
+        await service.PayOrderAsync(master.Id, new PazaryeriOdemeRequest("unknown-payout-payment"));
+        int supplierOrderId;
+        int lineId;
+        await using (var db = f.Db())
+        {
+            supplierOrderId = await db.TedarikciSiparisleri.Select(x => x.Id).SingleAsync();
+            lineId = await db.TedarikciSiparisKalemleri.Select(x => x.Id).SingleAsync();
+        }
+        await f.Service(2).UpdateSupplierOrderStateAsync(supplierOrderId,
+            new(PazaryeriSiparisDurumlari.TedarikciOnayladi, null, null, null));
+        await f.Service(2).UpdateSupplierOrderStateAsync(supplierOrderId,
+            new(PazaryeriSiparisDurumlari.Hazirlaniyor, null, null, null));
+        var shipment = await f.Service(2).CreateShipmentAsync(supplierOrderId, new(
+            "Tedarikçi aracı", null, "IRS-UNKNOWN", null, null, null, null, null,
+            new[] { new TedarikciSevkiyatKalemiRequest(lineId, 2, 2, null, null, null, null) }));
+        var gateway = new TimeoutObservingMarketplaceGateway(f);
+        var buyer = f.Service(1, gateway: gateway);
+        var firstQr = shipment.Etiketler[0].QrIcerigi;
+        var firstRequest = new TedarikciMalKabulRequest("unknown-receipt-1", 1, 0, null, "İlk koli kabul edildi.");
+
+        await buyer.ReceiveShipmentQrAsync(firstQr, firstRequest);
+
+        Assert.Equal(1, gateway.ReleaseCalls);
+        Assert.Equal(PazaryeriParaTalimatiDurumlari.Gonderiliyor, gateway.IntentStatusAtCall);
+        Assert.True(gateway.CommittedReceiptAccountingAtCall);
+        Assert.True(gateway.CommittedStockMovementAtCall);
+        await using (var afterTimeout = f.Db())
+        {
+            var receipt = await afterTimeout.TedarikciMalKabulleri.SingleAsync();
+            Assert.NotNull(receipt.MuhasebelestiAt);
+            Assert.Equal(24m, receipt.KabulBrutTutar);
+            Assert.Equal(1m, (await afterTimeout.StokHareketleri
+                .Where(x => x.TedarikciSiparisId == supplierOrderId && x.Kaynak == "PazaryeriMalKabul")
+                .Select(x => x.Miktar).ToListAsync()).Sum());
+            var intent = await afterTimeout.PazaryeriParaTalimatlari.SingleAsync(x => x.Tur == PazaryeriParaTalimatiTurleri.Aktarim);
+            Assert.Equal(PazaryeriParaTalimatiDurumlari.SonucBekliyor, intent.Durum);
+            Assert.Equal("provider-call-error", intent.SonHataKodu);
+            Assert.Equal(1, intent.DenemeSayisi);
+            var settlement = await afterTimeout.TedarikciHakEdisleri.SingleAsync();
+            Assert.Equal(0m, settlement.OdenenTutar);
+            Assert.Equal("MutabakatFarki", settlement.Durum);
+        }
+
+        var replay = await buyer.ReceiveShipmentQrAsync(firstQr, firstRequest);
+        Assert.True(replay.TekrarKullanildi);
+        Assert.Equal(1, gateway.ReleaseCalls);
+
+        await buyer.ReceiveShipmentQrAsync(shipment.Etiketler[1].QrIcerigi,
+            new("unknown-receipt-2", 1, 0, null, "İkinci koli kabul edildi."));
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            buyer.CompleteSettlementAsync(supplierOrderId, new("admin-retry-after-unknown")));
+        await buyer.ProcessReadyMoneyInstructionsAsync();
+
+        await using var finalDb = f.Db();
+        Assert.Equal(2, await finalDb.TedarikciMalKabulleri.CountAsync());
+        Assert.Equal(2m, (await finalDb.StokHareketleri
+            .Where(x => x.TedarikciSiparisId == supplierOrderId && x.Kaynak == "PazaryeriMalKabul")
+            .Select(x => x.Miktar).ToListAsync()).Sum());
+        Assert.Equal(1, gateway.ReleaseCalls);
+        var payoutIntents = await finalDb.PazaryeriParaTalimatlari
+            .Where(x => x.TedarikciSiparisId == supplierOrderId && x.Tur == PazaryeriParaTalimatiTurleri.Aktarim)
+            .OrderBy(x => x.Id)
+            .ToListAsync();
+        Assert.Equal(2, payoutIntents.Count);
+        Assert.Contains(payoutIntents, x => x.Durum == PazaryeriParaTalimatiDurumlari.SonucBekliyor);
+        Assert.Contains(payoutIntents, x => x.Durum == PazaryeriParaTalimatiDurumlari.Hazir);
+        var finalSettlement = await finalDb.TedarikciHakEdisleri.SingleAsync();
+        Assert.Equal(0m, finalSettlement.OdenenTutar);
+        Assert.Equal("MutabakatFarki", finalSettlement.Durum);
+    }
+
+    [Fact]
+    public async Task ShipmentQr_AcceptedButNonFinalPayoutDoesNotPostPaymentLedger()
+    {
+        await using var f = await Fixture.CreateAsync();
+        var service = f.Service(1);
+        var master = await service.CreateOrderAsync(new PazaryeriSiparisOlusturRequest(
+            "Depo", "accepted-pending-payout", new[] { new PazaryeriSepetKalemiRequest(f.ProductA, 1) }));
+        await service.PayOrderAsync(master.Id, new PazaryeriOdemeRequest("accepted-pending-payment"));
+        int supplierOrderId;
+        int lineId;
+        await using (var db = f.Db())
+        {
+            supplierOrderId = await db.TedarikciSiparisleri.Select(x => x.Id).SingleAsync();
+            lineId = await db.TedarikciSiparisKalemleri.Select(x => x.Id).SingleAsync();
+        }
+        await f.Service(2).UpdateSupplierOrderStateAsync(supplierOrderId,
+            new(PazaryeriSiparisDurumlari.TedarikciOnayladi, null, null, null));
+        await f.Service(2).UpdateSupplierOrderStateAsync(supplierOrderId,
+            new(PazaryeriSiparisDurumlari.Hazirlaniyor, null, null, null));
+        var shipment = await f.Service(2).CreateShipmentAsync(supplierOrderId, new(
+            "Tedarikçi aracı", null, "IRS-ACCEPTED-PENDING", null, null, null, null, null,
+            new[] { new TedarikciSevkiyatKalemiRequest(lineId, 1, 1, null, null, null, null) }));
+        var gateway = new AcceptedPendingMarketplaceGateway();
+
+        await f.Service(1, gateway: gateway).ReceiveShipmentQrAsync(
+            shipment.Etiketler[0].QrIcerigi, new("accepted-pending-receipt", 1, 0, null, "Kabul edildi."));
+
+        Assert.Equal(1, gateway.ReleaseCalls);
+        await using var dbAfter = f.Db();
+        var intent = await dbAfter.PazaryeriParaTalimatlari.SingleAsync(x => x.Tur == PazaryeriParaTalimatiTurleri.Aktarim);
+        Assert.Equal(PazaryeriParaTalimatiDurumlari.SonucBekliyor, intent.Durum);
+        Assert.Equal("provider-result-pending", intent.SonHataKodu);
+        Assert.Equal(0, await dbAfter.PazaryeriDefterKayitlari.CountAsync(x => x.Hesap == "TedarikciOdeme"));
+        var settlement = await dbAfter.TedarikciHakEdisleri.SingleAsync();
+        Assert.Equal(0m, settlement.OdenenTutar);
+        Assert.Equal("MutabakatFarki", settlement.Durum);
+        Assert.Equal(PazaryeriSiparisDurumlari.HakEdisBekliyor,
+            await dbAfter.TedarikciSiparisleri.Select(x => x.Durum).SingleAsync());
+    }
+
+    [Fact]
+    public async Task ProcessReadyMoneyInstructions_CompletesCommittedReadyPayoutOnce()
+    {
+        await using var f = await Fixture.CreateAsync();
+        var gateway = new CountingFakeMarketplacePaymentGateway();
+        var buyer = f.Service(1, gateway: gateway);
+        var master = await buyer.CreateOrderAsync(new PazaryeriSiparisOlusturRequest(
+            "Depo", "ready-payout-recovery", new[] { new PazaryeriSepetKalemiRequest(f.ProductA, 1) }));
+        await buyer.PayOrderAsync(master.Id, new PazaryeriOdemeRequest("ready-payout-recovery-payment"));
+
+        long instructionId;
+        int supplierOrderId;
+        decimal payoutAmount;
+        await using (var db = f.Db())
+        {
+            var order = await db.TedarikciSiparisleri.SingleAsync();
+            var payment = await db.PazaryeriOdemeleri.SingleAsync();
+            var settlement = await db.TedarikciHakEdisleri.SingleAsync();
+            supplierOrderId = order.Id;
+            payoutAmount = settlement.NetTutar;
+            await using var transaction = await db.Database.BeginTransactionAsync();
+            var instruction = await PazaryeriParaTalimatiStore.EnqueueAsync(db, new(
+                order.AliciIsletmeId, order.Id, payment.Id, PazaryeriParaTalimatiTurleri.Aktarim,
+                gateway.Name, "ready-payout-recovery-key", "admin:ready-payout-recovery",
+                payoutAmount, settlement.ParaBirimi));
+            await db.SaveChangesAsync();
+            instructionId = instruction.Id;
+            await transaction.CommitAsync();
+        }
+
+        Assert.Equal(0, gateway.ReleaseCalls);
+        await using (var committedDb = f.Db())
+            Assert.Equal(PazaryeriParaTalimatiDurumlari.Hazir,
+                await committedDb.PazaryeriParaTalimatlari.Where(x => x.Id == instructionId).Select(x => x.Durum).SingleAsync());
+
+        await buyer.ProcessReadyMoneyInstructionsAsync();
+        Assert.Equal(1, gateway.ReleaseCalls);
+        await using (var afterFirstRun = f.Db())
+        {
+            var intent = await afterFirstRun.PazaryeriParaTalimatlari.SingleAsync(x => x.Id == instructionId);
+            Assert.Equal(PazaryeriParaTalimatiDurumlari.Tamamlandi, intent.Durum);
+            var settlement = await afterFirstRun.TedarikciHakEdisleri.SingleAsync(x => x.TedarikciSiparisId == supplierOrderId);
+            Assert.Equal(payoutAmount, settlement.OdenenTutar);
+            var ledger = await afterFirstRun.PazaryeriDefterKayitlari
+                .Where(x => x.TedarikciSiparisId == supplierOrderId && x.Hesap == "TedarikciOdeme")
+                .ToListAsync();
+            Assert.Single(ledger);
+            Assert.Equal(payoutAmount, ledger.Sum(x => x.Tutar));
+        }
+
+        await buyer.ProcessReadyMoneyInstructionsAsync();
+        Assert.Equal(1, gateway.ReleaseCalls);
+        await using var afterSecondRun = f.Db();
+        var finalLedger = await afterSecondRun.PazaryeriDefterKayitlari
+            .Where(x => x.TedarikciSiparisId == supplierOrderId && x.Hesap == "TedarikciOdeme")
+            .ToListAsync();
+        Assert.Single(finalLedger);
+        Assert.Equal(payoutAmount, finalLedger.Sum(x => x.Tutar));
+        Assert.Equal(payoutAmount, await afterSecondRun.TedarikciHakEdisleri
+            .Where(x => x.TedarikciSiparisId == supplierOrderId).Select(x => x.OdenenTutar).SingleAsync());
+    }
+
+    [Fact]
+    public async Task ProcessReadyMoneyInstructions_SkipsBlockedPayoutsAheadOfOtherReadyOrders()
+    {
+        await using var f = await Fixture.CreateAsync();
+        var gateway = new CountingFakeMarketplacePaymentGateway();
+        var buyer = f.Service(1, gateway: gateway);
+        var masterA = await buyer.CreateOrderAsync(new PazaryeriSiparisOlusturRequest(
+            "Depo", "ready-payout-fairness-a", new[] { new PazaryeriSepetKalemiRequest(f.ProductA, 1) }));
+        await buyer.PayOrderAsync(masterA.Id, new PazaryeriOdemeRequest("ready-payout-fairness-payment-a"));
+        var masterB = await buyer.CreateOrderAsync(new PazaryeriSiparisOlusturRequest(
+            "Depo", "ready-payout-fairness-b", new[] { new PazaryeriSepetKalemiRequest(f.ProductB, 1) }));
+        await buyer.PayOrderAsync(masterB.Id, new PazaryeriOdemeRequest("ready-payout-fairness-payment-b"));
+
+        int blockedOrderId;
+        int readyOrderId;
+        long unknownIntentId;
+        long readyIntentId;
+        decimal readyAmount;
+        await using (var db = f.Db())
+        {
+            var orders = await db.TedarikciSiparisleri.OrderBy(x => x.TedarikciIsletmeId).ToListAsync();
+            var paymentA = await db.PazaryeriOdemeleri.SingleAsync(x => x.AnaSiparisId == masterA.Id);
+            var paymentB = await db.PazaryeriOdemeleri.SingleAsync(x => x.AnaSiparisId == masterB.Id);
+            var settlements = await db.TedarikciHakEdisleri.ToDictionaryAsync(x => x.TedarikciSiparisId);
+            var blockedOrder = orders.Single(x => x.TedarikciIsletmeId == 2);
+            var readyOrder = orders.Single(x => x.TedarikciIsletmeId == 3);
+            blockedOrderId = blockedOrder.Id;
+            readyOrderId = readyOrder.Id;
+            readyAmount = settlements[readyOrder.Id].NetTutar;
+
+            await using var transaction = await db.Database.BeginTransactionAsync();
+            var unknown = await PazaryeriParaTalimatiStore.EnqueueAsync(db, new(
+                blockedOrder.AliciIsletmeId, blockedOrder.Id, paymentA.Id, PazaryeriParaTalimatiTurleri.Aktarim,
+                gateway.Name, "blocked-payout-fairness-unknown", "receipt:unknown", 0.01m, settlements[blockedOrder.Id].ParaBirimi));
+            unknown.Durum = PazaryeriParaTalimatiDurumlari.SonucBekliyor;
+            unknown.SonHataKodu = "provider-call-error";
+            for (var i = 0; i < 100; i++)
+            {
+                await PazaryeriParaTalimatiStore.EnqueueAsync(db, new(
+                    blockedOrder.AliciIsletmeId, blockedOrder.Id, paymentA.Id, PazaryeriParaTalimatiTurleri.Aktarim,
+                    gateway.Name, $"blocked-payout-fairness-{i:D3}", $"receipt:blocked-{i}", 0.01m,
+                    settlements[blockedOrder.Id].ParaBirimi));
+            }
+            var ready = await PazaryeriParaTalimatiStore.EnqueueAsync(db, new(
+                readyOrder.AliciIsletmeId, readyOrder.Id, paymentB.Id, PazaryeriParaTalimatiTurleri.Aktarim,
+                gateway.Name, "blocked-payout-fairness-ready", "admin:ready-order", readyAmount,
+                settlements[readyOrder.Id].ParaBirimi));
+            await db.SaveChangesAsync();
+            unknownIntentId = unknown.Id;
+            readyIntentId = ready.Id;
+            await transaction.CommitAsync();
+        }
+
+        await buyer.ProcessReadyMoneyInstructionsAsync();
+
+        Assert.Equal(new[] { 3 }, gateway.ReleasedSupplierBusinessIds);
+        await using var afterRun = f.Db();
+        Assert.Equal(PazaryeriParaTalimatiDurumlari.SonucBekliyor,
+            await afterRun.PazaryeriParaTalimatlari.Where(x => x.Id == unknownIntentId).Select(x => x.Durum).SingleAsync());
+        Assert.Equal(100, await afterRun.PazaryeriParaTalimatlari.CountAsync(x =>
+            x.TedarikciSiparisId == blockedOrderId && x.Durum == PazaryeriParaTalimatiDurumlari.Hazir));
+        Assert.Equal(0m, await afterRun.TedarikciHakEdisleri
+            .Where(x => x.TedarikciSiparisId == blockedOrderId).Select(x => x.OdenenTutar).SingleAsync());
+        Assert.False(await afterRun.PazaryeriDefterKayitlari.AnyAsync(x =>
+            x.TedarikciSiparisId == blockedOrderId && x.Hesap == "TedarikciOdeme"));
+        Assert.Equal(PazaryeriParaTalimatiDurumlari.Tamamlandi,
+            await afterRun.PazaryeriParaTalimatlari.Where(x => x.Id == readyIntentId).Select(x => x.Durum).SingleAsync());
+        Assert.Equal(readyAmount, await afterRun.TedarikciHakEdisleri
+            .Where(x => x.TedarikciSiparisId == readyOrderId).Select(x => x.OdenenTutar).SingleAsync());
+    }
+
+    [Fact]
     public async Task ShipmentQr_RequiresReceiptRoleAndStoresServerSideAuditEvidence()
     {
         await using var f = await Fixture.CreateAsync();
@@ -1380,12 +1829,159 @@ public sealed class TedarikciPazaryeriServiceTests
             ProductB = 101;
         }
 
-        public CashTrackerDbContext Db() => new(_options); public TedarikciPazaryeriService Service(int id, ICurrentUserContext? currentUser = null, PazaryeriOptions? options = null) { _business.Active = new Isletme { Id = id, Ad = id == 1 ? "Buyer" : id == 2 ? "Supplier A" : "Other" }; return new(new SingleDbContextFactory(_options), _business, new FakeManagement(), new FakeMarketplacePaymentGateway(), options ?? new PazaryeriOptions { KomisyonKdvOrani = 20, TevkifatOrani = 1 }, currentUser ?? new FakeCurrentUser(id == 1 ? "buyer-owner" : $"business-{id}-user")); }
+        public IDbContextFactory<CashTrackerDbContext> Factory => new SingleDbContextFactory(_options);
+        public CashTrackerDbContext Db() => new(_options); public TedarikciPazaryeriService Service(int id, ICurrentUserContext? currentUser = null, PazaryeriOptions? options = null, IMarketplacePaymentGateway? gateway = null) { _business.Active = new Isletme { Id = id, Ad = id == 1 ? "Buyer" : id == 2 ? "Supplier A" : "Other" }; return new(new SingleDbContextFactory(_options), _business, new FakeManagement(), gateway ?? new FakeMarketplacePaymentGateway(), options ?? new PazaryeriOptions { KomisyonKdvOrani = 20, TevkifatOrani = 1 }, currentUser ?? new FakeCurrentUser(id == 1 ? "buyer-owner" : $"business-{id}-user")); }
         public async ValueTask DisposeAsync() { await _connection.DisposeAsync(); if (_dbPath is not null) { SqliteConnection.ClearAllPools(); if (File.Exists(_dbPath)) File.Delete(_dbPath); } if (_schema is not null && _postgresConnectionString is not null) { await using var admin = new NpgsqlConnection(_postgresConnectionString); await admin.OpenAsync(); await using var dropSchema = admin.CreateCommand(); dropSchema.CommandText = $"DROP SCHEMA IF EXISTS \"{_schema}\" CASCADE"; await dropSchema.ExecuteNonQueryAsync(); } }
     }
     private sealed class FakeIsletme : IIsletmeService { public Isletme Active { get; set; } = new() { Id = 1, Ad = "Buyer" }; public Task<List<Isletme>> GetAllAsync()=>Task.FromResult(new List<Isletme>{Active}); public Task<Isletme?> GetByIdAsync(int id)=>Task.FromResult<Isletme?>(id==Active.Id?Active:null); public Task<Isletme> GetActiveAsync()=>Task.FromResult(Active); public Task<int> GetActiveIdAsync()=>Task.FromResult(Active.Id); public Task<int> CreateAsync(string ad,bool makeActive=false)=>Task.FromResult(0); public Task RenameAsync(int id,string ad)=>Task.CompletedTask; public Task UpdateSetupAsync(int id,string ad,string t,string k,bool c,string? h=null,bool? m=null,MuhasebeciProfilKaydetRequest? p=null,string? v=null,string? o=null,string? s=null)=>Task.CompletedTask; public Task SetActiveAsync(int id)=>Task.CompletedTask; public Task SetActiveCustomerContextAsync(int id)=>Task.CompletedTask; public Task ClearActiveCustomerContextAsync()=>Task.CompletedTask; public Task<ActiveBusinessAccess> GetActiveAccessAsync()=>Task.FromResult(default(ActiveBusinessAccess)!); public Task DeleteAsync(int id)=>Task.CompletedTask; }
     private sealed class FakeManagement : ISystemcelYonetimService { public Task<bool> IsCurrentUserAdminAsync(CancellationToken ct=default)=>Task.FromResult(true); public Task<MuhasebeciBasvuruListeDto> GetMuhasebeciBasvurulariAsync(string? d=null,CancellationToken ct=default)=>Task.FromResult(default(MuhasebeciBasvuruListeDto)!); public Task<MuhasebeciBasvuruDto> ApproveMuhasebeciBasvurusuAsync(int i,CancellationToken ct=default)=>Task.FromResult(default(MuhasebeciBasvuruDto)!); public Task<MuhasebeciBasvuruDto> RejectMuhasebeciBasvurusuAsync(int i,MuhasebeciBasvuruRedRequest r,CancellationToken ct=default)=>Task.FromResult(default(MuhasebeciBasvuruDto)!); public Task<YonetimOdemeIncelemeDto> GetOdemeIncelemeAsync(string? d=null,bool s=false,int l=100,CancellationToken ct=default)=>Task.FromResult(default(YonetimOdemeIncelemeDto)!); public Task<MuhasebeciAktarimListeDto> GetMuhasebeciAktarimlariAsync(string d,int? i=null,CancellationToken ct=default)=>Task.FromResult(default(MuhasebeciAktarimListeDto)!); public Task<MuhasebeciAktarimOzetDto> CompleteMuhasebeciAktarimiAsync(int i,MuhasebeciAktarimTamamlaRequest r,CancellationToken ct=default)=>Task.FromResult(default(MuhasebeciAktarimOzetDto)!); public Task<DestekTalebiListeDto> GetDestekTalepleriAsync(CancellationToken ct=default)=>Task.FromResult(default(DestekTalebiListeDto)!); public Task<DestekTalebiDto> UpdateDestekTalebiAsync(int i,DestekTalebiGuncelleRequest r,CancellationToken ct=default)=>Task.FromResult(default(DestekTalebiDto)!); public Task<EntitlementOverrideResult> ApplyEntitlementOverrideAsync(int i,EntitlementOverrideRequest r,CancellationToken ct=default)=>Task.FromResult(default(EntitlementOverrideResult)!); }
     private sealed class FakeCurrentUser(string providerUserId) : ICurrentUserContext { public CurrentUserIdentity? GetCurrentUser() => new(providerUserId, null, null, true); }
+
+    private sealed class PendingCollectionGateway(bool timesOut) : IMarketplacePaymentGateway
+    {
+        private readonly FakeMarketplacePaymentGateway _fake = new();
+        public string Name => _fake.Name;
+        public bool IsConfigured => true;
+        public int CollectCalls { get; private set; }
+
+        public Task<MarketplacePaymentResult> CollectAsync(MarketplacePaymentCommand command, CancellationToken ct = default)
+        {
+            CollectCalls++;
+            if (timesOut) throw new TimeoutException("Unknown collection outcome.");
+            return Task.FromResult(new MarketplacePaymentResult(Name, "collection-accepted", true));
+        }
+
+        public Task<MarketplacePaymentResult> RefundAsync(string providerTransactionId, decimal amount,
+            string currency, string idempotencyKey, CancellationToken ct = default) =>
+            _fake.RefundAsync(providerTransactionId, amount, currency, idempotencyKey, ct);
+
+        public Task<MarketplacePaymentResult> ReleaseAsync(MarketplacePayoutCommand command, CancellationToken ct = default) =>
+            _fake.ReleaseAsync(command, ct);
+    }
+
+    private sealed class TimeoutObservingMarketplaceGateway(Fixture fixture) : IMarketplacePaymentGateway
+    {
+        private readonly FakeMarketplacePaymentGateway _fake = new();
+        public string Name => _fake.Name;
+        public bool IsConfigured => true;
+        public int ReleaseCalls { get; private set; }
+        public string IntentStatusAtCall { get; private set; } = string.Empty;
+        public bool CommittedReceiptAccountingAtCall { get; private set; }
+        public bool CommittedStockMovementAtCall { get; private set; }
+
+        public Task<MarketplacePaymentResult> CollectAsync(MarketplacePaymentCommand command, CancellationToken ct = default) =>
+            _fake.CollectAsync(command, ct);
+
+        public Task<MarketplacePaymentResult> RefundAsync(
+            string providerTransactionId, decimal amount, string currency, string idempotencyKey, CancellationToken ct = default) =>
+            _fake.RefundAsync(providerTransactionId, amount, currency, idempotencyKey, ct);
+
+        public async Task<MarketplacePaymentResult> ReleaseAsync(MarketplacePayoutCommand command, CancellationToken ct = default)
+        {
+            ReleaseCalls++;
+            await using var db = fixture.Db();
+            var intent = await db.PazaryeriParaTalimatlari.SingleAsync(x =>
+                x.Tur == PazaryeriParaTalimatiTurleri.Aktarim && x.IdempotencyAnahtari == command.IdempotencyKey, ct);
+            IntentStatusAtCall = intent.Durum;
+            CommittedReceiptAccountingAtCall = await db.TedarikciMalKabulleri.AnyAsync(x => x.MuhasebelestiAt != null, ct) &&
+                                               await db.FaturaSatirlari.AnyAsync(ct) &&
+                                               await db.CariHareketleri.AnyAsync(ct);
+            CommittedStockMovementAtCall = await db.StokHareketleri.AnyAsync(x =>
+                x.Kaynak == "PazaryeriMalKabul" && x.Miktar > 0m, ct);
+            throw new TimeoutException("Simulated unknown provider outcome.");
+        }
+    }
+
+    private sealed class AcceptedPendingMarketplaceGateway : IMarketplacePaymentGateway
+    {
+        private readonly FakeMarketplacePaymentGateway _fake = new();
+        public string Name => _fake.Name;
+        public bool IsConfigured => true;
+        public int ReleaseCalls { get; private set; }
+
+        public Task<MarketplacePaymentResult> CollectAsync(MarketplacePaymentCommand command, CancellationToken ct = default) =>
+            _fake.CollectAsync(command, ct);
+
+        public Task<MarketplacePaymentResult> RefundAsync(
+            string providerTransactionId, decimal amount, string currency, string idempotencyKey, CancellationToken ct = default) =>
+            _fake.RefundAsync(providerTransactionId, amount, currency, idempotencyKey, ct);
+
+        public Task<MarketplacePaymentResult> ReleaseAsync(MarketplacePayoutCommand command, CancellationToken ct = default)
+        {
+            ReleaseCalls++;
+            return Task.FromResult(new MarketplacePaymentResult(Name, "accepted-reference", Succeeded: true));
+        }
+    }
+
+    private sealed class CountingFakeMarketplacePaymentGateway(bool pendingRefund = false) : IMarketplacePaymentGateway
+    {
+        private readonly FakeMarketplacePaymentGateway _fake = new();
+        public string Name => _fake.Name;
+        public bool IsConfigured => true;
+        public int CollectCalls { get; private set; }
+        public int RefundCalls { get; private set; }
+        public int ReleaseCalls { get; private set; }
+        public List<int> ReleasedSupplierBusinessIds { get; } = new();
+
+        public Task<MarketplacePaymentResult> CollectAsync(MarketplacePaymentCommand command, CancellationToken ct = default)
+        {
+            CollectCalls++;
+            return _fake.CollectAsync(command, ct);
+        }
+
+        public Task<MarketplacePaymentResult> RefundAsync(
+            string providerTransactionId, decimal amount, string currency, string idempotencyKey, CancellationToken ct = default)
+        {
+            RefundCalls++;
+            return pendingRefund
+                ? Task.FromResult(new MarketplacePaymentResult(Name, "accepted-refund-reference", Succeeded: true))
+                : _fake.RefundAsync(providerTransactionId, amount, currency, idempotencyKey, ct);
+        }
+
+        public Task<MarketplacePaymentResult> ReleaseAsync(MarketplacePayoutCommand command, CancellationToken ct = default)
+        {
+            ReleaseCalls++;
+            ReleasedSupplierBusinessIds.Add(command.SupplierBusinessId);
+            return _fake.ReleaseAsync(command, ct);
+        }
+    }
+
+    private sealed class TimeoutObservingRefundGateway(
+        Fixture fixture, int supplierOrderId, int masterOrderId, int productId) : IMarketplacePaymentGateway
+    {
+        private readonly FakeMarketplacePaymentGateway _fake = new();
+        public string Name => _fake.Name;
+        public bool IsConfigured => true;
+        public int RefundCalls { get; private set; }
+        public string IntentStatusAtCall { get; private set; } = string.Empty;
+        public bool OrderCancelledAtCall { get; private set; }
+        public decimal ReservationAtCall { get; private set; }
+        public decimal RefundedAmountAtCall { get; private set; }
+
+        public Task<MarketplacePaymentResult> CollectAsync(MarketplacePaymentCommand command, CancellationToken ct = default) =>
+            _fake.CollectAsync(command, ct);
+
+        public Task<MarketplacePaymentResult> ReleaseAsync(MarketplacePayoutCommand command, CancellationToken ct = default) =>
+            _fake.ReleaseAsync(command, ct);
+
+        public async Task<MarketplacePaymentResult> RefundAsync(
+            string providerTransactionId, decimal amount, string currency, string idempotencyKey, CancellationToken ct = default)
+        {
+            RefundCalls++;
+            await using var db = fixture.Db();
+            var intent = await db.PazaryeriParaTalimatlari.SingleAsync(x =>
+                x.Tur == PazaryeriParaTalimatiTurleri.Iade && x.IdempotencyAnahtari == idempotencyKey, ct);
+            IntentStatusAtCall = intent.Durum;
+            OrderCancelledAtCall = await db.TedarikciSiparisleri.Where(x => x.Id == supplierOrderId)
+                .Select(x => x.Durum == PazaryeriSiparisDurumlari.IptalEdildi).SingleAsync(ct) &&
+                await db.PazaryeriAnaSiparisleri.Where(x => x.Id == masterOrderId)
+                    .Select(x => x.Durum == PazaryeriSiparisDurumlari.IptalEdildi || x.Durum == PazaryeriSiparisDurumlari.KismiIptal
+                        || x.Durum == PazaryeriSiparisDurumlari.KismiIade).SingleAsync(ct);
+            ReservationAtCall = await db.TedarikciUrunleri.Where(x => x.Id == productId).Select(x => x.RezerveMiktar).SingleAsync(ct);
+            RefundedAmountAtCall = await db.PazaryeriOdemeleri.Select(x => x.IadeTutari).SingleAsync(ct);
+            throw new TimeoutException("Simulated unknown provider outcome.");
+        }
+    }
 }
 
 internal sealed class PostgreSqlFactAttribute : FactAttribute

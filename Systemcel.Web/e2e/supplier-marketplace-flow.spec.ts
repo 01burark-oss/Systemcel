@@ -174,6 +174,32 @@ test("yönetici itirazında ödeme ve muhasebe referansları izlenir", async ({ 
   await page.screenshot({ path: testInfo.outputPath("review-references.png") });
 });
 
+test("yönetim kuyruğu bekleyen iade ve ödemeyi açıkça gösterir", async ({ page }, testInfo) => {
+  test.skip(!["desktop-chromium", "desktop-wide", "mobile-small", "mobile-360"].includes(testInfo.project.name), "Yönetim kuyruğu tema ve dar ekran kontrolü");
+  await mockWorkspace(page, { adminReview: true });
+  const dark = ["desktop-wide", "mobile-360"].includes(testInfo.project.name);
+  await page.addInitScript((isDark) => {
+    window.localStorage.setItem("systemcel.analyticsConsent", "denied");
+    window.localStorage.setItem("systemcel.theme", isDark ? "dark" : "light");
+  }, dark);
+  await page.goto("/app/tedarikci-pazaryeri");
+  await page.getByRole("button", { name: "Yönetim" }).click();
+
+  const refund = page.locator(".supplier-marketplace__offers article").filter({ hasText: "PAZ-77-02" });
+  const unknownPayout = page.locator(".supplier-marketplace__offers article").filter({ hasText: "PAZ-77-03" });
+  await expect(refund.locator("span").first()).toHaveText("İade sonucu inceleniyor");
+  await expect(refund.getByRole("button", { name: "Hakedişi tamamla" })).toHaveCount(0);
+  await expect(unknownPayout.locator("span").first()).toHaveText("Ödeme sonucu inceleniyor");
+  await expect(unknownPayout.getByRole("button", { name: "Hakedişi tamamla" })).toHaveCount(0);
+  await expect(page.getByText(/IadeBekliyor|MutabakatFarki/)).toHaveCount(0);
+  await expect(page.locator(".supplier-marketplace__offers article").filter({ hasText: "PAZ-77-01" })
+    .getByRole("button", { name: "İtirazı incele" })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await unknownPayout.scrollIntoViewIfNeeded();
+  await expect(unknownPayout).toBeInViewport();
+  await page.screenshot({ path: testInfo.outputPath(`money-queue-${dark ? "dark" : "light"}.png`), fullPage: true });
+});
+
 test("yönetici reddedilen stoğu idempotent olarak uzlaştırır ve eski kaydı manuel incelemeye bırakır", async ({ page }, testInfo) => {
   test.skip(!["desktop-chromium", "desktop-wide", "mobile-small", "mobile-360"].includes(testInfo.project.name), "Yönetim stok uzlaştırma görünümü");
   const api = await mockWorkspace(page, { adminReview: true, stockReconciliation: true, reviewDelayMs: 350 });
@@ -344,7 +370,11 @@ function marketplace(state: string, adminReview = false) {
   const hasOrder = Boolean(state);
   return {
     aktifIsletmeId: 42, guvenliOdemeHazir: true, malKabulYetkisi: true, yonetici: adminReview, profiller: [], talepler: [], acikTalepler: [], gelenTeklifler: [],
-    yonetimProfilleri: [], yonetimSiparisler: adminReview ? [{ id: 88, siparisNo: "PAZ-77-01", tedarikciUnvani: "Marmara Gıda", durum: "Itirazli", genelToplam: 120, paraBirimi: "TRY", hakedisDurumu: "Bloke", itirazYasiSaat: 28.5, tedarikciIlkYanitSuresiSaat: null }] : [],
+    yonetimProfilleri: [], yonetimSiparisler: adminReview ? [
+      { id: 88, siparisNo: "PAZ-77-01", tedarikciUnvani: "Marmara Gıda", durum: "Itirazli", genelToplam: 120, paraBirimi: "TRY", hakedisDurumu: "Bloke", itirazYasiSaat: 28.5, tedarikciIlkYanitSuresiSaat: null },
+      { id: 89, siparisNo: "PAZ-77-02", tedarikciUnvani: "Marmara Gıda", durum: "HakEdisBekliyor", genelToplam: 120, paraBirimi: "TRY", hakedisDurumu: "IadeBekliyor", yonetimNedeni: "İade sonucu incelenecek" },
+      { id: 90, siparisNo: "PAZ-77-03", tedarikciUnvani: "Marmara Gıda", durum: "HakEdisBekliyor", genelToplam: 120, paraBirimi: "TRY", hakedisDurumu: "MutabakatFarki", yonetimNedeni: "Ödeme sonucu incelenecek" }
+    ] : [],
     profil: null, benimUrunlerim: [], kaynakUrunler: [],
     urunler: [{
       id: 10, tedarikciProfilId: 20, tedarikciUnvani: "Marmara Gıda", tedarikciSehri: "İstanbul",

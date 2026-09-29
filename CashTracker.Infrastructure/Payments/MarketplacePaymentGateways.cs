@@ -14,10 +14,10 @@ public sealed class FakeMarketplacePaymentGateway : IMarketplacePaymentGateway
     {
         ct.ThrowIfCancellationRequested();
         if (command.Amount <= 0m)
-            return Task.FromResult(new MarketplacePaymentResult(Name, string.Empty, false, "Ödenecek tutar bulunamadı."));
+            return Task.FromResult(new MarketplacePaymentResult(Name, string.Empty, false, "Ödenecek tutar bulunamadı.", IsFinal: true));
 
         var transactionId = $"fake_market_{Hash($"{command.OrderReference}:{command.IdempotencyKey}")[..24]}";
-        return Task.FromResult(new MarketplacePaymentResult(Name, transactionId, true));
+        return Task.FromResult(new MarketplacePaymentResult(Name, transactionId, true, IsFinal: true));
     }
 
     public Task<MarketplacePaymentResult> RefundAsync(
@@ -29,10 +29,10 @@ public sealed class FakeMarketplacePaymentGateway : IMarketplacePaymentGateway
     {
         ct.ThrowIfCancellationRequested();
         if (string.IsNullOrWhiteSpace(providerTransactionId) || amount <= 0m)
-            return Task.FromResult(new MarketplacePaymentResult(Name, string.Empty, false, "İade bilgileri geçersiz."));
+            return Task.FromResult(new MarketplacePaymentResult(Name, string.Empty, false, "İade bilgileri geçersiz.", IsFinal: true));
 
         var transactionId = $"fake_refund_{Hash($"{providerTransactionId}:{idempotencyKey}")[..24]}";
-        return Task.FromResult(new MarketplacePaymentResult(Name, transactionId, true));
+        return Task.FromResult(new MarketplacePaymentResult(Name, transactionId, true, IsFinal: true));
     }
 
     public Task<MarketplacePaymentResult> ReleaseAsync(
@@ -41,10 +41,10 @@ public sealed class FakeMarketplacePaymentGateway : IMarketplacePaymentGateway
     {
         ct.ThrowIfCancellationRequested();
         if (string.IsNullOrWhiteSpace(command.ProviderTransactionId) || command.Amount <= 0m)
-            return Task.FromResult(new MarketplacePaymentResult(Name, string.Empty, false, "Hakediş bilgileri geçersiz."));
+            return Task.FromResult(new MarketplacePaymentResult(Name, string.Empty, false, "Hakediş bilgileri geçersiz.", IsFinal: true));
 
         var transactionId = $"fake_payout_{Hash($"{command.ProviderTransactionId}:{command.IdempotencyKey}")[..24]}";
-        return Task.FromResult(new MarketplacePaymentResult(Name, transactionId, true));
+        return Task.FromResult(new MarketplacePaymentResult(Name, transactionId, true, IsFinal: true));
     }
 
     private static string Hash(string value) =>
