@@ -172,6 +172,9 @@ jobs:
             --configuration Release \
             --no-build
 
+      - name: Validate marketplace reference audit against PostgreSQL
+        run: bash ./scripts/verify-marketplace-reference-audit.sh
+
       - name: Smoke API against PostgreSQL
         shell: bash
         run: |
