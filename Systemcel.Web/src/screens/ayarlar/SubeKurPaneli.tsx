@@ -1,5 +1,5 @@
 import React from "react";
-import { ArrowUpRight, Building2, CircleDollarSign, Info, Loader2 } from "lucide-react";
+import { ArrowUpRight, Building2, CircleDollarSign, Loader2 } from "lucide-react";
 import { jsonOku } from "../../shared/json";
 import { yeniIdempotencyAnahtari, type EcbKurBulteni, type SubeFinansOzeti, type SubeKurDurumu } from "../../shared/subeKur";
 import "./sube-kur.css";
@@ -135,9 +135,8 @@ export function SubeKurPaneli() {
             <span className="settings-operation-card__icon"><CircleDollarSign size={20} /></span>
             <div><h2>Döviz kurları</h2><p>Kurlar kayıt anında sabitlenir; eski kayıtların kuru değişmez.</p></div>
           </header>
-          <div className="settings-inline-notice"><Info size={17} /><span>Avrupa Merkez Bankası (ECB) verileri ücretsizdir. TL karşılıkları euro kurlarından hesaplanır; işlemlerde kullanacağınız kuru siz belirlersiniz.</span></div>
           <div className="ecb-rates" aria-label="ECB referans kurları">
-            <div className="ecb-rates__head"><a href="https://www.ecb.europa.eu/stats/policy_and_exchange_rates/euro_reference_exchange_rates/html/index.en.html" target="_blank" rel="noopener noreferrer">ECB referans kurları <ArrowUpRight size={13} /></a>{ecb ? <span>{ecb.tarih.split("-").reverse().join(".")}</span> : null}</div>
+            <div className="ecb-rates__head"><a href="https://www.ecb.europa.eu/stats/policy_and_exchange_rates/euro_reference_exchange_rates/html/index.en.html" target="_blank" rel="noopener noreferrer">Kaynak: Avrupa Merkez Bankası (ECB) <ArrowUpRight size={13} /></a>{ecb ? <span>{ecb.tarih.split("-").reverse().join(".")}</span> : null}</div>
             {ecb ? <>
               <div className="ecb-rates__columns"><span>Para birimi</span><span>1 birim kaç TL?</span></div>
               <div className="ecb-rates__list">

@@ -32,7 +32,9 @@ describe("Şube ve kur ayarları", () => {
 
     render(<SubeKurPaneli />);
     expect((await screen.findAllByText("Merkez"))[0]).toBeVisible();
-    expect(screen.getByText(/Avrupa Merkez Bankası \(ECB\) verileri ücretsizdir/i)).toBeVisible();
+    const ecbSource = screen.getByRole("link", { name: /Kaynak: Avrupa Merkez Bankası \(ECB\)/i });
+    expect(ecbSource).toBeVisible();
+    expect(ecbSource).toHaveAttribute("href", "https://www.ecb.europa.eu/stats/policy_and_exchange_rates/euro_reference_exchange_rates/html/index.en.html");
     expect(await screen.findByText("48,932299")).toBeVisible();
     expect(await screen.findByText("₺2.250,00")).toBeVisible();
     await user.selectOptions(screen.getByRole("combobox", { name: "Özet şubesi" }), "1");
