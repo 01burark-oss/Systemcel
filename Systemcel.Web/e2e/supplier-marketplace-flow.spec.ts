@@ -20,8 +20,34 @@ test("güvenli ödeme QR mal kabulünde tedarikçiye bırakılır", async ({ pag
   }));
 
   await page.getByRole("button", { name: "QR okut", exact: true }).click();
-  await page.getByRole("textbox", { name: "QR kodu" }).fill("scq1_test");
-  await page.getByRole("button", { name: "Etiketi bul" }).click();
+  const receiptDialog = page.getByRole("dialog", { name: "QR ile mal kabul" });
+  const closeReceiptDialog = receiptDialog.getByRole("button", { name: "Kapat" });
+  const resolveLabel = receiptDialog.getByRole("button", { name: "Etiketi bul" });
+  const qrCode = receiptDialog.getByRole("textbox", { name: "QR kodu" });
+  const openReceiptDialog = page.getByRole("button", { name: "QR okut", exact: true });
+  await expect(closeReceiptDialog).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(qrCode).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(receiptDialog.getByRole("button", { name: "Kamerayı aç" })).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(receiptDialog.getByLabel("QR görseli yükle")).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(resolveLabel).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(closeReceiptDialog).toBeFocused();
+  await page.keyboard.press("Shift+Tab");
+  await expect(resolveLabel).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(receiptDialog).toHaveCount(0);
+  await expect(openReceiptDialog).toBeFocused();
+
+  await openReceiptDialog.click();
+  await expect(closeReceiptDialog).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(qrCode).toBeFocused();
+  await qrCode.fill("scq1_test");
+  await page.keyboard.press("Enter");
   await expect(page.getByRole("heading", { name: "Filtre Kahve" })).toBeVisible();
   await page.getByRole("button", { name: "Mal kabulü kaydet" }).click();
   await expect(page.getByText("Tamamlandı", { exact: true })).toBeVisible();
@@ -162,8 +188,29 @@ test("yönetici itirazında ödeme ve muhasebe referansları izlenir", async ({ 
   }, testInfo.project.name === "mobile-small");
   await page.goto("/app/tedarikci-pazaryeri");
   await page.getByRole("button", { name: "Yönetim" }).click();
-  await page.getByRole("button", { name: "İtirazı incele" }).click();
+  const openReview = page.getByRole("button", { name: "İtirazı incele" });
+  await openReview.click();
   const dialog = page.getByRole("dialog", { name: /itirazını çöz/ });
+  const closeReview = dialog.getByRole("button", { name: "Kapat" });
+  await expect(closeReview).toBeFocused();
+  const reviewFocusables = dialog.locator('button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])');
+  const lastReviewControl = reviewFocusables.last();
+  const reviewFocusableCount = await reviewFocusables.count();
+  for (let index = 0; index < reviewFocusableCount; index++) {
+    await page.keyboard.press("Tab");
+    expect(await dialog.evaluate((element) => element.contains(document.activeElement)), `Tab ${index + 1} must keep focus inside the review dialog`).toBe(true);
+  }
+  await closeReview.focus();
+  await page.keyboard.press("Shift+Tab");
+  await expect(lastReviewControl).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(closeReview).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await expect(openReview).toBeFocused();
+
+  await openReview.click();
+  await expect(closeReview).toBeFocused();
   await dialog.getByText("Ödeme, fatura ve hareket bağlantıları").click();
   await expect(dialog.getByText(/PSP tahsilatı #31/)).toBeVisible();
   await expect(dialog.getByText(/Fatura eşlemesi: alıcı #41, satıcı #42/)).toBeVisible();
