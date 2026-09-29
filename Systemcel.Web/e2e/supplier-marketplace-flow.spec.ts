@@ -253,7 +253,9 @@ test("yönetici reddedilen stoğu idempotent olarak uzlaştırır ve eski kaydı
 
 test("stok uzlaştırma belirsiz tekrarında kayıt başına anahtar korunur, değişen karar yeniler", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "desktop-chromium", "İdempotency anahtarı yönetim testi");
-  const api = await mockWorkspace(page, { adminReview: true, stockReconciliation: true, reconciliationFailureCount: 3 });
+  let releaseFailure!: () => void;
+  const reconciliationFailureGate = new Promise<void>((resolve) => { releaseFailure = resolve; });
+  const api = await mockWorkspace(page, { adminReview: true, stockReconciliation: true, reconciliationFailureCount: 3, reconciliationFailureGate });
   await page.addInitScript(() => window.localStorage.setItem("systemcel.analyticsConsent", "denied"));
   await page.goto("/app/tedarikci-pazaryeri");
   await page.getByRole("button", { name: "Yönetim" }).click();
@@ -265,8 +267,12 @@ test("stok uzlaştırma belirsiz tekrarında kayıt başına anahtar korunur, de
   await pending.getByRole("textbox", { name: /Karar notu/ }).fill("İlk not");
   const submit = pending.locator(".supplier-marketplace__stock-reconciliation-submit");
   const submitting = submit.click();
-  await expect(submit).toHaveAttribute("aria-busy", "true");
-  await page.screenshot({ path: testInfo.outputPath("stock-review-loading.png") });
+  try {
+    await expect(submit).toHaveAttribute("aria-busy", "true");
+    await page.screenshot({ path: testInfo.outputPath("stock-review-loading.png") });
+  } finally {
+    releaseFailure();
+  }
   await submitting;
   await expect(pending.getByRole("alert")).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("stock-review-error.png") });
@@ -284,7 +290,7 @@ test("stok uzlaştırma belirsiz tekrarında kayıt başına anahtar korunur, de
   expect((api.reconciliationBodies[1] as { idempotencyKey: string }).idempotencyKey).toBe(otherKey);
 });
 
-async function mockWorkspace(page: Page, options: { temperatureRange?: boolean; adminReview?: boolean; stockReconciliation?: boolean; reconciliationFailureCount?: number; reviewDelayMs?: number } = {}) {
+async function mockWorkspace(page: Page, options: { temperatureRange?: boolean; adminReview?: boolean; stockReconciliation?: boolean; reconciliationFailureCount?: number; reconciliationFailureGate?: Promise<void>; reviewDelayMs?: number } = {}) {
   let state = "";
   const api: { createdBody?: unknown; lastReceiptBody?: unknown; reconciliationBodies: unknown[]; reviewFetches: number } = { reconciliationBodies: [], reviewFetches: 0 };
   let pendingReconciliationFailures = options.reconciliationFailureCount ?? 0;
@@ -333,7 +339,8 @@ async function mockWorkspace(page: Page, options: { temperatureRange?: boolean; 
       api.reconciliationBodies.push(request.postDataJSON());
       if (pendingReconciliationFailures > 0) {
         pendingReconciliationFailures--;
-        await new Promise((resolve) => setTimeout(resolve, 150));
+        if (options.reconciliationFailureGate) await options.reconciliationFailureGate;
+        else await new Promise((resolve) => setTimeout(resolve, 150));
         return json(route, { mesaj: "Stok uzlaştırma geçici olarak tamamlanamadı." }, 503);
       }
       return json(route, { mesaj: "Stok kararı kaydedildi." });
