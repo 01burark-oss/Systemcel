@@ -188,6 +188,40 @@ describe("AbonelikSayfasi", () => {
     await waitFor(() => expect(vi.mocked(jsonOku).mock.calls.filter(([url]) => url === "/api/abonelik/checkout")).toHaveLength(1));
   });
 
+  it("requires PayTR contact details and sends them with checkout", async () => {
+    const user = userEvent.setup();
+    vi.mocked(jsonOku).mockImplementation(async (url) => {
+      if (url === "/api/abonelik/ozet") return summary;
+      if (url === "/api/public/planlar") return plans;
+      if (url.startsWith("/api/abonelik/teklif?")) return { ...quote, paytrContactRequired: true };
+      if (url === "/api/abonelik/checkout") return new Promise(() => undefined);
+      throw new Error(`Unexpected request: ${url}`);
+    });
+    vi.mocked(jsonOku).mockClear();
+    render(<AbonelikSayfasi />);
+    await screen.findByRole("heading", { name: "Planınızı seçin ve koşulları onaylayın" });
+    await user.click(await screen.findByRole("checkbox"));
+
+    const submit = screen.getByRole("button", { name: "Öde ve aboneliği başlat" });
+    await user.click(submit);
+    expect(await screen.findByRole("alert")).toHaveTextContent("ad soyad, adres ve telefon");
+    expect(vi.mocked(jsonOku).mock.calls.some(([url]) => url === "/api/abonelik/checkout")).toBe(false);
+
+    await user.type(screen.getByRole("textbox", { name: "Ad soyad" }), "Ayşe Yılmaz");
+    await user.type(screen.getByRole("textbox", { name: "Adres" }), "Test Mahallesi No 1");
+    await user.type(screen.getByRole("textbox", { name: "Telefon" }), "5551234567");
+    await user.click(submit);
+
+    await waitFor(() => expect(vi.mocked(jsonOku).mock.calls.some(([url]) => url === "/api/abonelik/checkout")).toBe(true));
+    const checkoutCall = vi.mocked(jsonOku).mock.calls.find(([url]) => url === "/api/abonelik/checkout");
+    const body = JSON.parse(String(checkoutCall?.[1]?.body));
+    expect(body).toMatchObject({
+      odemeAdSoyad: "Ayşe Yılmaz",
+      odemeAdres: "Test Mahallesi No 1",
+      odemeTelefon: "5551234567"
+    });
+  });
+
   it("shows the unused-period credit and server-calculated upgrade charge", async () => {
     vi.mocked(jsonOku).mockImplementation(async (url) => {
       if (url === "/api/abonelik/ozet") return summary;

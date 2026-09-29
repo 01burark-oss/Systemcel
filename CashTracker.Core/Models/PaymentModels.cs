@@ -89,7 +89,11 @@ namespace CashTracker.Core.Models
         Uri SuccessUrl,
         Uri FailureUrl,
         Uri CallbackUrl,
-        IReadOnlyDictionary<string, string>? Metadata = null);
+        IReadOnlyDictionary<string, string>? Metadata = null,
+        string? CustomerIp = null,
+        string? CustomerName = null,
+        string? CustomerAddress = null,
+        string? CustomerPhone = null);
 
     public sealed record PaymentCheckoutSession(
         string Provider,
@@ -139,7 +143,10 @@ namespace CashTracker.Core.Models
         Uri CallbackUrl,
         decimal? ExpectedTotalAmount = null,
         decimal? ExpectedProrationCreditNetAmount = null,
-        string? ExpectedChangeType = null);
+        string? ExpectedChangeType = null,
+        string? CustomerName = null,
+        string? CustomerAddress = null,
+        string? CustomerPhone = null);
 
     public sealed record SubscriptionCheckoutResult(
         int PaymentTransactionId,

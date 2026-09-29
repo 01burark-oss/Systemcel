@@ -63,7 +63,7 @@ const baseSummary = {
   odemeler: []
 };
 
-async function mockWorkspace(page: Page, summary = baseSummary, expectedBilling: "Aylik" | "Yillik" = "Aylik", expectedCredits = 2) {
+async function mockWorkspace(page: Page, summary = baseSummary, expectedBilling: "Aylik" | "Yillik" = "Aylik", expectedCredits = 2, paytrContactRequired = false) {
   await page.route("**/api/**", async (route) => {
     const request = route.request();
     const path = new URL(request.url()).pathname;
@@ -122,11 +122,17 @@ async function mockWorkspace(page: Page, summary = baseSummary, expectedBilling:
           isFounderPrice: true,
           listNetAmount: annual ? 10069.92 : 999,
           renewalNetAmount: annual ? 10069.92 : 999,
-          discountedPeriodCount: annual ? 1 : 3
+          discountedPeriodCount: annual ? 1 : 3,
+          fullPeriodNetAmount: netAmount,
+          prorationCreditNetAmount: 0,
+          changeType: "YeniAbonelik",
+          effectiveAt: null,
+          targetPeriodEndAt: null
         },
         kampanyaKodu: "kurucu-100-2026",
         onayMetniSurumu: "abonelik-onayi-2026-08-v4",
-        onayMetni: "Aylık yenileme, dönem sonu iptal ve emredici yasal haklar saklıdır."
+        onayMetni: "Aylık yenileme, dönem sonu iptal ve emredici yasal haklar saklıdır.",
+        ...(paytrContactRequired ? { paytrContactRequired: true } : {})
       });
     }
     if (path === "/api/abonelik/checkout") {
@@ -138,6 +144,13 @@ async function mockWorkspace(page: Page, summary = baseSummary, expectedBilling:
         kampanyaKodu: "kurucu-100-2026",
         onaylandi: true
       });
+      if (paytrContactRequired) {
+        expect(payload).toMatchObject({
+          odemeAdSoyad: "Ayşe Yılmaz",
+          odemeAdres: "Test Mahallesi No 1",
+          odemeTelefon: "5551234567"
+        });
+      }
       return json(route, {
         odemeIslemiId: 99,
         checkoutUrl: "http://127.0.0.1:4173/checkout-sent",
@@ -172,6 +185,22 @@ test("monthly checkout shows recurring credits, VAT and explicit consent", async
   await page.getByRole("checkbox").press("Space");
   await expect(continueButton).toBeEnabled();
   await continueButton.click();
+  await expect(page).toHaveURL(/\/checkout-sent$/);
+});
+
+test("PayTR checkout requires contact details and sends them to the API", async ({ page }) => {
+  await mockWorkspace(page, baseSummary, "Aylik", 2, true);
+  await page.goto("/app/abonelik?plan=muhasebeci_standart&credits=2");
+
+  const dialog = page.getByRole("dialog", { name: "Planınızı seçin ve koşulları onaylayın" });
+  await expect(dialog.getByRole("textbox", { name: "Ad soyad" })).toHaveAttribute("required", "");
+  await expect(dialog.getByRole("textbox", { name: "Adres" })).toHaveAttribute("required", "");
+  await expect(dialog.getByRole("textbox", { name: "Telefon" })).toHaveAttribute("required", "");
+  await dialog.getByRole("textbox", { name: "Ad soyad" }).fill("Ayşe Yılmaz");
+  await dialog.getByRole("textbox", { name: "Adres" }).fill("Test Mahallesi No 1");
+  await dialog.getByRole("textbox", { name: "Telefon" }).fill("5551234567");
+  await dialog.getByRole("checkbox").check();
+  await dialog.getByRole("button", { name: "Öde ve aboneliği başlat" }).click();
   await expect(page).toHaveURL(/\/checkout-sent$/);
 });
 

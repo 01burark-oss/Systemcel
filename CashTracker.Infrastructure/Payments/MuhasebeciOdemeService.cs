@@ -42,6 +42,8 @@ public sealed class MuhasebeciOdemeService : IMuhasebeciOdemeService
         MuhasebeciOdemeCheckoutCommand command,
         CancellationToken ct = default)
     {
+        if (_provider is PaytrSubscriptionProvider)
+            throw new InvalidOperationException("Muhasebeci hizmet ödemesi PayTR test kapsamına dahil değil.");
         Validate(command);
         var checkoutKey = command.IdempotencyKey.Trim();
 

@@ -205,6 +205,14 @@
 .billing-quote dl div:last-child { padding-top: 10px; border-top: 1px solid var(--billing-line); font-weight: 800; }
 .billing-email { display: block; margin-top: 15px; }
 .billing-email small { font-weight: 500; }
+.billing-paytr-contact { display: grid; gap: 11px; margin-top: 16px; padding: 15px; border: 1px solid var(--billing-line); border-radius: 14px; background: var(--billing-paper-soft); }
+.billing-paytr-contact h3, .billing-paytr-contact p { margin: 0; }
+.billing-paytr-contact h3 { font-size: 14px; }
+.billing-paytr-contact p { color: var(--billing-muted); font-size: 12px; line-height: 1.45; }
+.billing-paytr-contact label > span { display: block; margin-bottom: 6px; color: var(--billing-muted); font-size: 11px; font-weight: 760; }
+.billing-paytr-contact input, .billing-paytr-contact textarea { width: 100%; padding: 10px 12px; border: 1px solid var(--billing-line); border-radius: 11px; color: var(--billing-ink); background: var(--billing-paper); font: inherit; }
+.billing-paytr-contact input { height: 44px; }
+.billing-paytr-contact textarea { min-height: 78px; resize: vertical; }
 .billing-consent { position: relative; display: grid; grid-template-columns: 24px 1fr; align-items: center; gap: 10px; margin-top: 15px; padding: 12px 14px; border: 1px solid var(--billing-line); border-radius: 14px; color: var(--billing-muted); background: var(--billing-paper); font-size: 12px; line-height: 1.5; }
 .billing-consent > input { position: absolute; width: 1px; height: 1px; opacity: 0; }
 .billing-consent > label { display: block; width: 24px; height: 24px; cursor: pointer; }

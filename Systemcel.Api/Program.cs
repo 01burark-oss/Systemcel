@@ -187,9 +187,17 @@ builder.Services.AddSingleton<IPaymentPricingService>(_ => new PaymentPricingSer
     paymentOptions.FreeTrialEnabled,
     paymentOptions.BusinessTrialDays,
     paymentOptions.AccountantTrialDays));
-builder.Services.AddSingleton<IPaymentProvider>(_ => paymentOptions.UsesFakeProvider
+builder.Services.AddHttpClient<PaytrIframeClient>(client => client.Timeout = TimeSpan.FromSeconds(15));
+builder.Services.AddSingleton<IPaymentProvider>(services => paymentOptions.UsesFakeProvider
     ? new FakePaymentProvider(paymentOptions.FakeSecret)
-    : new UnconfiguredPaymentProvider());
+    : paymentOptions.UsesPaytrProvider
+        ? new PaytrSubscriptionProvider(
+            services.GetRequiredService<PaytrIframeClient>(),
+            paymentOptions.PaytrMerchantId,
+            paymentOptions.PaytrMerchantKey,
+            paymentOptions.PaytrMerchantSalt,
+            paymentOptions.PaytrTestMode)
+        : new UnconfiguredPaymentProvider());
 builder.Services.AddSingleton<IMarketplacePaymentGateway>(_ => paymentOptions.UsesFakeProvider
     ? new FakeMarketplacePaymentGateway()
     : new UnconfiguredMarketplacePaymentGateway());
@@ -638,7 +646,30 @@ static PaymentRuntimeOptions ResolvePaymentOptions(IConfiguration configuration,
             Environment.GetEnvironmentVariable("SYSTEMCEL_PUBLIC_BASE_URL"),
             configuration["Systemcel:PublicBaseUrl"]) ?? string.Empty,
         VatRate = vatRate,
-        FreeTrialEnabled = freeTrialEnabled,
+        FreeTrialEnabled = string.Equals(provider, "PayTR", StringComparison.OrdinalIgnoreCase)
+            ? false : freeTrialEnabled,
+        PaytrMerchantId = FirstNonEmpty(
+            Environment.GetEnvironmentVariable("SYSTEMCEL_PAYTR_MERCHANT_ID"),
+            configuration["Systemcel:Payment:PaytrMerchantId"]) ?? string.Empty,
+        PaytrMerchantKey = FirstNonEmpty(
+            Environment.GetEnvironmentVariable("SYSTEMCEL_PAYTR_MERCHANT_KEY"),
+            configuration["Systemcel:Payment:PaytrMerchantKey"]) ?? string.Empty,
+        PaytrMerchantSalt = FirstNonEmpty(
+            Environment.GetEnvironmentVariable("SYSTEMCEL_PAYTR_MERCHANT_SALT"),
+            configuration["Systemcel:Payment:PaytrMerchantSalt"]) ?? string.Empty,
+        PaytrTestMode = !string.Equals(FirstNonEmpty(
+            Environment.GetEnvironmentVariable("SYSTEMCEL_PAYTR_TEST_MODE"),
+            configuration["Systemcel:Payment:PaytrTestMode"]), "false", StringComparison.OrdinalIgnoreCase),
+        PaytrTrustedProxyIps = (FirstNonEmpty(
+            Environment.GetEnvironmentVariable("SYSTEMCEL_PAYTR_TRUSTED_PROXY_IPS"),
+            configuration["Systemcel:Payment:PaytrTrustedProxyIps"]) ?? string.Empty)
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries),
+        PaytrTestBusinessIds = (FirstNonEmpty(
+            Environment.GetEnvironmentVariable("SYSTEMCEL_PAYTR_TEST_BUSINESS_IDS"),
+            configuration["Systemcel:Payment:PaytrTestBusinessIds"]) ?? string.Empty)
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(raw => int.TryParse(raw, out var id) && id > 0 ? id : 0)
+            .Where(id => id > 0).Distinct().ToArray(),
         BusinessTrialDays = businessTrialDays,
         AccountantTrialDays = accountantTrialDays,
         AccountantPlatformCommissionRate = accountantCommissionRate

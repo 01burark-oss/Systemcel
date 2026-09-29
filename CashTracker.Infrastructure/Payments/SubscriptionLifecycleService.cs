@@ -232,7 +232,11 @@ public sealed class SubscriptionLifecycleService : ISubscriptionLifecycleService
                     ["renewalNetAmount"] = quote.RenewalNetAmount.ToString(System.Globalization.CultureInfo.InvariantCulture),
                     ["changeType"] = quote.ChangeType,
                     ["prorationCreditNetAmount"] = quote.ProrationCreditNetAmount.ToString(System.Globalization.CultureInfo.InvariantCulture)
-                }), ct);
+                },
+                command.ClientIp,
+                command.CustomerName,
+                command.CustomerAddress,
+                command.CustomerPhone), ct);
 
             payment.OdemeSaglayici = session.Provider;
             payment.SaglayiciOturumId = session.ProviderSessionId;
@@ -274,8 +278,11 @@ public sealed class SubscriptionLifecycleService : ISubscriptionLifecycleService
         if (duplicate)
             return new PaymentWebhookProcessingResult(true, true, "Tekrar", "Olay daha once islendi.");
 
-        var payment = await db.OdemeIslemleri.SingleOrDefaultAsync(
-            x => x.CheckoutAnahtari == paymentEvent.MerchantReference, ct);
+        var payment = string.Equals(paymentEvent.Provider, "PayTR", StringComparison.Ordinal)
+            ? await db.OdemeIslemleri.SingleOrDefaultAsync(
+                x => x.OdemeSaglayici == "PayTR" && x.SaglayiciOturumId == paymentEvent.MerchantReference, ct)
+            : await db.OdemeIslemleri.SingleOrDefaultAsync(
+                x => x.CheckoutAnahtari == paymentEvent.MerchantReference, ct);
         if (payment is null)
             return new PaymentWebhookProcessingResult(false, false, "Reddedildi", "Checkout kaydi bulunamadi.");
         if (!string.Equals(payment.OdemeSaglayici, paymentEvent.Provider, StringComparison.OrdinalIgnoreCase))
@@ -290,7 +297,7 @@ public sealed class SubscriptionLifecycleService : ISubscriptionLifecycleService
             OdemeSaglayici = paymentEvent.Provider,
             OlayId = paymentEvent.EventId,
             OlayTipi = paymentEvent.EventType,
-            CheckoutAnahtari = paymentEvent.MerchantReference,
+            CheckoutAnahtari = payment.CheckoutAnahtari,
             SaglayiciIslemId = paymentEvent.ProviderTransactionId,
             IslenmeDurumu = "Isleniyor",
             PayloadHash = paymentEvent.PayloadHash,

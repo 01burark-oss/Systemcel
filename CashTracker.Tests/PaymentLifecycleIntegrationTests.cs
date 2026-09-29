@@ -1,6 +1,9 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Net;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -40,6 +43,73 @@ public sealed class PaymentLifecycleIntegrationTests
         Assert.NotEmpty(consent.IstemciIpHash);
         Assert.NotEqual(command.ConsentText, consent.MetinHash);
         Assert.NotEqual(command.ClientIp, consent.IstemciIpHash);
+    }
+
+    [Fact]
+    public async Task PaytrCallback_MatchesPersistedOrderAndAmount_AndAppliesOnce()
+    {
+        const string key = "paytr-test-key";
+        const string salt = "paytr-test-salt";
+        using var http = new HttpClient(new PaytrTokenHandler());
+        var provider = new PaytrSubscriptionProvider(new PaytrIframeClient(http),
+            "123456", key, salt, testMode: true);
+        using var fixture = new PaymentFixture(HesapTipleri.Isletme, provider);
+        var command = fixture.CreateCommand("paytr-checkout-key", PlanKodlari.IsletmeBaslangic) with
+        {
+            ClientIp = "203.0.113.7",
+            CustomerName = "Test Buyer",
+            CustomerAddress = "Test address",
+            CustomerPhone = "5550000000",
+            CallbackUrl = new Uri("https://systemcel.local/api/odeme/paytr/bildirim")
+        };
+        var checkout = await fixture.Service.BeginCheckoutAsync(command);
+        var oid = checkout.Session.ProviderSessionId;
+        var amount = PaytrIframeProtocol.ToKurus(checkout.Quote.TotalAmount);
+
+        PaymentWebhookEnvelope Callback(string orderId, string status, long kurus)
+        {
+            var amountText = kurus.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            var payload = JsonSerializer.Serialize(new
+            {
+                MerchantOrderId = orderId,
+                Status = status,
+                TotalAmountKurus = amountText
+            });
+            var signed = orderId + salt + status + amountText;
+            var signature = Convert.ToBase64String(HMACSHA256.HashData(
+                Encoding.UTF8.GetBytes(key), Encoding.UTF8.GetBytes(signed)));
+            return new PaymentWebhookEnvelope(payload, signature);
+        }
+
+        var wrongAmount = await fixture.Service.ProcessWebhookAsync(Callback(oid, "success", amount + 1));
+        Assert.False(wrongAmount.Accepted);
+        var first = await fixture.Service.ProcessWebhookAsync(Callback(oid, "success", amount));
+        var retry = await fixture.Service.ProcessWebhookAsync(Callback(oid, "success", amount));
+        Assert.True(first.Accepted);
+        Assert.True(retry.Accepted);
+        Assert.True(retry.Duplicate);
+
+        await using var db = fixture.Factory.CreateDbContext();
+        Assert.Equal(1, await db.OdemeOlaylari.CountAsync());
+        Assert.Equal(PaymentTransactionStates.Succeeded,
+            (await db.OdemeIslemleri.SingleAsync()).Durum);
+        Assert.Equal(1, await db.Abonelikler.CountAsync());
+
+        using var failedFixture = new PaymentFixture(HesapTipleri.Isletme, provider);
+        var failedCheckout = await failedFixture.Service.BeginCheckoutAsync(
+            failedFixture.CreateCommand("paytr-failed-checkout", PlanKodlari.IsletmeBaslangic) with
+            {
+                ClientIp = "203.0.113.7",
+                CustomerName = "Test Buyer",
+                CustomerAddress = "Test address",
+                CustomerPhone = "5550000000"
+            });
+        var failed = await failedFixture.Service.ProcessWebhookAsync(
+            Callback(failedCheckout.Session.ProviderSessionId, "failed", 0));
+        Assert.True(failed.Accepted);
+        await using var failedDb = failedFixture.Factory.CreateDbContext();
+        Assert.Equal(PaymentTransactionStates.Failed, (await failedDb.OdemeIslemleri.SingleAsync()).Durum);
+        Assert.Equal(0, await failedDb.Abonelikler.CountAsync());
     }
 
     [Fact]
@@ -600,6 +670,15 @@ public sealed class PaymentLifecycleIntegrationTests
             {
             }
         }
+    }
+
+    private sealed class PaytrTokenHandler : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct) =>
+            Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("{\"status\":\"success\",\"token\":\"TESTTOKEN\"}")
+            });
     }
 
     private sealed class FakeReminderSender : ISubscriptionReminderSender

@@ -145,6 +145,9 @@ export function AbonelikSayfasi() {
   const [sozlesmeAcik, setSozlesmeAcik] = React.useState(false);
   const [onaylandi, setOnaylandi] = React.useState(false);
   const [eposta, setEposta] = React.useState("");
+  const [odemeAdSoyad, setOdemeAdSoyad] = React.useState("");
+  const [odemeAdres, setOdemeAdres] = React.useState("");
+  const [odemeTelefon, setOdemeTelefon] = React.useState("");
   const [yukleniyor, setYukleniyor] = React.useState(true);
   const [teklifYukleniyor, setTeklifYukleniyor] = React.useState(false);
   const [islemde, setIslemde] = React.useState(false);
@@ -265,6 +268,10 @@ export function AbonelikSayfasi() {
 
   const checkoutBaslat = async () => {
     if (!onaylandi || !teklif || checkoutIslemdeRef.current) return;
+    if (teklif.paytrContactRequired && (!odemeAdSoyad.trim() || !odemeAdres.trim() || !odemeTelefon.trim())) {
+      setHata("Ödeme için ad soyad, adres ve telefon bilgilerinizi girin.");
+      return;
+    }
     checkoutIslemdeRef.current = true;
     try {
       setIslemde(true);
@@ -279,6 +286,11 @@ export function AbonelikSayfasi() {
           kampanyaKodu: teklif.kampanyaKodu || null,
           onaylandi: true,
           eposta: eposta.trim() || null,
+          ...(teklif.paytrContactRequired ? {
+            odemeAdSoyad: odemeAdSoyad.trim(),
+            odemeAdres: odemeAdres.trim(),
+            odemeTelefon: odemeTelefon.trim()
+          } : {}),
           idempotencyKey: idempotencyRef.current
         })
       });
@@ -567,6 +579,15 @@ export function AbonelikSayfasi() {
                       </dl>
                     </div>
                     <label className="billing-email"><span>E-posta <small>(hesabınızda yoksa)</small></span><input type="email" autoComplete="email" value={eposta} onChange={(event) => setEposta(event.target.value)} placeholder="ornek@isletme.com" /></label>
+                    {teklif.paytrContactRequired ? (
+                      <section className="billing-paytr-contact" aria-labelledby="billing-paytr-contact-title">
+                        <h3 id="billing-paytr-contact-title">Ödeme iletişim bilgileri</h3>
+                        <p>PayTR ödeme adımı için bu bilgileri girin.</p>
+                        <label><span>Ad soyad</span><input autoComplete="name" required maxLength={60} value={odemeAdSoyad} onChange={(event) => setOdemeAdSoyad(event.target.value)} /></label>
+                        <label><span>Adres</span><textarea autoComplete="street-address" required maxLength={400} rows={3} value={odemeAdres} onChange={(event) => setOdemeAdres(event.target.value)} /></label>
+                        <label><span>Telefon</span><input type="tel" autoComplete="tel" required maxLength={20} value={odemeTelefon} onChange={(event) => setOdemeTelefon(event.target.value)} /></label>
+                      </section>
+                    ) : null}
                     <div className="billing-consent">
                       <input id="billing-subscription-consent" type="checkbox" checked={onaylandi} onChange={(event) => setOnaylandi(event.target.checked)} aria-labelledby="billing-consent-copy" />
                       <label htmlFor="billing-subscription-consent"><i aria-hidden="true"><Check size={14} /></i></label>
