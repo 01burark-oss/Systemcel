@@ -8,9 +8,13 @@ if [[ -z "$container_id" ]]; then
   exit 1
 fi
 
-result="$(docker exec -i "$container_id" psql \
-  -U postgres -d systemcel_test_ci -X -q -t -A -F '|' -v ON_ERROR_STOP=1 \
-  < "$repo_root/scripts/marketplace-reference-audit.sql")"
+result="$({
+  cat "$repo_root/scripts/marketplace-reference-audit.sql"
+  cat "$repo_root/scripts/marketplace-reference-audit-fixtures.sql"
+  cat "$repo_root/scripts/marketplace-reference-audit.sql"
+} | docker exec -i "$container_id" psql \
+  -U postgres -d systemcel_test_ci -X -q -t -A -F '|' -v ON_ERROR_STOP=1
+)"
 
 expected=(
   shipment_line_order_item_mismatch
@@ -22,16 +26,16 @@ expected=(
 
 for issue in "${expected[@]}"; do
   matches="$(printf '%s\n' "$result" | awk -F '|' -v issue="$issue" '$1 == issue { print $2 }')"
-  if [[ "$matches" != "0" ]]; then
-    echo "Reference audit expected exactly one clean row for $issue, got: ${matches:-missing}." >&2
+  if [[ "$matches" != $'0\n1' ]]; then
+    echo "Reference audit expected clean/fixture counts 0/1 for $issue, got: ${matches:-missing}." >&2
     exit 1
   fi
 done
 
 row_count="$(printf '%s\n' "$result" | awk -F '|' 'NF == 2 { count++ } END { print count+0 }')"
-if [[ "$row_count" != "${#expected[@]}" ]]; then
-  echo "Reference audit returned $row_count rows; expected ${#expected[@]}." >&2
+if [[ "$row_count" != "$((${#expected[@]} * 2))" ]]; then
+  echo "Reference audit returned $row_count rows; expected $((${#expected[@]} * 2))." >&2
   exit 1
 fi
 
-echo "Marketplace reference audit: ${#expected[@]} clean structural checks passed."
+echo "Marketplace reference audit: ${#expected[@]} clean and positive fixture checks passed."
