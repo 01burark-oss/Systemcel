@@ -116,6 +116,63 @@ public sealed class AiAssistantFinancialContextTests
         Assert.DoesNotContain("cari 1", result.Answer, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public async Task OnlineAssistant_RestoresKnownBusinessAndCariAliasesButKeepsUnknownAlias()
+    {
+        var handler = new CapturingHandler(
+            HttpStatusCode.OK,
+            "{\"choices\":[{\"message\":{\"content\":\"[ISLETME] için [CARI_1] kaydını inceleyin; [CARI_99] eşleşmedi.\"}}]}");
+        var service = CreateService(
+            BuildFinancialView(),
+            new DeepSeekSettings { ApiKey = "test-api-key" },
+            handler);
+
+        var result = await service.ChatAsync(new AiAssistantChatRequest { Mesaj = "Tahsilat durumumu değerlendir." });
+
+        Assert.Contains("Örnek İşletme", result.Answer);
+        Assert.Contains("Örnek Market", result.Answer);
+        Assert.Contains("[CARI_99]", result.Answer);
+        Assert.DoesNotContain("[ISLETME]", result.Answer);
+        Assert.DoesNotContain("[CARI_1]", result.Answer);
+    }
+
+    [Fact]
+    public async Task OnlineAssistant_KeepsTenantDataOutOfOtherTenantsProviderPrompt()
+    {
+        var tenantAHandler = new CapturingHandler(
+            HttpStatusCode.OK,
+            "{\"choices\":[{\"message\":{\"content\":\"[CARI_1] için tahsilatı izleyin.\"}}]}");
+        var tenantBHandler = new CapturingHandler(
+            HttpStatusCode.OK,
+            "{\"choices\":[{\"message\":{\"content\":\"[CARI_1] için tahsilatı izleyin.\"}}]}");
+        var tenantAView = BuildTenantFinancialView("Atlas Tedarik", 12_345m);
+        var tenantBView = BuildTenantFinancialView("Bora Lojistik", 67_890m);
+        var settings = new DeepSeekSettings { ApiKey = "test-api-key" };
+        var tenantA = CreateService(tenantAView, settings, tenantAHandler, businessName: "Atlas İşletmesi", cariName: "Atlas Tedarik");
+        var tenantB = CreateService(tenantBView, settings, tenantBHandler, businessName: "Bora İşletmesi", cariName: "Bora Lojistik", businessId: 2);
+
+        var answerA = await tenantA.ChatAsync(new AiAssistantChatRequest { Mesaj = "Tahsilat durumumu değerlendir." });
+        var answerB = await tenantB.ChatAsync(new AiAssistantChatRequest { Mesaj = "Tahsilat durumumu değerlendir." });
+
+        Assert.Contains("Atlas Tedarik", answerA.Answer);
+        Assert.Contains("Bora Lojistik", answerB.Answer);
+        Assert.NotNull(tenantAHandler.Body);
+        Assert.NotNull(tenantBHandler.Body);
+        Assert.DoesNotContain("Atlas", tenantAHandler.Body);
+        Assert.DoesNotContain("Bora", tenantAHandler.Body);
+        Assert.DoesNotContain("Atlas", tenantBHandler.Body);
+        Assert.DoesNotContain("Bora", tenantBHandler.Body);
+
+        using var requestA = JsonDocument.Parse(tenantAHandler.Body!);
+        using var requestB = JsonDocument.Parse(tenantBHandler.Body!);
+        var promptA = requestA.RootElement.GetProperty("messages")[1].GetProperty("content").GetString();
+        var promptB = requestB.RootElement.GetProperty("messages")[1].GetProperty("content").GetString();
+        Assert.Contains("12.345", promptA);
+        Assert.DoesNotContain("67.890", promptA);
+        Assert.Contains("67.890", promptB);
+        Assert.DoesNotContain("12.345", promptB);
+    }
+
     [Theory]
     [InlineData("Seni kim yarattı? Finans verilerime bakarak cevap ver.")]
     [InlineData("Sen DeepSeek misin? Finans verilerime bakarak cevap ver.")]
@@ -377,7 +434,10 @@ public sealed class AiAssistantFinancialContextTests
         DeepSeekSettings? settings = null,
         HttpMessageHandler? handler = null,
         IAkilliKararService? smartService = null,
-        IAiUsageQuotaService? quota = null)
+        IAiUsageQuotaService? quota = null,
+        string businessName = "Örnek İşletme",
+        string cariName = "Örnek Market",
+        int businessId = 1)
     {
         settings ??= new DeepSeekSettings();
         var client = new DeepSeekChatClient(new HttpClient(handler ?? new NoopHandler()), settings);
@@ -386,11 +446,11 @@ public sealed class AiAssistantFinancialContextTests
             client,
             new FakeIsletmeService
             {
-                Active = new Isletme { Id = 1, Ad = "Örnek İşletme", IsAktif = true }
+                Active = new Isletme { Id = businessId, Ad = businessName, IsAktif = true }
             },
             new FakeKasaService(),
             new FakeSummaryService(),
-            new CariStub(),
+            new CariStub(cariName),
             new FakeUrunHizmetService(),
             new FakeStokService(),
             new FaturaStub(),
@@ -398,6 +458,30 @@ public sealed class AiAssistantFinancialContextTests
             quota ?? new UsageQuotaStub(),
             akilliKararService: smartService ?? new RoutingStub(new AsistanYonlendirme("nakit", .9, string.Empty)));
     }
+
+    private static FinansalGorunum BuildTenantFinancialView(string cariName, decimal overdueAmount) => new()
+    {
+        ReferansTarihi = DateTime.Today,
+        KasaBakiyesi = overdueAmount,
+        AcikAlacakToplami = overdueAmount,
+        VadesiGecmisAlacakToplami = overdueAmount,
+        CariRiskleri =
+        [
+            new CariOdemeRitmi
+            {
+                CariKartId = 10,
+                Unvan = cariName,
+                AcikAlacak = overdueAmount,
+                VadesiGecmisAlacak = overdueAmount,
+                EnUzunGecikmeGunu = 12,
+                OrtancaOdemeSapmasiGunu = 5,
+                ZamanindaOdemeOrani = 40,
+                TamamlananOdemeAdedi = 3,
+                RitimDurumu = "Yavasliyor",
+                RiskSeviyesi = "Orta"
+            }
+        ]
+    };
 
     private static FinansalGorunum BuildFinancialView()
     {
@@ -507,9 +591,9 @@ public sealed class AiAssistantFinancialContextTests
         public Task<bool> DeletePlanItemAsync(int id, CancellationToken ct = default) => Task.FromResult(true);
     }
 
-    private sealed class CariStub : ICariService
+    private sealed class CariStub(string cariName) : ICariService
     {
-        private readonly List<CariKart> _rows = [new() { Id = 10, Unvan = "Örnek Market" }];
+        private readonly List<CariKart> _rows = [new() { Id = 10, Unvan = cariName }];
         public Task<List<CariKart>> GetAllAsync(CancellationToken ct = default) => Task.FromResult(_rows);
         public Task<CariKart?> GetByIdAsync(int id, CancellationToken ct = default) => Task.FromResult(_rows.FirstOrDefault(x => x.Id == id));
         public Task<int> CreateAsync(CariKart cariKart, CancellationToken ct = default) => Task.FromResult(1);

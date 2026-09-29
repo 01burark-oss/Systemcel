@@ -136,6 +136,89 @@ public sealed class SecurityHardeningTests
     }
 
     [Fact]
+    public async Task ChatUpload_OnlyParticipantsCanCreateAndExchangeAttachments()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"systemcel_chat_upload_{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+        try
+        {
+            var options = new DbContextOptionsBuilder<CashTrackerDbContext>()
+                .UseSqlite($"Data Source={Path.Combine(root, "chat.db")}")
+                .Options;
+            var factory = new SingleDbContextFactory(options);
+            int conversationId;
+            await using (var db = new CashTrackerDbContext(options))
+            {
+                await db.Database.EnsureCreatedAsync();
+                db.Isletmeler.AddRange(
+                    Business(1, "Accountant", "Muhasebeci"),
+                    Business(2, "Customer", "Isletme"),
+                    Business(3, "Outsider", "Isletme"));
+                var conversation = new MuhasebeciSohbet
+                {
+                    MuhasebeciIsletmeId = 1,
+                    MusteriIsletmeId = 2,
+                    Konu = "Attachment access"
+                };
+                db.MuhasebeciSohbetleri.Add(conversation);
+                await db.SaveChangesAsync();
+                conversationId = conversation.Id;
+            }
+
+            var active = new FakeIsletmeService { Active = Business(3, "Outsider", "Isletme") };
+            var service = new MuhasebeciSohbetMerkeziService(
+                factory, active, new MuhasebeciSohbetStorageOptions { AppDataPath = root });
+            var pdf = "%PDF-1.7\n%%EOF"u8.ToArray();
+            SohbetDosyaYukleme Upload(Stream content, string name) => new()
+            {
+                DosyaAdi = name,
+                IcerikTipi = "application/pdf",
+                Boyut = content.Length,
+                Icerik = content
+            };
+
+            await using (var outsideContent = new MemoryStream(pdf))
+                await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                    service.DosyaEkleAsync(conversationId, Upload(outsideContent, "outside.pdf")));
+            await using (var db = new CashTrackerDbContext(options))
+            {
+                Assert.Empty(await db.MuhasebeciSohbetEkleri.ToListAsync());
+                Assert.Empty(await db.MuhasebeciSohbetMesajlari.ToListAsync());
+            }
+            Assert.False(Directory.Exists(Path.Combine(root, "chat-attachments")));
+
+            active.Active = Business(2, "Customer", "Isletme");
+            MuhasebeciSohbetEkiDto customerFile;
+            await using (var customerContent = new MemoryStream(pdf))
+                customerFile = await service.DosyaEkleAsync(
+                    conversationId, Upload(customerContent, "customer.pdf"));
+
+            active.Active = Business(1, "Accountant", "Muhasebeci");
+            Assert.True(File.Exists((await service.DosyaIndirAsync(customerFile.Id)).DosyaYolu));
+            MuhasebeciSohbetEkiDto accountantFile;
+            await using (var accountantContent = new MemoryStream(pdf))
+                accountantFile = await service.DosyaEkleAsync(
+                    conversationId, Upload(accountantContent, "accountant.pdf"));
+
+            active.Active = Business(2, "Customer", "Isletme");
+            Assert.True(File.Exists((await service.DosyaIndirAsync(accountantFile.Id)).DosyaYolu));
+            await using (var invalidContent = new MemoryStream(new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A }))
+                await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                    service.DosyaEkleAsync(conversationId, Upload(invalidContent, "wrong.pdf")));
+            await using (var db = new CashTrackerDbContext(options))
+            {
+                Assert.Equal(2, await db.MuhasebeciSohbetEkleri.CountAsync());
+                Assert.Equal(2, await db.MuhasebeciSohbetMesajlari.CountAsync());
+            }
+            Assert.Equal(2, Directory.GetFiles(Path.Combine(root, "chat-attachments", conversationId.ToString())).Length);
+        }
+        finally
+        {
+            try { Directory.Delete(root, recursive: true); } catch { }
+        }
+    }
+
+    [Fact]
     public async Task AttachmentDownload_RejectsDatabasePathOutsideStorageRoot()
     {
         var root = Path.Combine(Path.GetTempPath(), $"systemcel_security_root_{Guid.NewGuid():N}");
