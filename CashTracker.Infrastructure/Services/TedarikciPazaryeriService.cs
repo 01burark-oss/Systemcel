@@ -4,6 +4,7 @@ using System.Text;
 using CashTracker.Core.Entities;
 using CashTracker.Core.Models;
 using CashTracker.Core.Services;
+using CashTracker.Infrastructure.Payments;
 using CashTracker.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -406,10 +407,13 @@ public sealed class TedarikciPazaryeriService : ITedarikciPazaryeriService
         var buyerId = await _isletmeService.GetActiveIdAsync();
         if (!_paymentGateway.IsConfigured)
             throw new InvalidOperationException("Kartla ödeme henüz kullanıma açılmadı.");
+        var instructionKey = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(
+            $"marketplace:collect:{buyerId}:{request.IdempotencyKey.Trim()}"))).ToLowerInvariant();
 
         PazaryeriAnaSiparis master;
         List<TedarikciSiparis> supplierOrders;
         PazaryeriOdeme payment;
+        long instructionId;
         await using (var prepareDb = await _dbFactory.CreateDbContextAsync(ct))
         await using (var prepareTx = await prepareDb.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct))
         {
@@ -436,25 +440,47 @@ public sealed class TedarikciPazaryeriService : ITedarikciPazaryeriService
                     ParaBirimi = master.ParaBirimi,
                     Durum = "Hazirlaniyor"
                 };
-            if (payment.Id == 0)
+            var isNewPayment = payment.Id == 0;
+            if (isNewPayment)
                 prepareDb.PazaryeriOdemeleri.Add(payment);
             else if (payment.AnaSiparisId != master.Id || payment.Tutar != master.GenelToplam)
                 throw new InvalidOperationException("Bu ödeme anahtarı farklı bir sipariş için kullanılmış.");
             else if (payment.Durum == "Basarili")
                 return new PazaryeriIslemSonucu(master.Id, "Ödeme daha önce tamamlandı.", true);
+            else
+                return new PazaryeriIslemSonucu(master.Id, "Ödeme sonucu inceleme bekliyor.", true);
 
             await prepareDb.SaveChangesAsync(ct);
+            var instruction = await PazaryeriParaTalimatiStore.EnqueueAsync(prepareDb,
+                new PazaryeriParaTalimatiTaslagi(
+                    buyerId, null, payment.Id, PazaryeriParaTalimatiTurleri.Tahsilat,
+                    _paymentGateway.Name, instructionKey,
+                    $"master-order:{master.Id}", master.GenelToplam, master.ParaBirimi), ct);
+            await prepareDb.SaveChangesAsync(ct);
+            instructionId = instruction.Id;
             await prepareTx.CommitAsync(ct);
         }
 
-        var providerResult = await _paymentGateway.CollectAsync(new MarketplacePaymentCommand(
-            master.SiparisNo,
-            request.IdempotencyKey.Trim(),
-            master.GenelToplam,
-            master.ParaBirimi,
-            buyerId,
-            supplierOrders.Select(x => new MarketplacePaymentAllocation(
-                x.TedarikciIsletmeId, x.GenelToplam, x.TedarikciHakEdisi)).ToList()), ct);
+        var instructionStore = new PazaryeriParaTalimatiStore(_dbFactory);
+        if (!await instructionStore.ClaimByIdAsync(instructionId, DateTime.UtcNow, ct))
+            return new PazaryeriIslemSonucu(master.Id, "Ödeme sonucu inceleme bekliyor.", true);
+        MarketplacePaymentResult providerResult;
+        try
+        {
+            providerResult = await _paymentGateway.CollectAsync(new MarketplacePaymentCommand(
+                master.SiparisNo,
+                request.IdempotencyKey.Trim(),
+                master.GenelToplam,
+                master.ParaBirimi,
+                buyerId,
+                supplierOrders.Select(x => new MarketplacePaymentAllocation(
+                    x.TedarikciIsletmeId, x.GenelToplam, x.TedarikciHakEdisi)).ToList()), ct);
+        }
+        catch (Exception)
+        {
+            await instructionStore.MarkUnknownAsync(instructionId, "provider-call-error", DateTime.UtcNow, CancellationToken.None);
+            throw new InvalidOperationException("Ödeme sonucu doğrulanamadı; yeniden tahsilat denenmeden durum incelenmeli.");
+        }
 
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
         await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
@@ -464,6 +490,8 @@ public sealed class TedarikciPazaryeriService : ITedarikciPazaryeriService
             return new PazaryeriIslemSonucu(storedMaster.Id, "Ödeme daha önce tamamlandı.", true);
         if (!providerResult.Succeeded)
         {
+            await PazaryeriParaTalimatiStore.ApplyDefinitiveFailureAsync(
+                db, instructionId, "provider-rejected", DateTime.UtcNow, ct);
             storedPayment.Durum = "Basarisiz";
             storedPayment.UpdatedAt = DateTime.UtcNow;
             await db.SaveChangesAsync(ct);
@@ -483,6 +511,8 @@ public sealed class TedarikciPazaryeriService : ITedarikciPazaryeriService
         }
 
         var now = DateTime.UtcNow;
+        await PazaryeriParaTalimatiStore.ApplyCompletedAsync(
+            db, instructionId, providerResult.ProviderTransactionId, now, ct);
         storedPayment.SaglayiciIslemId = providerResult.ProviderTransactionId;
         storedPayment.Saglayici = providerResult.Provider;
         storedPayment.Durum = "Basarili";

@@ -76,6 +76,7 @@ namespace CashTracker.Infrastructure.Persistence
         public DbSet<TedarikciSiparis> TedarikciSiparisleri => Set<TedarikciSiparis>();
         public DbSet<TedarikciSiparisKalemi> TedarikciSiparisKalemleri => Set<TedarikciSiparisKalemi>();
         public DbSet<PazaryeriOdeme> PazaryeriOdemeleri => Set<PazaryeriOdeme>();
+        public DbSet<PazaryeriParaTalimati> PazaryeriParaTalimatlari => Set<PazaryeriParaTalimati>();
         public DbSet<PazaryeriOdemeDagitimi> PazaryeriOdemeDagitimlari => Set<PazaryeriOdemeDagitimi>();
         public DbSet<TedarikciHakEdis> TedarikciHakEdisleri => Set<TedarikciHakEdis>();
         public DbSet<PazaryeriDefterKaydi> PazaryeriDefterKayitlari => Set<PazaryeriDefterKaydi>();
@@ -215,6 +216,25 @@ namespace CashTracker.Infrastructure.Persistence
                 e.HasIndex(x => new { x.AliciIsletmeId, x.IdempotencyAnahtari }).IsUnique(); e.HasIndex(x => x.AnaSiparisId).IsUnique();
                 e.HasOne<PazaryeriAnaSiparis>().WithMany().HasForeignKey(x => x.AnaSiparisId).OnDelete(DeleteBehavior.Restrict);
                 e.HasOne<Isletme>().WithMany().HasForeignKey(x => x.AliciIsletmeId).OnDelete(DeleteBehavior.Restrict);
+            });
+            modelBuilder.Entity<PazaryeriParaTalimati>(e =>
+            {
+                e.ToTable("PazaryeriParaTalimati"); e.HasKey(x => x.Id);
+                e.Property(x => x.Tur).IsRequired().HasMaxLength(20);
+                e.Property(x => x.Saglayici).IsRequired().HasMaxLength(80);
+                e.Property(x => x.IdempotencyAnahtari).IsRequired().HasMaxLength(100);
+                e.Property(x => x.KaynakRef).IsRequired().HasMaxLength(160);
+                e.Property(x => x.Tutar).HasColumnType("NUMERIC(18,2)");
+                e.Property(x => x.ParaBirimi).IsRequired().HasMaxLength(3);
+                e.Property(x => x.Durum).IsRequired().HasMaxLength(30);
+                e.Property(x => x.SaglayiciIslemId).IsRequired().HasMaxLength(180);
+                e.Property(x => x.SonHataKodu).IsRequired().HasMaxLength(80);
+                e.HasIndex(x => new { x.Saglayici, x.Tur, x.IdempotencyAnahtari }).IsUnique();
+                e.HasIndex(x => new { x.Durum, x.CreatedAt });
+                e.HasIndex(x => new { x.TedarikciSiparisId, x.Tur });
+                e.HasOne<Isletme>().WithMany().HasForeignKey(x => x.AliciIsletmeId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne<TedarikciSiparis>().WithMany().HasForeignKey(x => x.TedarikciSiparisId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne<PazaryeriOdeme>().WithMany().HasForeignKey(x => x.PazaryeriOdemeId).OnDelete(DeleteBehavior.Restrict);
             });
             modelBuilder.Entity<PazaryeriOdemeDagitimi>(e =>
             {

@@ -57,6 +57,10 @@ public sealed class TedarikciPazaryeriServiceTests
         Assert.Equal(order.Id, paid.Id); Assert.True(repeat.TekrarKullanildi);
         await using var db = f.Db();
         Assert.Equal(2, await db.TedarikciHakEdisleri.CountAsync());
+        var paymentInstruction = Assert.Single(await db.PazaryeriParaTalimatlari.ToListAsync());
+        Assert.Equal(PazaryeriParaTalimatiTurleri.Tahsilat, paymentInstruction.Tur);
+        Assert.Equal(PazaryeriParaTalimatiDurumlari.Tamamlandi, paymentInstruction.Durum);
+        Assert.Equal(1, paymentInstruction.DenemeSayisi);
         Assert.Equal(2, await db.PazaryeriOdemeDagitimlari.CountAsync());
         Assert.Equal(10, await db.PazaryeriDefterKayitlari.CountAsync());
         Assert.Equal(10m, await db.TedarikciUrunleri.Where(x => x.Id == f.ProductA).Select(x => x.StokMiktari).SingleAsync());
@@ -68,6 +72,25 @@ public sealed class TedarikciPazaryeriServiceTests
         Assert.Equal(0.40m, firstOrder.KomisyonKdvTutari);
         Assert.Equal(0.20m, firstOrder.TevkifatTutari);
         Assert.Equal(21.40m, firstOrder.TedarikciHakEdisi);
+    }
+
+    [Fact]
+    public async Task PayOrder_SameClientKeyInDifferentBusinessesKeepsSeparateInstructions()
+    {
+        await using var f = await Fixture.CreateAsync();
+        var first = await f.Service(1).CreateOrderAsync(new PazaryeriSiparisOlusturRequest(
+            "Buyer order", "buyer-order", new[] { new PazaryeriSepetKalemiRequest(f.ProductA, 1) }));
+        var second = await f.Service(3).CreateOrderAsync(new PazaryeriSiparisOlusturRequest(
+            "Other order", "other-order", new[] { new PazaryeriSepetKalemiRequest(f.ProductA, 1) }));
+
+        await f.Service(1).PayOrderAsync(first.Id, new PazaryeriOdemeRequest("same-client-key"));
+        await f.Service(3).PayOrderAsync(second.Id, new PazaryeriOdemeRequest("same-client-key"));
+
+        await using var db = f.Db();
+        var instructions = await db.PazaryeriParaTalimatlari.ToListAsync();
+        Assert.Equal(2, instructions.Count);
+        Assert.NotEqual(instructions[0].IdempotencyAnahtari, instructions[1].IdempotencyAnahtari);
+        Assert.All(instructions, x => Assert.Equal(PazaryeriParaTalimatiDurumlari.Tamamlandi, x.Durum));
     }
 
     [Fact]
