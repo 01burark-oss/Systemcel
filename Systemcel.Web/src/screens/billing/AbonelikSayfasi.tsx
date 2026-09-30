@@ -506,8 +506,8 @@ export function AbonelikSayfasi() {
         <div className="billing-modal-backdrop" role="presentation" onMouseDown={(event) => {
           if (event.target === event.currentTarget) modalKapat();
         }}>
-          <section ref={modalRef} className={`billing-modal ${modal === "iptal" ? "billing-modal--cancel" : ""}`} role="dialog" aria-modal="true" aria-labelledby="billing-modal-title">
-            <button className="billing-modal__close" type="button" onClick={modalKapat} disabled={islemde} aria-label="Pencereyi kapat"><X size={19} /></button>
+          <section ref={modalRef} className={`billing-modal ${modal === "iptal" ? "billing-modal--cancel" : "billing-modal--checkout"}`} role="dialog" aria-modal="true" aria-labelledby="billing-modal-title">
+            {modal === "iptal" ? <button className="billing-modal__close" type="button" onClick={modalKapat} disabled={islemde} aria-label="Pencereyi kapat"><X size={19} /></button> : null}
             {modal === "iptal" ? (
               <>
                 <span className="billing-modal__icon billing-modal__icon--danger"><CalendarClock size={24} /></span>
@@ -527,67 +527,85 @@ export function AbonelikSayfasi() {
               </>
             ) : (
               <>
-                <span className="billing-modal__icon"><FileCheck2 size={24} /></span>
-                <p className="billing-modal__eyebrow">AÇIK ONAY</p>
-                <h2 id="billing-modal-title" ref={modalBaslikRef} tabIndex={-1}>{t("billing.choose")}</h2>
-                <p className="billing-modal__lead">Seçtiğiniz plan bugün başlar. Tutar ve yenileme koşulları ödeme öncesinde gösterilir.</p>
-
-                <div className="billing-plan-fields">
-                  <label><span>Plan</span><select value={planKodu} onChange={(event) => {
-                    setPlanKodu(event.target.value);
-                    if (event.target.value !== "muhasebeci_standart") setEkMusteriKredisi(0);
-                    setOnaylandi(false);
-                    idempotencyRef.current = yeniIdempotencyKey();
-                  }}>{planlar.map((plan) => <option key={plan.kod} value={plan.kod}>{plan.ad}</option>)}</select></label>
-                  <fieldset className="billing-period-choice">
-                    <legend>Faturalama dönemi</legend>
-                    <div>
-                      <button type="button" className={faturalamaDonemi === "Aylik" ? "active" : ""} aria-pressed={faturalamaDonemi === "Aylik"} onClick={() => {
-                        setFaturalamaDonemi("Aylik");
-                        setOnaylandi(false);
-                        idempotencyRef.current = yeniIdempotencyKey();
-                      }}>Aylık</button>
-                      <button type="button" className={faturalamaDonemi === "Yillik" ? "active" : ""} aria-pressed={faturalamaDonemi === "Yillik"} onClick={() => {
-                        setFaturalamaDonemi("Yillik");
-                        setOnaylandi(false);
-                        idempotencyRef.current = yeniIdempotencyKey();
-                      }}>Yıllık</button>
-                    </div>
-                  </fieldset>
-                  {planKodu === "muhasebeci_standart" ? <label><span>+1 müşteri kredisi</span><input type="number" min="0" max="10000" step="1" value={ekMusteriKredisi} onChange={(event) => {
-                    setEkMusteriKredisi(Math.min(10000, Math.max(0, Number.parseInt(event.target.value || "0", 10) || 0)));
-                    setOnaylandi(false);
-                    idempotencyRef.current = yeniIdempotencyKey();
-                  }} /><small>10 müşteri dahildir. Her kredi aboneliğinizle birlikte aylık yenilenir.</small></label> : null}
-                </div>
-
-                {teklifYukleniyor ? <div className="billing-quote-loading"><Loader2 className="spin" size={21} /> Plan bilgileri hazırlanıyor…</div> : teklif ? (
-                  <>
-                    <div className="billing-quote">
+                <header className="billing-checkout-header">
+                  <button className="billing-modal__close" type="button" onClick={modalKapat} disabled={islemde} aria-label="Pencereyi kapat"><X size={19} /></button>
+                  <span className="billing-checkout-brand">Systemcel<span aria-hidden="true">.</span></span>
+                  <h2 id="billing-modal-title" ref={modalBaslikRef} tabIndex={-1}>{t("billing.choose")}</h2>
+                </header>
+                <div className="billing-checkout-layout">
+                <div className="billing-checkout-details">
+                  <h3>Plan ve bilgiler</h3>
+                  <div className="billing-plan-fields">
+                    <label><span>Plan</span><select value={planKodu} onChange={(event) => {
+                      setPlanKodu(event.target.value);
+                      if (event.target.value !== "muhasebeci_standart") setEkMusteriKredisi(0);
+                      setOnaylandi(false);
+                      idempotencyRef.current = yeniIdempotencyKey();
+                    }}>{planlar.map((plan) => <option key={plan.kod} value={plan.kod}>{plan.ad}</option>)}</select></label>
+                    <fieldset className="billing-period-choice">
+                      <legend>Faturalama dönemi</legend>
                       <div>
-                        <small>{teklif.fiyat.changeType === "DonemSonuDegisiklik" ? "DÖNEM SONU DEĞİŞİKLİĞİ" : teklif.fiyat.isFounderPrice ? "LANSMANA ÖZEL" : faturalamaDonemi === "Yillik" ? "YILLIK ABONELİK" : "AYLIK ABONELİK"}</small>
-                        <strong>{teklif.fiyat.changeType === "DonemSonuDegisiklik" ? `${tarihBic(teklif.fiyat.effectiveAt)} tarihinde uygulanır` : `Bugün ${paraBic(teklif.fiyat.totalAmount, teklif.fiyat.currency)}`}</strong>
+                        <button type="button" className={faturalamaDonemi === "Aylik" ? "active" : ""} aria-pressed={faturalamaDonemi === "Aylik"} onClick={() => {
+                          setFaturalamaDonemi("Aylik");
+                          setOnaylandi(false);
+                          idempotencyRef.current = yeniIdempotencyKey();
+                        }}>Aylık</button>
+                        <button type="button" className={faturalamaDonemi === "Yillik" ? "active" : ""} aria-pressed={faturalamaDonemi === "Yillik"} onClick={() => {
+                          setFaturalamaDonemi("Yillik");
+                          setOnaylandi(false);
+                          idempotencyRef.current = yeniIdempotencyKey();
+                        }}>Yıllık</button>
                       </div>
-                      <dl>
-                        <div><dt>Yeni plan dönem bedeli</dt><dd>{paraBic(teklif.fiyat.fullPeriodNetAmount, teklif.fiyat.currency)}</dd></div>
+                    </fieldset>
+                    {planKodu === "muhasebeci_standart" ? <label><span>+1 müşteri kredisi</span><input type="number" min="0" max="10000" step="1" value={ekMusteriKredisi} onChange={(event) => {
+                      setEkMusteriKredisi(Math.min(10000, Math.max(0, Number.parseInt(event.target.value || "0", 10) || 0)));
+                      setOnaylandi(false);
+                      idempotencyRef.current = yeniIdempotencyKey();
+                    }} /><small>10 müşteri dahildir. Her kredi aboneliğinizle birlikte aylık yenilenir.</small></label> : null}
+                  </div>
+
+                  {teklif ? (
+                    <>
+                      <label className="billing-email"><span>E-posta <small>(hesabınızda yoksa)</small></span><input type="email" autoComplete="email" value={eposta} onChange={(event) => setEposta(event.target.value)} placeholder="ornek@isletme.com" /></label>
+                      {teklif.paytrContactRequired ? (
+                        <section className="billing-paytr-contact" aria-labelledby="billing-paytr-contact-title">
+                          <h3 id="billing-paytr-contact-title">İletişim bilgileri</h3>
+                          <label><span>Ad soyad</span><input autoComplete="name" required maxLength={60} value={odemeAdSoyad} onChange={(event) => setOdemeAdSoyad(event.target.value)} /></label>
+                          <label><span>Adres</span><textarea autoComplete="street-address" required maxLength={400} rows={3} value={odemeAdres} onChange={(event) => setOdemeAdres(event.target.value)} /></label>
+                          <label><span>Telefon</span><input type="tel" autoComplete="tel" required maxLength={20} value={odemeTelefon} onChange={(event) => setOdemeTelefon(event.target.value)} /></label>
+                        </section>
+                      ) : null}
+                    </>
+                  ) : null}
+                </div>
+                <aside className="billing-checkout-preview" aria-labelledby="billing-preview-title" aria-busy={teklifYukleniyor}>
+                  <header><h3 id="billing-preview-title">Ödeme özeti</h3><span><ReceiptText size={15} /> {faturalamaDonemi === "Yillik" ? "Yıllık" : "Aylık"}</span></header>
+                  {teklifYukleniyor ? <div className="billing-quote-loading" role="status"><Loader2 className="spin" size={21} /> Plan bilgileri hazırlanıyor…</div> : teklif ? (
+                    <article className="billing-checkout-receipt">
+                      <div className="billing-receipt-heading"><strong>Systemcel</strong>{teklif.fiyat.isFounderPrice ? <span>LANSMANA ÖZEL</span> : null}</div>
+                      <dl className="billing-receipt-meta">
+                        <div><dt>İşletme</dt><dd>{ozet?.isletmeAdi}</dd></div>
+                        <div><dt>Plan</dt><dd>{planlar.find((plan) => plan.kod === planKodu)?.ad}</dd></div>
+                        <div><dt>Başlangıç</dt><dd>{teklif.fiyat.changeType === "DonemSonuDegisiklik" ? tarihBic(teklif.fiyat.effectiveAt) : "Ödeme sonrası"}</dd></div>
+                        <div><dt>Para birimi</dt><dd>{teklif.fiyat.currency === "TRY" ? "Türk lirası (TL)" : teklif.fiyat.currency}</dd></div>
+                      </dl>
+                      <div className="billing-receipt-item"><span><Package2 size={19} /></span><div><strong>{planlar.find((plan) => plan.kod === planKodu)?.ad} planı</strong><small>{faturalamaDonemi === "Yillik" ? "1 yıl" : "1 ay"}</small></div><strong>{paraBic(teklif.fiyat.fullPeriodNetAmount, teklif.fiyat.currency)}</strong></div>
+                      <dl className="billing-receipt-totals">
                         {teklif.fiyat.prorationCreditNetAmount > 0 ? <div><dt>Kullanılmayan dönem kredisi</dt><dd>−{paraBic(teklif.fiyat.prorationCreditNetAmount, teklif.fiyat.currency)}</dd></div> : null}
                         {teklif.fiyat.changeType === "AnindaYukseltme" ? <div><dt>Bugün tahsil edilecek net</dt><dd>{paraBic(teklif.fiyat.netAmount, teklif.fiyat.currency)}</dd></div> : null}
                         {teklif.fiyat.extraCustomerCredits > 0 ? <div><dt>Müşteri kapasitesi</dt><dd>{teklif.fiyat.includedCustomerCount + teklif.fiyat.extraCustomerCredits} müşteri</dd></div> : null}
                         <div><dt>KDV (%{Math.round(teklif.fiyat.vatRate)})</dt><dd>{paraBic(teklif.fiyat.vatAmount, teklif.fiyat.currency)}</dd></div>
-                        {teklif.fiyat.isFounderPrice ? <div><dt>Bugünkü liste fiyatı</dt><dd>{paraBic(teklif.fiyat.renewalNetAmount, teklif.fiyat.currency)} + KDV</dd></div> : null}
-                        <div><dt>Bugünkü toplam</dt><dd>{paraBic(teklif.fiyat.totalAmount, teklif.fiyat.currency)}</dd></div>
+                        <div className="billing-receipt-total"><dt>Bugünkü toplam</dt><dd>{paraBic(teklif.fiyat.totalAmount, teklif.fiyat.currency)}</dd></div>
                       </dl>
-                    </div>
-                    <label className="billing-email"><span>E-posta <small>(hesabınızda yoksa)</small></span><input type="email" autoComplete="email" value={eposta} onChange={(event) => setEposta(event.target.value)} placeholder="ornek@isletme.com" /></label>
-                    {teklif.paytrContactRequired ? (
-                      <section className="billing-paytr-contact" aria-labelledby="billing-paytr-contact-title">
-                        <h3 id="billing-paytr-contact-title">Ödeme iletişim bilgileri</h3>
-                        <p>PayTR ödeme adımı için bu bilgileri girin.</p>
-                        <label><span>Ad soyad</span><input autoComplete="name" required maxLength={60} value={odemeAdSoyad} onChange={(event) => setOdemeAdSoyad(event.target.value)} /></label>
-                        <label><span>Adres</span><textarea autoComplete="street-address" required maxLength={400} rows={3} value={odemeAdres} onChange={(event) => setOdemeAdres(event.target.value)} /></label>
-                        <label><span>Telefon</span><input type="tel" autoComplete="tel" required maxLength={20} value={odemeTelefon} onChange={(event) => setOdemeTelefon(event.target.value)} /></label>
-                      </section>
-                    ) : null}
+                      <div className="billing-receipt-renewal">
+                        {teklif.fiyat.changeType === "DonemSonuDegisiklik" ? <p>Yeni planınız {tarihBic(teklif.fiyat.effectiveAt)} tarihinde uygulanır.</p> : null}
+                        {teklif.fiyat.isFounderPrice ? <><span>Bugünkü liste fiyatı</span><strong>{paraBic(teklif.fiyat.renewalNetAmount, teklif.fiyat.currency)} + KDV</strong><p>Lansman fiyatı {teklif.fiyat.discountedPeriodCount} {faturalamaDonemi === "Yillik" ? "yıllık" : "aylık"} dönem geçerlidir. Sonrasında güncel liste fiyatı uygulanır.</p></> : <p>{faturalamaDonemi === "Yillik" ? "Yıllık" : "Aylık"} yenilenir. Dönem sonunda iptal edebilirsiniz.</p>}
+                      </div>
+                    </article>
+                  ) : <div className="billing-preview-empty">Ödeme özeti hazırlanamadı.<button className="billing-link-button" type="button" onClick={() => { setModal(null); window.requestAnimationFrame(() => setModal("onay")); }}>Yeniden dene</button></div>}
+                </aside>
+                <div className="billing-checkout-footer">
+                  {teklif ? (
                     <div className="billing-consent">
                       <input id="billing-subscription-consent" type="checkbox" checked={onaylandi} onChange={(event) => setOnaylandi(event.target.checked)} aria-labelledby="billing-consent-copy" />
                       <label htmlFor="billing-subscription-consent"><i aria-hidden="true"><Check size={14} /></i></label>
@@ -595,12 +613,13 @@ export function AbonelikSayfasi() {
                         <button ref={sozlesmeTetikRef} className="billing-consent__link" type="button" onClick={() => setSozlesmeAcik(true)}>Abonelik sözleşmesini</button> okudum ve {faturalamaDonemi === "Yillik" ? "yıllık" : "aylık"} aboneliği onaylıyorum.
                       </span>
                     </div>
-                  </>
-                ) : null}
-                {hata ? <div className="billing-inline-error" role="alert"><AlertCircle size={17} />{hata}</div> : null}
-                <div className="billing-modal__actions">
-                  <button className="billing-button billing-button--secondary" type="button" onClick={modalKapat} disabled={islemde}>Daha sonra</button>
-                  <button className="billing-button billing-button--primary" type="button" onClick={checkoutBaslat} disabled={!onaylandi || !teklif || islemde || teklifYukleniyor}>{islemde ? <Loader2 className="spin" size={17} /> : <ShieldCheck size={17} />} {teklif?.fiyat.changeType === "DonemSonuDegisiklik" ? "Dönem sonuna planla" : teklif?.fiyat.changeType === "AnindaYukseltme" ? "Farkı öde ve yükselt" : "Öde ve aboneliği başlat"}</button>
+                  ) : null}
+                  {hata ? <div className="billing-inline-error" role="alert"><AlertCircle size={17} />{hata}</div> : null}
+                  <div className="billing-modal__actions">
+                    <button className="billing-button billing-button--secondary" type="button" onClick={modalKapat} disabled={islemde}>Daha sonra</button>
+                    <button className="billing-button billing-button--primary" type="button" onClick={checkoutBaslat} disabled={!onaylandi || !teklif || islemde || teklifYukleniyor}>{islemde ? <Loader2 className="spin" size={17} /> : <ShieldCheck size={17} />} {teklif?.fiyat.changeType === "DonemSonuDegisiklik" ? "Dönem sonuna planla" : teklif?.fiyat.changeType === "AnindaYukseltme" ? "Farkı öde ve yükselt" : "Öde ve aboneliği başlat"}</button>
+                  </div>
+                </div>
                 </div>
               </>
             )}

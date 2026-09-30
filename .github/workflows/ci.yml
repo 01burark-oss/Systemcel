@@ -224,3 +224,4 @@ jobs:
           bash ./deployment/oracle-free/tests/collect-monitoring-smoke.sh
           python3 ./deployment/oracle-free/tests/alert-monitoring-smoke.py
           bash ./deployment/oracle-free/tests/deploy-bundle-smoke.sh
+          python3 ./deployment/paytr-test/tests/configuration-smoke.py

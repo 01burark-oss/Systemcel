@@ -115,7 +115,7 @@ describe("AbonelikSayfasi", () => {
     const user = userEvent.setup();
     render(<AbonelikSayfasi />);
 
-    expect(await screen.findByRole("heading", { name: "Planınızı seçin ve koşulları onaylayın" })).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "Abonelik ödemesi" })).toBeVisible();
     expect(screen.getByRole("button", { name: "Aylık" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("button", { name: "Yıllık" })).toBeVisible();
     expect(screen.getByRole("spinbutton", { name: /\+1 müşteri kredisi/i })).toHaveValue(2);
@@ -180,7 +180,7 @@ describe("AbonelikSayfasi", () => {
       throw new Error(`Unexpected request: ${url}`);
     });
     render(<AbonelikSayfasi />);
-    await screen.findByRole("heading", { name: "Planınızı seçin ve koşulları onaylayın" });
+    await screen.findByRole("heading", { name: "Abonelik ödemesi" });
     await user.click(await screen.findByRole("checkbox"));
     const button = screen.getByRole("button", { name: "Öde ve aboneliği başlat" });
     button.click();
@@ -199,7 +199,7 @@ describe("AbonelikSayfasi", () => {
     });
     vi.mocked(jsonOku).mockClear();
     render(<AbonelikSayfasi />);
-    await screen.findByRole("heading", { name: "Planınızı seçin ve koşulları onaylayın" });
+    await screen.findByRole("heading", { name: "Abonelik ödemesi" });
     await user.click(await screen.findByRole("checkbox"));
 
     const submit = screen.getByRole("button", { name: "Öde ve aboneliği başlat" });
@@ -287,13 +287,12 @@ describe("AbonelikSayfasi", () => {
     });
 
     render(<AbonelikSayfasi />);
-    await screen.findByText("DÖNEM SONU DEĞİŞİKLİĞİ");
-    expect(screen.getByText(/01 Eylül 2026 tarihinde uygulanır/)).toBeVisible();
+    expect(await screen.findByText(/Yeni planınız 01 Eylül 2026 tarihinde uygulanır/)).toBeVisible();
     await user.click(screen.getByRole("checkbox"));
     await user.click(screen.getByRole("button", { name: "Dönem sonuna planla" }));
 
     await waitFor(() => expect(summaryReads).toBe(2));
-    expect(screen.queryByRole("dialog", { name: "Planınızı seçin ve koşulları onaylayın" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: "Abonelik ödemesi" })).not.toBeInTheDocument();
   });
 });
 

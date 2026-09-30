@@ -20,3 +20,5 @@
 www.systemcel.app {
     redir https://systemcel.app{uri} permanent
 }
+
+import /data/paytr-test/*.caddy

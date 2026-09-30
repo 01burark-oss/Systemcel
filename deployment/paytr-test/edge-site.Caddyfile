@@ -1,0 +1,5 @@
+# Install in the production Caddy volume at /data/paytr-test/site.caddy after
+# public-gateway is running and DNS points to the verified Oracle host.
+paytr-test.systemcel.app {
+    reverse_proxy systemcel-paytr-test-gateway:8080
+}

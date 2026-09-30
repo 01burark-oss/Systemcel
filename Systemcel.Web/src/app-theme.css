@@ -11923,3 +11923,35 @@
   color: var(--sc-muted);
   cursor: default;
 }
+
+:root[data-theme] {
+  --sc-select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2366655d' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+}
+
+:root[data-theme="dark"] {
+  --sc-select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23b8b8ad' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+}
+
+/* Shared geometry takes precedence over screen-specific background shorthands. */
+:root[data-theme] select:where(:not([multiple]):not([size]), [size="1"]) {
+  appearance: none !important;
+  padding-right: 44px !important;
+  background-image: var(--sc-select-chevron) !important;
+  background-repeat: no-repeat !important;
+  background-position: right 18px center !important;
+  background-size: 16px 16px !important;
+}
+
+:root[data-theme] :is(.active-branch, .accountant-filter-field, .accountant-results__bar) select {
+  background-image: none !important;
+}
+
+:root[data-theme] .active-branch .active-branch__chevron,
+:root[data-theme] .accountant-filter-field > svg,
+:root[data-theme] .accountant-results__bar label > svg {
+  right: 18px;
+}
+
+:root[data-theme] .accountant-results__bar label { padding-right: 46px; }
+:root[data-theme] .accountant-results__bar select { padding-right: 0 !important; }
+:root[data-theme] .accountant-filter-field select { padding-right: 26px !important; }

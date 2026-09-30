@@ -1,0 +1,119 @@
+name: systemcel-paytr-test
+
+services:
+  db:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    mem_limit: 384m
+    cpus: 0.25
+    environment:
+      POSTGRES_DB: systemcel_paytr_test
+      POSTGRES_USER: systemcel_paytr_test
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Run init-config.sh}
+    volumes:
+      - test_database:/var/lib/postgresql
+    networks:
+      - database
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U systemcel_paytr_test -d systemcel_paytr_test"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+      args:
+        VITE_ACCOUNTANT_MARKETPLACE_ENABLED: "false"
+    restart: unless-stopped
+    mem_limit: 768m
+    cpus: 0.5
+    env_file:
+      - path: .env.secrets
+        format: raw
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      SYSTEMCEL_ENVIRONMENT_NAME: paytr-isolated-server-test
+      SYSTEMCEL_APPDATA: /var/lib/systemcel-test
+      SYSTEMCEL_DATABASE_CONNECTION_STRING: Host=db;Port=5432;Database=systemcel_paytr_test;Username=systemcel_paytr_test;Password=${POSTGRES_PASSWORD:?Run init-config.sh}
+      SYSTEMCEL_CLERK_ENABLED: "false"
+      SYSTEMCEL_ALLOWED_ORIGINS: http://127.0.0.1:8590
+      SYSTEMCEL_PUBLIC_BASE_URL: https://${PAYTR_TEST_HOST:?Set test hostname}
+      SYSTEMCEL_PAYMENT_PROVIDER: PayTR
+      SYSTEMCEL_PAYTR_MERCHANT_ID: ${PAYTR_MERCHANT_ID:?Set test merchant}
+      SYSTEMCEL_PAYTR_TEST_MODE: "true"
+      SYSTEMCEL_PAYTR_TEST_BUSINESS_IDS: "1"
+      SYSTEMCEL_PAYTR_TRUSTED_PROXY_IPS: 10.253.77.2,10.253.77.4
+      SYSTEMCEL_FREE_TRIAL_ENABLED: "false"
+      SYSTEMCEL_PAZARYERI_AKTIF: "false"
+      Systemcel__Marketplace__SeedDemoData: "false"
+      Logging__LogLevel__Default: Warning
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - test_appdata:/var/lib/systemcel-test
+    networks:
+      database:
+      application:
+        ipv4_address: 10.253.77.3
+    logging:
+      options:
+        max-size: "5m"
+        max-file: "2"
+
+  public-gateway:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    mem_limit: 64m
+    cpus: 0.1
+    volumes:
+      - ./public.Caddyfile:/etc/caddy/Caddyfile:ro
+    ports:
+      - "127.0.0.1:8089:8080"
+    networks:
+      application:
+        ipv4_address: 10.253.77.2
+      production_edge:
+        aliases:
+          - systemcel-paytr-test-gateway
+    depends_on:
+      - app
+    logging:
+      options:
+        max-size: "5m"
+        max-file: "2"
+
+  admin-gateway:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    mem_limit: 64m
+    cpus: 0.1
+    environment:
+      TEST_CUSTOMER_IP: ${TEST_CUSTOMER_IP:?Set the tester public IP}
+    volumes:
+      - ./admin.Caddyfile:/etc/caddy/Caddyfile:ro
+    ports:
+      - "127.0.0.1:8190:8080"
+    networks:
+      application:
+        ipv4_address: 10.253.77.4
+    depends_on:
+      - app
+
+networks:
+  database:
+    internal: true
+  application:
+    ipam:
+      config:
+        - subnet: 10.253.77.0/24
+  production_edge:
+    external: true
+    name: ${PRODUCTION_EDGE_NETWORK:?Set existing Caddy network}
+
+volumes:
+  test_database:
+  test_appdata:

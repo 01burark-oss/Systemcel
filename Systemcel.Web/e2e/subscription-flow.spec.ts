@@ -167,8 +167,8 @@ test("monthly checkout shows recurring credits, VAT and explicit consent", async
   await mockWorkspace(page);
   await page.goto("/app/abonelik?plan=muhasebeci_standart&credits=2");
 
-  await expect(page.getByRole("heading", { name: "Planınızı seçin ve koşulları onaylayın" })).toBeVisible();
-  await expect(page.getByText("Aylık", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Abonelik ödemesi" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Aylık", exact: true })).toBeVisible();
   await expect(page.getByRole("spinbutton", { name: /\+1 müşteri kredisi/i })).toHaveValue("2");
   await expect(page.getByRole("dialog").getByText("12 müşteri", { exact: true })).toBeVisible();
   await expect(page.getByText("KDV (%20)")).toBeVisible();
@@ -192,7 +192,7 @@ test("PayTR checkout requires contact details and sends them to the API", async 
   await mockWorkspace(page, baseSummary, "Aylik", 2, true);
   await page.goto("/app/abonelik?plan=muhasebeci_standart&credits=2");
 
-  const dialog = page.getByRole("dialog", { name: "Planınızı seçin ve koşulları onaylayın" });
+  const dialog = page.getByRole("dialog", { name: "Abonelik ödemesi" });
   await expect(dialog.getByRole("textbox", { name: "Ad soyad" })).toHaveAttribute("required", "");
   await expect(dialog.getByRole("textbox", { name: "Adres" })).toHaveAttribute("required", "");
   await expect(dialog.getByRole("textbox", { name: "Telefon" })).toHaveAttribute("required", "");
@@ -212,9 +212,9 @@ test("plan modal traps focus, closes with Escape and returns focus to its trigge
   const trigger = page.getByRole("button", { name: "Deneme planını yönet" });
   await trigger.focus();
   await trigger.click();
-  const dialog = page.getByRole("dialog", { name: "Planınızı seçin ve koşulları onaylayın" });
+  const dialog = page.getByRole("dialog", { name: "Abonelik ödemesi" });
   await expect(dialog).toBeVisible();
-  await expect(dialog.getByRole("heading")).toBeFocused();
+  await expect(dialog.getByRole("heading", { name: "Abonelik ödemesi", exact: true })).toBeFocused();
 
   const results = await new AxeBuilder({ page })
     .include(".billing-modal")
