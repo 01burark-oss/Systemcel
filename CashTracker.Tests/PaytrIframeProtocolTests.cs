@@ -1,5 +1,9 @@
 using CashTracker.Infrastructure.Payments;
+using CashTracker.Core.Models;
 using System.Net;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
 using Xunit;
 
 namespace CashTracker.Tests;
@@ -90,6 +94,45 @@ public sealed class PaytrIframeProtocolTests
             await Assert.ThrowsAsync<InvalidOperationException>(() =>
                 client.CreateCheckoutUrlAsync(NewCheckoutRequest(), Key, Salt));
         }
+    }
+
+    [Fact]
+    public async Task SubscriptionProviderUsesStableOrderIdAndRequiresSignedCallback()
+    {
+        using var http = new HttpClient(new StubHandler("{\"status\":\"success\",\"token\":\"TOKEN123\"}"));
+        var provider = new PaytrSubscriptionProvider(new PaytrIframeClient(http),
+            "123456", Key, Salt, testMode: true);
+        var quote = new PaymentQuote(
+            "isletme_baslangic", "Isletme", "Aylik", "TRY", 30m, 20m, 6m, 36m,
+            0, 0, 1, 0m, string.Empty, false, 30m, 30m, 0, 30m);
+        var request = new PaymentCheckoutRequest(
+            "user-provided-idempotency-key", quote, "business-42", "buyer@example.com",
+            new Uri("https://systemcel.app/app/abonelik?odeme=basarili"),
+            new Uri("https://systemcel.app/app/abonelik?odeme=basarisiz"),
+            new Uri("https://systemcel.app/api/odeme/paytr/bildirim"),
+            CustomerIp: "203.0.113.7", CustomerName: "Buyer Example",
+            CustomerAddress: "Test address", CustomerPhone: "5550000000");
+
+        var session = await provider.CreateCheckoutAsync(request);
+        Assert.Equal(PaytrSubscriptionProvider.CreateOrderId("business-42", request.MerchantReference),
+            session.ProviderSessionId);
+        Assert.StartsWith("https://systemcel.app/api/odeme/paytr/form?token=TOKEN123", session.CheckoutUrl.AbsoluteUri);
+
+        var payload = JsonSerializer.Serialize(new
+        {
+            MerchantOrderId = session.ProviderSessionId,
+            Status = "success",
+            TotalAmountKurus = "3600"
+        });
+        var signedText = session.ProviderSessionId + Salt + "success" + "3600";
+        var signature = Convert.ToBase64String(HMACSHA256.HashData(
+            Encoding.UTF8.GetBytes(Key), Encoding.UTF8.GetBytes(signedText)));
+        var verified = provider.VerifyWebhook(new PaymentWebhookEnvelope(payload, signature));
+        Assert.True(verified.IsValid);
+        Assert.Equal(PaymentEventTypes.PaymentSucceeded, verified.Event!.EventType);
+        Assert.Equal(36m, verified.Event.Amount);
+        Assert.False(provider.VerifyWebhook(new PaymentWebhookEnvelope(
+            payload.Replace("3600", "3601", StringComparison.Ordinal), signature)).IsValid);
     }
 
     private static PaytrIframeCheckoutRequest NewCheckoutRequest() => new(

@@ -139,6 +139,7 @@ export interface TeklifYaniti {
   kampanyaKodu: string;
   onayMetniSurumu: string;
   onayMetni: string;
+  paytrContactRequired?: boolean;
 }
 
 export interface CheckoutYaniti {

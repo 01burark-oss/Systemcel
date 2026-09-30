@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text;
 using System.Text.Json;
 using System.Globalization;
 using CashTracker.Core.Models;
@@ -6,6 +7,8 @@ using CashTracker.Core.Services;
 using CashTracker.Infrastructure.Payments;
 using CashTracker.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.WebUtilities;
+using Microsoft.Extensions.Primitives;
 
 namespace Systemcel.Api.Api;
 
@@ -24,11 +27,15 @@ internal static class BillingApi
                 IIsletmeService isletmeService,
                 IPaymentPricingService pricing,
                 IDbContextFactory<CashTrackerDbContext> dbFactory,
+                PaymentRuntimeOptions paymentOptions,
                 CancellationToken ct) =>
             {
                 try
                 {
                     var business = await isletmeService.GetActiveAsync();
+                    if (paymentOptions.UsesPaytrProvider &&
+                        !paymentOptions.AllowsPaytrTestBusiness(business.Id))
+                        return Results.StatusCode(StatusCodes.Status403Forbidden);
                     var period = NormalizeBillingPeriod(faturalamaDonemi);
                     await using var db = await dbFactory.CreateDbContextAsync(ct);
                     var founderPrice = await CanOfferFounderPriceAsync(db, business.Id, ct);
@@ -51,6 +58,8 @@ internal static class BillingApi
                     {
                         fiyat = quote,
                         kampanyaKodu = quote.CampaignCode,
+                        paytrContactRequired = paymentOptions.AllowsPaytrTestBusiness(business.Id) &&
+                            quote.ChangeType != SubscriptionChangeTypes.ScheduledDowngrade,
                         onayMetniSurumu = ConsentVersion,
                         onayMetni = BuildConsentText(quote)
                     });
@@ -209,6 +218,9 @@ internal static class BillingApi
                 try
                 {
                     var business = await isletmeService.GetActiveAsync();
+                    if (paymentOptions.UsesPaytrProvider &&
+                        !paymentOptions.AllowsPaytrTestBusiness(business.Id))
+                        return Results.StatusCode(StatusCodes.Status403Forbidden);
                     var email = identity?.Email;
                     if (string.IsNullOrWhiteSpace(email) && identity is not null)
                     {
@@ -254,6 +266,17 @@ internal static class BillingApi
                                 x => x.IsletmeId == business.Id && x.HesapTipi == business.TenantTipi, ct))
                             quote = quote with { TrialDays = 0 };
                     }
+                    if (paymentOptions.UsesPaytrProvider &&
+                        quote.ChangeType != SubscriptionChangeTypes.ScheduledDowngrade &&
+                        (!ValidPaytrContact(request.OdemeAdSoyad, 60) ||
+                         !ValidPaytrContact(request.OdemeAdres, 400) ||
+                         !ValidPaytrContact(request.OdemeTelefon, 20)))
+                        return Results.BadRequest(new { mesaj = "Ödeme için ad soyad, adres ve telefon gereklidir." });
+                    var customerIp = ResolveCustomerIp(http, paymentOptions);
+                    if (paymentOptions.UsesPaytrProvider &&
+                        quote.ChangeType != SubscriptionChangeTypes.ScheduledDowngrade &&
+                        !IPAddress.TryParse(customerIp, out _))
+                        return Results.BadRequest(new { mesaj = "Ödeme için geçerli istemci IP adresi bulunamadı." });
                     var consentText = BuildConsentText(quote);
                     var command = new SubscriptionCheckoutCommand(
                         business.Id,
@@ -267,14 +290,18 @@ internal static class BillingApi
                         email,
                         ConsentVersion,
                         consentText,
-                        http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                        customerIp,
                         http.Request.Headers.UserAgent.ToString(),
                         new Uri(baseUri, "/app/abonelik?odeme=basarili"),
                         new Uri(baseUri, "/app/abonelik?odeme=basarisiz"),
-                        new Uri(baseUri, "/api/odeme/webhook"),
+                        new Uri(baseUri, paymentOptions.UsesPaytrProvider
+                            ? "/api/odeme/paytr/bildirim" : "/api/odeme/webhook"),
                         quote.TotalAmount,
                         quote.ProrationCreditNetAmount,
-                        quote.ChangeType);
+                        quote.ChangeType,
+                        request.OdemeAdSoyad?.Trim(),
+                        request.OdemeAdres?.Trim(),
+                        request.OdemeTelefon?.Trim());
 
                     if (quote.ChangeType == SubscriptionChangeTypes.ScheduledDowngrade)
                     {
@@ -371,6 +398,87 @@ internal static class BillingApi
                 })
             .AllowAnonymous()
             .RequireRateLimiting("sensitive");
+
+        app.MapPost(
+                "/api/odeme/paytr/bildirim",
+                async (HttpContext http, IPaymentProvider provider,
+                    ISubscriptionLifecycleService lifecycle, CancellationToken ct) =>
+                {
+                    if (provider is not PaytrSubscriptionProvider)
+                        return Results.NotFound();
+                    if (http.Request.ContentType?.StartsWith("application/x-www-form-urlencoded",
+                            StringComparison.OrdinalIgnoreCase) != true)
+                        return Results.StatusCode(StatusCodes.Status415UnsupportedMediaType);
+
+                    var body = await ReadBoundedPaytrBodyAsync(http.Request.Body, ct);
+                    if (body is null)
+                        return Results.StatusCode(StatusCodes.Status413PayloadTooLarge);
+                    if (!TryParsePaytrCallbackForm(body, out var envelope))
+                        return Results.BadRequest();
+                    var processed = await lifecycle.ProcessWebhookAsync(
+                        envelope, ct);
+                    return processed.Accepted
+                        ? Results.Text("OK", "text/plain; charset=utf-8")
+                        : Results.BadRequest();
+                })
+            .AllowAnonymous()
+            .RequireRateLimiting("sensitive");
+
+        app.MapGet("/api/odeme/paytr/form", async (string token, HttpContext http,
+                IPaymentProvider provider, PaymentRuntimeOptions options,
+                IDbContextFactory<CashTrackerDbContext> dbFactory, CancellationToken ct) =>
+            {
+                if (provider is not PaytrSubscriptionProvider || token.Length is < 1 or > 512 ||
+                    token.Any(c => !char.IsAsciiLetterOrDigit(c) && c is not ('-' or '_')))
+                    return Results.NotFound();
+                var checkoutUrl = new Uri(new Uri(options.PublicBaseUrl),
+                    "/api/odeme/paytr/form?token=" + Uri.EscapeDataString(token)).AbsoluteUri;
+                await using var db = await dbFactory.CreateDbContextAsync(ct);
+                if (!await db.OdemeIslemleri.AsNoTracking().AnyAsync(x =>
+                        x.OdemeSaglayici == "PayTR" && x.CheckoutUrl == checkoutUrl &&
+                        x.CheckoutExpiresAt > DateTime.UtcNow, ct))
+                    return Results.NotFound();
+                http.Response.Headers.CacheControl = "no-store";
+                http.Response.Headers["Referrer-Policy"] = "no-referrer";
+                http.Response.Headers["Content-Security-Policy"] =
+                    "default-src 'none'; style-src 'unsafe-inline'; frame-src https://www.paytr.com; base-uri 'none'; frame-ancestors 'none'";
+                var iframeUrl = "https://www.paytr.com/odeme/guvenli/" + token;
+                var html = "<!doctype html><html lang=\"tr\"><head><meta charset=\"utf-8\">" +
+                    "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">" +
+                    "<title>Güvenli ödeme · Systemcel</title><style>body{margin:0;background:#f5f7fb;color:#142238;font:16px system-ui}" +
+                    "main{max-width:860px;margin:auto;padding:24px 16px}h1{font-size:24px}p{line-height:1.5}" +
+                    "iframe{display:block;width:100%;min-height:760px;border:0;background:white;border-radius:12px}" +
+                    "a{color:#164c9b}</style></head><body><main><h1>Güvenli ödeme</h1>" +
+                    "<p>Ödeme sonucunuz, sağlayıcı bildirimi doğrulandıktan sonra hesabınıza işlenir.</p>" +
+                    "<iframe title=\"PayTR güvenli ödeme formu\" src=\"" + iframeUrl + "\" referrerpolicy=\"no-referrer\"></iframe>" +
+                    "<p><a href=\"/app/abonelik\">Abonelik sayfasına dön</a></p></main></body></html>";
+                return Results.Content(html, "text/html; charset=utf-8");
+            })
+            .AllowAnonymous();
+
+        app.MapGet("/api/odeme/paytr/donus", (string? sonuc, HttpContext http,
+                IPaymentProvider provider) =>
+            {
+                if (provider is not PaytrSubscriptionProvider)
+                    return Results.NotFound();
+                var failed = string.Equals(sonuc, "basarisiz", StringComparison.Ordinal);
+                http.Response.Headers.CacheControl = "no-store";
+                http.Response.Headers["Content-Security-Policy"] =
+                    "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'self'";
+                var html = "<!doctype html><html lang=\"tr\"><head><meta charset=\"utf-8\">" +
+                    "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">" +
+                    "<title>Ödeme durumu · Systemcel</title><style>body{font:16px system-ui;background:#f5f7fb;" +
+                    "color:#142238;margin:0}main{max-width:560px;margin:10vh auto;padding:28px;background:white;" +
+                    "border-radius:16px}a{display:inline-block;padding:12px 18px;background:#164c9b;color:white;" +
+                    "border-radius:8px;text-decoration:none}</style></head><body><main><h1>" +
+                    (failed ? "Ödeme tamamlanamadı" : "Ödeme sonucu doğrulanıyor") +
+                    "</h1><p>Kesin sonuç PayTR'nin sunucu bildirimi doğrulandıktan sonra hesabınıza işlenir.</p>" +
+                    "<a target=\"_top\" href=\"/app/abonelik?odeme=" +
+                    (failed ? "basarisiz" : "basarili") +
+                    "\">Abonelik durumunu görüntüle</a></main></body></html>";
+                return Results.Content(html, "text/html; charset=utf-8");
+            })
+            .AllowAnonymous();
 
         MapFakeCheckout(app);
 
@@ -560,6 +668,71 @@ internal static class BillingApi
             """;
     }
 
+    private static bool ValidPaytrContact(string? value, int maxLength) =>
+        !string.IsNullOrWhiteSpace(value) && value.Trim().Length <= maxLength &&
+        !value.Any(char.IsControl);
+
+    private static string ResolveCustomerIp(HttpContext http, PaymentRuntimeOptions options)
+    {
+        var remote = http.Connection.RemoteIpAddress;
+        if (remote is null) return string.Empty;
+        var trusted = IPAddress.IsLoopback(remote) || options.PaytrTrustedProxyIps.Any(value =>
+            IPAddress.TryParse(value, out var configured) && configured.Equals(remote));
+        if (options.UsesPaytrProvider && trusted &&
+            http.Request.Headers.TryGetValue("X-Forwarded-For", out var forwarded))
+        {
+            var lastHop = forwarded.ToString().Split(',', StringSplitOptions.TrimEntries)[^1];
+            if (IPAddress.TryParse(lastHop, out var clientIp))
+                return clientIp.ToString();
+        }
+        return remote.ToString();
+    }
+
+    internal static async Task<string?> ReadBoundedPaytrBodyAsync(Stream stream, CancellationToken ct)
+    {
+        const int maxBytes = 4096;
+        var buffer = new byte[maxBytes + 1];
+        var length = 0;
+        while (length < buffer.Length)
+        {
+            var read = await stream.ReadAsync(buffer.AsMemory(length), ct);
+            if (read == 0) break;
+            length += read;
+        }
+        return length > maxBytes ? null : Encoding.UTF8.GetString(buffer, 0, length);
+    }
+
+    internal static bool TryParsePaytrCallbackForm(string body, out PaymentWebhookEnvelope envelope)
+    {
+        envelope = new PaymentWebhookEnvelope(string.Empty, string.Empty);
+        if (body.Length > 4096) return false;
+        var fields = QueryHelpers.ParseQuery(body);
+        if (!TryGetSinglePaytrField(fields, "merchant_oid", out var orderId) ||
+            !TryGetSinglePaytrField(fields, "status", out var status) ||
+            !TryGetSinglePaytrField(fields, "total_amount", out var amount) ||
+            !TryGetSinglePaytrField(fields, "hash", out var hash))
+            return false;
+
+        envelope = new PaymentWebhookEnvelope(JsonSerializer.Serialize(new
+        {
+            MerchantOrderId = orderId,
+            Status = status,
+            TotalAmountKurus = amount
+        }), hash);
+        return true;
+    }
+
+    private static bool TryGetSinglePaytrField(
+        Dictionary<string, StringValues> fields, string name, out string value)
+    {
+        value = string.Empty;
+        if (!fields.TryGetValue(name, out var values) || values.Count != 1 ||
+            string.IsNullOrWhiteSpace(values[0]) || values[0]!.Length > 512)
+            return false;
+        value = values[0]!;
+        return true;
+    }
+
     private static string? FirstNonEmpty(params string?[] values) =>
         values.FirstOrDefault(x => !string.IsNullOrWhiteSpace(x))?.Trim();
 
@@ -616,5 +789,8 @@ internal static class BillingApi
         string? KampanyaKodu,
         bool Onaylandi,
         string? Eposta,
-        string? IdempotencyKey);
+        string? IdempotencyKey,
+        string? OdemeAdSoyad = null,
+        string? OdemeAdres = null,
+        string? OdemeTelefon = null);
 }

@@ -115,7 +115,7 @@ describe("AbonelikSayfasi", () => {
     const user = userEvent.setup();
     render(<AbonelikSayfasi />);
 
-    expect(await screen.findByRole("heading", { name: "Planınızı seçin ve koşulları onaylayın" })).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "Abonelik ödemesi" })).toBeVisible();
     expect(screen.getByRole("button", { name: "Aylık" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("button", { name: "Yıllık" })).toBeVisible();
     expect(screen.getByRole("spinbutton", { name: /\+1 müşteri kredisi/i })).toHaveValue(2);
@@ -180,12 +180,46 @@ describe("AbonelikSayfasi", () => {
       throw new Error(`Unexpected request: ${url}`);
     });
     render(<AbonelikSayfasi />);
-    await screen.findByRole("heading", { name: "Planınızı seçin ve koşulları onaylayın" });
+    await screen.findByRole("heading", { name: "Abonelik ödemesi" });
     await user.click(await screen.findByRole("checkbox"));
     const button = screen.getByRole("button", { name: "Öde ve aboneliği başlat" });
     button.click();
     button.click();
     await waitFor(() => expect(vi.mocked(jsonOku).mock.calls.filter(([url]) => url === "/api/abonelik/checkout")).toHaveLength(1));
+  });
+
+  it("requires PayTR contact details and sends them with checkout", async () => {
+    const user = userEvent.setup();
+    vi.mocked(jsonOku).mockImplementation(async (url) => {
+      if (url === "/api/abonelik/ozet") return summary;
+      if (url === "/api/public/planlar") return plans;
+      if (url.startsWith("/api/abonelik/teklif?")) return { ...quote, paytrContactRequired: true };
+      if (url === "/api/abonelik/checkout") return new Promise(() => undefined);
+      throw new Error(`Unexpected request: ${url}`);
+    });
+    vi.mocked(jsonOku).mockClear();
+    render(<AbonelikSayfasi />);
+    await screen.findByRole("heading", { name: "Abonelik ödemesi" });
+    await user.click(await screen.findByRole("checkbox"));
+
+    const submit = screen.getByRole("button", { name: "Öde ve aboneliği başlat" });
+    await user.click(submit);
+    expect(await screen.findByRole("alert")).toHaveTextContent("ad soyad, adres ve telefon");
+    expect(vi.mocked(jsonOku).mock.calls.some(([url]) => url === "/api/abonelik/checkout")).toBe(false);
+
+    await user.type(screen.getByRole("textbox", { name: "Ad soyad" }), "Ayşe Yılmaz");
+    await user.type(screen.getByRole("textbox", { name: "Adres" }), "Test Mahallesi No 1");
+    await user.type(screen.getByRole("textbox", { name: "Telefon" }), "5551234567");
+    await user.click(submit);
+
+    await waitFor(() => expect(vi.mocked(jsonOku).mock.calls.some(([url]) => url === "/api/abonelik/checkout")).toBe(true));
+    const checkoutCall = vi.mocked(jsonOku).mock.calls.find(([url]) => url === "/api/abonelik/checkout");
+    const body = JSON.parse(String(checkoutCall?.[1]?.body));
+    expect(body).toMatchObject({
+      odemeAdSoyad: "Ayşe Yılmaz",
+      odemeAdres: "Test Mahallesi No 1",
+      odemeTelefon: "5551234567"
+    });
   });
 
   it("shows the unused-period credit and server-calculated upgrade charge", async () => {
@@ -253,13 +287,12 @@ describe("AbonelikSayfasi", () => {
     });
 
     render(<AbonelikSayfasi />);
-    await screen.findByText("DÖNEM SONU DEĞİŞİKLİĞİ");
-    expect(screen.getByText(/01 Eylül 2026 tarihinde uygulanır/)).toBeVisible();
+    expect(await screen.findByText(/Yeni planınız 01 Eylül 2026 tarihinde uygulanır/)).toBeVisible();
     await user.click(screen.getByRole("checkbox"));
     await user.click(screen.getByRole("button", { name: "Dönem sonuna planla" }));
 
     await waitFor(() => expect(summaryReads).toBe(2));
-    expect(screen.queryByRole("dialog", { name: "Planınızı seçin ve koşulları onaylayın" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: "Abonelik ödemesi" })).not.toBeInTheDocument();
   });
 });
 

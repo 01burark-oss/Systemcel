@@ -1,0 +1,42 @@
+{
+    admin off
+    auto_https off
+}
+:8080 {
+    header Cache-Control "no-store"
+    @health {
+        method GET
+        path /health
+    }
+    handle @health {
+        respond "Systemcel PayTR test gateway" 200
+    }
+    @callback {
+        method POST
+        path /api/odeme/paytr/bildirim
+    }
+    handle @callback {
+        request_body {
+            max_size 4KB
+        }
+        reverse_proxy app:8080 {
+            header_up -Authorization
+            header_up -Cookie
+            header_up X-Forwarded-Proto https
+        }
+    }
+    @payment {
+        method GET
+        path /api/odeme/paytr/form /api/odeme/paytr/donus
+    }
+    handle @payment {
+        reverse_proxy app:8080 {
+            header_up -Authorization
+            header_up -Cookie
+            header_up X-Forwarded-Proto https
+        }
+    }
+    handle {
+        respond "Bulunamadı." 404
+    }
+}
