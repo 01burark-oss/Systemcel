@@ -188,6 +188,44 @@ test("monthly checkout shows recurring credits, VAT and explicit consent", async
   await expect(page).toHaveURL(/\/checkout-sent$/);
 });
 
+for (const theme of ["light", "dark"]) {
+  test(`checkout consent stays contained in a complete card in ${theme}`, async ({ page }, testInfo) => {
+    test.skip(!["desktop-chromium", "mobile-small"].includes(testInfo.project.name));
+    await page.addInitScript((value) => localStorage.setItem("systemcel.theme", value), theme);
+    await mockWorkspace(page);
+    await page.goto("/app/abonelik?plan=muhasebeci_standart&credits=2");
+    const consent = page.locator(".billing-checkout-footer .billing-consent");
+    const checkbox = consent.getByRole("checkbox");
+    await checkbox.check();
+    await consent.screenshot({ path: testInfo.outputPath(`consent-${theme}-checked.png`) });
+
+    for (const checked of [true, false]) {
+      await checkbox.setChecked(checked);
+      const layout = await consent.evaluate((element) => {
+        const card = element.getBoundingClientRect();
+        const style = getComputedStyle(element);
+        const controls = Array.from(element.querySelectorAll("label, .billing-consent__copy"))
+          .map((child) => child.getBoundingClientRect());
+        return {
+          borders: [style.borderTopWidth, style.borderRightWidth, style.borderBottomWidth, style.borderLeftWidth].map(parseFloat),
+          radius: parseFloat(style.borderTopLeftRadius),
+          contained: controls.every((child) => child.left > card.left && child.right < card.right && child.top > card.top && child.bottom < card.bottom)
+        };
+      });
+      expect(layout.borders.every((width) => width > 0)).toBe(true);
+      expect(layout.radius).toBeGreaterThan(0);
+      expect(layout.contained).toBe(true);
+    }
+    await checkbox.focus();
+    await checkbox.press("Space");
+    await expect(checkbox).toBeChecked();
+    await expect(page.getByRole("button", { name: "Öde ve aboneliği başlat" })).toBeEnabled();
+    const accessibility = await new AxeBuilder({ page }).include(".billing-checkout-footer").analyze();
+    expect(accessibility.violations).toEqual([]);
+    await page.getByRole("dialog", { name: "Abonelik ödemesi" }).screenshot({ path: testInfo.outputPath(`checkout-${theme}.png`) });
+  });
+}
+
 test("PayTR checkout requires contact details and sends them to the API", async ({ page }) => {
   await mockWorkspace(page, baseSummary, "Aylik", 2, true);
   await page.goto("/app/abonelik?plan=muhasebeci_standart&credits=2");
