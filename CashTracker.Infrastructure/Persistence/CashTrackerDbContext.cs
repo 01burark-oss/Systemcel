@@ -36,6 +36,7 @@ namespace CashTracker.Infrastructure.Persistence
         public DbSet<AbonelikOnayi> AbonelikOnaylari => Set<AbonelikOnayi>();
         public DbSet<OdemeIslemi> OdemeIslemleri => Set<OdemeIslemi>();
         public DbSet<OdemeOlayi> OdemeOlaylari => Set<OdemeOlayi>();
+        public DbSet<OdemeIadeTalimati> OdemeIadeTalimatlari => Set<OdemeIadeTalimati>();
         public DbSet<KurucuKampanyaHakki> KurucuKampanyaHaklari => Set<KurucuKampanyaHakki>();
         public DbSet<IsletmeEntitlement> IsletmeEntitlementlari => Set<IsletmeEntitlement>();
         public DbSet<AiKullanimDonemi> AiKullanimDonemleri => Set<AiKullanimDonemi>();
@@ -883,6 +884,21 @@ namespace CashTracker.Infrastructure.Persistence
                 e.HasIndex(x => new { x.IsletmeId, x.CheckoutAnahtari }).IsUnique();
                 e.HasIndex(x => x.SaglayiciOturumId);
                 e.HasIndex(x => x.SaglayiciIslemId);
+            });
+
+            modelBuilder.Entity<OdemeIadeTalimati>(e =>
+            {
+                e.ToTable("OdemeIadeTalimati");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.IdempotencyAnahtari).IsRequired().HasMaxLength(100);
+                e.Property(x => x.ReferansNo).IsRequired().HasMaxLength(64);
+                e.Property(x => x.Durum).IsRequired().HasMaxLength(40);
+                e.Property(x => x.SonHataKodu).IsRequired().HasMaxLength(80);
+                e.Property(x => x.Tutar).HasColumnType("NUMERIC");
+                e.HasIndex(x => new { x.OdemeIslemiId, x.IdempotencyAnahtari }).IsUnique();
+                e.HasIndex(x => x.ReferansNo).IsUnique();
+                e.HasIndex(x => x.Durum);
+                e.HasOne<OdemeIslemi>().WithMany().HasForeignKey(x => x.OdemeIslemiId).OnDelete(DeleteBehavior.Restrict);
             });
 
             modelBuilder.Entity<KurucuKampanyaHakki>(e =>

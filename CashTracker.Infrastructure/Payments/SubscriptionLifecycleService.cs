@@ -273,6 +273,7 @@ public sealed class SubscriptionLifecycleService : ISubscriptionLifecycleService
             return new PaymentWebhookProcessingResult(false, false, "Reddedildi", "Desteklenmeyen odeme olayi.");
 
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
+        await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
         var duplicate = await db.OdemeOlaylari.AsNoTracking().AnyAsync(x =>
             x.OdemeSaglayici == paymentEvent.Provider && x.OlayId == paymentEvent.EventId, ct);
         if (duplicate)
@@ -306,9 +307,16 @@ public sealed class SubscriptionLifecycleService : ISubscriptionLifecycleService
         };
         db.OdemeOlaylari.Add(eventRecord);
 
-        await using var transaction = await db.Database.BeginTransactionAsync(ct);
         try
         {
+            if (HasConflictingPaytrTerminalResult(payment, paymentEvent))
+            {
+                eventRecord.IslenmeDurumu = "IncelemeGerekli";
+                eventRecord.HataMesaji = "PayTR ayni siparis icin celiskili kesin sonuc bildirdi; odeme ve abonelik degistirilmedi.";
+                await db.SaveChangesAsync(ct);
+                await transaction.CommitAsync(ct);
+                return new PaymentWebhookProcessingResult(true, false, "IncelemeGerekli", eventRecord.HataMesaji);
+            }
             var applied = ApplyEvent(db, payment, paymentEvent);
             eventRecord.IslenmeDurumu = applied ? "Islendi" : "Yoksayildi";
             eventRecord.IslendiAt = DateTime.UtcNow;
@@ -335,6 +343,13 @@ public sealed class SubscriptionLifecycleService : ISubscriptionLifecycleService
             throw;
         }
     }
+
+    private static bool HasConflictingPaytrTerminalResult(OdemeIslemi payment, PaymentWebhookEvent paymentEvent) =>
+        paymentEvent.Provider == "PayTR" &&
+        ((paymentEvent.EventType == PaymentEventTypes.PaymentSucceeded &&
+          payment.Durum is PaymentTransactionStates.Failed or PaymentTransactionStates.Cancelled or PaymentTransactionStates.Refunded) ||
+         (paymentEvent.EventType == PaymentEventTypes.PaymentFailed &&
+          payment.Durum is PaymentTransactionStates.Succeeded or PaymentTransactionStates.Refunded));
 
     public async Task CancelAtPeriodEndAsync(int businessId, CancellationToken ct = default)
     {
