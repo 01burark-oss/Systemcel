@@ -21,8 +21,12 @@ internal sealed class PaymentReconciliationHostedService : BackgroundService
             try
             {
                 var result = await _reconciliation.ReconcileAsync(DateTime.UtcNow, stoppingToken);
+                if (result.UnavailablePayments > 0)
+                    _logger.LogWarning("Payment reconciliation queries unavailable. Count={Count}", result.UnavailablePayments);
+                if (result.DiscrepancyCount > 0)
+                    _logger.LogWarning("Payment reconciliation requires review. Discrepancies={Discrepancies}, recorded={Recorded}", result.DiscrepancyCount, result.RecordedFindings);
                 if (result.ProviderAvailable)
-                    _logger.LogInformation("Payment reconciliation completed. Checked={Checked}, discrepancies={Discrepancies}, recorded={Recorded}", result.CheckedSubscriptions, result.DiscrepancyCount, result.RecordedFindings);
+                    _logger.LogInformation("Payment reconciliation completed. Subscriptions={Subscriptions}, payments={Payments}, unavailable={Unavailable}, discrepancies={Discrepancies}, recorded={Recorded}", result.CheckedSubscriptions, result.CheckedPayments, result.UnavailablePayments, result.DiscrepancyCount, result.RecordedFindings);
                 else
                     _logger.LogDebug("Payment reconciliation skipped: {Message}", result.Message);
             }

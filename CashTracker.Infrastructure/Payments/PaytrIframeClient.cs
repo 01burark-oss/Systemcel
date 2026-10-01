@@ -1,4 +1,5 @@
 using System.Text.Json;
+using CashTracker.Core.Models;
 
 namespace CashTracker.Infrastructure.Payments;
 
@@ -21,6 +22,14 @@ public sealed class PaytrIframeClient(HttpClient httpClient)
     private static readonly Uri TokenEndpoint = new("https://www.paytr.com/odeme/api/get-token");
     private const int MaxResponseBytes = 8192;
 
+    public Task<ProviderRefundResult> RefundAsync(string orderId, decimal amount, string referenceNo,
+        string merchantId, string merchantKey, string merchantSalt, CancellationToken ct = default) =>
+        new PaytrRefundClient(httpClient).RefundAsync(orderId, amount, referenceNo, merchantId, merchantKey, merchantSalt, ct);
+
+    public Task<ProviderPaymentLookupResult> GetPaymentAsync(string orderId, string merchantId,
+        string merchantKey, string merchantSalt, CancellationToken ct = default) =>
+        new PaytrPaymentQueryClient(httpClient).GetPaymentAsync(orderId, merchantId, merchantKey, merchantSalt, ct);
+
     public async Task<Uri> CreateCheckoutUrlAsync(
         PaytrIframeCheckoutRequest request,
         string merchantKey,
@@ -29,20 +38,23 @@ public sealed class PaytrIframeClient(HttpClient httpClient)
     {
         ArgumentNullException.ThrowIfNull(request);
         var fields = BuildTokenFields(request, merchantKey, merchantSalt);
+        // ResponseHeadersRead ends HttpClient.Timeout before the body is consumed.
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        deadline.CancelAfter(TimeSpan.FromSeconds(15));
         using var content = new FormUrlEncodedContent(fields);
         using var message = new HttpRequestMessage(HttpMethod.Post, TokenEndpoint) { Content = content };
-        using var response = await httpClient.SendAsync(message, HttpCompletionOption.ResponseHeadersRead, ct);
+        using var response = await httpClient.SendAsync(message, HttpCompletionOption.ResponseHeadersRead, deadline.Token);
         if (!response.IsSuccessStatusCode)
             throw new HttpRequestException("PayTR token request failed.", null, response.StatusCode);
         if (response.Content.Headers.ContentLength is > MaxResponseBytes)
             throw new InvalidOperationException("PayTR token response is too large.");
 
-        await using var stream = await response.Content.ReadAsStreamAsync(ct);
+        await using var stream = await response.Content.ReadAsStreamAsync(deadline.Token);
         var buffer = new byte[MaxResponseBytes + 1];
         var length = 0;
         while (length < buffer.Length)
         {
-            var read = await stream.ReadAsync(buffer.AsMemory(length), ct);
+            var read = await stream.ReadAsync(buffer.AsMemory(length), deadline.Token);
             if (read == 0) break;
             length += read;
         }

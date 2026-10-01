@@ -95,6 +95,16 @@ public sealed class PaymentLifecycleIntegrationTests
             (await db.OdemeIslemleri.SingleAsync()).Durum);
         Assert.Equal(1, await db.Abonelikler.CountAsync());
 
+        var conflictingFailure = await fixture.Service.ProcessWebhookAsync(Callback(oid, "failed", 0));
+        var conflictingFailureRetry = await fixture.Service.ProcessWebhookAsync(Callback(oid, "failed", 0));
+        Assert.True(conflictingFailure.Accepted);
+        Assert.Equal("IncelemeGerekli", conflictingFailure.State);
+        Assert.True(conflictingFailureRetry.Duplicate);
+        Assert.Equal(PaymentTransactionStates.Succeeded,
+            (await db.OdemeIslemleri.AsNoTracking().SingleAsync()).Durum);
+        Assert.Equal("Aktif", (await db.Abonelikler.AsNoTracking().SingleAsync()).Durum);
+        Assert.Single(await db.OdemeOlaylari.Where(x => x.IslenmeDurumu == "IncelemeGerekli").ToListAsync());
+
         using var failedFixture = new PaymentFixture(HesapTipleri.Isletme, provider);
         var failedCheckout = await failedFixture.Service.BeginCheckoutAsync(
             failedFixture.CreateCommand("paytr-failed-checkout", PlanKodlari.IsletmeBaslangic) with
@@ -110,6 +120,16 @@ public sealed class PaymentLifecycleIntegrationTests
         await using var failedDb = failedFixture.Factory.CreateDbContext();
         Assert.Equal(PaymentTransactionStates.Failed, (await failedDb.OdemeIslemleri.SingleAsync()).Durum);
         Assert.Equal(0, await failedDb.Abonelikler.CountAsync());
+
+        var conflictingSuccess = await failedFixture.Service.ProcessWebhookAsync(
+            Callback(failedCheckout.Session.ProviderSessionId, "success",
+                PaytrIframeProtocol.ToKurus(failedCheckout.Quote.TotalAmount)));
+        Assert.True(conflictingSuccess.Accepted);
+        Assert.Equal("IncelemeGerekli", conflictingSuccess.State);
+        Assert.Equal(PaymentTransactionStates.Failed,
+            (await failedDb.OdemeIslemleri.AsNoTracking().SingleAsync()).Durum);
+        Assert.Equal(0, await failedDb.Abonelikler.CountAsync());
+        Assert.Single(await failedDb.OdemeOlaylari.Where(x => x.IslenmeDurumu == "IncelemeGerekli").ToListAsync());
     }
 
     [Fact]

@@ -185,5 +185,24 @@ namespace CashTracker.Core.Models
         int CheckedSubscriptions,
         int DiscrepancyCount,
         int RecordedFindings,
-        string Message = "");
+        string Message = "",
+        int CheckedPayments = 0,
+        int UnavailablePayments = 0);
+
+    public sealed record ProviderPaymentSnapshot(
+        string ProviderOrderId,
+        decimal Amount,
+        decimal TotalAmount,
+        string Currency,
+        bool IsTestPayment,
+        decimal RefundedAmount,
+        IReadOnlyList<ProviderRefundSnapshot>? Refunds = null);
+
+    public sealed record ProviderRefundSnapshot(string ReferenceNo, decimal Amount);
+    public sealed record ProviderRefundResult(bool Accepted, bool IsDefinitive, string ErrorCode = "");
+
+    public sealed record ProviderPaymentLookupResult(
+        bool Available,
+        ProviderPaymentSnapshot? Payment,
+        string ErrorCode = "");
 }

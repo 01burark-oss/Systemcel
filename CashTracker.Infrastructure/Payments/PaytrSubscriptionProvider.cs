@@ -11,7 +11,7 @@ namespace CashTracker.Infrastructure.Payments;
 /// Starts a single-charge PayTR iFrame checkout. Only the signed, persisted callback
 /// can complete the subscription; the browser return page has no payment authority.
 /// </summary>
-public sealed class PaytrSubscriptionProvider : IPaymentProvider
+public sealed class PaytrSubscriptionProvider : IPaymentProvider, IPaymentRefundProvider
 {
     private readonly PaytrIframeClient _client;
     private readonly string _merchantId;
@@ -39,6 +39,21 @@ public sealed class PaytrSubscriptionProvider : IPaymentProvider
     }
 
     public string Name => "PayTR";
+    public bool ExpectedTestMode => _testMode;
+
+    public async Task<ProviderRefundResult> RefundAsync(string orderId, decimal amount, string referenceNo, CancellationToken ct = default)
+    {
+        if (!_testMode) throw new InvalidOperationException("PayTR refund adapter requires test mode.");
+        var lookup = await GetPaymentAsync(orderId, ct);
+        if (!lookup.Available || lookup.Payment is not { IsTestPayment: true, Currency: "TRY" } payment ||
+            payment.ProviderOrderId != orderId || amount <= 0 || amount > payment.TotalAmount - payment.RefundedAmount ||
+            payment.Refunds?.Any(x => x.ReferenceNo == referenceNo) == true)
+            return new ProviderRefundResult(false, false, "test_payment_not_verified");
+        return await _client.RefundAsync(orderId, amount, referenceNo, _merchantId, _merchantKey, _merchantSalt, ct);
+    }
+
+    public Task<ProviderPaymentLookupResult> GetPaymentAsync(string providerOrderId, CancellationToken ct = default) =>
+        _client.GetPaymentAsync(providerOrderId, _merchantId, _merchantKey, _merchantSalt, ct);
 
     public async Task<PaymentCheckoutSession> CreateCheckoutAsync(
         PaymentCheckoutRequest request,

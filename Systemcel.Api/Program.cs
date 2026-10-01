@@ -209,6 +209,7 @@ builder.Services.AddSingleton<ISubscriptionLifecycleService, SubscriptionLifecyc
 builder.Services.AddSingleton<ISubscriptionPriceProtectionService, SubscriptionPriceProtectionService>();
 builder.Services.AddSingleton<IMuhasebeciOdemeService, MuhasebeciOdemeService>();
 builder.Services.AddSingleton<IPaymentReconciliationService, PaymentReconciliationService>();
+builder.Services.AddSingleton<IPaymentRefundService, PaymentRefundService>();
 builder.Services.AddSingleton<ISubscriptionReminderSender>(_ => reminderEmailOptions.IsConfigured
     ? new SmtpSubscriptionReminderSender(
         reminderEmailOptions,
