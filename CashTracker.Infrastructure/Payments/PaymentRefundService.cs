@@ -14,6 +14,59 @@ public sealed class PaymentRefundService(IDbContextFactory<CashTrackerDbContext>
     private IPaymentRefundProvider Provider => paymentProvider is IPaymentRefundProvider { ExpectedTestMode: true } provider
         ? provider : throw new InvalidOperationException("Refund provider is not configured for test mode.");
 
+    public async Task<OdemeIadeTalimati> ApproveCancellationAsync(int subscriptionId, string approvedBy, CancellationToken ct = default)
+    {
+        _ = Provider;
+        if (subscriptionId <= 0 || string.IsNullOrWhiteSpace(approvedBy) || approvedBy.Length > 200)
+            throw new ArgumentException("İade onayı için geçerli yönetici kaydı gerekir.");
+        await using var db = await factory.CreateDbContextAsync(ct);
+        await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
+        var subscription = await db.Abonelikler.SingleOrDefaultAsync(x => x.Id == subscriptionId, ct)
+            ?? throw new KeyNotFoundException("Abonelik bulunamadı.");
+        if (!subscription.DonemSonundaIptal || subscription.IptalAt is null ||
+            subscription.FaturalamaDonemi != PaymentBillingPeriods.Annual ||
+            subscription.IptalIadeTutari is not > 0m || subscription.IptalIadeOdemeIslemiId is null)
+            throw new InvalidOperationException("İade tutarı inceleme gerektiriyor veya onaylanacak iade yok.");
+        var payment = await db.OdemeIslemleri.SingleOrDefaultAsync(x => x.Id == subscription.IptalIadeOdemeIslemiId &&
+            x.IsletmeId == subscription.IsletmeId && x.HesapTipi == subscription.HesapTipi, ct)
+            ?? throw new InvalidOperationException("İadeye bağlı ödeme kaydı eşleşmiyor.");
+        if (subscription.IptalIadeTalimatiId is { } existingId)
+        {
+            var existing = await db.OdemeIadeTalimatlari.SingleAsync(x => x.Id == existingId, ct);
+            if (existing.OdemeIslemiId != payment.Id || existing.Tutar != subscription.IptalIadeTutari ||
+                subscription.IptalIadeOnayAt is null || string.IsNullOrWhiteSpace(subscription.IptalIadeOnaylayanProviderKullaniciId))
+                throw new InvalidOperationException("Önceki iade onayı inceleme gerektiriyor.");
+            return existing;
+        }
+        if (subscription.IptalIadeDurumu != "OnayBekliyor" || subscription.IptalOncesiDonemBitisAt is null)
+            throw new InvalidOperationException("Bu iade talebi onay beklemiyor.");
+        var previousRefunds = await db.OdemeIadeTalimatlari.Where(x => x.OdemeIslemiId == payment.Id).ToListAsync(ct);
+        // Recalculate at the recorded cancellation time, before its shortened end date.
+        var quote = SubscriptionCancellationPolicy.Calculate(new Abonelik
+        {
+            IsletmeId = subscription.IsletmeId, HesapTipi = subscription.HesapTipi, PlanKodu = subscription.PlanKodu,
+            FaturalamaDonemi = subscription.FaturalamaDonemi, ParaBirimi = subscription.ParaBirimi,
+            DonemBaslangicAt = subscription.DonemBaslangicAt, DonemBitisAt = subscription.IptalOncesiDonemBitisAt,
+            OdemeSaglayici = subscription.OdemeSaglayici, SaglayiciAbonelikId = subscription.SaglayiciAbonelikId
+        }, payment, previousRefunds, subscription.IptalAt.Value);
+        if (quote.RefundStatus != "OnayBekliyor" || quote.RefundAmount != subscription.IptalIadeTutari ||
+            quote.RemainingMonths != subscription.IptalKalanAySayisi || quote.AccessEndsAt != subscription.DonemBitisAt)
+            throw new InvalidOperationException("İade hesabı değişmiş veya başka iade mevcut; yeniden inceleme gerekir.");
+        var instruction = await CreateRequestAsync(db, payment, quote.RefundAmount.Value, $"annual-cancel:{subscription.Id}", ct);
+        if (instruction.Id != 0) throw new InvalidOperationException("Önceki iade talimatı inceleme gerektiriyor.");
+        db.OdemeIadeTalimatlari.Add(instruction);
+        // Save inside the transaction to obtain the instruction's database identity.
+        await db.SaveChangesAsync(ct);
+        subscription.IptalIadeTalimatiId = instruction.Id;
+        subscription.IptalIadeOnaylayanProviderKullaniciId = approvedBy;
+        subscription.IptalIadeOnayAt = DateTime.UtcNow;
+        subscription.IptalIadeDurumu = instruction.Durum;
+        subscription.UpdatedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync(ct);
+        await tx.CommitAsync(ct);
+        return instruction;
+    }
+
     public async Task<OdemeIadeTalimati> RequestAsync(int businessId, int paymentId, decimal amount, string idempotencyKey, CancellationToken ct = default)
     {
         _ = Provider;
@@ -23,12 +76,22 @@ public sealed class PaymentRefundService(IDbContextFactory<CashTrackerDbContext>
         await using var db = await factory.CreateDbContextAsync(ct);
         await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
         var payment = await db.OdemeIslemleri.SingleAsync(x => x.Id == paymentId && x.IsletmeId == businessId, ct);
+        var instruction = await CreateRequestAsync(db, payment, amount, idempotencyKey, ct);
+        if (instruction.Id == 0) db.OdemeIadeTalimatlari.Add(instruction);
+        await db.SaveChangesAsync(ct);
+        await tx.CommitAsync(ct);
+        return instruction;
+    }
+
+    private async Task<OdemeIadeTalimati> CreateRequestAsync(CashTrackerDbContext db, OdemeIslemi payment,
+        decimal amount, string idempotencyKey, CancellationToken ct)
+    {
         if (payment.OdemeSaglayici != paymentProvider.Name || payment.ParaBirimi != "TRY" ||
             payment.IslemTipi is not (PaymentTransactionTypes.SubscriptionStart or PaymentTransactionTypes.PlanUpgrade) ||
             string.IsNullOrWhiteSpace(payment.SaglayiciOturumId) || payment.SaglayiciOturumId.Length > 64 ||
             payment.SaglayiciOturumId.Any(c => !char.IsAsciiLetterOrDigit(c)))
             throw new InvalidOperationException("Payment is not an eligible subscription charge.");
-        var instructions = await db.OdemeIadeTalimatlari.Where(x => x.OdemeIslemiId == paymentId).ToListAsync(ct);
+        var instructions = await db.OdemeIadeTalimatlari.Where(x => x.OdemeIslemiId == payment.Id).ToListAsync(ct);
         var existing = instructions.SingleOrDefault(x => x.IdempotencyAnahtari == idempotencyKey);
         if (existing is not null)
         {
@@ -40,15 +103,11 @@ public sealed class PaymentRefundService(IDbContextFactory<CashTrackerDbContext>
             instructions.Where(x => x.Durum != "KesinBasarisiz").Sum(x => x.Tutar) + amount > payment.ToplamTutar)
             throw new InvalidOperationException("Refund amount is unavailable or another refund needs review.");
         var reference = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(
-            payment.OdemeSaglayici + ":" + paymentId + ":" + idempotencyKey))).ToLowerInvariant();
-        var instruction = new OdemeIadeTalimati
+            payment.OdemeSaglayici + ":" + payment.Id + ":" + idempotencyKey))).ToLowerInvariant();
+        return new OdemeIadeTalimati
         {
-            OdemeIslemiId = paymentId, Tutar = amount, IdempotencyAnahtari = idempotencyKey, ReferansNo = reference
+            OdemeIslemiId = payment.Id, Tutar = amount, IdempotencyAnahtari = idempotencyKey, ReferansNo = reference
         };
-        db.OdemeIadeTalimatlari.Add(instruction);
-        await db.SaveChangesAsync(ct);
-        await tx.CommitAsync(ct);
-        return instruction;
     }
 
     public async Task<OdemeIadeTalimati> DispatchAsync(long instructionId, CancellationToken ct = default)
@@ -71,6 +130,7 @@ public sealed class PaymentRefundService(IDbContextFactory<CashTrackerDbContext>
             completedTotal = others.Where(x => x.Durum == "Tamamlandi").Sum(x => x.Tutar);
             instruction.Durum = "Gonderiliyor";
             instruction.UpdatedAt = DateTime.UtcNow;
+            await UpdateCancellationStatusAsync(db, instruction, ct);
             await db.SaveChangesAsync(ct);
             await tx.CommitAsync(ct);
         }
@@ -122,6 +182,7 @@ public sealed class PaymentRefundService(IDbContextFactory<CashTrackerDbContext>
         instruction.SonHataKodu = string.Empty;
         var now = DateTime.UtcNow;
         instruction.UpdatedAt = now;
+        await UpdateCancellationStatusAsync(db, instruction, ct);
         db.OdemeOlaylari.Add(new OdemeOlayi
         {
             OdemeSaglayici = local.OdemeSaglayici, OlayId = "refund:" + instruction.ReferansNo,
@@ -168,9 +229,20 @@ public sealed class PaymentRefundService(IDbContextFactory<CashTrackerDbContext>
         instruction.SonHataKodu = error.Length <= 80 && error.All(c => char.IsAsciiLetterOrDigit(c) || c == '_')
             ? error : "provider_error";
         instruction.UpdatedAt = DateTime.UtcNow;
+        await UpdateCancellationStatusAsync(db, instruction, ct);
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
         return instruction;
+    }
+
+    private static async Task UpdateCancellationStatusAsync(CashTrackerDbContext db, OdemeIadeTalimati instruction, CancellationToken ct)
+    {
+        var subscriptions = await db.Abonelikler.Where(x => x.IptalIadeTalimatiId == instruction.Id).ToListAsync(ct);
+        foreach (var subscription in subscriptions)
+        {
+            subscription.IptalIadeDurumu = instruction.Durum;
+            subscription.UpdatedAt = instruction.UpdatedAt;
+        }
     }
 
     private static bool MatchesPayment(OdemeIslemi local, ProviderPaymentSnapshot? remote, bool testMode) =>

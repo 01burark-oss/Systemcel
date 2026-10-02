@@ -4,7 +4,7 @@ public sealed class PazaryeriOptions
 {
     public bool Aktif { get; init; } = true;
     public IReadOnlySet<int> PilotIsletmeIdleri { get; init; } = new HashSet<int>();
-    public decimal VarsayilanKomisyonOrani { get; init; } = 8m;
+    public decimal VarsayilanKomisyonOrani => 9m;
     public decimal KomisyonKdvOrani { get; init; } = 20m;
     public decimal TevkifatOrani { get; init; } = 1m;
     public decimal OdemeHizmetiOrani { get; init; }

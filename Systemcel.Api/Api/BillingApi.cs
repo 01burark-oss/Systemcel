@@ -14,7 +14,7 @@ namespace Systemcel.Api.Api;
 
 internal static class BillingApi
 {
-    private const string ConsentVersion = "abonelik-onayi-2026-08-v5";
+    private const string ConsentVersion = "abonelik-onayi-2026-10-v6";
 
     public static void MapBillingApi(this WebApplication app)
     {
@@ -123,6 +123,17 @@ internal static class BillingApi
                     .ToListAsync(ct);
 
                 var cancellationAtPeriodEnd = subscription?.DonemSonundaIptal == true || trial?.DonemSonundaIptal == true;
+                SubscriptionCancellationQuote? cancellationQuote = null;
+                if (subscription is not null && (subscription.Durum == "Aktif" || subscription.DonemSonundaIptal) && trial?.Durum != "Aktif")
+                {
+                    var matchedPayments = await db.OdemeIslemleri.AsNoTracking().Where(x =>
+                        x.IsletmeId == business.Id && x.HesapTipi == subscription.HesapTipi &&
+                        x.SaglayiciIslemId == subscription.SaglayiciAbonelikId).ToListAsync(ct);
+                    var matchedPayment = matchedPayments.Count == 1 ? matchedPayments[0] : null;
+                    var refunds = matchedPayment is null ? new List<CashTracker.Core.Entities.OdemeIadeTalimati>() :
+                        await db.OdemeIadeTalimatlari.AsNoTracking().Where(x => x.OdemeIslemiId == matchedPayment.Id).ToListAsync(ct);
+                    cancellationQuote = SubscriptionCancellationPolicy.Calculate(subscription, matchedPayment, refunds, now);
+                }
                 var canCancel = !cancellationAtPeriodEnd &&
                     (subscription?.Durum == "Aktif" || trial?.Durum == "Aktif");
                 var nextRenewalAt = trial?.Durum == "Aktif"
@@ -158,6 +169,7 @@ internal static class BillingApi
                     sonrakiYenilemeAt = nextRenewalAt,
                     donemSonundaIptal = cancellationAtPeriodEnd,
                     iptalEdilebilir = canCancel,
+                    iptalOzeti = cancellationQuote,
                     deneme = trial is null ? null : new
                     {
                         trial.PlanKodu,
@@ -599,6 +611,9 @@ internal static class BillingApi
         var net = quote.NetAmount.ToString("N2", culture);
         var vat = quote.VatAmount.ToString("N2", culture);
         var total = quote.TotalAmount.ToString("N2", culture);
+        var cancellation = quote.BillingPeriod == PaymentBillingPeriods.Annual
+            ? " Yıllık abonelik iptalinde abonelik başlangıcına göre mevcut aylık dönem tamamlanır; kalan her tam ay için gerçekten ödenen yıllık tutarın 1/12'si üzerinden iade talebi oluşturulur."
+            : " Aylık abonelik iptali ödenmiş aylık dönemin sonunda etkili olur ve olağan iptal geçmiş tahsilatı kendiliğinden iade etmez.";
         var credits = quote.ExtraCustomerCredits > 0
             ? $" Buna Standart plana dahil 10 müşteriye ek olarak yinelenen {quote.ExtraCustomerCredits} adet +1 müşteri kredisi dahildir."
             : string.Empty;
@@ -614,7 +629,7 @@ internal static class BillingApi
             var fullPeriod = quote.FullPeriodNetAmount.ToString("N2", culture);
             var credit = quote.ProrationCreditNetAmount.ToString("N2", culture);
             return $"Plan yükseltmesinin hemen uygulanmasını; yeni dönem bedeli {fullPeriod} TL'den kullanılmayan dönem kredisi {credit} TL düşüldükten sonra " +
-                   $"{net} TL + {vat} TL KDV, toplam {total} TL tahsil edilmesini onaylıyorum.{credits}";
+                   $"{net} TL + {vat} TL KDV, toplam {total} TL tahsil edilmesini onaylıyorum.{credits}{cancellation}";
         }
 
         if (quote.TrialDays <= 0)
@@ -629,16 +644,13 @@ internal static class BillingApi
                     : $" İlk 50 kurucu kampanyası fiyatının ilk {quote.DiscountedPeriodCount} aylık dönem için geçerli olduğunu kabul ediyorum. Kampanya bittikten sonraki aylık yenilemelerde yenileme tarihinde geçerli liste fiyatı uygulanır. Bugünkü aylık liste fiyatı {renewalNet} TL + {renewalVat} TL KDV, toplam {renewalTotal} TL'dir. Fiyat değişikliği en az 30 gün önce e-posta ve uygulama içinden bildirilir; yenilemeden önce dönem sonu iptal talebi verebilirim."
                 : $" Aboneliğin sonraki {period} dönemde {renewalNet} TL + {renewalVat} TL KDV, toplam {renewalTotal} TL üzerinden yenileneceğini kabul ediyorum.";
             return $"{period} planın hemen başlamasını; " +
-                   $"{net} TL + {vat} TL KDV, toplam {total} TL'nin kayıtlı ödeme yöntemimden bugün tahsil edilmesini onaylıyorum.{credits}{campaign} İptalin mevcut ücretli dönemin " +
-                   "sonunda etkili olacağını; dönem sonu iptalin geçmiş tahsilatı kendiliğinden iade etmeyeceğini ve " +
-                   "emredici yasal haklarımın saklı olduğunu kabul ediyorum.";
+                   $"{net} TL + {vat} TL KDV, toplam {total} TL'nin kayıtlı ödeme yöntemimden bugün tahsil edilmesini onaylıyorum.{credits}{campaign}{cancellation} Emredici yasal haklarım saklıdır.";
         }
 
         return $"{quote.TrialDays} günlük deneme sonunda iptal etmediğim takdirde {period} plan için " +
                $"{net} TL + {vat} TL KDV, toplam {total} TL'nin kayıtlı ödeme yöntemimden tahsil edilmesini " +
                $"ve aboneliğin {period} olarak yenilenmesini onaylıyorum.{credits} Deneme bitmeden 7 ve 3 gün önce " +
-               "bilgilendirileceğimi; iptalin mevcut ücretli dönemin sonunda etkili olacağını ve kullanılmış dönem için " +
-               "geçmiş tahsilatı kendiliğinden iade etmeyeceğini ve emredici yasal haklarımın saklı olduğunu kabul ediyorum.";
+               $"bilgilendirileceğimi kabul ediyorum.{cancellation} Emredici yasal haklarım saklıdır.";
     }
 
     private static string BuildFakeCheckoutHtml(

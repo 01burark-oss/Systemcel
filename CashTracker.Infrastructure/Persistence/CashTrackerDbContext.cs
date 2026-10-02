@@ -179,6 +179,7 @@ namespace CashTracker.Infrastructure.Persistence
             });
             modelBuilder.Entity<TedarikciSiparis>(e =>
             {
+                e.Property(x => x.PlatformOdemeHizmetiBedeli).HasColumnType("NUMERIC");
                 e.ToTable("TedarikciSiparis"); e.HasKey(x => x.Id);
                 e.Property(x => x.SiparisNo).IsRequired().HasMaxLength(48); e.Property(x => x.ParaBirimi).IsRequired().HasMaxLength(3);
                 e.Property(x => x.Durum).IsRequired().HasMaxLength(30); e.Property(x => x.KargoFirmasi).IsRequired().HasMaxLength(120);
@@ -610,6 +611,13 @@ namespace CashTracker.Infrastructure.Persistence
                 e.Property(x => x.KampanyaKodu).IsRequired();
                 e.Property(x => x.YenilemeDonemTutari).HasColumnType("NUMERIC");
                 e.Property(x => x.DonemTutari).HasColumnType("NUMERIC");
+                e.Property(x => x.IptalIadeTutari).HasColumnType("NUMERIC");
+                e.Property(x => x.IptalIadeDurumu).IsRequired();
+                e.Property(x => x.IptalIadeOnaylayanProviderKullaniciId).HasMaxLength(200);
+                e.HasOne<OdemeIadeTalimati>().WithMany().HasForeignKey(x => x.IptalIadeTalimatiId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                e.HasOne<OdemeIslemi>().WithMany().HasForeignKey(x => x.IptalIadeOdemeIslemiId)
+                    .OnDelete(DeleteBehavior.Restrict);
                 e.Property(x => x.ParaBirimi).IsRequired();
                 e.Property(x => x.OdemeSaglayici).IsRequired();
                 e.Property(x => x.SaglayiciMusteriId).IsRequired();

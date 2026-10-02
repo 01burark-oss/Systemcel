@@ -447,6 +447,10 @@ export function AbonelikSayfasi() {
                   ? "Deneme süreniz bu tarihte sona erer."
                   : "Planınız bu tarihte yenilenir."}</p>
               {ozet.donemSonundaIptal ? <span className="billing-period-status"><FileCheck2 size={16} /> İptal talebi alındı</span> : null}
+              {ozet.donemSonundaIptal && ozet.iptalOzeti && ozet.iptalOzeti.remainingMonths > 0 ? (
+                <p>{ozet.iptalOzeti.refundAmount == null ? "İade tutarı inceleniyor."
+                  : `${paraBic(ozet.iptalOzeti.refundAmount, ozet.iptalOzeti.currency)} ${iadeDurumMetni(ozet.iptalOzeti.refundStatus)}`}</p>
+              ) : null}
               {ozet.abonelik?.planlananDegisiklikAt ? (
                 <div className="billing-period-status" role="status">
                   <FileCheck2 size={16} />
@@ -510,10 +514,17 @@ export function AbonelikSayfasi() {
             {modal === "iptal" ? <button className="billing-modal__close" type="button" onClick={modalKapat} disabled={islemde} aria-label="Pencereyi kapat"><X size={19} /></button> : null}
             {modal === "iptal" ? (
               <>
-                <span className="billing-modal__icon billing-modal__icon--danger"><CalendarClock size={24} /></span>
+                <span className="billing-modal__icon"><CalendarClock size={24} /></span>
                 <p className="billing-modal__eyebrow">DÖNEM SONUNDA İPTAL</p>
                 <h2 id="billing-modal-title" ref={modalBaslikRef} tabIndex={-1}>Aboneliği dönem sonunda bitir</h2>
-                <p className="billing-modal__lead">Erişiminiz <strong>{tarihBic(bitisAt)}</strong> tarihine kadar kesintisiz devam eder. Bu tarihten sonra kartınızdan yeni tahsilat yapılmaz.</p>
+                <p className="billing-modal__lead">Aboneliğiniz <strong>{tarihBic(ozet?.iptalOzeti?.accessEndsAt ?? bitisAt)}</strong> tarihine kadar kesintisiz devam eder. Bu tarihten sonra kartınızdan yeni ödeme alınmaz.</p>
+                {ozet?.abonelik?.faturalamaDonemi === "Yillik" && ozet.iptalOzeti ? (
+                  <p className="billing-modal__lead">{ozet.iptalOzeti.refundAmount == null
+                    ? "Kalan aylara ait iade tutarı ödeme kayıtları incelenerek belirlenecek."
+                    : ozet.iptalOzeti.remainingMonths > 0
+                      ? <>Kalan {ozet.iptalOzeti.remainingMonths} ay için <strong>{paraBic(ozet.iptalOzeti.refundAmount, ozet.iptalOzeti.currency)}</strong> iade talebi oluşturulacak.</>
+                      : "İade edilecek tam ay kalmadı."}</p>
+                ) : null}
                 <div className="billing-cancel-list">
                   <span><Check size={16} /> Mevcut dönem haklarınız korunur</span>
                   <span><Check size={16} /> Verileriniz silinmez</span>
@@ -599,7 +610,7 @@ export function AbonelikSayfasi() {
                       </dl>
                       <div className="billing-receipt-renewal">
                         {teklif.fiyat.changeType === "DonemSonuDegisiklik" ? <p>Yeni planınız {tarihBic(teklif.fiyat.effectiveAt)} tarihinde uygulanır.</p> : null}
-                        {teklif.fiyat.isFounderPrice ? <><span>Bugünkü liste fiyatı</span><strong>{paraBic(teklif.fiyat.renewalNetAmount, teklif.fiyat.currency)} + KDV</strong><p>Lansman fiyatı {teklif.fiyat.discountedPeriodCount} {faturalamaDonemi === "Yillik" ? "yıllık" : "aylık"} dönem geçerlidir. Sonrasında güncel liste fiyatı uygulanır.</p></> : <p>{faturalamaDonemi === "Yillik" ? "Yıllık" : "Aylık"} yenilenir. Dönem sonunda iptal edebilirsiniz.</p>}
+                        {teklif.fiyat.isFounderPrice ? <><span>Bugünkü liste fiyatı</span><strong>{paraBic(teklif.fiyat.renewalNetAmount, teklif.fiyat.currency)} + KDV</strong><p>Lansman fiyatı {teklif.fiyat.discountedPeriodCount} {faturalamaDonemi === "Yillik" ? "yıllık" : "aylık"} dönem geçerlidir. Sonrasında güncel liste fiyatı uygulanır.</p></> : <p>{faturalamaDonemi === "Yillik" ? "Yıllık yenilenir. İptalde mevcut aylık dönem tamamlanır; kalan tam aylar için iade talebi oluşturulur." : "Aylık yenilenir. Dönem sonunda iptal edebilirsiniz."}</p>}
                       </div>
                     </article>
                   ) : <div className="billing-preview-empty">Ödeme özeti hazırlanamadı.<button className="billing-link-button" type="button" onClick={() => { setModal(null); window.requestAnimationFrame(() => setModal("onay")); }}>Yeniden dene</button></div>}
@@ -665,6 +676,14 @@ function OdemeSatiri({ odeme }: { odeme: OdemeKaydi }) {
       <td className="number"><strong>{paraBic(odeme.toplamTutar, odeme.paraBirimi)}</strong><small>{odeme.kdvTutar > 0 ? `${paraBic(odeme.kdvTutar, odeme.paraBirimi)} KDV` : "Ücret alınmadı"}</small></td>
     </tr>
   );
+}
+
+function iadeDurumMetni(status: string) {
+  if (status === "Tamamlandi") return "iadeniz tamamlandı.";
+  if (status === "Hazir") return "iade talebiniz onaylandı.";
+  if (["Gonderiliyor", "SonucBekliyor"].includes(status)) return "iadenizin sonucu bekleniyor.";
+  if (status === "KesinBasarisiz") return "iadeniz tamamlanamadı. Destekle iletişime geçin.";
+  return "iade talebiniz inceleme bekliyor.";
 }
 
 export function resolvePrimaryCta(summary: AbonelikOzeti | null) {

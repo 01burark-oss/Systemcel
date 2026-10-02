@@ -14,7 +14,7 @@ describe("subscription legal text", () => {
       expect(searchable).toContain("emredici");
     } else {
       expect(searchable).toContain("monthly");
-      expect(searchable).toContain("paid period ends");
+      expect(searchable).toContain("paid monthly period ends");
       expect(searchable).toContain("mandatory");
     }
   });

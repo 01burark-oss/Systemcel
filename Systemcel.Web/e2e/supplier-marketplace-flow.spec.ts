@@ -247,6 +247,23 @@ test("yönetim kuyruğu bekleyen iade ve ödemeyi açıkça gösterir", async ({
   await page.screenshot({ path: testInfo.outputPath(`money-queue-${dark ? "dark" : "light"}.png`), fullPage: true });
 });
 
+test("yeni tedarikçi onayı sabit %9 komisyon gönderir", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium", "Supplier approval contract smoke test");
+  const api = await mockWorkspace(page, { supplierApproval: true });
+  await page.addInitScript(() => window.localStorage.setItem("systemcel.analyticsConsent", "denied"));
+  await page.goto("/app/tedarikci-pazaryeri");
+  await page.getByRole("button", { name: "Yönetim" }).click();
+  await page.getByRole("button", { name: "İncele" }).click();
+
+  const dialog = page.getByRole("dialog", { name: "Marmara Gıda başvurusu" });
+  const commission = dialog.getByRole("spinbutton", { name: "Komisyon oranı" });
+  await expect(commission).toHaveValue("9");
+  await expect(commission).toHaveAttribute("readonly", "");
+  await dialog.getByRole("textbox", { name: "Yönetici notu" }).fill("Yeni komisyonla onay");
+  await dialog.getByRole("button", { name: "Başvuruyu onayla" }).click();
+  await expect.poll(() => api.verificationBody).toEqual(expect.objectContaining({ komisyonOrani: 9 }));
+});
+
 test("yönetici reddedilen stoğu idempotent olarak uzlaştırır ve eski kaydı manuel incelemeye bırakır", async ({ page }, testInfo) => {
   test.skip(!["desktop-chromium", "desktop-wide", "mobile-small", "mobile-360"].includes(testInfo.project.name), "Yönetim stok uzlaştırma görünümü");
   const api = await mockWorkspace(page, { adminReview: true, stockReconciliation: true, reviewDelayMs: 350 });
@@ -337,9 +354,9 @@ test("stok uzlaştırma belirsiz tekrarında kayıt başına anahtar korunur, de
   expect((api.reconciliationBodies[1] as { idempotencyKey: string }).idempotencyKey).toBe(otherKey);
 });
 
-async function mockWorkspace(page: Page, options: { temperatureRange?: boolean; adminReview?: boolean; stockReconciliation?: boolean; reconciliationFailureCount?: number; reconciliationFailureGate?: Promise<void>; reviewDelayMs?: number } = {}) {
+async function mockWorkspace(page: Page, options: { temperatureRange?: boolean; adminReview?: boolean; supplierApproval?: boolean; stockReconciliation?: boolean; reconciliationFailureCount?: number; reconciliationFailureGate?: Promise<void>; reviewDelayMs?: number } = {}) {
   let state = "";
-  const api: { createdBody?: unknown; lastReceiptBody?: unknown; reconciliationBodies: unknown[]; reviewFetches: number } = { reconciliationBodies: [], reviewFetches: 0 };
+  const api: { createdBody?: unknown; lastReceiptBody?: unknown; verificationBody?: unknown; reconciliationBodies: unknown[]; reviewFetches: number } = { reconciliationBodies: [], reviewFetches: 0 };
   let pendingReconciliationFailures = options.reconciliationFailureCount ?? 0;
 
   await page.route("**/api/**", async route => {
@@ -358,7 +375,11 @@ async function mockWorkspace(page: Page, options: { temperatureRange?: boolean; 
       isletmeTuru: "Genel", konum: "İstanbul", muhasebeciVarMi: false, mesaj: "", turler: []
     });
     if (path === "/api/ekran/sohbetler") return json(route, { sohbetler: [], okunmamisMesajSayisi: 0 });
-    if (path === "/api/ekran/tedarikci-pazaryeri" && request.method() === "GET") return json(route, marketplace(state, options.adminReview));
+    if (path === "/api/ekran/tedarikci-pazaryeri" && request.method() === "GET") return json(route, marketplace(state, Boolean(options.adminReview || options.supplierApproval), options.supplierApproval));
+    if (path === "/api/ekran/yonetim/tedarikci-profilleri/98/dogrula" && request.method() === "POST") {
+      api.verificationBody = request.postDataJSON();
+      return json(route, { mesaj: "Tedarikçi onaylandı." });
+    }
     if (path === "/api/ekran/yonetim/tedarikci-siparisler/88/inceleme" && options.adminReview) {
       api.reviewFetches++;
       if (options.reviewDelayMs) await new Promise((resolve) => setTimeout(resolve, options.reviewDelayMs));
@@ -420,11 +441,11 @@ async function mockWorkspace(page: Page, options: { temperatureRange?: boolean; 
   return api;
 }
 
-function marketplace(state: string, adminReview = false) {
+function marketplace(state: string, adminReview = false, supplierApproval = false) {
   const hasOrder = Boolean(state);
   return {
     aktifIsletmeId: 42, guvenliOdemeHazir: true, malKabulYetkisi: true, yonetici: adminReview, profiller: [], talepler: [], acikTalepler: [], gelenTeklifler: [],
-    yonetimProfilleri: [], yonetimSiparisler: adminReview ? [
+    yonetimProfilleri: supplierApproval ? [{ id: 98, unvan: "Marmara Gıda", vergiNo: "1234567890", iban: "TR000", adres: "İstanbul", yetkiliAdSoyad: "Yetkili", kategoriler: "Gıda", sehir: "İstanbul", dogrulamaDurumu: "Incelemede" }] : [], yonetimSiparisler: adminReview ? [
       { id: 88, siparisNo: "PAZ-77-01", tedarikciUnvani: "Marmara Gıda", durum: "Itirazli", genelToplam: 120, paraBirimi: "TRY", hakedisDurumu: "Bloke", itirazYasiSaat: 28.5, tedarikciIlkYanitSuresiSaat: null },
       { id: 89, siparisNo: "PAZ-77-02", tedarikciUnvani: "Marmara Gıda", durum: "HakEdisBekliyor", genelToplam: 120, paraBirimi: "TRY", hakedisDurumu: "IadeBekliyor", yonetimNedeni: "İade sonucu incelenecek" },
       { id: 90, siparisNo: "PAZ-77-03", tedarikciUnvani: "Marmara Gıda", durum: "HakEdisBekliyor", genelToplam: 120, paraBirimi: "TRY", hakedisDurumu: "MutabakatFarki", yonetimNedeni: "Ödeme sonucu incelenecek" }

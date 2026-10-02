@@ -173,7 +173,7 @@
 .billing-modal { position: relative; width: min(100%, 650px); max-height: min(880px, calc(100vh - 40px)); padding: clamp(24px, 4vw, 36px); overflow-y: auto; border: 1px solid var(--billing-line); border-radius: 24px; color: var(--billing-ink); background: var(--billing-paper); box-shadow: 0 35px 90px rgba(0, 0, 0, .34); }
 .billing-modal--cancel { width: min(100%, 540px); }
 .billing-modal__close { position: absolute; top: 18px; right: 18px; display: grid; place-items: center; width: 36px; height: 36px; padding: 0; border: 1px solid var(--billing-line); border-radius: 50%; color: var(--billing-ink); background: transparent; }
-.billing-modal__icon { display: grid; place-items: center; width: 50px; height: 50px; margin-bottom: 20px; border-radius: 14px; background: var(--billing-lime); }
+.billing-modal__icon { display: grid; place-items: center; width: 50px; height: 50px; margin-bottom: 20px; border-radius: 14px; color: var(--billing-on-lime); background: var(--billing-lime); }
 .billing-modal__icon--danger { color: var(--billing-danger); background: #f9dfda; }
 .billing-modal__eyebrow { margin: 0 0 8px; color: var(--billing-muted); font: 760 10px/1.2 Consolas, monospace; letter-spacing: .14em; }
 .billing-modal h2 { margin: 0; font-family: Georgia, "Times New Roman", serif; font-size: clamp(29px, 5vw, 39px); font-weight: 400; letter-spacing: -.05em; line-height: 1.08; }

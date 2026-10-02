@@ -22,6 +22,9 @@ public sealed class BillingConsentTests
         Assert.Contains("11.880,00 TL", consent);
         Assert.Contains("15.480,00 TL", consent);
         Assert.DoesNotContain("yalnızca ilk 3 aylık", consent);
+        Assert.Contains("mevcut aylık dönem tamamlanır", consent);
+        Assert.Contains("gerçekten ödenen yıllık tutarın 1/12", consent);
+        Assert.DoesNotContain("geçmiş tahsilatı kendiliğinden iade", consent);
     }
 
     [Fact]
@@ -38,5 +41,6 @@ public sealed class BillingConsentTests
         Assert.Contains("ilk 3 aylık dönem", consent);
         Assert.Contains("990,00 TL", consent);
         Assert.Contains("1.290,00 TL", consent);
+        Assert.Contains("ödenmiş aylık dönemin sonunda", consent);
     }
 }

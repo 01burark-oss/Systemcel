@@ -58,6 +58,7 @@ public sealed class TedarikciSiparis
     public decimal TevkifatMatrahi { get; set; }
     public decimal TevkifatTutari { get; set; }
     public decimal OdemeHizmetiBedeli { get; set; }
+    public decimal PlatformOdemeHizmetiBedeli { get; set; }
     public decimal TedarikciHakEdisi { get; set; }
     public string Durum { get; set; } = "OdemeBekliyor";
     public string KargoFirmasi { get; set; } = string.Empty;

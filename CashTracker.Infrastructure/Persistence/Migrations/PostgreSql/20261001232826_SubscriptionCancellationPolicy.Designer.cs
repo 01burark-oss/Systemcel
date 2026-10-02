@@ -3,6 +3,7 @@ using System;
 using CashTracker.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace CashTracker.Infrastructure.Persistence.Migrations.PostgreSql
 {
     [DbContext(typeof(CashTrackerDbContext))]
-    partial class CashTrackerDbContextModelSnapshot : ModelSnapshot
+    [Migration("20261001232826_SubscriptionCancellationPolicy")]
+    partial class SubscriptionCancellationPolicy
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -75,16 +78,6 @@ namespace CashTracker.Infrastructure.Persistence.Migrations.PostgreSql
 
                     b.Property<int?>("IptalIadeOdemeIslemiId")
                         .HasColumnType("integer");
-
-                    b.Property<DateTime?>("IptalIadeOnayAt")
-                        .HasColumnType("timestamp without time zone");
-
-                    b.Property<string>("IptalIadeOnaylayanProviderKullaniciId")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.Property<long?>("IptalIadeTalimatiId")
-                        .HasColumnType("bigint");
 
                     b.Property<decimal?>("IptalIadeTutari")
                         .HasColumnType("NUMERIC");
@@ -151,8 +144,6 @@ namespace CashTracker.Infrastructure.Persistence.Migrations.PostgreSql
                     b.HasKey("Id");
 
                     b.HasIndex("IptalIadeOdemeIslemiId");
-
-                    b.HasIndex("IptalIadeTalimatiId");
 
                     b.HasIndex("IsletmeId");
 
@@ -5090,11 +5081,6 @@ namespace CashTracker.Infrastructure.Persistence.Migrations.PostgreSql
                     b.HasOne("CashTracker.Core.Entities.OdemeIslemi", null)
                         .WithMany()
                         .HasForeignKey("IptalIadeOdemeIslemiId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.HasOne("CashTracker.Core.Entities.OdemeIadeTalimati", null)
-                        .WithMany()
-                        .HasForeignKey("IptalIadeTalimatiId")
                         .OnDelete(DeleteBehavior.Restrict);
                 });
 

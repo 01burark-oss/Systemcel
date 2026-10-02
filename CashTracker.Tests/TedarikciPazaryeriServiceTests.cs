@@ -16,6 +16,54 @@ namespace CashTracker.Tests;
 public sealed class TedarikciPazaryeriServiceTests
 {
     [Fact]
+    public async Task NewOrder_PlatformPaysPaymentFeeWithoutReducingSupplierSettlement()
+    {
+        await using var f = await Fixture.CreateAsync();
+        var options = new PazaryeriOptions { OdemeHizmetiOrani = 3m };
+        var result = await f.Service(1, options: options).CreateOrderAsync(new("A", "platform-fee",
+            new[] { new PazaryeriSepetKalemiRequest(f.ProductA, 1) }));
+        await f.Service(1, options: options).PayOrderAsync(result.Id, new("platform-fee-payment"));
+        await using var db = f.Db();
+        var order = await db.TedarikciSiparisleri.SingleAsync();
+        var settlement = await db.TedarikciHakEdisleri.SingleAsync();
+        Assert.Equal(9m, order.KomisyonOrani);
+        Assert.Equal(1.8m, order.KomisyonTutari);
+        Assert.Equal(0m, order.OdemeHizmetiBedeli);
+        Assert.Equal(0.72m, order.PlatformOdemeHizmetiBedeli);
+        Assert.Equal(21.64m, settlement.NetTutar);
+        Assert.Equal(0m, settlement.OdemeHizmetiBedeli);
+        var platformCost = await db.PazaryeriDefterKayitlari.SingleAsync(x => x.Hesap == "PlatformOdemeHizmeti");
+        Assert.Equal(0.72m, platformCost.Tutar);
+        Assert.False(await db.PazaryeriDefterKayitlari.AnyAsync(x => x.Hesap == "OdemeHizmeti"));
+    }
+
+    [Fact]
+    public async Task LegacyOrder_KeepsStoredCommissionFeeAndPayoutWhenPaidAfterPolicyChange()
+    {
+        await using var f = await Fixture.CreateAsync();
+        var result = await f.Service(1).CreateOrderAsync(new("A", "legacy-fee",
+            new[] { new PazaryeriSepetKalemiRequest(f.ProductA, 1) }));
+        await using (var db = f.Db())
+        {
+            var order = await db.TedarikciSiparisleri.SingleAsync();
+            order.KomisyonOrani = 8m;
+            order.KomisyonTutari = 1.6m;
+            order.KomisyonKdvTutari = 0.32m;
+            order.OdemeHizmetiBedeli = 0.72m;
+            order.PlatformOdemeHizmetiBedeli = 0m;
+            order.TedarikciHakEdisi = 21.16m;
+            await db.SaveChangesAsync();
+        }
+        await f.Service(1).PayOrderAsync(result.Id, new("legacy-payment"));
+        await using var verify = f.Db();
+        var settlement = await verify.TedarikciHakEdisleri.SingleAsync();
+        Assert.Equal(21.16m, settlement.NetTutar);
+        Assert.Equal(0.72m, settlement.OdemeHizmetiBedeli);
+        Assert.Equal(8m, (await verify.TedarikciSiparisleri.SingleAsync()).KomisyonOrani);
+        Assert.False(await verify.PazaryeriDefterKayitlari.AnyAsync(x => x.Hesap == "PlatformOdemeHizmeti"));
+    }
+
+    [Fact]
     public void PazaryeriOptions_PilotAllowlistFailsClosedForUnlistedBusiness()
     {
         var options = new PazaryeriOptions { Aktif = true, PilotIsletmeIdleri = new HashSet<int> { 7, 9 } };
@@ -68,10 +116,10 @@ public sealed class TedarikciPazaryeriServiceTests
         Assert.Equal(1m, await db.TedarikciUrunleri.Where(x => x.Id == f.ProductA).Select(x => x.RezerveMiktar).SingleAsync());
         Assert.Equal(1m, await db.TedarikciUrunleri.Where(x => x.Id == f.ProductB).Select(x => x.RezerveMiktar).SingleAsync());
         var firstOrder = await db.TedarikciSiparisleri.SingleAsync(x => x.TedarikciIsletmeId == 2);
-        Assert.Equal(2m, firstOrder.KomisyonTutari);
-        Assert.Equal(0.40m, firstOrder.KomisyonKdvTutari);
+        Assert.Equal(1.8m, firstOrder.KomisyonTutari);
+        Assert.Equal(0.36m, firstOrder.KomisyonKdvTutari);
         Assert.Equal(0.20m, firstOrder.TevkifatTutari);
-        Assert.Equal(21.40m, firstOrder.TedarikciHakEdisi);
+        Assert.Equal(21.64m, firstOrder.TedarikciHakEdisi);
     }
 
     [Fact]
@@ -1183,12 +1231,12 @@ public sealed class TedarikciPazaryeriServiceTests
         await using var assertDb = f.Db();
         var settlement = await assertDb.TedarikciHakEdisleri.SingleAsync();
         Assert.Equal(5m, settlement.NetTutar);
-        Assert.Equal(16.40m, settlement.IadeTutari);
+        Assert.Equal(16.64m, settlement.IadeTutari);
         Assert.Equal("Bekliyor", settlement.Durum);
         Assert.Equal(PazaryeriSiparisDurumlari.HakEdisBekliyor,
             await assertDb.TedarikciSiparisleri.Select(x => x.Durum).SingleAsync());
         Assert.Equal("KismiIade", await assertDb.PazaryeriOdemeleri.Select(x => x.Durum).SingleAsync());
-        Assert.Equal(16.40m, await assertDb.PazaryeriOdemeDagitimlari.Select(x => x.IadeTutari).SingleAsync());
+        Assert.Equal(16.64m, await assertDb.PazaryeriOdemeDagitimlari.Select(x => x.IadeTutari).SingleAsync());
         Assert.Contains("KismiPaylas", await assertDb.TedarikciSiparisDurumKayitlari
             .OrderByDescending(x => x.Id).Select(x => x.Aciklama).FirstAsync());
 
@@ -1313,10 +1361,10 @@ public sealed class TedarikciPazaryeriServiceTests
         {
             var settlement = await partialDb.TedarikciHakEdisleri.SingleAsync();
             Assert.Equal("KismenSerbest", settlement.Durum);
-            Assert.Equal(21.40m, settlement.OdenenTutar);
+            Assert.Equal(21.64m, settlement.OdenenTutar);
             var receipt = await partialDb.TedarikciMalKabulleri.SingleAsync();
             Assert.Equal(24m, receipt.KabulBrutTutar);
-            Assert.Equal(21.40m, receipt.SerbestBirakilanNetTutar);
+            Assert.Equal(21.64m, receipt.SerbestBirakilanNetTutar);
             Assert.NotEmpty(receipt.HakEdisAktarimReferansi);
             var paymentMovements = await partialDb.TahsilatOdemeleri.Where(x => x.TedarikciSiparisId == supplierOrderId).ToListAsync();
             Assert.Equal(2, paymentMovements.Count);

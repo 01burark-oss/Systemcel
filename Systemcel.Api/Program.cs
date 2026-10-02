@@ -210,6 +210,7 @@ builder.Services.AddSingleton<ISubscriptionPriceProtectionService, SubscriptionP
 builder.Services.AddSingleton<IMuhasebeciOdemeService, MuhasebeciOdemeService>();
 builder.Services.AddSingleton<IPaymentReconciliationService, PaymentReconciliationService>();
 builder.Services.AddSingleton<IPaymentRefundService, PaymentRefundService>();
+builder.Services.AddScoped<ISubscriptionCancellationRefundService, SubscriptionCancellationRefundService>();
 builder.Services.AddSingleton<ISubscriptionReminderSender>(_ => reminderEmailOptions.IsConfigured
     ? new SmtpSubscriptionReminderSender(
         reminderEmailOptions,
@@ -488,6 +489,7 @@ app.MapSohbetMerkeziApi();
 app.MapDestekApi();
 app.MapMobilTaramaApi();
 app.MapYonetimApi();
+app.MapSubscriptionRefundApi();
 app.MapUyelikApi();
 app.MapFinansalGorunumApi();
 app.MapFaturaMusteriOnayApi();

@@ -22,6 +22,48 @@ public sealed class PaymentLifecycleIntegrationTests
     private const string Secret = "systemcel-fake-payment-secret";
 
     [Fact]
+    public async Task AnnualCancellation_PersistsRefundProposalOnceAndEndsOnlyItsPaidPeriod()
+    {
+        using var fixture = new PaymentFixture(HesapTipleri.Isletme);
+        var start = DateTime.UtcNow.AddMonths(-1).AddDays(-3);
+        int paymentId;
+        await using (var db = fixture.Factory.CreateDbContext())
+        {
+            var payment = new OdemeIslemi { IsletmeId = fixture.BusinessId, CheckoutAnahtari = "annual-cancel",
+                SaglayiciIslemId = "annual-paid", PlanKodu = PlanKodlari.IsletmeBaslangic,
+                FaturalamaDonemi = PaymentBillingPeriods.Annual, IslemTipi = PaymentTransactionTypes.SubscriptionStart,
+                Durum = PaymentTransactionStates.Succeeded, ToplamTutar = 1200m, OdemeSaglayici = "Fake" };
+            db.OdemeIslemleri.Add(payment);
+            await db.SaveChangesAsync();
+            paymentId = payment.Id;
+            db.Abonelikler.Add(new Abonelik { IsletmeId = fixture.BusinessId, PlanKodu = payment.PlanKodu,
+                FaturalamaDonemi = PaymentBillingPeriods.Annual, DonemBaslangicAt = start,
+                DonemBitisAt = start.AddYears(1), SaglayiciAbonelikId = "annual-paid", OdemeSaglayici = "Fake",
+                ToleransBitisAt = start.AddYears(2), PlanlananPlanKodu = PlanKodlari.IsletmeBuyume });
+            await db.SaveChangesAsync();
+        }
+        await fixture.Service.CancelAtPeriodEndAsync(fixture.BusinessId);
+        DateTime? firstCancellation;
+        await using (var db = fixture.Factory.CreateDbContext())
+        {
+            var subscription = await db.Abonelikler.SingleAsync();
+            firstCancellation = subscription.IptalAt;
+            Assert.Equal(start.AddMonths(2), subscription.DonemBitisAt);
+            Assert.Equal(start.AddYears(1), subscription.IptalOncesiDonemBitisAt);
+            Assert.Equal(1000m, subscription.IptalIadeTutari);
+            Assert.Equal(paymentId, subscription.IptalIadeOdemeIslemiId);
+            Assert.Equal("OnayBekliyor", subscription.IptalIadeDurumu);
+            Assert.Empty(subscription.PlanlananPlanKodu);
+            Assert.Empty(await db.OdemeIadeTalimatlari.ToListAsync());
+        }
+        await fixture.Service.CancelAtPeriodEndAsync(fixture.BusinessId);
+        await using (var db = fixture.Factory.CreateDbContext())
+            Assert.Equal(firstCancellation, (await db.Abonelikler.SingleAsync()).IptalAt);
+        var result = await fixture.Service.ReconcileAsync(start.AddMonths(2));
+        Assert.Equal(1, result.CancelledSubscriptions);
+    }
+
+    [Fact]
     public async Task Checkout_IsIdempotent_AndPersistsConsentOnce()
     {
         using var fixture = new PaymentFixture(HesapTipleri.Isletme);

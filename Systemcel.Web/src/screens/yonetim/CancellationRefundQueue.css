@@ -1,0 +1,74 @@
+.cancellation-refund {
+  display: grid;
+  gap: 1rem;
+  margin: 1.25rem 0;
+  padding: clamp(1rem, 2vw, 1.4rem);
+  color: var(--sc-ink);
+  background: var(--sc-paper);
+  border: 1px solid var(--sc-line);
+  border-radius: 18px;
+  box-shadow: var(--sc-shadow);
+}
+
+.cancellation-refund__header,
+.cancellation-refund__title,
+.cancellation-refund__item-main,
+.cancellation-refund__actions,
+.cancellation-refund__confirm > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .8rem;
+}
+
+.cancellation-refund__title { justify-content: flex-start; min-width: 0; }
+.cancellation-refund__title h2 { margin: 0; color: var(--sc-ink); font-size: 1.12rem; }
+.cancellation-refund__title p { margin: .25rem 0 0; color: var(--sc-muted); font-size: .9rem; }
+.cancellation-refund__icon { display: grid; flex: 0 0 40px; width: 40px; height: 40px; place-items: center; border-radius: 12px; color: var(--sc-on-lime); background: var(--sc-lime); }
+.cancellation-refund__refresh { display: grid; flex: 0 0 40px; width: 40px; height: 40px; place-items: center; border: 1px solid var(--sc-line); border-radius: 10px; color: var(--sc-ink); background: var(--sc-surface); cursor: pointer; }
+.cancellation-refund__refresh:focus-visible,
+.cancellation-refund__button:focus-visible { outline: 3px solid var(--sc-lime); outline-offset: 2px; }
+.cancellation-refund__list { display: grid; gap: .75rem; }
+.cancellation-refund__item { display: grid; gap: .85rem; min-width: 0; padding: 1rem; border: 1px solid var(--sc-line); border-radius: 14px; background: var(--sc-surface); }
+.cancellation-refund__item-main { align-items: flex-start; }
+.cancellation-refund__business { display: grid; gap: .2rem; min-width: 0; }
+.cancellation-refund__business strong { overflow-wrap: anywhere; }
+.cancellation-refund__business span { color: var(--sc-muted); font-size: .84rem; overflow-wrap: anywhere; }
+.cancellation-refund__status { flex: 0 0 auto; max-width: 45%; padding: .32rem .58rem; border: 1px solid var(--sc-line); border-radius: 999px; color: var(--sc-ink); background: var(--sc-cream-deep); font-size: .78rem; font-weight: 750; text-align: center; }
+.cancellation-refund__status--Tamamlandi,
+.cancellation-refund__status--Hazir { border-color: color-mix(in srgb, var(--sc-success) 34%, transparent); color: var(--sc-success); background: var(--sc-success-soft); }
+.cancellation-refund__status--KesinBasarisiz,
+.cancellation-refund__status--IncelemeGerekli { border-color: color-mix(in srgb, var(--sc-danger) 34%, transparent); color: var(--sc-danger); background: var(--sc-danger-soft); }
+.cancellation-refund__details { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr)); gap: .7rem; margin: 0; }
+.cancellation-refund__details > div { display: grid; gap: .2rem; min-width: 0; }
+.cancellation-refund__details dt { color: var(--sc-muted); font-size: .75rem; }
+.cancellation-refund__details dd { margin: 0; font-size: .9rem; font-weight: 700; overflow-wrap: anywhere; }
+.cancellation-refund__review,
+.cancellation-refund__closed { margin: 0; padding: .7rem .8rem; border-radius: 10px; color: var(--sc-warning); background: var(--sc-warning-soft); font-size: .88rem; }
+.cancellation-refund__closed { border: 1px solid var(--sc-line); color: var(--sc-muted); background: var(--sc-cream-deep); }
+.cancellation-refund__message { margin: 0; padding: .7rem .8rem; border-radius: 10px; font-size: .9rem; }
+.cancellation-refund__message--error { color: var(--sc-danger); background: var(--sc-danger-soft); }
+.cancellation-refund__message--success { color: var(--sc-success); background: var(--sc-success-soft); }
+.cancellation-refund__state { display: flex; align-items: center; justify-content: center; gap: .6rem; min-height: 76px; color: var(--sc-muted); }
+.cancellation-refund__actions { justify-content: flex-start; flex-wrap: wrap; }
+.cancellation-refund__button { display: inline-flex; align-items: center; justify-content: center; gap: .4rem; min-height: 40px; padding: .5rem .8rem; border: 1px solid var(--sc-line); border-radius: 10px; color: var(--sc-ink); background: var(--sc-paper); font: inherit; font-size: .86rem; font-weight: 700; cursor: pointer; }
+.cancellation-refund__button--primary { border-color: var(--sc-lime); color: var(--sc-on-lime); background: var(--sc-lime); }
+.cancellation-refund__button:disabled,
+.cancellation-refund__refresh:disabled { cursor: not-allowed; opacity: .52; }
+.cancellation-refund__confirm { display: grid; gap: .7rem; padding: .85rem; border: 1px solid var(--sc-line); border-radius: 12px; background: var(--sc-cream-deep); }
+.cancellation-refund__confirm p { margin: 0; color: var(--sc-ink); font-size: .9rem; }
+.cancellation-refund__confirm > div { justify-content: flex-start; flex-wrap: wrap; }
+
+@media (max-width: 520px) {
+  .cancellation-refund__header { align-items: flex-start; }
+  .cancellation-refund__title { align-items: flex-start; }
+  .cancellation-refund__title p { max-width: 34ch; }
+  .cancellation-refund__item-main { flex-direction: column; }
+  .cancellation-refund__status { max-width: 100%; }
+  .cancellation-refund__actions .cancellation-refund__button { flex: 1 1 100%; }
+  .cancellation-refund__confirm > div .cancellation-refund__button { flex: 1 1 100%; }
+}
+
+@media (max-width: 760px) {
+  .payment-ops .admin-subnav { display: none; }
+}

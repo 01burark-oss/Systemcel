@@ -954,6 +954,22 @@ CREATE TABLE IF NOT EXISTS OdemeIslemi (
 );");
 
             db.Database.ExecuteSqlRaw(@"
+CREATE TABLE IF NOT EXISTS OdemeIadeTalimati (
+    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+    OdemeIslemiId INTEGER NOT NULL,
+    IdempotencyAnahtari TEXT NOT NULL,
+    ReferansNo TEXT NOT NULL,
+    Tutar NUMERIC NOT NULL,
+    Durum TEXT NOT NULL DEFAULT 'Hazir',
+    SonHataKodu TEXT NOT NULL DEFAULT '',
+    CreatedAt TEXT NOT NULL,
+    UpdatedAt TEXT NOT NULL,
+    FOREIGN KEY (OdemeIslemiId) REFERENCES OdemeIslemi(Id) ON DELETE RESTRICT
+);
+CREATE UNIQUE INDEX IF NOT EXISTS IX_OdemeIadeTalimati_OdemeIslemiId_IdempotencyAnahtari ON OdemeIadeTalimati(OdemeIslemiId, IdempotencyAnahtari);
+CREATE UNIQUE INDEX IF NOT EXISTS IX_OdemeIadeTalimati_ReferansNo ON OdemeIadeTalimati(ReferansNo);
+CREATE INDEX IF NOT EXISTS IX_OdemeIadeTalimati_Durum ON OdemeIadeTalimati(Durum);");
+            db.Database.ExecuteSqlRaw(@"
 CREATE TABLE IF NOT EXISTS KurucuKampanyaHakki (
     Id INTEGER PRIMARY KEY AUTOINCREMENT,
     IsletmeId INTEGER NOT NULL,
@@ -1081,6 +1097,23 @@ WHERE UpdatedAt = '1970-01-01 00:00:00' OR TRIM(UpdatedAt) = '';");
         {
             if (!ColumnExists(conn, "Abonelik", "FaturalamaDonemi"))
                 db.Database.ExecuteSqlRaw("ALTER TABLE Abonelik ADD COLUMN FaturalamaDonemi TEXT NOT NULL DEFAULT 'Aylik'");
+
+            if (!ColumnExists(conn, "Abonelik", "IptalOncesiDonemBitisAt"))
+                db.Database.ExecuteSqlRaw("ALTER TABLE Abonelik ADD COLUMN IptalOncesiDonemBitisAt TEXT");
+            if (!ColumnExists(conn, "Abonelik", "IptalIadeTutari"))
+                db.Database.ExecuteSqlRaw("ALTER TABLE Abonelik ADD COLUMN IptalIadeTutari NUMERIC");
+            if (!ColumnExists(conn, "Abonelik", "IptalKalanAySayisi"))
+                db.Database.ExecuteSqlRaw("ALTER TABLE Abonelik ADD COLUMN IptalKalanAySayisi INTEGER NOT NULL DEFAULT 0");
+            if (!ColumnExists(conn, "Abonelik", "IptalIadeOdemeIslemiId"))
+                db.Database.ExecuteSqlRaw("ALTER TABLE Abonelik ADD COLUMN IptalIadeOdemeIslemiId INTEGER");
+            if (!ColumnExists(conn, "Abonelik", "IptalIadeDurumu"))
+                db.Database.ExecuteSqlRaw("ALTER TABLE Abonelik ADD COLUMN IptalIadeDurumu TEXT NOT NULL DEFAULT ''");
+            if (!ColumnExists(conn, "Abonelik", "IptalIadeTalimatiId"))
+                db.Database.ExecuteSqlRaw("ALTER TABLE Abonelik ADD COLUMN IptalIadeTalimatiId INTEGER");
+            if (!ColumnExists(conn, "Abonelik", "IptalIadeOnaylayanProviderKullaniciId"))
+                db.Database.ExecuteSqlRaw("ALTER TABLE Abonelik ADD COLUMN IptalIadeOnaylayanProviderKullaniciId TEXT");
+            if (!ColumnExists(conn, "Abonelik", "IptalIadeOnayAt"))
+                db.Database.ExecuteSqlRaw("ALTER TABLE Abonelik ADD COLUMN IptalIadeOnayAt TEXT");
 
             if (!ColumnExists(conn, "Abonelik", "DonemTutari"))
                 db.Database.ExecuteSqlRaw("ALTER TABLE Abonelik ADD COLUMN DonemTutari NUMERIC NOT NULL DEFAULT 0");

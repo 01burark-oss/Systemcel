@@ -3,6 +3,7 @@ using CashTracker.Core.Models;
 using CashTracker.Core.Services;
 using CashTracker.Infrastructure.Payments;
 using CashTracker.Infrastructure.Persistence;
+using CashTracker.Infrastructure.Services;
 using CashTracker.Tests.Support;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
@@ -11,6 +12,126 @@ namespace CashTracker.Tests;
 
 public sealed class PaymentRefundServiceTests
 {
+    [Fact]
+    public async Task CancellationApproval_IsAtomicIdempotentAndRecordsFirstAdminWithoutSending()
+    {
+        await using var fixture = await Fixture.CreateAsync();
+        var id = await fixture.AddAnnualCancellationAsync();
+        var service = fixture.CancellationService("admin-user");
+        await service.ApproveAsync(id);
+        await service.ApproveAsync(id);
+        var replay = await fixture.Service.ApproveCancellationAsync(id, "another-admin");
+        await using var db = fixture.Factory.CreateDbContext();
+        var subscription = await db.Abonelikler.SingleAsync();
+        var instruction = await db.OdemeIadeTalimatlari.SingleAsync();
+        Assert.Equal(instruction.Id, replay.Id);
+        Assert.Equal(instruction.Id, subscription.IptalIadeTalimatiId);
+        Assert.Equal("admin-user", subscription.IptalIadeOnaylayanProviderKullaniciId);
+        Assert.NotNull(subscription.IptalIadeOnayAt);
+        Assert.Equal(91.67m, instruction.Tutar);
+        Assert.Equal("Hazir", subscription.IptalIadeDurumu);
+        Assert.Equal(0, fixture.Provider.RefundCalls);
+        var row = Assert.Single((await service.ListAsync()).Talepler);
+        Assert.False(row.Onaylanabilir);
+        Assert.True(row.Gonderilebilir);
+        Assert.False(row.Sorgulanabilir);
+    }
+
+    [Theory]
+    [InlineData("amount")]
+    [InlineData("tenant")]
+    [InlineData("billing")]
+    [InlineData("months")]
+    [InlineData("cutoff")]
+    [InlineData("currency")]
+    [InlineData("review")]
+    public async Task CancellationApproval_RejectsChangedOrUnverifiedSnapshot(string change)
+    {
+        await using var fixture = await Fixture.CreateAsync();
+        var id = await fixture.AddAnnualCancellationAsync();
+        await using (var db = fixture.Factory.CreateDbContext())
+        {
+            var subscription = await db.Abonelikler.SingleAsync();
+            if (change == "amount") subscription.IptalIadeTutari = 90m;
+            if (change == "tenant") subscription.IsletmeId = 8;
+            if (change == "billing") subscription.FaturalamaDonemi = PaymentBillingPeriods.Monthly;
+            if (change == "months") subscription.IptalKalanAySayisi = 10;
+            if (change == "cutoff") subscription.DonemBitisAt = subscription.DonemBitisAt!.Value.AddDays(1);
+            if (change == "currency") subscription.ParaBirimi = "USD";
+            if (change == "review") { subscription.IptalIadeTutari = null; subscription.IptalIadeDurumu = "IncelemeGerekli"; }
+            await db.SaveChangesAsync();
+        }
+        await Assert.ThrowsAsync<InvalidOperationException>(() => fixture.Service.ApproveCancellationAsync(id, "admin-user"));
+        await using var check = fixture.Factory.CreateDbContext();
+        Assert.Empty(await check.OdemeIadeTalimatlari.ToListAsync());
+        Assert.Null((await check.Abonelikler.SingleAsync()).IptalIadeOnayAt);
+        Assert.Equal(0, fixture.Provider.RefundCalls);
+    }
+
+    [Fact]
+    public async Task CancellationApproval_RejectsOtherRefundAndDispatchWithoutApproval()
+    {
+        await using var fixture = await Fixture.CreateAsync();
+        var id = await fixture.AddAnnualCancellationAsync();
+        var service = fixture.CancellationService("admin-user");
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.DispatchAsync(id));
+        await using var db = fixture.Factory.CreateDbContext();
+        var paymentId = (await db.Abonelikler.SingleAsync()).IptalIadeOdemeIslemiId!.Value;
+        await fixture.Service.RequestAsync(7, paymentId, 1m, "another-refund");
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.ApproveAsync(id));
+        Assert.Single(await db.OdemeIadeTalimatlari.ToListAsync());
+        Assert.Equal(0, fixture.Provider.RefundCalls);
+    }
+
+    [Fact]
+    public async Task CancellationQueue_AllActionsRequireAdmin_AndNonTestProviderCannotSend()
+    {
+        await using var fixture = await Fixture.CreateAsync();
+        var id = await fixture.AddAnnualCancellationAsync();
+        var regular = fixture.CancellationService("regular-user");
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => regular.ListAsync());
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => regular.ApproveAsync(id));
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => regular.DispatchAsync(id));
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => regular.ReconcileAsync(id));
+        fixture.Provider.ExpectedTestMode = false;
+        var admin = fixture.CancellationService("admin-user");
+        var queue = await admin.ListAsync();
+        Assert.False(queue.TestIslemleriAcik);
+        Assert.False(Assert.Single(queue.Talepler).Onaylanabilir);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => admin.ApproveAsync(id));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => admin.DispatchAsync(id));
+        Assert.Equal(0, fixture.Provider.RefundCalls);
+    }
+
+    [Fact]
+    public async Task CancellationRefund_PendingResultIsNotResent_ConfirmationUpdatesItsStatusOnly()
+    {
+        await using var fixture = await Fixture.CreateAsync();
+        var id = await fixture.AddAnnualCancellationAsync();
+        await fixture.AddSubscriptionAsync(7, "newer-paid-order", "Aktif");
+        fixture.Provider.AutoConfirmRefund = false;
+        var service = fixture.CancellationService("admin-user");
+        await service.ApproveAsync(id);
+        await service.DispatchAsync(id);
+        await service.DispatchAsync(id);
+        await service.ReconcileAsync(id);
+        Assert.Equal(1, fixture.Provider.RefundCalls);
+        var pending = (await service.ListAsync()).Talepler.Single(x => x.AbonelikId == id);
+        Assert.Equal("SonucBekliyor", pending.Durum);
+        Assert.False(pending.Gonderilebilir);
+        Assert.True(pending.Sorgulanabilir);
+        fixture.Provider.Confirm(fixture.Provider.LastReferenceNo, fixture.Provider.LastRefundAmount);
+        await service.ReconcileAsync(id);
+        await service.ReconcileAsync(id);
+        await using var db = fixture.Factory.CreateDbContext();
+        var subscription = await db.Abonelikler.SingleAsync(x => x.Id == id);
+        Assert.Equal("Tamamlandi", subscription.IptalIadeDurumu);
+        Assert.Equal(new DateTime(2026, 10, 15, 0, 0, 0, DateTimeKind.Utc), subscription.DonemBitisAt);
+        Assert.Equal("Aktif", (await db.Abonelikler.SingleAsync(x => x.SaglayiciAbonelikId == "newer-paid-order")).Durum);
+        Assert.Single(await db.OdemeOlaylari.ToListAsync());
+        Assert.Equal(1, fixture.Provider.RefundCalls);
+    }
+
     [Fact]
     public async Task Request_IsIdempotent_ReservesAmounts_AndRejectsOverRefund()
     {
@@ -381,6 +502,42 @@ public sealed class PaymentRefundServiceTests
 
         public string OrderFor(int paymentId) => _orderIds[paymentId];
 
+        public SubscriptionCancellationRefundService CancellationService(string userId)
+        {
+            var user = new RefundUserContext(userId);
+            return new(Factory, new SystemcelYonetimService(Factory, user,
+                new SystemcelYonetimOptions { AdminClerkUserIds = "admin-user" }), user, Service, Provider);
+        }
+
+        public async Task<int> AddAnnualCancellationAsync()
+        {
+            var paymentId = await AddPaymentAsync();
+            await using var db = Factory.CreateDbContext();
+            var payment = await db.OdemeIslemleri.SingleAsync(x => x.Id == paymentId);
+            payment.FaturalamaDonemi = PaymentBillingPeriods.Annual;
+            payment.PlanKodu = "test-plan";
+            var start = new DateTime(2026, 9, 15, 0, 0, 0, DateTimeKind.Utc);
+            var cancelled = new DateTime(2026, 10, 1, 0, 0, 0, DateTimeKind.Utc);
+            var subscription = new Abonelik
+            {
+                IsletmeId = payment.IsletmeId, HesapTipi = payment.HesapTipi, PlanKodu = payment.PlanKodu,
+                FaturalamaDonemi = PaymentBillingPeriods.Annual, OdemeSaglayici = payment.OdemeSaglayici,
+                SaglayiciAbonelikId = payment.SaglayiciIslemId, DonemBaslangicAt = start, DonemBitisAt = start.AddYears(1)
+            };
+            var quote = SubscriptionCancellationPolicy.Calculate(subscription, payment, [], cancelled);
+            subscription.DonemSonundaIptal = true;
+            subscription.IptalAt = cancelled;
+            subscription.IptalOncesiDonemBitisAt = subscription.DonemBitisAt;
+            subscription.DonemBitisAt = quote.AccessEndsAt;
+            subscription.IptalKalanAySayisi = quote.RemainingMonths;
+            subscription.IptalIadeTutari = quote.RefundAmount;
+            subscription.IptalIadeDurumu = quote.RefundStatus;
+            subscription.IptalIadeOdemeIslemiId = quote.PaymentId;
+            db.Abonelikler.Add(subscription);
+            await db.SaveChangesAsync();
+            return subscription.Id;
+        }
+
         public async Task AddSubscriptionAsync(int businessId, string providerSubscriptionId, string state)
         {
             await using var db = new CashTrackerDbContext(_options);
@@ -399,7 +556,7 @@ public sealed class PaymentRefundServiceTests
     private sealed class RefundProvider : IPaymentProvider, IPaymentRefundProvider
     {
         public string Name => "PayTR";
-        public bool ExpectedTestMode => true;
+        public bool ExpectedTestMode { get; set; } = true;
         public string PaymentOrderId { get; set; } = "order123";
         public ProviderPaymentSnapshot PaymentSnapshot { get; set; } = new("order123", 100m, 100m, "TRY", true, 0m, []);
         public ProviderRefundResult RefundResult { get; set; } = new(true, false);
@@ -446,5 +603,10 @@ public sealed class PaymentRefundServiceTests
                 Refunds = refunds
             };
         }
+    }
+
+    private sealed class RefundUserContext(string userId) : ICurrentUserContext
+    {
+        public CurrentUserIdentity GetCurrentUser() => new(userId, null, userId);
     }
 }

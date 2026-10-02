@@ -21,6 +21,14 @@ namespace CashTracker.Core.Entities
         public DateTime? DonemBitisAt { get; set; }
         public bool DonemSonundaIptal { get; set; }
         public DateTime? IptalAt { get; set; }
+        public DateTime? IptalOncesiDonemBitisAt { get; set; }
+        public decimal? IptalIadeTutari { get; set; }
+        public int IptalKalanAySayisi { get; set; }
+        public int? IptalIadeOdemeIslemiId { get; set; }
+        public string IptalIadeDurumu { get; set; } = string.Empty;
+        public long? IptalIadeTalimatiId { get; set; }
+        public string? IptalIadeOnaylayanProviderKullaniciId { get; set; }
+        public DateTime? IptalIadeOnayAt { get; set; }
         public DateTime? OdemeSorunuAt { get; set; }
         public DateTime? ToleransBitisAt { get; set; }
         public string OdemeSaglayici { get; set; } = string.Empty;
