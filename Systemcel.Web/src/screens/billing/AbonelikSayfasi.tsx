@@ -440,12 +440,14 @@ export function AbonelikSayfasi() {
               <p>{ozet.donemSonundaIptal
                 ? "Bu tarihe kadar plan haklarınızı kullanabilirsiniz."
                 : ozet.abonelik?.kampanyaKodu && ozet.abonelik.indirimliDonemKalan > 0
-                  ? `Lansman fiyatınız ${ozet.abonelik.indirimliDonemKalan} ay daha geçerli. Lansman bitiminde güncel liste fiyatı uygulanır.`
+                  ? ozet.abonelik.faturalamaDonemi === "Yillik"
+                    ? "Lansman fiyatınız ödenmiş yıllık dönemin tamamını kapsar. Sonraki ödemede güncel liste fiyatı uygulanır."
+                    : `Lansman fiyatınız ${ozet.abonelik.indirimliDonemKalan} ay daha geçerli. Lansman bitiminde güncel liste fiyatı uygulanır.`
                   : ozet.abonelik?.kampanyaKodu
                     ? `Sonraki yenilemede geçerli liste fiyatı uygulanır. Bugünkü liste fiyatı ${paraBic(ozet.abonelik.yenilemeDonemTutari, ozet.abonelik.paraBirimi)} + KDV.`
                 : ozet.deneme
                   ? "Deneme süreniz bu tarihte sona erer."
-                  : "Planınız bu tarihte yenilenir."}</p>
+                  : "Ödenmiş abonelik döneminiz bu tarihte sona erer."}</p>
               {ozet.donemSonundaIptal ? <span className="billing-period-status"><FileCheck2 size={16} /> İptal talebi alındı</span> : null}
               {ozet.donemSonundaIptal && ozet.iptalOzeti && ozet.iptalOzeti.remainingMonths > 0 ? (
                 <p>{ozet.iptalOzeti.refundAmount == null ? "İade tutarı inceleniyor."
@@ -528,7 +530,7 @@ export function AbonelikSayfasi() {
                 <div className="billing-cancel-list">
                   <span><Check size={16} /> Mevcut dönem haklarınız korunur</span>
                   <span><Check size={16} /> Verileriniz silinmez</span>
-                  <span><Check size={16} /> Sonraki otomatik yenileme durdurulur</span>
+                  <span><Check size={16} /> Aboneliğiniz dönem sonunda sona erer</span>
                 </div>
                 {hata ? <div className="billing-inline-error" role="alert"><AlertCircle size={17} />{hata}</div> : null}
                 <div className="billing-modal__actions">
@@ -572,7 +574,7 @@ export function AbonelikSayfasi() {
                       setEkMusteriKredisi(Math.min(10000, Math.max(0, Number.parseInt(event.target.value || "0", 10) || 0)));
                       setOnaylandi(false);
                       idempotencyRef.current = yeniIdempotencyKey();
-                    }} /><small>10 müşteri dahildir. Her kredi aboneliğinizle birlikte aylık yenilenir.</small></label> : null}
+                    }} /><small>10 müşteri dahildir. Ek krediler abonelik döneminize dahildir.</small></label> : null}
                   </div>
 
                   {teklif ? (
@@ -610,7 +612,7 @@ export function AbonelikSayfasi() {
                       </dl>
                       <div className="billing-receipt-renewal">
                         {teklif.fiyat.changeType === "DonemSonuDegisiklik" ? <p>Yeni planınız {tarihBic(teklif.fiyat.effectiveAt)} tarihinde uygulanır.</p> : null}
-                        {teklif.fiyat.isFounderPrice ? <><span>Bugünkü liste fiyatı</span><strong>{paraBic(teklif.fiyat.renewalNetAmount, teklif.fiyat.currency)} + KDV</strong><p>Lansman fiyatı {teklif.fiyat.discountedPeriodCount} {faturalamaDonemi === "Yillik" ? "yıllık" : "aylık"} dönem geçerlidir. Sonrasında güncel liste fiyatı uygulanır.</p></> : <p>{faturalamaDonemi === "Yillik" ? "Yıllık yenilenir. İptalde mevcut aylık dönem tamamlanır; kalan tam aylar için iade talebi oluşturulur." : "Aylık yenilenir. Dönem sonunda iptal edebilirsiniz."}</p>}
+                        {teklif.fiyat.isFounderPrice ? <><span>Bugünkü liste fiyatı</span><strong>{paraBic(teklif.fiyat.renewalNetAmount, teklif.fiyat.currency)} + KDV</strong><p>Lansman fiyatı {teklif.fiyat.discountedPeriodCount} {faturalamaDonemi === "Yillik" ? "yıllık" : "aylık"} dönem geçerlidir. Sonrasında güncel liste fiyatı uygulanır.</p></> : <p>{faturalamaDonemi === "Yillik" ? "Yıllık abonelik. İptalde mevcut aylık dönem tamamlanır; kalan tam aylar için iade talebi oluşturulur." : "Aylık abonelik. Dönem sonunda iptal edebilirsiniz."}</p>}
                       </div>
                     </article>
                   ) : <div className="billing-preview-empty">Ödeme özeti hazırlanamadı.<button className="billing-link-button" type="button" onClick={() => { setModal(null); window.requestAnimationFrame(() => setModal("onay")); }}>Yeniden dene</button></div>}

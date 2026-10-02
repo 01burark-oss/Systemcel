@@ -14,7 +14,7 @@ namespace Systemcel.Api.Api;
 
 internal static class BillingApi
 {
-    private const string ConsentVersion = "abonelik-onayi-2026-10-v6";
+    private const string ConsentVersion = "abonelik-onayi-2026-10-v7";
 
     public static void MapBillingApi(this WebApplication app)
     {
@@ -34,7 +34,7 @@ internal static class BillingApi
                 {
                     var business = await isletmeService.GetActiveAsync();
                     if (paymentOptions.UsesPaytrProvider &&
-                        !paymentOptions.AllowsPaytrTestBusiness(business.Id))
+                        !paymentOptions.AllowsPaytrBusiness(business.Id))
                         return Results.StatusCode(StatusCodes.Status403Forbidden);
                     var period = NormalizeBillingPeriod(faturalamaDonemi);
                     await using var db = await dbFactory.CreateDbContextAsync(ct);
@@ -58,10 +58,10 @@ internal static class BillingApi
                     {
                         fiyat = quote,
                         kampanyaKodu = quote.CampaignCode,
-                        paytrContactRequired = paymentOptions.AllowsPaytrTestBusiness(business.Id) &&
+                        paytrContactRequired = paymentOptions.AllowsPaytrBusiness(business.Id) &&
                             quote.ChangeType != SubscriptionChangeTypes.ScheduledDowngrade,
                         onayMetniSurumu = ConsentVersion,
-                        onayMetni = BuildConsentText(quote)
+                        onayMetni = BuildConsentText(quote, paymentOptions.UsesFakeProvider)
                     });
                 }
                 catch (InvalidOperationException ex)
@@ -231,7 +231,7 @@ internal static class BillingApi
                 {
                     var business = await isletmeService.GetActiveAsync();
                     if (paymentOptions.UsesPaytrProvider &&
-                        !paymentOptions.AllowsPaytrTestBusiness(business.Id))
+                        !paymentOptions.AllowsPaytrBusiness(business.Id))
                         return Results.StatusCode(StatusCodes.Status403Forbidden);
                     var email = identity?.Email;
                     if (string.IsNullOrWhiteSpace(email) && identity is not null)
@@ -289,7 +289,7 @@ internal static class BillingApi
                         quote.ChangeType != SubscriptionChangeTypes.ScheduledDowngrade &&
                         !IPAddress.TryParse(customerIp, out _))
                         return Results.BadRequest(new { mesaj = "Ödeme için geçerli istemci IP adresi bulunamadı." });
-                    var consentText = BuildConsentText(quote);
+                    var consentText = BuildConsentText(quote, paymentOptions.UsesFakeProvider);
                     var command = new SubscriptionCheckoutCommand(
                         business.Id,
                         business.TenantTipi,
@@ -602,7 +602,7 @@ internal static class BillingApi
         return new Uri($"{scheme}://{request.Host}");
     }
 
-    internal static string BuildConsentText(PaymentQuote quote)
+    internal static string BuildConsentText(PaymentQuote quote, bool automaticRenewalEnabled = false)
     {
         var culture = CultureInfo.GetCultureInfo("tr-TR");
         var period = string.Equals(quote.BillingPeriod, PaymentBillingPeriods.Annual, StringComparison.OrdinalIgnoreCase)
@@ -642,9 +642,14 @@ internal static class BillingApi
                 ? string.Equals(quote.BillingPeriod, PaymentBillingPeriods.Annual, StringComparison.OrdinalIgnoreCase)
                     ? $" İlk 50 kurucu kampanyası fiyatının bugün peşin ödenen 12 aylık dönemin tamamına uygulandığını kabul ediyorum. Sonraki yıllık yenilemede yenileme tarihinde geçerli liste fiyatı uygulanır. Bugünkü yıllık liste fiyatı {renewalNet} TL + {renewalVat} TL KDV, toplam {renewalTotal} TL'dir. Fiyat değişikliği en az 30 gün önce e-posta ve uygulama içinden bildirilir; yenilemeden önce dönem sonu iptal talebi verebilirim."
                     : $" İlk 50 kurucu kampanyası fiyatının ilk {quote.DiscountedPeriodCount} aylık dönem için geçerli olduğunu kabul ediyorum. Kampanya bittikten sonraki aylık yenilemelerde yenileme tarihinde geçerli liste fiyatı uygulanır. Bugünkü aylık liste fiyatı {renewalNet} TL + {renewalVat} TL KDV, toplam {renewalTotal} TL'dir. Fiyat değişikliği en az 30 gün önce e-posta ve uygulama içinden bildirilir; yenilemeden önce dönem sonu iptal talebi verebilirim."
-                : $" Aboneliğin sonraki {period} dönemde {renewalNet} TL + {renewalVat} TL KDV, toplam {renewalTotal} TL üzerinden yenileneceğini kabul ediyorum.";
+                : automaticRenewalEnabled
+                    ? $" Aboneliğin sonraki {period} dönemde {renewalNet} TL + {renewalVat} TL KDV, toplam {renewalTotal} TL üzerinden yenileneceğini kabul ediyorum."
+                    : $" Sonraki {period} dönem için bugünkü liste fiyatı {renewalNet} TL + {renewalVat} TL KDV, toplam {renewalTotal} TL'dir.";
+            var paymentMethod = automaticRenewalEnabled ? "kayıtlı ödeme yöntemimden" : "seçtiğim karttan";
+            var renewal = automaticRenewalEnabled ? string.Empty :
+                " Bu ödeme kartımı saklamaz ve otomatik yenileme başlatmaz. Sonraki dönem için yeniden ödeme yapmam gerekir.";
             return $"{period} planın hemen başlamasını; " +
-                   $"{net} TL + {vat} TL KDV, toplam {total} TL'nin kayıtlı ödeme yöntemimden bugün tahsil edilmesini onaylıyorum.{credits}{campaign}{cancellation} Emredici yasal haklarım saklıdır.";
+                   $"{net} TL + {vat} TL KDV, toplam {total} TL'nin {paymentMethod} bugün alınmasını onaylıyorum.{credits}{campaign}{renewal}{cancellation} Emredici yasal haklarım saklıdır.";
         }
 
         return $"{quote.TrialDays} günlük deneme sonunda iptal etmediğim takdirde {period} plan için " +
