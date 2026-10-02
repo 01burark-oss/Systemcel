@@ -36,7 +36,7 @@ public sealed class PaytrCallbackFormTests
     }
 
     [Fact]
-    public void ProviderRemainsClosedWithoutHttpsAndExplicitTestBusiness()
+    public void TestProviderRemainsClosedWithoutHttpsAndExplicitTestBusiness()
     {
         var configured = new PaymentRuntimeOptions
         {
@@ -47,8 +47,11 @@ public sealed class PaytrCallbackFormTests
             PublicBaseUrl = "https://systemcel.example",
             PaytrTestBusinessIds = [42]
         };
+        Assert.True(configured.UsesPaytrProvider);
         Assert.True(configured.AllowsPaytrTestBusiness(42));
         Assert.False(configured.AllowsPaytrTestBusiness(43));
+        Assert.True(configured.AllowsPaytrBusiness(42));
+        Assert.False(configured.AllowsPaytrBusiness(43));
         Assert.False(new PaymentRuntimeOptions
         {
             Provider = "PayTR", PaytrMerchantId = "123456", PaytrMerchantKey = "test-key",
@@ -67,4 +70,122 @@ public sealed class PaytrCallbackFormTests
             PaytrTestBusinessIds = [42], PaytrTestMode = false
         }.UsesPaytrProvider);
     }
+
+    [Fact]
+    public void LiveProviderRemainsClosedWithoutExplicitEnablementAndLiveAllowlist()
+    {
+        var configured = new PaymentRuntimeOptions
+        {
+            Provider = "PayTR",
+            PaytrMerchantId = "123456",
+            PaytrMerchantKey = "test-key",
+            PaytrMerchantSalt = "test-salt",
+            PaytrTestMode = false,
+            PublicBaseUrl = "https://systemcel.example",
+            PaytrLiveBusinessIds = [84]
+        };
+        Assert.False(configured.UsesPaytrProvider);
+        Assert.False(configured.AllowsPaytrBusiness(84));
+
+        Assert.False(new PaymentRuntimeOptions
+        {
+            Provider = "PayTR",
+            PaytrMerchantId = "123456",
+            PaytrMerchantKey = "test-key",
+            PaytrMerchantSalt = "test-salt",
+            PaytrLiveEnabled = true,
+            PaytrTestMode = false,
+            PublicBaseUrl = "https://systemcel.example"
+        }.UsesPaytrProvider);
+    }
+
+    [Fact]
+    public void EnabledLiveProviderAllowsOnlyLiveAllowlistedBusinesses()
+    {
+        var configured = new PaymentRuntimeOptions
+        {
+            Provider = "PayTR",
+            PaytrMerchantId = "123456",
+            PaytrMerchantKey = "live-key",
+            PaytrMerchantSalt = "live-salt",
+            PaytrLiveEnabled = true,
+            PaytrTestMode = false,
+            PublicBaseUrl = "https://systemcel.example",
+            PaytrTestBusinessIds = [42],
+            PaytrLiveBusinessIds = [84]
+        };
+
+        Assert.True(configured.UsesPaytrProvider);
+        Assert.True(configured.AllowsPaytrBusiness(84));
+        Assert.False(configured.AllowsPaytrBusiness(42));
+        Assert.False(configured.AllowsPaytrTestBusiness(84));
+        Assert.False(configured.AllowsPaytrTestBusiness(42));
+    }
+
+    [Fact]
+    public void LiveConfigurationRejectsUnsafeBaseUrlsAndNonpositiveAllowlist()
+    {
+        foreach (var baseUrl in new[]
+                 {
+                     "http://systemcel.example",
+                     "https://user@systemcel.example",
+                     "https://systemcel.example?next=/",
+                     "https://systemcel.example/#fragment"
+                 })
+        {
+            Assert.False(CreateLiveOptions(baseUrl, [84]).UsesPaytrProvider);
+        }
+
+        Assert.False(CreateLiveOptions("https://systemcel.example", [0, -1]).UsesPaytrProvider);
+    }
+
+    [Fact]
+    public void PausedLiveCheckoutKeepsProviderAvailableForPendingCallbacksAndQueries()
+    {
+        var configured = new PaymentRuntimeOptions
+        {
+            Provider = "PayTR", PaytrMerchantId = "123456", PaytrMerchantKey = "live-key",
+            PaytrMerchantSalt = "live-salt", PaytrLiveEnabled = true, PaytrTestMode = false,
+            PaytrLiveCheckoutPaused = true, PublicBaseUrl = "https://systemcel.example",
+            PaytrLiveBusinessIds = [84]
+        };
+
+        Assert.True(configured.UsesPaytrProvider);
+        Assert.False(configured.AllowsPaytrBusiness(84));
+    }
+
+    [Fact]
+    public void LiveEnablementAndAllowlistDoNotChangeTestModeScope()
+    {
+        var configured = new PaymentRuntimeOptions
+        {
+            Provider = "PayTR",
+            PaytrMerchantId = "123456",
+            PaytrMerchantKey = "test-key",
+            PaytrMerchantSalt = "test-salt",
+            PaytrLiveEnabled = true,
+            PaytrTestMode = true,
+            PublicBaseUrl = "https://systemcel.example",
+            PaytrTestBusinessIds = [42],
+            PaytrLiveBusinessIds = [84]
+        };
+
+        Assert.True(configured.UsesPaytrProvider);
+        Assert.True(configured.AllowsPaytrTestBusiness(42));
+        Assert.False(configured.AllowsPaytrTestBusiness(84));
+        Assert.True(configured.AllowsPaytrBusiness(42));
+        Assert.False(configured.AllowsPaytrBusiness(84));
+    }
+
+    private static PaymentRuntimeOptions CreateLiveOptions(string baseUrl, int[] businessIds) => new()
+    {
+        Provider = "PayTR",
+        PaytrMerchantId = "123456",
+        PaytrMerchantKey = "live-key",
+        PaytrMerchantSalt = "live-salt",
+        PaytrLiveEnabled = true,
+        PaytrTestMode = false,
+        PublicBaseUrl = baseUrl,
+        PaytrLiveBusinessIds = businessIds
+    };
 }

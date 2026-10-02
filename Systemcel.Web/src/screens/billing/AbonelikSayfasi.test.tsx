@@ -95,8 +95,8 @@ const quote: TeklifYaniti = {
     targetPeriodEndAt: null
   },
   kampanyaKodu: "kurucu-100-2026",
-  onayMetniSurumu: "abonelik-onayi-2026-10-v6",
-  onayMetni: "Aylık planın hemen başlamasını ve lansman bitiminde geçerli liste fiyatıyla yenilenmesini kabul ediyorum."
+  onayMetniSurumu: "abonelik-onayi-2026-10-v7",
+  onayMetni: "Aylık planın hemen başlamasını ve seçtiğim karttan bugün ödeme alınmasını onaylıyorum. Bu ödeme kartımı saklamaz ve otomatik yenileme başlatmaz. Sonraki dönem için yeniden ödeme yapmam gerekir."
 };
 
 describe("AbonelikSayfasi", () => {
@@ -171,6 +171,21 @@ describe("AbonelikSayfasi", () => {
     expect(screen.queryByRole("heading", { name: "Aboneliğiniz, tek bakışta." })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Yenile" })).not.toBeInTheDocument();
     expect(screen.queryByText("ÖDEME YÖNTEMİ")).not.toBeInTheDocument();
+  });
+
+  it("does not describe the prepaid founder year as one discounted month", async () => {
+    window.history.replaceState({}, "", "/app/abonelik");
+    const annual = activeAnnualSummary(11_000, "Calculated");
+    annual.abonelik = { ...annual.abonelik!, kampanyaKodu: "kurucu-50-2026", indirimliDonemKalan: 1 };
+    vi.mocked(jsonOku).mockImplementation(async (url) => {
+      if (url === "/api/abonelik/ozet") return annual;
+      if (url === "/api/public/planlar") return plans;
+      throw new Error(`Unexpected request: ${url}`);
+    });
+
+    render(<AbonelikSayfasi />);
+    expect(await screen.findByText(/Lansman fiyatınız ödenmiş yıllık dönemin tamamını kapsar/)).toBeVisible();
+    expect(screen.queryByText(/Lansman fiyatınız 1 ay daha geçerli/)).not.toBeInTheDocument();
   });
 
   it("previews the annual refund using the server-calculated full months and access date", async () => {

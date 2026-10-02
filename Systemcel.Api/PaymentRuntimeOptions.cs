@@ -8,6 +8,9 @@ public sealed class PaymentRuntimeOptions
     public string PaytrMerchantKey { get; init; } = string.Empty;
     public string PaytrMerchantSalt { get; init; } = string.Empty;
     public bool PaytrTestMode { get; init; } = true;
+    public bool PaytrLiveEnabled { get; init; }
+    public bool PaytrLiveCheckoutPaused { get; init; }
+    public int[] PaytrLiveBusinessIds { get; init; } = [];
     public string[] PaytrTrustedProxyIps { get; init; } = [];
     public int[] PaytrTestBusinessIds { get; init; } = [];
     public string PublicBaseUrl { get; init; } = string.Empty;
@@ -19,12 +22,17 @@ public sealed class PaymentRuntimeOptions
 
     public bool UsesFakeProvider => string.Equals(Provider, "Fake", StringComparison.OrdinalIgnoreCase);
     public bool UsesPaytrProvider => string.Equals(Provider, "PayTR", StringComparison.OrdinalIgnoreCase) &&
-        PaytrTestMode && !string.IsNullOrWhiteSpace(PaytrMerchantId) &&
+        !string.IsNullOrWhiteSpace(PaytrMerchantId) &&
         !string.IsNullOrWhiteSpace(PaytrMerchantKey) && !string.IsNullOrWhiteSpace(PaytrMerchantSalt) &&
-        PaytrTestBusinessIds.Length > 0 &&
+        (PaytrTestMode ? ValidBusinessIds(PaytrTestBusinessIds) : PaytrLiveEnabled && ValidBusinessIds(PaytrLiveBusinessIds)) &&
         Uri.TryCreate(PublicBaseUrl, UriKind.Absolute, out var baseUri) &&
         baseUri.Scheme == Uri.UriSchemeHttps && string.IsNullOrEmpty(baseUri.UserInfo) &&
         string.IsNullOrEmpty(baseUri.Query) && string.IsNullOrEmpty(baseUri.Fragment);
     public bool AllowsPaytrTestBusiness(int businessId) =>
-        UsesPaytrProvider && PaytrTestBusinessIds.Contains(businessId);
+        PaytrTestMode && AllowsPaytrBusiness(businessId);
+    public bool AllowsPaytrBusiness(int businessId) => UsesPaytrProvider && businessId > 0 &&
+        (PaytrTestMode || !PaytrLiveCheckoutPaused) &&
+        (PaytrTestMode ? PaytrTestBusinessIds : PaytrLiveBusinessIds).Contains(businessId);
+
+    private static bool ValidBusinessIds(int[] ids) => ids.Length > 0 && ids.All(id => id > 0);
 }

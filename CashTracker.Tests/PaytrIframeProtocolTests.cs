@@ -102,16 +102,7 @@ public sealed class PaytrIframeProtocolTests
         using var http = new HttpClient(new StubHandler("{\"status\":\"success\",\"token\":\"TOKEN123\"}"));
         var provider = new PaytrSubscriptionProvider(new PaytrIframeClient(http),
             "123456", Key, Salt, testMode: true);
-        var quote = new PaymentQuote(
-            "isletme_baslangic", "Isletme", "Aylik", "TRY", 30m, 20m, 6m, 36m,
-            0, 0, 1, 0m, string.Empty, false, 30m, 30m, 0, 30m);
-        var request = new PaymentCheckoutRequest(
-            "user-provided-idempotency-key", quote, "business-42", "buyer@example.com",
-            new Uri("https://systemcel.app/app/abonelik?odeme=basarili"),
-            new Uri("https://systemcel.app/app/abonelik?odeme=basarisiz"),
-            new Uri("https://systemcel.app/api/odeme/paytr/bildirim"),
-            CustomerIp: "203.0.113.7", CustomerName: "Buyer Example",
-            CustomerAddress: "Test address", CustomerPhone: "5550000000");
+        var request = NewProviderCheckoutRequest();
 
         var session = await provider.CreateCheckoutAsync(request);
         Assert.Equal(PaytrSubscriptionProvider.CreateOrderId("business-42", request.MerchantReference),
@@ -135,6 +126,52 @@ public sealed class PaytrIframeProtocolTests
             payload.Replace("3600", "3601", StringComparison.Ordinal), signature)).IsValid);
     }
 
+    [Theory]
+    [InlineData(true, "1")]
+    [InlineData(false, "0")]
+    public async Task SubscriptionProviderPostsRequestedModeAndSignsThatMode(bool testMode, string expectedMode)
+    {
+        using var handler = new CapturingTokenHandler();
+        using var http = new HttpClient(handler);
+        var provider = new PaytrSubscriptionProvider(new PaytrIframeClient(http),
+            "123456", Key, Salt, testMode);
+
+        var session = await provider.CreateCheckoutAsync(NewProviderCheckoutRequest());
+        var fields = Assert.IsType<Dictionary<string, string>>(handler.Fields);
+
+        Assert.Equal(expectedMode, fields["test_mode"]);
+        Assert.Equal(session.ProviderSessionId, fields["merchant_oid"]);
+        var postedInput = new PaytrIframeTokenInput(
+            fields["merchant_id"],
+            fields["user_ip"],
+            fields["merchant_oid"],
+            fields["email"],
+            long.Parse(fields["payment_amount"], System.Globalization.CultureInfo.InvariantCulture),
+            fields["user_basket"],
+            fields["no_installment"] == "1",
+            int.Parse(fields["max_installment"], System.Globalization.CultureInfo.InvariantCulture),
+            fields["currency"],
+            testMode);
+        Assert.Equal(PaytrIframeProtocol.CreateToken(postedInput, Key, Salt), fields["paytr_token"]);
+        Assert.NotEqual(
+            PaytrIframeProtocol.CreateToken(postedInput with { TestMode = !testMode }, Key, Salt),
+            fields["paytr_token"]);
+    }
+
+    private static PaymentCheckoutRequest NewProviderCheckoutRequest()
+    {
+        var quote = new PaymentQuote(
+            "isletme_baslangic", "Isletme", "Aylik", "TRY", 30m, 20m, 6m, 36m,
+            0, 0, 1, 0m, string.Empty, false, 30m, 30m, 0, 30m);
+        return new PaymentCheckoutRequest(
+            "user-provided-idempotency-key", quote, "business-42", "buyer@example.com",
+            new Uri("https://systemcel.app/app/abonelik?odeme=basarili"),
+            new Uri("https://systemcel.app/app/abonelik?odeme=basarisiz"),
+            new Uri("https://systemcel.app/api/odeme/paytr/bildirim"),
+            CustomerIp: "203.0.113.7", CustomerName: "Buyer Example",
+            CustomerAddress: "Test address", CustomerPhone: "5550000000");
+    }
+
     private static PaytrIframeCheckoutRequest NewCheckoutRequest() => new(
         new PaytrIframeTokenInput(
             "123456", "203.0.113.7", "ORDER42", "buyer@example.com", 3456,
@@ -153,6 +190,28 @@ public sealed class PaytrIframeProtocolTests
             {
                 Content = new StringContent(body)
             });
+        }
+    }
+
+    private sealed class CapturingTokenHandler : HttpMessageHandler
+    {
+        public IReadOnlyDictionary<string, string>? Fields { get; private set; }
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
+        {
+            Assert.Equal(HttpMethod.Post, request.Method);
+            Assert.Equal("https://www.paytr.com/odeme/api/get-token", request.RequestUri!.AbsoluteUri);
+            var body = await request.Content!.ReadAsStringAsync(ct);
+            Fields = body.Split('&', StringSplitOptions.RemoveEmptyEntries)
+                .Select(part => part.Split('=', 2))
+                .ToDictionary(
+                    pair => Uri.UnescapeDataString(pair[0].Replace('+', ' ')),
+                    pair => Uri.UnescapeDataString(pair[1].Replace('+', ' ')),
+                    StringComparer.Ordinal);
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("{\"status\":\"success\",\"token\":\"TOKEN123\"}")
+            };
         }
     }
 }

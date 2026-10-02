@@ -180,12 +180,12 @@ export const legalTexts: Record<AuthLanguage, Record<LegalTextKey, LegalTextCont
         {
           title: "2. İlk Tahsilat ve Lansman Fiyatı",
           text:
-            "Abonelik ve tahsilat onay gününde başlar. Lansman fiyatı ilk üç ay için geçerlidir; yıllık toplu ödemede yalnızca ilk üç aylık kısma uygulanır. Lansman bitiminden sonraki yenilemelerde yenileme tarihinde geçerli liste fiyatı uygulanır. Bugünkü liste fiyatı ödeme onayından önce referans olarak gösterilir. Ek müşteri kredileri kampanya dışında, güncel liste fiyatıyla hesaplanır."
+            "Abonelik ve ödeme onay gününde başlar. Aylık abonelikte lansman fiyatı ilk üç aylık dönem için geçerlidir. Yıllık toplu ödemede onay ekranındaki lansman yıllık toplamı, satın alınan 12 aylık dönemin tamamını kapsar. Sonraki yenilemelerde yenileme tarihinde geçerli liste fiyatı uygulanır. Bugünkü liste fiyatı ödeme onayından önce referans olarak gösterilir. Ek müşteri kredileri kampanya dışında, güncel liste fiyatıyla hesaplanır."
         },
         {
           title: "3. Otomatik Yenileme ve Hatırlatma",
           text:
-            "Aylık veya yıllık abonelik, dönem sonu iptal talebi bulunmadıkça seçilen dönemle yenilenir. Fiyat değişikliği en az 30 gün önce e-posta ve uygulama içinden bildirilir. Kullanıcı yenilemeden önce dönem sonu iptal talebi verebilir."
+            "Tek seferlik kart ödemesi otomatik yenileme başlatmaz; sonraki dönem için yeniden ödeme yapılır. Kart saklama ve otomatik yenileme kullanıma açıldığında ayrıca kullanıcı onayı alınır. Fiyat değişikliği en az 30 gün önce e-posta ve uygulama içinden bildirilir. Kullanıcı yenilemeden önce dönem sonu iptal talebi verebilir."
         },
         {
           title: "4. İptal",
@@ -349,12 +349,12 @@ export const legalTexts: Record<AuthLanguage, Record<LegalTextKey, LegalTextCont
         {
           title: "2. First Charge and Launch Pricing",
           text:
-            "The subscription and charge start on the consent date. Launch pricing applies to the first three months; for annual upfront payment it applies only to the first three-month portion. Renewals after the launch period use the list price effective on the renewal date. Today's list price is shown as a reference before payment. Extra client credits remain at the current list price."
+            "The subscription and payment start on the consent date. Monthly launch pricing applies to the first three monthly periods. For annual upfront payment, the launch annual total shown at checkout covers the entire purchased 12-month period. Subsequent renewals use the list price effective on the renewal date. Today's list price is shown as a reference before payment. Extra client credits remain at the current list price."
         },
         {
           title: "3. Renewal and Reminders",
           text:
-            "The monthly or annual subscription renews on the selected cycle unless cancellation at period end is requested. Price changes are notified by email and in the app at least 30 days before renewal, and the user may cancel before renewal."
+            "A one-time card payment does not start automatic renewal; a new payment is required for the next period. If card storage and automatic renewal become available, separate user consent will be required. Price changes are notified by email and in the app at least 30 days before renewal, and the user may cancel before renewal."
         },
         {
           title: "4. Cancellation",

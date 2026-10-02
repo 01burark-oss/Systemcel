@@ -141,8 +141,8 @@ async function mockWorkspace(page: Page, summary = baseSummary, expectedBilling:
           targetPeriodEndAt: null
         },
         kampanyaKodu: "kurucu-100-2026",
-        onayMetniSurumu: "abonelik-onayi-2026-10-v6",
-        onayMetni: "Aylık yenileme, dönem sonu iptal ve emredici yasal haklar saklıdır.",
+        onayMetniSurumu: "abonelik-onayi-2026-10-v7",
+        onayMetni: "Aylık plan ödemesini onaylıyorum. Bu ödeme kartımı saklamaz ve otomatik yenileme başlatmaz. Sonraki dönem için yeniden ödeme yapmam gerekir. Dönem sonu iptal ve emredici yasal haklar saklıdır.",
         ...(paytrContactRequired ? { paytrContactRequired: true } : {})
       });
     }

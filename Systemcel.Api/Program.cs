@@ -663,6 +663,17 @@ static PaymentRuntimeOptions ResolvePaymentOptions(IConfiguration configuration,
         PaytrTestMode = !string.Equals(FirstNonEmpty(
             Environment.GetEnvironmentVariable("SYSTEMCEL_PAYTR_TEST_MODE"),
             configuration["Systemcel:Payment:PaytrTestMode"]), "false", StringComparison.OrdinalIgnoreCase),
+        PaytrLiveEnabled = string.Equals(FirstNonEmpty(
+            Environment.GetEnvironmentVariable("SYSTEMCEL_PAYTR_LIVE_ENABLED"),
+            configuration["Systemcel:Payment:PaytrLiveEnabled"]), "true", StringComparison.OrdinalIgnoreCase),
+        PaytrLiveCheckoutPaused = string.Equals(FirstNonEmpty(
+            Environment.GetEnvironmentVariable("SYSTEMCEL_PAYTR_LIVE_CHECKOUT_PAUSED"),
+            configuration["Systemcel:Payment:PaytrLiveCheckoutPaused"]), "true", StringComparison.OrdinalIgnoreCase),
+        PaytrLiveBusinessIds = (FirstNonEmpty(
+            Environment.GetEnvironmentVariable("SYSTEMCEL_PAYTR_LIVE_BUSINESS_IDS"),
+            configuration["Systemcel:Payment:PaytrLiveBusinessIds"]) ?? string.Empty)
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(raw => int.TryParse(raw, out var id) && id > 0 ? id : 0).ToArray(),
         PaytrTrustedProxyIps = (FirstNonEmpty(
             Environment.GetEnvironmentVariable("SYSTEMCEL_PAYTR_TRUSTED_PROXY_IPS"),
             configuration["Systemcel:Payment:PaytrTrustedProxyIps"]) ?? string.Empty)

@@ -7,6 +7,23 @@ namespace CashTracker.Tests;
 
 public sealed class BillingConsentTests
 {
+    [Theory]
+    [InlineData(PaymentBillingPeriods.Monthly)]
+    [InlineData(PaymentBillingPeriods.Annual)]
+    public void SingleCardPaymentConsent_DoesNotPromiseStoredCardsOrAutomaticRenewal(string period)
+    {
+        var quote = new PaymentPricingService().CreateQuote(
+            PlanKodlari.IsletmeBuyume, HesapTipleri.Isletme, period, useFounderPrice: false);
+
+        var consent = BillingApi.BuildConsentText(quote);
+
+        Assert.Contains("seçtiğim karttan bugün alınmasını", consent);
+        Assert.Contains("kartımı saklamaz ve otomatik yenileme başlatmaz", consent);
+        Assert.Contains("Sonraki dönem için yeniden ödeme yapmam gerekir", consent);
+        Assert.DoesNotContain("kayıtlı ödeme yöntemimden", consent);
+        Assert.DoesNotContain("üzerinden yenileneceğini kabul", consent);
+    }
+
     [Fact]
     public void AnnualFounderConsent_AppliesCampaignToTheFullPaidYear()
     {
