@@ -9,6 +9,37 @@ vi.mock("../../shared/json", () => ({ jsonOku: vi.fn() }));
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
 describe("TedarikciPazaryeriSayfasi", () => {
+  it("yönetici onayında %9 komisyonu sabit gösterir ve gönderir", async () => {
+    const initial = {
+      aktifIsletmeId: 1, profiller: [], talepler: [], acikTalepler: [], gelenTeklifler: [], profil: null,
+      urunler: [], benimUrunlerim: [], kaynakUrunler: [], anaSiparisler: [], siparisler: [], siparisKalemleri: [],
+      yonetici: true, yonetimProfilleri: [{ id: 9, unvan: "Marmara Gıda", vergiNo: "123", iban: "TR00", adres: "İstanbul", yetkiliAdSoyad: "Yetkili", kategoriler: "Gıda", sehir: "İstanbul", dogrulamaDurumu: "Incelemede" }],
+      yonetimSiparisler: []
+    };
+    vi.mocked(jsonOku).mockImplementation(async (url) => {
+      if (url === "/api/ekran/yonetim/tedarikci-profilleri/9/dogrula") return { mesaj: "Tedarikçi onaylandı." } as never;
+      return initial as never;
+    });
+
+    const user = userEvent.setup();
+    render(<TedarikciPazaryeriSayfasi />);
+    await user.click(await screen.findByRole("button", { name: "Yönetim" }));
+    await user.click(screen.getByRole("button", { name: "İncele" }));
+
+    const commission = screen.getByRole("spinbutton", { name: "Komisyon oranı" });
+    expect(commission).toHaveValue(9);
+    expect(commission).toHaveAttribute("readonly");
+    await user.type(commission, "12");
+    expect(commission).toHaveValue(9);
+
+    await user.type(screen.getByRole("textbox", { name: "Yönetici notu" }), "Yeni komisyonla onay");
+    await user.click(screen.getByRole("button", { name: "Başvuruyu onayla" }));
+    await waitFor(() => expect(jsonOku).toHaveBeenCalledWith(
+      "/api/ekran/yonetim/tedarikci-profilleri/9/dogrula",
+      expect.objectContaining({ method: "POST", body: expect.stringContaining('"komisyonOrani":9') })
+    ));
+  });
+
   it("yayındaki tedarikçileri gösterir, arar ve alım talebi formunu açar", async () => {
     vi.mocked(jsonOku).mockResolvedValue({
       profiller: [

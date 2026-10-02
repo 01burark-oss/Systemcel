@@ -81,6 +81,13 @@ export interface AbonelikOzeti {
   sonrakiYenilemeAt: string | null;
   donemSonundaIptal: boolean;
   iptalEdilebilir: boolean;
+  iptalOzeti?: {
+    accessEndsAt: string;
+    remainingMonths: number;
+    refundAmount: number | null;
+    currency: string;
+    refundStatus: string;
+  } | null;
   deneme: DenemeOzeti | null;
   abonelik: AbonelikKaydi | null;
   odemeler: OdemeKaydi[];

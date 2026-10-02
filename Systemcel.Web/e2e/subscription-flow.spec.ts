@@ -48,6 +48,7 @@ const baseSummary = {
   sonrakiYenilemeAt: "2026-08-15T12:00:00Z",
   donemSonundaIptal: false,
   iptalEdilebilir: true,
+  iptalOzeti: null,
   deneme: {
     planKodu: "muhasebeci_standart",
     faturalamaDonemi: "Aylik",
@@ -64,6 +65,8 @@ const baseSummary = {
 };
 
 async function mockWorkspace(page: Page, summary = baseSummary, expectedBilling: "Aylik" | "Yillik" = "Aylik", expectedCredits = 2, paytrContactRequired = false) {
+  const api = { cancelRequests: 0 };
+  let cancelFailureSent = false;
   await page.route("**/api/**", async (route) => {
     const request = route.request();
     const path = new URL(request.url()).pathname;
@@ -97,6 +100,14 @@ async function mockWorkspace(page: Page, summary = baseSummary, expectedBilling:
       });
     }
     if (path === "/api/abonelik/ozet") return json(route, summary);
+    if (path === "/api/abonelik/iptal" && request.method() === "POST") {
+      api.cancelRequests++;
+      if (new URL(request.url()).searchParams.get("failOnce") === "1" && !cancelFailureSent) {
+        cancelFailureSent = true;
+        return json(route, { mesaj: "İptal talebi kaydedilemedi." }, 503);
+      }
+      return json(route, { mesaj: "İptal talebi kaydedildi." });
+    }
     if (path === "/api/public/planlar") return json(route, [plan]);
     if (path === "/api/abonelik/teklif") {
       expect(new URL(request.url()).searchParams.get("faturalamaDonemi")).toBe(expectedBilling);
@@ -130,7 +141,7 @@ async function mockWorkspace(page: Page, summary = baseSummary, expectedBilling:
           targetPeriodEndAt: null
         },
         kampanyaKodu: "kurucu-100-2026",
-        onayMetniSurumu: "abonelik-onayi-2026-08-v4",
+        onayMetniSurumu: "abonelik-onayi-2026-10-v6",
         onayMetni: "Aylık yenileme, dönem sonu iptal ve emredici yasal haklar saklıdır.",
         ...(paytrContactRequired ? { paytrContactRequired: true } : {})
       });
@@ -161,6 +172,7 @@ async function mockWorkspace(page: Page, summary = baseSummary, expectedBilling:
     }
     return json(route, { mesaj: `Unexpected API route: ${path}` }, 404);
   });
+  return api;
 }
 
 test("monthly checkout shows recurring credits, VAT and explicit consent", async ({ page }) => {
@@ -290,19 +302,26 @@ test("period-end cancellation remains visible until access ends", async ({ page 
     durum: "Aktif",
     donemSonundaIptal: true,
     iptalEdilebilir: false,
+    iptalOzeti: {
+      accessEndsAt: "2026-10-15T00:00:00Z",
+      remainingMonths: 11,
+      refundAmount: 11_000,
+      currency: "TRY",
+      refundStatus: "ReviewRequired"
+    },
     deneme: null,
     abonelik: {
       planKodu: "muhasebeci_standart",
-      faturalamaDonemi: "Aylik",
+      faturalamaDonemi: "Yillik",
       ekMusteriKredisi: 2,
       durum: "Aktif",
-      donemTutari: 799,
+      donemTutari: 12_000,
       kampanyaKodu: "kurucu-100-2026",
-      yenilemeDonemTutari: 999,
+      yenilemeDonemTutari: 12_000,
       indirimliDonemKalan: 2,
       paraBirimi: "TRY",
-      donemBaslangicAt: "2026-08-01T12:00:00Z",
-      donemBitisAt: "2026-09-01T12:00:00Z",
+      donemBaslangicAt: "2026-09-15T00:00:00Z",
+      donemBitisAt: "2027-09-15T00:00:00Z",
       toleransBitisAt: null,
       donemSonundaIptal: true,
       iptalAt: "2026-08-02T12:00:00Z"
@@ -318,11 +337,109 @@ test("period-end cancellation remains visible until access ends", async ({ page 
   }
 
   await expect(page.getByText("İptal talebi alındı")).toBeVisible();
+  await expect(page.getByText("₺11.000,00 iade talebiniz inceleme bekliyor.")).toBeVisible();
   await expect(page.getByText("Bu tarihe kadar plan haklarınızı kullanabilirsiniz.")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Plan hakları" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Yenile" })).toHaveCount(0);
   await expect(page.getByText(/webhook|checkout|sağlayıcı/i)).toHaveCount(0);
 });
+
+test("annual cancellation shows server-calculated access, refund, and review-safe submission", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium", "Annual cancellation submit/error flow");
+  const api = await mockWorkspace(page, annualCancellationSummary(11_000));
+  await page.goto("/app/abonelik");
+
+  await page.getByRole("button", { name: "Aboneliği iptal et" }).click();
+  const dialog = page.getByRole("dialog", { name: "Aboneliği dönem sonunda bitir" });
+  await expect(dialog).toBeVisible();
+  await expect(dialog).toContainText("15 Ekim 2026");
+  await expect(dialog).toContainText("Kalan 11 ay");
+  await expect(dialog).toContainText("₺11.000,00");
+  await expect(dialog.getByRole("heading", { name: "Aboneliği dönem sonunda bitir" })).toBeFocused();
+
+  await page.route("**/api/abonelik/iptal", async route => {
+    api.cancelRequests++;
+    if (api.cancelRequests === 1) return json(route, { mesaj: "İptal talebi kaydedilemedi." }, 503);
+    return json(route, { mesaj: "İptal talebi kaydedildi." });
+  });
+  await dialog.getByRole("button", { name: "Dönem sonunda iptal et" }).click();
+  await expect(dialog.getByRole("alert")).toBeVisible();
+  await dialog.getByRole("button", { name: "Dönem sonunda iptal et" }).click();
+  await expect(dialog).toHaveCount(0);
+  expect(api.cancelRequests).toBe(2);
+});
+
+test("annual cancellation layout stays accessible at desktop and 320px in both themes", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium", "One desktop Chromium run covers the visual matrix");
+  await mockWorkspace(page, annualCancellationSummary(11_000));
+  await page.addInitScript(() => {
+    const theme = new URL(location.href).searchParams.get("theme") ?? "light";
+    localStorage.setItem("systemcel.theme", theme);
+    localStorage.setItem("systemcel.analyticsConsent", "denied");
+  });
+
+  for (const theme of ["light", "dark"]) {
+    for (const viewport of [{ name: "desktop", width: 1366 }, { name: "mobile-320", width: 320 }]) {
+      await page.setViewportSize({ width: viewport.width, height: viewport.width === 320 ? 700 : 900 });
+      await page.goto(`/app/abonelik?theme=${theme}`);
+      await page.getByRole("button", { name: "Aboneliği iptal et" }).click();
+      const dialog = page.getByRole("dialog", { name: "Aboneliği dönem sonunda bitir" });
+      await expect(dialog).toBeVisible();
+      await expect(dialog.getByRole("heading", { name: "Aboneliği dönem sonunda bitir" })).toBeFocused();
+      const layout = await page.evaluate(() => {
+        const modal = document.querySelector<HTMLElement>(".billing-modal");
+        return {
+          pageFits: document.documentElement.scrollWidth <= window.innerWidth,
+          modalFits: modal !== null && modal.scrollWidth <= modal.clientWidth + 1
+        };
+      });
+      expect(layout.pageFits).toBe(true);
+      expect(layout.modalFits).toBe(true);
+      const accessibility = await new AxeBuilder({ page }).include(".billing-modal").analyze();
+      expect(accessibility.violations).toEqual([]);
+      await dialog.screenshot({ path: testInfo.outputPath(`annual-cancel-${theme}-${viewport.name}.png`) });
+      await dialog.getByRole("button", { name: "Vazgeç" }).click();
+    }
+  }
+});
+
+function annualCancellationSummary(refundAmount: number | null) {
+  return {
+    ...baseSummary,
+    durum: "Aktif",
+    sonrakiYenilemeAt: "2027-09-15T00:00:00Z",
+    donemSonundaIptal: false,
+    iptalEdilebilir: true,
+    iptalOzeti: {
+      accessEndsAt: "2026-10-15T00:00:00Z",
+      remainingMonths: 11,
+      refundAmount,
+      currency: "TRY",
+      refundStatus: refundAmount === null ? "ReviewRequired" : "Calculated"
+    },
+    deneme: null,
+    abonelik: {
+      planKodu: "muhasebeci_standart",
+      faturalamaDonemi: "Yillik",
+      ekMusteriKredisi: 2,
+      durum: "Aktif",
+      donemTutari: 12_000,
+      kampanyaKodu: "",
+      yenilemeDonemTutari: 12_000,
+      indirimliDonemKalan: 0,
+      paraBirimi: "TRY",
+      donemBaslangicAt: "2026-09-15T00:00:00Z",
+      donemBitisAt: "2027-09-15T00:00:00Z",
+      toleransBitisAt: null,
+      donemSonundaIptal: false,
+      iptalAt: null,
+      planlananPlanKodu: "",
+      planlananFaturalamaDonemi: "",
+      planlananEkMusteriKredisi: null,
+      planlananDegisiklikAt: null
+    }
+  };
+}
 
 async function json(route: Route, body: unknown, status = 200) {
   await route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });

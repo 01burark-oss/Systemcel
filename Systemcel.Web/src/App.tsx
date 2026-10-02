@@ -691,6 +691,14 @@ function WorkspaceRoutes({ path }: { path: string }) {
     );
   }
 
+  if (mobileWorkspace && routePath === "/yonetim/odemeler") {
+    return (
+      <MobileWorkspaceView active="merkez">
+        <OdemeIncelemeSayfasi />
+      </MobileWorkspaceView>
+    );
+  }
+
   if (mobileWorkspace && routePath === "/muhasebeci/musteriler") {
     return (
       <MobileWorkspaceView active="merkez">

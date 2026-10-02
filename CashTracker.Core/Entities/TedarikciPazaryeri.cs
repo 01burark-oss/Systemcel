@@ -19,7 +19,7 @@ public sealed class TedarikciProfil
     public string IadeKosullari { get; set; } = string.Empty;
     public string PazaryeriSozlesmeVersiyonu { get; set; } = string.Empty;
     public string PspAltUyeIsyeriId { get; set; } = string.Empty;
-    public decimal KomisyonOrani { get; set; } = 8m;
+        public decimal KomisyonOrani { get; set; } = 9m;
     public int OdemeVadesiGun { get; set; } = 7;
     public bool TevkifatMuaf { get; set; }
     public string DogrulamaDurumu { get; set; } = "Taslak";

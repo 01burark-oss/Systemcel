@@ -95,7 +95,7 @@ const quote: TeklifYaniti = {
     targetPeriodEndAt: null
   },
   kampanyaKodu: "kurucu-100-2026",
-  onayMetniSurumu: "abonelik-onayi-2026-08-v5",
+  onayMetniSurumu: "abonelik-onayi-2026-10-v6",
   onayMetni: "Aylık planın hemen başlamasını ve lansman bitiminde geçerli liste fiyatıyla yenilenmesini kabul ediyorum."
 };
 
@@ -138,6 +138,24 @@ describe("AbonelikSayfasi", () => {
     expect(continueButton).toBeEnabled();
   });
 
+  it.each([
+    ["Hazir", "iade talebiniz onaylandı."],
+    ["SonucBekliyor", "iadenizin sonucu bekleniyor."],
+    ["Tamamlandi", "iadeniz tamamlandı."],
+    ["KesinBasarisiz", "iadeniz tamamlanamadı. Destekle iletişime geçin."]
+  ])("shows the persisted refund result %s without claiming another status", async (status, message) => {
+    window.history.replaceState({}, "", "/app/abonelik");
+    const cancelled = { ...activeAnnualSummary(11_000, status), donemSonundaIptal: true, iptalEdilebilir: false };
+    vi.mocked(jsonOku).mockImplementation(async (url) => {
+      if (url === "/api/abonelik/ozet") return cancelled;
+      if (url === "/api/public/planlar") return plans;
+      throw new Error(`Unexpected request: ${url}`);
+    });
+    render(<AbonelikSayfasi />);
+    expect(await screen.findByText(`₺11.000,00 ${message}`)).toBeVisible();
+    expect(screen.queryByText("₺11.000,00 iade talebiniz inceleme bekliyor.")).not.toBeInTheDocument();
+  });
+
   it("shows the period and detailed rights without a duplicate page heading or refresh control", async () => {
     window.history.replaceState({}, "", "/app/abonelik");
     render(<AbonelikSayfasi />);
@@ -153,6 +171,42 @@ describe("AbonelikSayfasi", () => {
     expect(screen.queryByRole("heading", { name: "Aboneliğiniz, tek bakışta." })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Yenile" })).not.toBeInTheDocument();
     expect(screen.queryByText("ÖDEME YÖNTEMİ")).not.toBeInTheDocument();
+  });
+
+  it("previews the annual refund using the server-calculated full months and access date", async () => {
+    window.history.replaceState({}, "", "/app/abonelik");
+    const annual = activeAnnualSummary(11_000, "Calculated");
+    vi.mocked(jsonOku).mockImplementation(async (url) => {
+      if (url === "/api/abonelik/ozet") return annual;
+      if (url === "/api/public/planlar") return plans;
+      throw new Error(`Unexpected request: ${url}`);
+    });
+
+    const user = userEvent.setup();
+    render(<AbonelikSayfasi />);
+    await user.click(await screen.findByRole("button", { name: "Aboneliği iptal et" }));
+    const dialog = screen.getByRole("dialog", { name: "Aboneliği dönem sonunda bitir" });
+    expect(dialog).toHaveTextContent("15 Ekim 2026");
+    expect(dialog).toHaveTextContent("Kalan 11 ay");
+    expect(dialog).toHaveTextContent("₺11.000,00");
+  });
+
+  it("asks to review payment records when the annual refund amount is unknown", async () => {
+    window.history.replaceState({}, "", "/app/abonelik");
+    const annual = activeAnnualSummary(null, "ReviewRequired");
+    vi.mocked(jsonOku).mockImplementation(async (url) => {
+      if (url === "/api/abonelik/ozet") return annual;
+      if (url === "/api/public/planlar") return plans;
+      throw new Error(`Unexpected request: ${url}`);
+    });
+
+    const user = userEvent.setup();
+    render(<AbonelikSayfasi />);
+    await user.click(await screen.findByRole("button", { name: "Aboneliği iptal et" }));
+    const dialog = screen.getByRole("dialog", { name: "Aboneliği dönem sonunda bitir" });
+    expect(dialog).toHaveTextContent("15 Ekim 2026");
+    expect(dialog).toHaveTextContent("Kalan aylara ait iade tutarı ödeme kayıtları incelenerek belirlenecek.");
+    expect(dialog).not.toHaveTextContent("₺11.000,00");
   });
 
   it("separates trial, free, active and payment-repair actions", () => {
@@ -298,6 +352,31 @@ describe("AbonelikSayfasi", () => {
 
 function subscription(durum: string) {
   return { planKodu: "muhasebeci_standart", faturalamaDonemi: "Aylik", ekMusteriKredisi: 0, durum, donemTutari: 799, kampanyaKodu: "", yenilemeDonemTutari: 899, indirimliDonemKalan: 0, paraBirimi: "TRY", donemBaslangicAt: "2026-08-01T00:00:00Z", donemBitisAt: "2026-09-01T00:00:00Z", toleransBitisAt: null, donemSonundaIptal: false, iptalAt: null, planlananPlanKodu: "", planlananFaturalamaDonemi: "", planlananEkMusteriKredisi: null, planlananDegisiklikAt: null };
+}
+
+function activeAnnualSummary(refundAmount: number | null, refundStatus: string): AbonelikOzeti {
+  return {
+    ...summary,
+    durum: "Aktif",
+    sonrakiYenilemeAt: "2027-09-15T00:00:00Z",
+    donemSonundaIptal: false,
+    iptalEdilebilir: true,
+    iptalOzeti: {
+      accessEndsAt: "2026-10-15T00:00:00Z",
+      remainingMonths: 11,
+      refundAmount,
+      currency: "TRY",
+      refundStatus
+    },
+    deneme: null,
+    abonelik: {
+      ...subscription("Aktif"),
+      faturalamaDonemi: "Yillik",
+      donemTutari: 12_000,
+      donemBaslangicAt: "2026-09-15T00:00:00Z",
+      donemBitisAt: "2027-09-15T00:00:00Z"
+    }
+  };
 }
 
 function payment(durum: string): OdemeKaydi {

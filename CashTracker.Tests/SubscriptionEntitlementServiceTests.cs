@@ -17,6 +17,23 @@ namespace CashTracker.Tests
         private static readonly DateTime Now = new(2026, 5, 13, 12, 0, 0);
 
         [Fact]
+        public async Task CancelledSubscription_EndsAtCutoffEvenWithLaterGracePeriod()
+        {
+            using var fixture = await SubscriptionFixture.CreateAsync();
+            await fixture.SeedAsync(db =>
+            {
+                var subscription = CreateAbonelik(1, HesapTipleri.Isletme, PlanKodlari.IsletmeBaslangic);
+                subscription.DonemBitisAt = Now;
+                subscription.DonemSonundaIptal = true;
+                subscription.IptalAt = Now.AddDays(-1);
+                subscription.ToleransBitisAt = Now.AddDays(7);
+                db.Abonelikler.Add(subscription);
+            });
+            Assert.Equal(PlanKodlari.IsletmeBaslangic, (await fixture.Service.GetIsletmeEntitlementAsync(1, Now.AddSeconds(-1))).PlanKodu);
+            Assert.Equal(PlanKodlari.IsletmeUcretsiz, (await fixture.Service.GetIsletmeEntitlementAsync(1, Now)).PlanKodu);
+        }
+
+        [Fact]
         public async Task IsletmeEntitlement_KendiUcretliPlanlardaYuksekPlanKazanir()
         {
             using var fixture = await SubscriptionFixture.CreateAsync();

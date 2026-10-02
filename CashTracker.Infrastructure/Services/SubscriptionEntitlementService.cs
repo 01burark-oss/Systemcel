@@ -394,8 +394,8 @@ namespace CashTracker.Infrastructure.Services
 
         private static bool IsActiveSubscription(Abonelik abonelik, DateTime current)
         {
-            var normalPeriodActive = abonelik.DonemBitisAt is null || abonelik.DonemBitisAt >= current;
-            var gracePeriodActive = abonelik.ToleransBitisAt is not null && abonelik.ToleransBitisAt >= current;
+            var normalPeriodActive = abonelik.DonemBitisAt is null || abonelik.DonemBitisAt > current;
+            var gracePeriodActive = !abonelik.DonemSonundaIptal && abonelik.ToleransBitisAt is not null && abonelik.ToleransBitisAt > current;
             return IsActiveStatus(abonelik.Durum)
                 && abonelik.DonemBaslangicAt <= current
                 && (normalPeriodActive || gracePeriodActive)
@@ -404,7 +404,7 @@ namespace CashTracker.Infrastructure.Services
 
         private static DateTime? GetEffectiveEndAt(Abonelik abonelik)
         {
-            if (abonelik.ToleransBitisAt is null)
+            if (abonelik.DonemSonundaIptal || abonelik.ToleransBitisAt is null)
                 return abonelik.DonemBitisAt;
             if (abonelik.DonemBitisAt is null)
                 return abonelik.ToleransBitisAt;

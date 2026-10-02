@@ -10,6 +10,7 @@ public interface IPaymentRefundProvider : IPaymentStatusQueryProvider
 
 public interface IPaymentRefundService
 {
+    Task<OdemeIadeTalimati> ApproveCancellationAsync(int subscriptionId, string approvedBy, CancellationToken ct = default);
     Task<OdemeIadeTalimati> RequestAsync(int businessId, int paymentId, decimal amount, string idempotencyKey, CancellationToken ct = default);
     Task<OdemeIadeTalimati> DispatchAsync(long instructionId, CancellationToken ct = default);
     Task<OdemeIadeTalimati> ReconcileAsync(long instructionId, CancellationToken ct = default);

@@ -357,6 +357,8 @@ public sealed class SubscriptionLifecycleService : ISubscriptionLifecycleService
             throw new ArgumentOutOfRangeException(nameof(businessId));
 
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
+        await using var transaction = db.Database.IsRelational()
+            ? await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct) : null;
         var now = DateTime.UtcNow;
         var subscription = await db.Abonelikler
             .Where(x => x.IsletmeId == businessId && x.Durum == "Aktif")
@@ -370,8 +372,21 @@ public sealed class SubscriptionLifecycleService : ISubscriptionLifecycleService
         if (subscription is null && trial is null)
             throw new InvalidOperationException("Iptal edilebilecek aktif deneme veya abonelik bulunamadi.");
 
-        if (subscription is not null)
+        if (subscription is not null && !subscription.DonemSonundaIptal)
         {
+            var payments = await db.OdemeIslemleri.AsNoTracking().Where(x =>
+                x.IsletmeId == businessId && x.HesapTipi == subscription.HesapTipi &&
+                x.SaglayiciIslemId == subscription.SaglayiciAbonelikId).ToListAsync(ct);
+            var payment = payments.Count == 1 ? payments[0] : null;
+            var refunds = payment is null ? new List<OdemeIadeTalimati>() :
+                await db.OdemeIadeTalimatlari.AsNoTracking().Where(x => x.OdemeIslemiId == payment.Id).ToListAsync(ct);
+            var quote = SubscriptionCancellationPolicy.Calculate(subscription, payment, refunds, now);
+            subscription.IptalOncesiDonemBitisAt = subscription.DonemBitisAt;
+            subscription.DonemBitisAt = quote.AccessEndsAt;
+            subscription.IptalKalanAySayisi = quote.RemainingMonths;
+            subscription.IptalIadeTutari = quote.RefundAmount;
+            subscription.IptalIadeOdemeIslemiId = quote.PaymentId;
+            subscription.IptalIadeDurumu = quote.RefundStatus;
             subscription.DonemSonundaIptal = true;
             subscription.PlanlananPlanKodu = string.Empty;
             subscription.PlanlananFaturalamaDonemi = string.Empty;
@@ -389,6 +404,7 @@ public sealed class SubscriptionLifecycleService : ISubscriptionLifecycleService
         }
 
         await db.SaveChangesAsync(ct);
+        if (transaction is not null) await transaction.CommitAsync(ct);
     }
 
     public async Task<SubscriptionPlanChangeResult> SchedulePlanChangeAsync(

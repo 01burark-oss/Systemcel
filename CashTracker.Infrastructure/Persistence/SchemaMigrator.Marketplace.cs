@@ -7,6 +7,7 @@ public static partial class SchemaMigrator
 {
     private static partial void EnsureMarketplaceAcceptanceColumns(CashTrackerDbContext db, DbConnection conn)
     {
+        AddColumn(db, conn, "TedarikciSiparis", "PlatformOdemeHizmetiBedeli", "NUMERIC NOT NULL DEFAULT 0");
         AddColumn(db, conn, "TedarikciSevkiyat", "BelgeUuid", "TEXT NOT NULL DEFAULT ''");
         AddColumn(db, conn, "TedarikciSevkiyat", "BelgeDosyaYolu", "TEXT NOT NULL DEFAULT ''");
         AddColumn(db, conn, "TedarikciSevkiyat", "SevkAt", "TEXT NULL");
@@ -28,6 +29,7 @@ public static partial class SchemaMigrator
 
         var allowed = table switch
         {
+            "TedarikciSiparis" => new HashSet<string>(StringComparer.Ordinal) { "PlatformOdemeHizmetiBedeli" },
             "TedarikciSevkiyat" => new HashSet<string>(StringComparer.Ordinal)
                 { "BelgeUuid", "BelgeDosyaYolu", "SevkAt", "VarisDeposu", "RandevuAt" },
             "TedarikciSevkiyatKalemi" => new HashSet<string>(StringComparer.Ordinal)

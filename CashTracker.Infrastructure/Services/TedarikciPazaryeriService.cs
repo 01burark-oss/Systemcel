@@ -110,7 +110,9 @@ public sealed class TedarikciPazaryeriService : ITedarikciPazaryeriService
         profile.Dogrulandi = request.Onaylandi;
         profile.DogrulamaDurumu = request.Onaylandi ? "Onaylandi" : "Reddedildi";
         profile.DogrulamaNotu = (request.Not ?? string.Empty).Trim();
-        profile.KomisyonOrani = request.KomisyonOrani;
+        if (request.KomisyonOrani != _options.VarsayilanKomisyonOrani)
+            throw new InvalidOperationException("Pazaryeri komisyon oranı %9 olmalıdır.");
+        profile.KomisyonOrani = _options.VarsayilanKomisyonOrani;
         profile.OdemeVadesiGun = request.OdemeVadesiGun;
         profile.PspAltUyeIsyeriId = (request.PspAltUyeIsyeriId ?? string.Empty).Trim();
         profile.DogrulandiAt = request.Onaylandi ? DateTime.UtcNow : null;
@@ -1700,7 +1702,7 @@ public sealed class TedarikciPazaryeriService : ITedarikciPazaryeriService
     {
         var subtotal = Money(products.Sum(x => x.BirimFiyat * quantities[x.Id]));
         var vat = Money(products.Sum(x => x.BirimFiyat * quantities[x.Id] * x.KdvOrani / 100m));
-        var commission = Money(subtotal * profile.KomisyonOrani / 100m);
+        var commission = Money(subtotal * _options.VarsayilanKomisyonOrani / 100m);
         var commissionVat = Money(commission * _options.KomisyonKdvOrani / 100m);
         var withholding = profile.TevkifatMuaf ? 0m : Money(subtotal * _options.TevkifatOrani / 100m);
         var paymentFee = Money((subtotal + vat) * _options.OdemeHizmetiOrani / 100m);
@@ -1717,13 +1719,14 @@ public sealed class TedarikciPazaryeriService : ITedarikciPazaryeriService
             KdvToplam = vat,
             GenelToplam = total,
             KomisyonMatrahi = subtotal,
-            KomisyonOrani = profile.KomisyonOrani,
+            KomisyonOrani = _options.VarsayilanKomisyonOrani,
             KomisyonTutari = commission,
             KomisyonKdvTutari = commissionVat,
             TevkifatMatrahi = subtotal,
             TevkifatTutari = withholding,
-            OdemeHizmetiBedeli = paymentFee,
-            TedarikciHakEdisi = Money(total - commission - commissionVat - withholding - paymentFee),
+            OdemeHizmetiBedeli = 0m,
+            PlatformOdemeHizmetiBedeli = paymentFee,
+            TedarikciHakEdisi = Money(total - commission - commissionVat - withholding),
             Durum = initialState
         };
     }
@@ -1749,6 +1752,7 @@ public sealed class TedarikciPazaryeriService : ITedarikciPazaryeriService
         AddLedgerEntry(db, order.Id, "KomisyonKdv", "Borc", order.KomisyonKdvTutari, order.ParaBirimi, "Komisyon KDV'si");
         AddLedgerEntry(db, order.Id, "Tevkifat", "Borc", order.TevkifatTutari, order.ParaBirimi, "E-ticaret tevkifatı");
         AddLedgerEntry(db, order.Id, "OdemeHizmeti", "Borc", order.OdemeHizmetiBedeli, order.ParaBirimi, "Ödeme hizmeti bedeli");
+        AddLedgerEntry(db, order.Id, "PlatformOdemeHizmeti", "Borc", order.PlatformOdemeHizmetiBedeli, order.ParaBirimi, "Systemcel ödeme hizmeti gideri");
         AddLedgerEntry(db, order.Id, "TedarikciHakEdisi", "Alacak", order.TedarikciHakEdisi, order.ParaBirimi, "Tedarikçi net hakedişi");
     }
 

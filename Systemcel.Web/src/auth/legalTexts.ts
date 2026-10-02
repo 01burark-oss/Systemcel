@@ -164,7 +164,7 @@ export const legalTexts: Record<AuthLanguage, Record<LegalTextKey, LegalTextCont
     subscription: {
       linkLabel: "Abonelik Koşulları",
       title: "Systemcel Abonelik, Yenileme, İptal ve İade Koşulları",
-      updatedAt: "17 Eylül 2026",
+      updatedAt: "2 Ekim 2026",
       updatedAtLabel: "Son güncelleme",
       closeLabel: "Yasal metni kapat",
       intro:
@@ -190,12 +190,12 @@ export const legalTexts: Record<AuthLanguage, Record<LegalTextKey, LegalTextCont
         {
           title: "4. İptal",
           text:
-            "Kullanıcı abonelik ekranından dönem sonu iptal talebi verebilir. Erişim ödenmiş dönemin sonuna kadar sürer; iptal durumu ve erişim bitiş tarihi aynı ekranda gösterilir."
+            "Kullanıcı abonelik ekranından iptal talebi verebilir. Aylık abonelikte erişim ödenmiş aylık dönemin sonuna kadar sürer. Yıllık abonelikte abonelik başlangıç gününe göre içinde bulunulan aylık dönem tamamlanır; takvim ayı esas alınmaz. Erişim bitiş tarihi abonelik ekranında gösterilir. Kullanıcı verileri silinmez."
         },
         {
           title: "5. İade ve Zorunlu Haklar",
           text:
-            "Dönem sonu iptal geçmiş tahsilatı kendiliğinden iade etmez. Mükerrer veya hatalı tahsilat talepleri destek kanalı üzerinden incelenir. Emredici tüketici hükümleri ve kullanıcının vazgeçilemez yasal hakları saklıdır."
+            "Yıllık abonelik iptalinde kalan her tam ay için gerçekten ödenen yıllık toplam tutarın 1/12’si üzerinden iade talebi oluşturulur. Kampanyalı ödeme varsa o tutar esas alınır. Talebe bir iş günü içinde ilk yanıt verilir. Mükerrer veya hatalı tahsilat tam iade kapsamında ayrıca incelenir. Emredici tüketici hükümleri ve kullanıcının vazgeçilemez yasal hakları saklıdır."
         },
         {
           title: "6. Hizmet Sağlayıcı Bilgileri",
@@ -333,7 +333,7 @@ export const legalTexts: Record<AuthLanguage, Record<LegalTextKey, LegalTextCont
     subscription: {
       linkLabel: "Subscription Terms",
       title: "Systemcel Subscription, Renewal, Cancellation and Refund Terms",
-      updatedAt: "September 17, 2026",
+      updatedAt: "October 2, 2026",
       updatedAtLabel: "Last updated",
       closeLabel: "Close legal text",
       intro:
@@ -359,12 +359,12 @@ export const legalTexts: Record<AuthLanguage, Record<LegalTextKey, LegalTextCont
         {
           title: "4. Cancellation",
           text:
-            "Users may request cancellation at period end from the subscription page. Access continues until the paid period ends, and the effective access end date remains visible."
+            "Users may request cancellation from the subscription page. Monthly access continues until the paid monthly period ends. Annual access ends at the end of the current monthly period anchored to the subscription start date, rather than the calendar month. The access end date remains visible, and user data is preserved."
         },
         {
           title: "5. Refunds and Mandatory Rights",
           text:
-            "End-of-period cancellation does not automatically refund a past charge. Duplicate or erroneous charges are reviewed through support. Mandatory statutory rights remain unaffected."
+            "Annual cancellation creates a refund request for each remaining full month at one twelfth of the annual total actually paid, including any promotional price. The first response is provided within one business day. Duplicate or erroneous charges are reviewed separately for a full refund. Mandatory statutory rights remain unaffected."
         },
         {
           title: "6. Service Provider Details",
