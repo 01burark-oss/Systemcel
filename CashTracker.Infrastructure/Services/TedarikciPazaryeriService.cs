@@ -10,7 +10,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace CashTracker.Infrastructure.Services;
 
-public sealed class TedarikciPazaryeriService : ITedarikciPazaryeriService
+public sealed partial class TedarikciPazaryeriService : ITedarikciPazaryeriService
 {
     private readonly IDbContextFactory<CashTrackerDbContext> _dbFactory;
     private readonly IIsletmeService _isletmeService;
@@ -562,6 +562,12 @@ public sealed class TedarikciPazaryeriService : ITedarikciPazaryeriService
         var order = await db.TedarikciSiparisleri.SingleOrDefaultAsync(x => x.Id == supplierOrderId, ct)
             ?? throw new KeyNotFoundException("Tedarikçi siparişi bulunamadı.");
         EnsureStateTransitionAllowed(order, activeBusinessId, request.Durum);
+        if (await HasCorrectionHoldAsync(db, order.Id, ct))
+            throw new InvalidOperationException("Kabul düzeltmesi uzlaştırılmadan sipariş durumu değiştirilemez.");
+        if (request.Durum == PazaryeriSiparisDurumlari.TeslimEdildi &&
+            (NeedsSecondReceiptApproval(order, null) ||
+             await db.TedarikciMalKabulleri.AnyAsync(x => x.TedarikciSiparisId == order.Id && x.OnayDurumu == "OnayBekliyor", ct)))
+            throw new InvalidOperationException("Bu siparişin mal kabulü QR ve iki farklı yetkilinin onayıyla tamamlanmalıdır.");
 
         if (request.Durum == PazaryeriSiparisDurumlari.SevkEdildi)
         {
@@ -802,10 +808,11 @@ public sealed class TedarikciPazaryeriService : ITedarikciPazaryeriService
             if (existingCodeHash != codeHash ||
                 existing.KabulEdilenMiktar != request.KabulEdilenMiktar ||
                 existing.ReddedilenMiktar != request.ReddedilenMiktar ||
-                existing.RedNedeni != primaryReason || existing.IkinciRedNedeni != secondaryReason)
+                existing.RedNedeni != primaryReason || existing.IkinciRedNedeni != secondaryReason ||
+                existing.BelgeUyusmazligi != request.BelgeUyusmazligi || existing.MiktarDegisikligi != request.MiktarDegisikligi)
                 throw new InvalidOperationException("Bu işlem anahtarı farklı bir mal kabul için daha önce kullanıldı.");
             var existingOrder = await db.TedarikciSiparisleri.SingleAsync(x => x.Id == existing.TedarikciSiparisId, ct);
-            return new TedarikciMalKabulSonucu(existing.Id, existingOrder.Durum, true);
+            return new TedarikciMalKabulSonucu(existing.Id, existingOrder.Durum, true, existing.OnayDurumu);
         }
 
         var row = await (from label in db.TedarikciSevkiyatEtiketleri
@@ -869,7 +876,6 @@ public sealed class TedarikciPazaryeriService : ITedarikciPazaryeriService
         if (row.order.Durum is not (PazaryeriSiparisDurumlari.KismenSevkEdildi or PazaryeriSiparisDurumlari.SevkEdildi or PazaryeriSiparisDurumlari.MalKabulBekliyor or PazaryeriSiparisDurumlari.KismenKabul or PazaryeriSiparisDurumlari.Itirazli))
             throw new InvalidOperationException("Sipariş mal kabule uygun durumda değil.");
 
-        var disputeWasOpen = row.order.Durum == PazaryeriSiparisDurumlari.Itirazli;
         var actorReference = await RequireReceiptActorAsync(db, buyerBusinessId, request.SubeId, request.DepoId, ct);
         var suppliedEvidenceHash = (request.BelgeKarmasi ?? string.Empty).Trim().ToLowerInvariant();
         var evidenceHash = suppliedEvidenceHash.Length == 64 && suppliedEvidenceHash.All(Uri.IsHexDigit)
@@ -885,6 +891,10 @@ public sealed class TedarikciPazaryeriService : ITedarikciPazaryeriService
 
         var receipt = new TedarikciMalKabul
         {
+            OnayDurumu = NeedsSecondReceiptApproval(row.order, request) ? "OnayBekliyor" : "Onaylandi",
+            OnayNedeni = ReceiptApprovalReason(row.order, request),
+            BelgeUyusmazligi = request.BelgeUyusmazligi,
+            MiktarDegisikligi = request.MiktarDegisikligi,
             TedarikciSevkiyatEtiketiId = row.label.Id,
             TedarikciSiparisId = row.order.Id,
             AliciIsletmeId = buyerBusinessId,
@@ -908,25 +918,54 @@ public sealed class TedarikciPazaryeriService : ITedarikciPazaryeriService
             OlculenSicaklik = request.OlculenSicaklik
         };
         db.TedarikciMalKabulleri.Add(receipt);
-        row.label.Durum = request.ReddedilenMiktar > 0m ? "Sorunlu" : "KabulEdildi";
-        row.label.OkutulduAt = DateTime.UtcNow;
-        row.orderLine.KabulEdilenMiktar += request.KabulEdilenMiktar;
-        row.orderLine.ReddedilenMiktar += request.ReddedilenMiktar;
+        if (receipt.OnayDurumu == "OnayBekliyor")
+        {
+            row.label.Durum = "OnayBekliyor";
+            row.label.OkutulduAt = DateTime.UtcNow;
+            row.shipment.Durum = "OnayBekliyor";
+            row.shipment.UpdatedAt = DateTime.UtcNow;
+        }
+        else
+            await ApplyReceiptDecisionAsync(db, row.label, row.shipment, row.orderLine, row.order, receipt, ct);
+
+
+        await SyncMasterStateAsync(db, row.order.AnaSiparisId, ct);
+        await db.SaveChangesAsync(ct);
+        await transaction.CommitAsync(ct);
+        await transaction.DisposeAsync();
+        await DispatchOrderPayoutsAsync(row.order.Id, ct);
+        await using var resultDb = await _dbFactory.CreateDbContextAsync(ct);
+        var resultingState = await resultDb.TedarikciSiparisleri.Where(x => x.Id == row.order.Id).Select(x => x.Durum).SingleAsync(ct);
+        return new TedarikciMalKabulSonucu(receipt.Id, resultingState, OnayDurumu: receipt.OnayDurumu);
+    }
+
+    private async Task ApplyReceiptDecisionAsync(CashTrackerDbContext db,
+        TedarikciSevkiyatEtiketi label, TedarikciSevkiyat shipment,
+        TedarikciSiparisKalemi orderLine, TedarikciSiparis order, TedarikciMalKabul receipt,
+        CancellationToken ct)
+    {
+        if (receipt.OnayDurumu != "Onaylandi")
+            throw new InvalidOperationException("İkinci onay tamamlanmadan mal kabul kesinleştirilemez.");
+        var disputeWasOpen = order.Durum == PazaryeriSiparisDurumlari.Itirazli;
+        label.Durum = receipt.ReddedilenMiktar > 0m ? "Sorunlu" : "KabulEdildi";
+        label.OkutulduAt = DateTime.UtcNow;
+        orderLine.KabulEdilenMiktar += receipt.KabulEdilenMiktar;
+        orderLine.ReddedilenMiktar += receipt.ReddedilenMiktar;
 
         await db.SaveChangesAsync(ct);
-        if (request.KabulEdilenMiktar > 0m)
+        if (receipt.KabulEdilenMiktar > 0m)
         {
-            await ApplyAcceptedReceiptAsync(db, row.order, row.orderLine, receipt, ct);
+            await ApplyAcceptedReceiptAsync(db, order, orderLine, receipt, ct);
             await db.SaveChangesAsync(ct);
         }
 
-        if (request.ReddedilenMiktar > 0m)
+        if (receipt.ReddedilenMiktar > 0m)
         {
-            await AddRejectedReceiptComplaintAsync(db, row.order, row.orderLine, receipt, ct);
+            await AddRejectedReceiptComplaintAsync(db, order, orderLine, receipt, ct);
             if (!disputeWasOpen)
-                AddStateHistory(db, row.order, PazaryeriSiparisDurumlari.Itirazli, buyerBusinessId,
-                    $"{row.orderLine.Ad}: {request.ReddedilenMiktar} {row.orderLine.Birim} reddedildi. {receipt.RedNedeni}{(string.IsNullOrEmpty(receipt.IkinciRedNedeni) ? "" : $"; {receipt.IkinciRedNedeni}")}");
-            var settlement = await db.TedarikciHakEdisleri.SingleOrDefaultAsync(x => x.TedarikciSiparisId == row.order.Id, ct);
+                AddStateHistory(db, order, PazaryeriSiparisDurumlari.Itirazli, receipt.AliciIsletmeId,
+                    $"{orderLine.Ad}: {receipt.ReddedilenMiktar} {orderLine.Birim} reddedildi. {receipt.RedNedeni}{(string.IsNullOrEmpty(receipt.IkinciRedNedeni) ? "" : $"; {receipt.IkinciRedNedeni}")}");
+            var settlement = await db.TedarikciHakEdisleri.SingleOrDefaultAsync(x => x.TedarikciSiparisId == order.Id, ct);
             if (settlement is not null)
             {
                 if (settlement.Durum is not ("MutabakatFarki" or "IadeBekliyor"))
@@ -936,37 +975,30 @@ public sealed class TedarikciPazaryeriService : ITedarikciPazaryeriService
         }
         else if (!disputeWasOpen)
         {
-            var lines = await db.TedarikciSiparisKalemleri.Where(x => x.TedarikciSiparisId == row.order.Id).ToListAsync(ct);
+            var lines = await db.TedarikciSiparisKalemleri.Where(x => x.TedarikciSiparisId == order.Id).ToListAsync(ct);
             if (lines.All(x => x.KabulEdilenMiktar >= x.Miktar && x.ReddedilenMiktar == 0m))
             {
-                AddStateHistory(db, row.order, PazaryeriSiparisDurumlari.TeslimEdildi, buyerBusinessId, "QR mal kabulü tamamlandı.");
-                await FinalizeAcceptedDeliveryAsync(db, row.order, buyerBusinessId, ct);
+                AddStateHistory(db, order, PazaryeriSiparisDurumlari.TeslimEdildi, receipt.AliciIsletmeId, "QR mal kabulü tamamlandı.");
+                await FinalizeAcceptedDeliveryAsync(db, order, receipt.AliciIsletmeId, ct);
             }
-            else if (row.order.Durum != PazaryeriSiparisDurumlari.KismenKabul)
+            else if (order.Durum != PazaryeriSiparisDurumlari.KismenKabul)
             {
-                AddStateHistory(db, row.order, PazaryeriSiparisDurumlari.KismenKabul, buyerBusinessId, "QR ile kısmi mal kabul yapıldı.");
+                AddStateHistory(db, order, PazaryeriSiparisDurumlari.KismenKabul, receipt.AliciIsletmeId, "QR ile kısmi mal kabul yapıldı.");
             }
         }
 
         var shipmentLabels = await (from shipmentLine in db.TedarikciSevkiyatKalemleri
-                                    join label in db.TedarikciSevkiyatEtiketleri on shipmentLine.Id equals label.TedarikciSevkiyatKalemiId
-                                    where shipmentLine.TedarikciSevkiyatId == row.shipment.Id
-                                    select label).ToListAsync(ct);
-        row.shipment.Durum = shipmentLabels.Any(x => x.Durum == "Sorunlu")
+                                    join shipmentLabel in db.TedarikciSevkiyatEtiketleri on shipmentLine.Id equals shipmentLabel.TedarikciSevkiyatKalemiId
+                                    where shipmentLine.TedarikciSevkiyatId == shipment.Id
+                                    select shipmentLabel).ToListAsync(ct);
+        shipment.Durum = shipmentLabels.Any(x => x.Durum == "OnayBekliyor")
+            ? "OnayBekliyor"
+            : shipmentLabels.Any(x => x.Durum == "Sorunlu")
             ? "Sorunlu"
             : shipmentLabels.All(x => x.Durum != "Hazir")
                 ? "KabulEdildi"
                 : "KismenKabul";
-        row.shipment.UpdatedAt = DateTime.UtcNow;
-
-        await SyncMasterStateAsync(db, row.order.AnaSiparisId, ct);
-        await db.SaveChangesAsync(ct);
-        await transaction.CommitAsync(ct);
-        await transaction.DisposeAsync();
-        await DispatchOrderPayoutsAsync(row.order.Id, ct);
-        await using var resultDb = await _dbFactory.CreateDbContextAsync(ct);
-        var resultingState = await resultDb.TedarikciSiparisleri.Where(x => x.Id == row.order.Id).Select(x => x.Durum).SingleAsync(ct);
-        return new TedarikciMalKabulSonucu(receipt.Id, resultingState);
+        shipment.UpdatedAt = DateTime.UtcNow;
     }
 
     public async Task<TedarikciMalKabulStokUzlastirmaSonucu> ReconcileRejectedReceiptStockAsync(
@@ -992,6 +1024,10 @@ public sealed class TedarikciPazaryeriService : ITedarikciPazaryeriService
         await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
         var receipt = await db.TedarikciMalKabulleri.SingleOrDefaultAsync(x => x.Id == receiptId, ct)
             ?? throw new KeyNotFoundException("Mal kabul kaydı bulunamadı.");
+        if (await db.TedarikciMalKabulDuzeltmeleri.AnyAsync(x => x.TedarikciSiparisId == receipt.TedarikciSiparisId && x.Durum == "OnayBekliyor", ct))
+            throw new InvalidOperationException("Stok uzlaştırması için bekleyen kabul düzeltmesi kararı tamamlanmalıdır.");
+        if (receipt.OnayDurumu != "Onaylandi")
+            throw new InvalidOperationException("Önce mal kabulün ikinci onayını tamamlayın.");
         if (receipt.StokUzlastirmaDurumu != TedarikciStokUzlastirmaDurumlari.Bekliyor)
         {
             if (receipt.StokUzlastirmaAnahtari == idempotencyKey &&
@@ -1143,7 +1179,9 @@ public sealed class TedarikciPazaryeriService : ITedarikciPazaryeriService
 
         complaint.TedarikciYaniti = response;
         complaint.Durum = TedarikciSikayetDurumlari.Yanitlandi;
-        complaint.YanitlandiAt = DateTime.UtcNow;
+        complaint.YanitlandiAt ??= DateTime.UtcNow;
+        var order = await db.TedarikciSiparisleri.SingleAsync(x => x.Id == complaint.TedarikciSiparisId, ct);
+        if (order.Durum == PazaryeriSiparisDurumlari.Itirazli) order.ItirazIlkYanitAt ??= complaint.YanitlandiAt;
         complaint.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync(ct);
         return complaint;
@@ -1180,7 +1218,7 @@ public sealed class TedarikciPazaryeriService : ITedarikciPazaryeriService
             if (order.Durum == PazaryeriSiparisDurumlari.Itirazli)
             {
                 var disputeHistory = await db.TedarikciSiparisDurumKayitlari
-                    .Where(x => x.TedarikciSiparisId == order.Id && x.YeniDurum == PazaryeriSiparisDurumlari.Itirazli)
+                    .Where(x => x.TedarikciSiparisId == order.Id && x.YeniDurum == PazaryeriSiparisDurumlari.Itirazli && x.OncekiDurum != x.YeniDurum)
                     .OrderByDescending(x => x.CreatedAt)
                     .FirstOrDefaultAsync(ct);
                 var settlement = await db.TedarikciHakEdisleri.SingleOrDefaultAsync(x => x.TedarikciSiparisId == order.Id, ct);
@@ -1436,6 +1474,10 @@ public sealed class TedarikciPazaryeriService : ITedarikciPazaryeriService
             throw new InvalidOperationException("Siparişte açık bir itiraz bulunmuyor.");
         if (!request.DevamEt)
             return;
+        if (await HasCorrectionHoldAsync(db, order.Id, ct))
+            throw new InvalidOperationException("Kabul düzeltmesinin ödeme, belge ve stok uzlaştırması tamamlanmadan itiraz kapatılamaz.");
+        if (await db.TedarikciMalKabulleri.AnyAsync(x => x.TedarikciSiparisId == order.Id && x.OnayDurumu == "OnayBekliyor", ct))
+            throw new InvalidOperationException("İtiraz kararı vermeden önce mal kabulün ikinci onayını tamamlayın.");
 
         if (await db.PazaryeriParaTalimatlari.AnyAsync(x =>
             x.TedarikciSiparisId == order.Id &&
@@ -1462,7 +1504,7 @@ public sealed class TedarikciPazaryeriService : ITedarikciPazaryeriService
             throw new InvalidOperationException("İtirazı kapatmadan önce bekleyen ret stoklarını uzlaştırın.");
 
         var disputeHistory = await db.TedarikciSiparisDurumKayitlari
-            .Where(x => x.TedarikciSiparisId == order.Id && x.YeniDurum == PazaryeriSiparisDurumlari.Itirazli)
+            .Where(x => x.TedarikciSiparisId == order.Id && x.YeniDurum == PazaryeriSiparisDurumlari.Itirazli && x.OncekiDurum != x.YeniDurum)
             .OrderByDescending(x => x.CreatedAt)
             .FirstOrDefaultAsync(ct);
         var settlement = await db.TedarikciHakEdisleri.SingleOrDefaultAsync(x => x.TedarikciSiparisId == order.Id, ct);
@@ -1565,6 +1607,16 @@ public sealed class TedarikciPazaryeriService : ITedarikciPazaryeriService
             settlement.Durum = "Bekliyor";
             settlement.UpdatedAt = DateTime.UtcNow;
         }
+        var complaints = await db.TedarikciSiparisSikayetleri.Where(x => x.TedarikciSiparisId == order.Id &&
+            x.Durum != TedarikciSikayetDurumlari.Cozuldu).ToListAsync(ct);
+        foreach (var complaint in complaints)
+        {
+            complaint.Durum = TedarikciSikayetDurumlari.Cozuldu;
+            if (string.IsNullOrWhiteSpace(complaint.KapanisNotu)) complaint.KapanisNotu = auditNote;
+            complaint.KapatildiAt = DateTime.UtcNow;
+            complaint.UpdatedAt = DateTime.UtcNow;
+        }
+        order.ItirazIlkYanitAt ??= DateTime.UtcNow;
         AddStateHistory(db, order, target, order.AliciIsletmeId, auditNote);
         await SyncMasterStateAsync(db, order.AnaSiparisId, ct);
         await db.SaveChangesAsync(ct);
@@ -1616,6 +1668,8 @@ public sealed class TedarikciPazaryeriService : ITedarikciPazaryeriService
             ?? throw new KeyNotFoundException("Tedarikçi siparişi bulunamadı.");
         if (order.Durum != PazaryeriSiparisDurumlari.HakEdisBekliyor)
             throw new InvalidOperationException("Sipariş hakediş aktarımına hazır değil.");
+        if (await HasCorrectionHoldAsync(db, order.Id, ct))
+            throw new InvalidOperationException("Kabul düzeltmesi uzlaştırılmadan hakediş gönderilemez.");
         var settlement = await db.TedarikciHakEdisleri.SingleAsync(x => x.TedarikciSiparisId == order.Id, ct);
         if (settlement.Durum == "Tamamlandi")
             return;
@@ -1853,7 +1907,7 @@ public sealed class TedarikciPazaryeriService : ITedarikciPazaryeriService
         TedarikciMalKabul receipt,
         CancellationToken ct)
     {
-        if (receipt.MuhasebelestiAt is not null || receipt.KabulEdilenMiktar <= 0m)
+        if (receipt.OnayDurumu != "Onaylandi" || receipt.MuhasebelestiAt is not null || receipt.KabulEdilenMiktar <= 0m)
             return;
 
         var paid = await db.PazaryeriOdemeleri.AnyAsync(
@@ -2113,7 +2167,7 @@ public sealed class TedarikciPazaryeriService : ITedarikciPazaryeriService
                 x.TedarikciSiparisId == order.Id && x.Tur == PazaryeriParaTalimatiTurleri.Aktarim &&
                 (x.Durum == PazaryeriParaTalimatiDurumlari.SonucBekliyor ||
                  x.Durum == PazaryeriParaTalimatiDurumlari.IncelemeGerekli), ct)
-                ? "MutabakatFarki" : "AktarimBekliyor";
+                ? "MutabakatFarki" : order.Durum == PazaryeriSiparisDurumlari.Itirazli ? "Bloke" : "AktarimBekliyor";
         var reservedAmounts = await db.PazaryeriParaTalimatlari.Where(x =>
             x.TedarikciSiparisId == order.Id && x.Tur == PazaryeriParaTalimatiTurleri.Aktarim &&
             x.Durum != PazaryeriParaTalimatiDurumlari.Tamamlandi &&
@@ -2172,20 +2226,28 @@ public sealed class TedarikciPazaryeriService : ITedarikciPazaryeriService
             if (!result.Succeeded)
             {
                 await PazaryeriParaTalimatiStore.ApplyDefinitiveFailureAsync(db, instruction.Id, "provider-rejected", now, ct);
-                settlement.Durum = "AktarimBasarisiz";
+                settlement.Durum = await HasCorrectionHoldAsync(db, orderId, ct) ? "DuzeltmeIncelemesi" : "AktarimBasarisiz";
                 if (receipt is not null) receipt.HakEdisAktarimHatasi = Truncate(result.Error, 1000);
             }
             else
             {
-                if (instruction.Tutar > Money(settlement.NetTutar - settlement.OdenenTutar))
+                var correctionHold = await HasCorrectionHoldAsync(db, orderId, ct);
+                if (!correctionHold && instruction.Tutar > Money(settlement.NetTutar - settlement.OdenenTutar))
                     throw new InvalidOperationException("Aktarım sonucu hakedişle eşleşmiyor; inceleme gerekiyor.");
                 await PazaryeriParaTalimatiStore.ApplyCompletedAsync(db, instruction.Id, result.ProviderTransactionId, now, ct);
+                var priorRecovery = Math.Max(0m, settlement.OdenenTutar - settlement.NetTutar);
                 settlement.OdenenTutar = Money(settlement.OdenenTutar + instruction.Tutar);
+                if (correctionHold)
+                {
+                    var applied = await db.TedarikciMalKabulDuzeltmeleri.Where(x => x.TedarikciSiparisId == orderId && x.Durum == "Uygulandi")
+                        .OrderByDescending(x => x.Id).FirstOrDefaultAsync(ct);
+                    if (applied != null) applied.TedarikcidenGeriAlinacakTutar += Money(Math.Max(0m, settlement.OdenenTutar - settlement.NetTutar) - priorRecovery);
+                }
                 settlement.AktarimReferansi = result.ProviderTransactionId;
-                settlement.Durum = settlement.OdenenTutar >= settlement.NetTutar
+                settlement.Durum = correctionHold ? "DuzeltmeIncelemesi" : settlement.OdenenTutar >= settlement.NetTutar
                     ? receipt is null ? "Tamamlandi" : "SerbestBirakildi"
                     : "KismenSerbest";
-                settlement.TamamlandiAt = settlement.OdenenTutar >= settlement.NetTutar ? now : null;
+                settlement.TamamlandiAt = !correctionHold && settlement.OdenenTutar >= settlement.NetTutar ? now : null;
                 if (receipt is not null)
                 {
                     receipt.SerbestBirakilanNetTutar = instruction.Tutar;
@@ -2194,7 +2256,7 @@ public sealed class TedarikciPazaryeriService : ITedarikciPazaryeriService
                 }
                 AddLedgerEntry(db, orderId, "TedarikciOdeme", "Borc", instruction.Tutar,
                     instruction.ParaBirimi, $"Hakediş talimatı #{instruction.Id}");
-                if (settlement.OdenenTutar >= settlement.NetTutar &&
+                if (!correctionHold && settlement.OdenenTutar >= settlement.NetTutar &&
                     storedOrder.Durum == PazaryeriSiparisDurumlari.HakEdisBekliyor)
                     AddStateHistory(db, storedOrder, PazaryeriSiparisDurumlari.Tamamlandi,
                         storedOrder.AliciIsletmeId, "Hakediş aktarımı tamamlandı.");
@@ -2303,7 +2365,7 @@ public sealed class TedarikciPazaryeriService : ITedarikciPazaryeriService
         var identity = _currentUserContext.GetCurrentUser();
         if (identity is null)
             throw new UnauthorizedAccessException("Mal kabul için oturum açmalısınız.");
-        var actor = await db.Kullanicilar.SingleOrDefaultAsync(x => x.AuthProviderUserId == identity.ProviderUserId, ct)
+        var actor = await db.Kullanicilar.SingleOrDefaultAsync(x => x.AuthProviderUserId == identity.ProviderUserId && x.Durum == "Aktif", ct)
             ?? throw new UnauthorizedAccessException("Mal kabul için kullanıcı kaydı bulunamadı.");
         var membership = await db.IsletmeUyelikleri
             .Where(x => x.IsletmeId == businessId && x.KullaniciId == actor.Id && x.Durum == "Aktif")
@@ -2672,6 +2734,13 @@ public sealed class TedarikciPazaryeriService : ITedarikciPazaryeriService
         int actorBusinessId,
         string? description)
     {
+        if (newState == PazaryeriSiparisDurumlari.Itirazli && order.Durum != PazaryeriSiparisDurumlari.Itirazli)
+        {
+            order.ItirazAcildiAt = DateTime.UtcNow;
+            order.ItirazIlkYanitAt = null;
+            order.ItirazKanitToplandiAt = null;
+            order.ItirazYukseltildiAt = null;
+        }
         db.TedarikciSiparisDurumKayitlari.Add(new TedarikciSiparisDurumKaydi
         {
             TedarikciSiparisId = order.Id,

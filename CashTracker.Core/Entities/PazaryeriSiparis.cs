@@ -41,6 +41,10 @@ public sealed class PazaryeriAnaSiparis
 
 public sealed class TedarikciSiparis
 {
+    public DateTime? ItirazAcildiAt { get; set; }
+    public DateTime? ItirazIlkYanitAt { get; set; }
+    public DateTime? ItirazKanitToplandiAt { get; set; }
+    public DateTime? ItirazYukseltildiAt { get; set; }
     public int Id { get; set; }
     public int AnaSiparisId { get; set; }
     public int AliciIsletmeId { get; set; }
@@ -143,6 +147,13 @@ public sealed class TedarikciSevkiyatEtiketi
 
 public sealed class TedarikciMalKabul
 {
+    public string OnayDurumu { get; set; } = "Onaylandi";
+    public string OnayNedeni { get; set; } = string.Empty;
+    public string IkinciOnaylayanKullaniciRef { get; set; } = string.Empty;
+    public string IkinciOnayNotu { get; set; } = string.Empty;
+    public DateTime? IkinciOnayAt { get; set; }
+    public bool BelgeUyusmazligi { get; set; }
+    public bool MiktarDegisikligi { get; set; }
     public int Id { get; set; }
     public int TedarikciSevkiyatEtiketiId { get; set; }
     public int TedarikciSiparisId { get; set; }
@@ -266,6 +277,7 @@ public sealed class TedarikciHakEdis
 
 public sealed class PazaryeriDefterKaydi
 {
+    public int? TedarikciMalKabulDuzeltmeId { get; set; }
     public int Id { get; set; }
     public int TedarikciSiparisId { get; set; }
     public string Hesap { get; set; } = string.Empty;

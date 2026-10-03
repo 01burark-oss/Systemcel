@@ -1,5 +1,9 @@
 namespace CashTracker.Core.Models;
 
+public sealed record TedarikciMalKabulDuzeltmeRequest(string IdempotencyKey, decimal Miktar, string Not);
+public sealed record TedarikciMalKabulDuzeltmeKararRequest(bool Onaylandi, string Not);
+public sealed record TedarikciMalKabulDuzeltmeSonucu(int Id, string Durum, bool TekrarKullanildi = false);
+
 public static class PazaryeriSiparisDurumlari
 {
     public const string OdemeBekliyor = "OdemeBekliyor";
@@ -173,9 +177,15 @@ public sealed record TedarikciMalKabulRequest(
     string? FotoKanitiYolu = null,
     decimal? OlculenAgirlik = null,
     decimal? OlculenSicaklik = null,
-    string? IkinciRedNedeni = null);
+    string? IkinciRedNedeni = null,
+    bool BelgeUyusmazligi = false,
+    bool MiktarDegisikligi = false);
 
-public sealed record TedarikciMalKabulSonucu(int Id, string SiparisDurumu, bool TekrarKullanildi = false);
+public sealed record TedarikciMalKabulSonucu(int Id, string SiparisDurumu, bool TekrarKullanildi = false,
+    string OnayDurumu = "Onaylandi");
+
+public sealed record TedarikciMalKabulOnayRequest(string Not);
+public sealed record PazaryeriItirazIlerlemeRequest(string Asama, string Not);
 
 public static class TedarikciStokUzlastirmaDurumlari
 {

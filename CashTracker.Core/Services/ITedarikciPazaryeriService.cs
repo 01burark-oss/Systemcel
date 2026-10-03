@@ -5,6 +5,8 @@ namespace CashTracker.Core.Services;
 
 public interface ITedarikciPazaryeriService
 {
+    Task<TedarikciMalKabulDuzeltmeSonucu> RequestReceiptCorrectionAsync(int receiptId, TedarikciMalKabulDuzeltmeRequest request, CancellationToken ct = default);
+    Task<TedarikciMalKabulDuzeltmeSonucu> DecideReceiptCorrectionAsync(int correctionId, TedarikciMalKabulDuzeltmeKararRequest request, CancellationToken ct = default);
     Task<TedarikciProfil> SaveSupplierProfileAsync(TedarikciOnboardingRequest request, CancellationToken ct = default);
     Task<TedarikciProfil> VerifySupplierAsync(int supplierProfileId, TedarikciDogrulamaRequest request, CancellationToken ct = default);
     Task<TedarikciUrun> SaveProductAsync(int? productId, TedarikciUrunKaydetRequest request, CancellationToken ct = default);
@@ -16,6 +18,9 @@ public interface ITedarikciPazaryeriService
     Task<TedarikciQrCozumDto> ResolveShipmentQrAsync(string code, CancellationToken ct = default);
     Task ValidateReceiptEvidenceAccessAsync(string code, int? branchId, int? warehouseId, CancellationToken ct = default);
     Task<TedarikciMalKabulSonucu> ReceiveShipmentQrAsync(string code, TedarikciMalKabulRequest request, CancellationToken ct = default);
+    Task<TedarikciMalKabulSonucu> ApproveReceiptAsync(int receiptId, TedarikciMalKabulOnayRequest request, CancellationToken ct = default);
+    Task RecordDisputeProgressAsync(int supplierOrderId, PazaryeriItirazIlerlemeRequest request, CancellationToken ct = default);
+    Task<int> EscalateOverdueDisputesAsync(DateTime nowUtc, CancellationToken ct = default);
     Task<TedarikciMalKabulStokUzlastirmaSonucu> ReconcileRejectedReceiptStockAsync(int receiptId, TedarikciMalKabulStokUzlastirmaRequest request, CancellationToken ct = default);
     Task<TedarikciSiparisSikayeti> CreateComplaintAsync(int supplierOrderId, TedarikciSikayetOlusturRequest request, CancellationToken ct = default);
     Task<TedarikciSiparisSikayeti> RespondToComplaintAsync(int complaintId, TedarikciSikayetYanitRequest request, CancellationToken ct = default);

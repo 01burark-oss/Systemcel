@@ -3,6 +3,7 @@ using System;
 using CashTracker.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace CashTracker.Infrastructure.Persistence.Migrations.PostgreSql
 {
     [DbContext(typeof(CashTrackerDbContext))]
-    partial class CashTrackerDbContextModelSnapshot : ModelSnapshot
+    [Migration("20261002232846_MarketplaceReceiptApprovalAndDisputeTargets")]
+    partial class MarketplaceReceiptApprovalAndDisputeTargets
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -767,9 +770,6 @@ namespace CashTracker.Infrastructure.Persistence.Migrations.PostgreSql
                     b.Property<DateTime>("Tarih")
                         .HasColumnType("timestamp without time zone");
 
-                    b.Property<int?>("TedarikciMalKabulDuzeltmeId")
-                        .HasColumnType("integer");
-
                     b.Property<int?>("TedarikciMalKabulId")
                         .HasColumnType("integer");
 
@@ -787,8 +787,6 @@ namespace CashTracker.Infrastructure.Persistence.Migrations.PostgreSql
                     b.HasIndex("IsletmeId");
 
                     b.HasIndex("SubeId");
-
-                    b.HasIndex("TedarikciMalKabulDuzeltmeId");
 
                     b.HasIndex("TedarikciMalKabulId");
 
@@ -3168,9 +3166,6 @@ namespace CashTracker.Infrastructure.Persistence.Migrations.PostgreSql
                         .HasMaxLength(3)
                         .HasColumnType("character varying(3)");
 
-                    b.Property<int?>("TedarikciMalKabulDuzeltmeId")
-                        .HasColumnType("integer");
-
                     b.Property<int>("TedarikciSiparisId")
                         .HasColumnType("integer");
 
@@ -3183,8 +3178,6 @@ namespace CashTracker.Infrastructure.Persistence.Migrations.PostgreSql
                         .HasColumnType("character varying(12)");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("TedarikciMalKabulDuzeltmeId");
 
                     b.HasIndex("TedarikciSiparisId", "CreatedAt");
 
@@ -3559,9 +3552,6 @@ namespace CashTracker.Infrastructure.Persistence.Migrations.PostgreSql
                     b.Property<DateTime>("Tarih")
                         .HasColumnType("timestamp without time zone");
 
-                    b.Property<int?>("TedarikciMalKabulDuzeltmeId")
-                        .HasColumnType("integer");
-
                     b.Property<int?>("TedarikciMalKabulId")
                         .HasColumnType("integer");
 
@@ -3583,8 +3573,6 @@ namespace CashTracker.Infrastructure.Persistence.Migrations.PostgreSql
                     b.HasIndex("StokDefterIslemiId");
 
                     b.HasIndex("SubeId");
-
-                    b.HasIndex("TedarikciMalKabulDuzeltmeId");
 
                     b.HasIndex("TedarikciMalKabulId");
 
@@ -4215,114 +4203,6 @@ namespace CashTracker.Infrastructure.Persistence.Migrations.PostgreSql
                     b.HasIndex("TedarikciSiparisId", "OnayDurumu");
 
                     b.ToTable("TedarikciMalKabul", (string)null);
-                });
-
-            modelBuilder.Entity("CashTracker.Core.Entities.TedarikciMalKabulDuzeltme", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<int?>("AliciFaturaId")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("AliciIsletmeId")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("BelgeDurumu")
-                        .IsRequired()
-                        .HasMaxLength(40)
-                        .HasColumnType("character varying(40)");
-
-                    b.Property<decimal>("BrutTutar")
-                        .HasColumnType("NUMERIC(18,2)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp without time zone");
-
-                    b.Property<string>("Durum")
-                        .IsRequired()
-                        .HasMaxLength(40)
-                        .HasColumnType("character varying(40)");
-
-                    b.Property<decimal>("HakEdisAzaltimi")
-                        .HasColumnType("NUMERIC(18,2)");
-
-                    b.Property<string>("IdempotencyAnahtari")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.Property<string>("IslemYapanKullaniciRef")
-                        .IsRequired()
-                        .HasMaxLength(160)
-                        .HasColumnType("character varying(160)");
-
-                    b.Property<decimal>("KdvTutar")
-                        .HasColumnType("NUMERIC(18,2)");
-
-                    b.Property<decimal>("Miktar")
-                        .HasColumnType("NUMERIC(18,3)");
-
-                    b.Property<decimal>("NetTutar")
-                        .HasColumnType("NUMERIC(18,2)");
-
-                    b.Property<string>("Not")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
-
-                    b.Property<DateTime?>("OnayAt")
-                        .HasColumnType("timestamp without time zone");
-
-                    b.Property<string>("OnayNotu")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
-
-                    b.Property<string>("OnaylayanKullaniciRef")
-                        .IsRequired()
-                        .HasMaxLength(160)
-                        .HasColumnType("character varying(160)");
-
-                    b.Property<string>("ParaDurumu")
-                        .IsRequired()
-                        .HasMaxLength(40)
-                        .HasColumnType("character varying(40)");
-
-                    b.Property<int?>("SaticiFaturaId")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("StokDurumu")
-                        .IsRequired()
-                        .HasMaxLength(40)
-                        .HasColumnType("character varying(40)");
-
-                    b.Property<int>("TedarikciMalKabulId")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("TedarikciSiparisId")
-                        .HasColumnType("integer");
-
-                    b.Property<decimal>("TedarikcidenGeriAlinacakTutar")
-                        .HasColumnType("NUMERIC(18,2)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("AliciFaturaId");
-
-                    b.HasIndex("SaticiFaturaId");
-
-                    b.HasIndex("TedarikciMalKabulId");
-
-                    b.HasIndex("AliciIsletmeId", "IdempotencyAnahtari")
-                        .IsUnique();
-
-                    b.HasIndex("TedarikciSiparisId", "Durum");
-
-                    b.ToTable("TedarikciMalKabulDuzeltme", (string)null);
                 });
 
             modelBuilder.Entity("CashTracker.Core.Entities.TedarikciProfil", b =>
@@ -5292,11 +5172,6 @@ namespace CashTracker.Infrastructure.Persistence.Migrations.PostgreSql
                         .HasForeignKey("SubeId")
                         .OnDelete(DeleteBehavior.Restrict);
 
-                    b.HasOne("CashTracker.Core.Entities.TedarikciMalKabulDuzeltme", null)
-                        .WithMany()
-                        .HasForeignKey("TedarikciMalKabulDuzeltmeId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
                     b.HasOne("CashTracker.Core.Entities.TedarikciMalKabul", null)
                         .WithMany()
                         .HasForeignKey("TedarikciMalKabulId")
@@ -5393,11 +5268,6 @@ namespace CashTracker.Infrastructure.Persistence.Migrations.PostgreSql
 
             modelBuilder.Entity("CashTracker.Core.Entities.PazaryeriDefterKaydi", b =>
                 {
-                    b.HasOne("CashTracker.Core.Entities.TedarikciMalKabulDuzeltme", null)
-                        .WithMany()
-                        .HasForeignKey("TedarikciMalKabulDuzeltmeId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
                     b.HasOne("CashTracker.Core.Entities.TedarikciSiparis", null)
                         .WithMany()
                         .HasForeignKey("TedarikciSiparisId")
@@ -5503,11 +5373,6 @@ namespace CashTracker.Infrastructure.Persistence.Migrations.PostgreSql
                     b.HasOne("CashTracker.Core.Entities.Sube", null)
                         .WithMany()
                         .HasForeignKey("SubeId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.HasOne("CashTracker.Core.Entities.TedarikciMalKabulDuzeltme", null)
-                        .WithMany()
-                        .HasForeignKey("TedarikciMalKabulDuzeltmeId")
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("CashTracker.Core.Entities.TedarikciMalKabul", null)
@@ -5652,37 +5517,6 @@ namespace CashTracker.Infrastructure.Persistence.Migrations.PostgreSql
                         .WithMany()
                         .HasForeignKey("TedarikciSiparisId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-                });
-
-            modelBuilder.Entity("CashTracker.Core.Entities.TedarikciMalKabulDuzeltme", b =>
-                {
-                    b.HasOne("CashTracker.Core.Entities.Fatura", null)
-                        .WithMany()
-                        .HasForeignKey("AliciFaturaId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.HasOne("CashTracker.Core.Entities.Isletme", null)
-                        .WithMany()
-                        .HasForeignKey("AliciIsletmeId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("CashTracker.Core.Entities.Fatura", null)
-                        .WithMany()
-                        .HasForeignKey("SaticiFaturaId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.HasOne("CashTracker.Core.Entities.TedarikciMalKabul", null)
-                        .WithMany()
-                        .HasForeignKey("TedarikciMalKabulId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("CashTracker.Core.Entities.TedarikciSiparis", null)
-                        .WithMany()
-                        .HasForeignKey("TedarikciSiparisId")
-                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });
 

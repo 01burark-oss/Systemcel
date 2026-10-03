@@ -87,6 +87,7 @@ namespace CashTracker.Infrastructure.Persistence
         public DbSet<TedarikciSevkiyatKalemi> TedarikciSevkiyatKalemleri => Set<TedarikciSevkiyatKalemi>();
         public DbSet<TedarikciSevkiyatEtiketi> TedarikciSevkiyatEtiketleri => Set<TedarikciSevkiyatEtiketi>();
         public DbSet<TedarikciMalKabul> TedarikciMalKabulleri => Set<TedarikciMalKabul>();
+        public DbSet<TedarikciMalKabulDuzeltme> TedarikciMalKabulDuzeltmeleri => Set<TedarikciMalKabulDuzeltme>();
         public DbSet<TedarikciSiparisSikayeti> TedarikciSiparisSikayetleri => Set<TedarikciSiparisSikayeti>();
         public DbSet<TedarikciDegerlendirmesi> TedarikciDegerlendirmeleri => Set<TedarikciDegerlendirmesi>();
 
@@ -317,6 +318,13 @@ namespace CashTracker.Infrastructure.Persistence
             modelBuilder.Entity<TedarikciMalKabul>(e =>
             {
                 e.ToTable("TedarikciMalKabul"); e.HasKey(x => x.Id);
+                e.Property(x => x.OnayDurumu).IsRequired().HasMaxLength(30).HasDefaultValue("Onaylandi");
+                e.Property(x => x.OnayNedeni).IsRequired().HasMaxLength(500).HasDefaultValue("");
+                e.Property(x => x.IkinciOnaylayanKullaniciRef).IsRequired().HasMaxLength(160).HasDefaultValue("");
+                e.Property(x => x.IkinciOnayNotu).IsRequired().HasMaxLength(500).HasDefaultValue("");
+                e.Property(x => x.BelgeUyusmazligi).HasDefaultValue(false);
+                e.Property(x => x.MiktarDegisikligi).HasDefaultValue(false);
+                e.HasIndex(x => new { x.TedarikciSiparisId, x.OnayDurumu });
                 e.Property(x => x.IdempotencyAnahtari).IsRequired().HasMaxLength(100);
                 e.Property(x => x.KabulEdilenMiktar).HasColumnType("NUMERIC(18,3)"); e.Property(x => x.ReddedilenMiktar).HasColumnType("NUMERIC(18,3)");
                 e.Property(x => x.RedNedeni).IsRequired().HasMaxLength(80); e.Property(x => x.IkinciRedNedeni).IsRequired().HasMaxLength(160); e.Property(x => x.Not).IsRequired().HasMaxLength(800);
@@ -343,6 +351,30 @@ namespace CashTracker.Infrastructure.Persistence
                 e.HasOne<Isletme>().WithMany().HasForeignKey(x => x.AliciIsletmeId).OnDelete(DeleteBehavior.Restrict);
                 e.HasOne<Isletme>().WithMany().HasForeignKey(x => x.TedarikciIsletmeId).OnDelete(DeleteBehavior.Restrict);
             });
+            modelBuilder.Entity<TedarikciMalKabulDuzeltme>(e =>
+            {
+                e.ToTable("TedarikciMalKabulDuzeltme"); e.HasKey(x => x.Id);
+                e.Property(x => x.IdempotencyAnahtari).IsRequired().HasMaxLength(100);
+                e.Property(x => x.Miktar).HasColumnType("NUMERIC(18,3)");
+                foreach (var name in new[] { "NetTutar", "KdvTutar", "BrutTutar", "HakEdisAzaltimi", "TedarikcidenGeriAlinacakTutar" })
+                    e.Property<decimal>(name).HasColumnType("NUMERIC(18,2)");
+                foreach (var name in new[] { "Durum", "ParaDurumu", "BelgeDurumu", "StokDurumu" })
+                    e.Property<string>(name).IsRequired().HasMaxLength(40);
+                foreach (var name in new[] { "IslemYapanKullaniciRef", "OnaylayanKullaniciRef" })
+                    e.Property<string>(name).IsRequired().HasMaxLength(160);
+                e.Property(x => x.Not).IsRequired().HasMaxLength(500);
+                e.Property(x => x.OnayNotu).IsRequired().HasMaxLength(500);
+                e.HasIndex(x => new { x.AliciIsletmeId, x.IdempotencyAnahtari }).IsUnique();
+                e.HasIndex(x => new { x.TedarikciSiparisId, x.Durum });
+                e.HasOne<TedarikciMalKabul>().WithMany().HasForeignKey(x => x.TedarikciMalKabulId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne<TedarikciSiparis>().WithMany().HasForeignKey(x => x.TedarikciSiparisId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne<Isletme>().WithMany().HasForeignKey(x => x.AliciIsletmeId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne<Fatura>().WithMany().HasForeignKey(x => x.AliciFaturaId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne<Fatura>().WithMany().HasForeignKey(x => x.SaticiFaturaId).OnDelete(DeleteBehavior.Restrict);
+            });
+            modelBuilder.Entity<StokHareket>().HasOne<TedarikciMalKabulDuzeltme>().WithMany().HasForeignKey(x => x.TedarikciMalKabulDuzeltmeId).OnDelete(DeleteBehavior.Restrict);
+            modelBuilder.Entity<CariHareket>().HasOne<TedarikciMalKabulDuzeltme>().WithMany().HasForeignKey(x => x.TedarikciMalKabulDuzeltmeId).OnDelete(DeleteBehavior.Restrict);
+            modelBuilder.Entity<PazaryeriDefterKaydi>().HasOne<TedarikciMalKabulDuzeltme>().WithMany().HasForeignKey(x => x.TedarikciMalKabulDuzeltmeId).OnDelete(DeleteBehavior.Restrict);
             modelBuilder.Entity<TedarikciDegerlendirmesi>(e =>
             {
                 e.ToTable("TedarikciDegerlendirmesi"); e.HasKey(x => x.Id);
