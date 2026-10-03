@@ -13,7 +13,7 @@ using Xunit;
 
 namespace CashTracker.Tests;
 
-public sealed class TedarikciPazaryeriServiceTests
+public sealed partial class TedarikciPazaryeriServiceTests
 {
     [Fact]
     public async Task NewOrder_PlatformPaysPaymentFeeWithoutReducingSupplierSettlement()
@@ -515,6 +515,7 @@ public sealed class TedarikciPazaryeriServiceTests
 
         await f.Service(1).ReceiveShipmentQrAsync(qr,
             new("temperature-ok", 1, 0, null, null, OlculenSicaklik: 0m));
+        await f.ApprovePendingReceiptsAsync();
         await using var verified = f.Db();
         Assert.Equal(0m, await verified.TedarikciMalKabulleri.Select(x => x.OlculenSicaklik).SingleAsync());
     }
@@ -934,6 +935,13 @@ public sealed class TedarikciPazaryeriServiceTests
 
     private sealed record ConcurrentAttempt<T>(T? Result, Exception? Error);
 
+    private static bool IsPostgresSerializationFailure(Exception? error)
+    {
+        for (var current = error; current != null; current = current.InnerException)
+            if (current is Npgsql.PostgresException { SqlState: "40001" }) return true;
+        return false;
+    }
+
     [Fact]
     public async Task CreateShipment_RejectsOverDeliveryWithoutConsumingReservation()
     {
@@ -983,6 +991,7 @@ public sealed class TedarikciPazaryeriServiceTests
         var receiptRequest = new TedarikciMalKabulRequest("receipt-reject", 0, 1, "Hasarlı", "Ambalaj yırtık",
             IkinciRedNedeni: "Sıcaklık uygunsuzluğu");
         await f.Service(1).ReceiveShipmentQrAsync(shipment.Etiketler[0].QrIcerigi, receiptRequest);
+        await f.ApprovePendingReceiptsAsync();
         var repeated = await f.Service(1).ReceiveShipmentQrAsync(shipment.Etiketler[0].QrIcerigi, receiptRequest);
         Assert.True(repeated.TekrarKullanildi);
         await Assert.ThrowsAsync<InvalidOperationException>(() => f.Service(1).ReceiveShipmentQrAsync(
@@ -1188,6 +1197,7 @@ public sealed class TedarikciPazaryeriServiceTests
         var qr = Assert.Single(shipment.Etiketler).QrIcerigi;
         await f.Service(1).ReceiveShipmentQrAsync(qr,
             new($"{suffix}-receipt", 0, 1, "Eksik", "Eksik veya hasarlı ürün."));
+        await f.ApprovePendingReceiptsAsync();
         await using var assertDb = f.Db();
         var receiptId = await assertDb.TedarikciMalKabulleri.Select(x => x.Id).SingleAsync();
         return new(receiptId, supplierOrderId, orderLineId, qr);
@@ -1216,6 +1226,7 @@ public sealed class TedarikciPazaryeriServiceTests
             new[] { new TedarikciSevkiyatKalemiRequest(lineId, 1, 1, null, null, null, null) }));
         var receipt = await f.Service(1).ReceiveShipmentQrAsync(
             shipment.Etiketler[0].QrIcerigi, new("dispute-share-receipt", 0, 1, "Hasarlı", "Ürün hasarlı"));
+        await f.ApprovePendingReceiptsAsync();
 
         var decision = new PazaryeriItirazCozRequest(
             true,
@@ -1250,7 +1261,7 @@ public sealed class TedarikciPazaryeriServiceTests
     }
 
     [Fact]
-    public async Task ShipmentQr_OpenDisputeDoesNotBlockUnrelatedAcceptedLabelPayout()
+    public async Task ShipmentQr_OpenDisputeBlocksEveryRelatedLabelPayout()
     {
         await using var f = await Fixture.CreateAsync();
         var master = await f.Service(1).CreateOrderAsync(new PazaryeriSiparisOlusturRequest(
@@ -1271,17 +1282,19 @@ public sealed class TedarikciPazaryeriServiceTests
 
         await f.Service(1).ReceiveShipmentQrAsync(
             shipment.Etiketler[0].QrIcerigi, new("scope-reject", 0, 1, "Hasarlı", "İlk koli hasarlı"));
+        await f.ApprovePendingReceiptsAsync();
         await f.Service(1).ReceiveShipmentQrAsync(
             shipment.Etiketler[1].QrIcerigi, new("scope-accept", 1, 0, null, "İkinci koli sağlam"));
+        await f.ApprovePendingReceiptsAsync();
 
         await using var assertDb = f.Db();
         Assert.Equal(PazaryeriSiparisDurumlari.Itirazli,
             await assertDb.TedarikciSiparisleri.Select(x => x.Durum).SingleAsync());
         var acceptedReceipt = await assertDb.TedarikciMalKabulleri.SingleAsync(x => x.IdempotencyAnahtari == "scope-accept");
-        Assert.True(acceptedReceipt.SerbestBirakilanNetTutar > 0m);
+        Assert.Equal(0m, acceptedReceipt.SerbestBirakilanNetTutar);
         var settlement = await assertDb.TedarikciHakEdisleri.SingleAsync();
         Assert.Equal(acceptedReceipt.SerbestBirakilanNetTutar, settlement.OdenenTutar);
-        Assert.Equal("KismenSerbest", settlement.Durum);
+        Assert.Equal("Bloke", settlement.Durum);
     }
 
     [Fact]
@@ -1305,6 +1318,7 @@ public sealed class TedarikciPazaryeriServiceTests
 
         await f.Service(1).ReceiveShipmentQrAsync(
             shipment.Etiketler[0].QrIcerigi, new("partial-vadeli-1", 1, 0, null, "İlk koli"));
+        await f.ApprovePendingReceiptsAsync();
 
         await using (var partialDb = f.Db())
         {
@@ -1321,6 +1335,7 @@ public sealed class TedarikciPazaryeriServiceTests
 
         await f.Service(1).ReceiveShipmentQrAsync(
             shipment.Etiketler[1].QrIcerigi, new("partial-vadeli-2", 1, 0, null, "İkinci koli"));
+        await f.ApprovePendingReceiptsAsync();
 
         await using var assertDb = f.Db();
         Assert.Equal(PazaryeriSiparisDurumlari.CariOdemeBekliyor,
@@ -1357,6 +1372,7 @@ public sealed class TedarikciPazaryeriServiceTests
 
         await f.Service(1).ReceiveShipmentQrAsync(
             shipment.Etiketler[0].QrIcerigi, new("partial-paid-1", 1, 0, null, null));
+        await f.ApprovePendingReceiptsAsync();
         await using (var partialDb = f.Db())
         {
             var settlement = await partialDb.TedarikciHakEdisleri.SingleAsync();
@@ -1373,6 +1389,7 @@ public sealed class TedarikciPazaryeriServiceTests
 
         await f.Service(1).ReceiveShipmentQrAsync(
             shipment.Etiketler[1].QrIcerigi, new("partial-paid-2", 1, 0, null, null));
+        await f.ApprovePendingReceiptsAsync();
         await using var assertDb = f.Db();
         var completedSettlement = await assertDb.TedarikciHakEdisleri.SingleAsync();
         Assert.Equal("SerbestBirakildi", completedSettlement.Durum);
@@ -1718,6 +1735,7 @@ public sealed class TedarikciPazaryeriServiceTests
         await f.Service(1).ReceiveShipmentQrAsync(
             shipment.Etiketler[0].QrIcerigi,
             new("complaint-receipt", 0, 1, "Eksik", "Koli içeriği eksik"));
+        await f.ApprovePendingReceiptsAsync();
 
         int complaintId;
         await using (var db = f.Db())
@@ -1774,6 +1792,7 @@ public sealed class TedarikciPazaryeriServiceTests
             new[] { new TedarikciSevkiyatKalemiRequest(lineId, 1, 1, null, null, null, null) }));
         await f.Service(1).ReceiveShipmentQrAsync(first.Etiketler[0].QrIcerigi,
             new("redelivery-reject", 0, 1, "Hasarlı", "Yeniden gönderim gerekli"));
+        await f.ApprovePendingReceiptsAsync();
 
         await f.Service(1).ResolveDisputeAsync(supplierOrderId,
             new PazaryeriItirazCozRequest(true, "Hasarlı ürün yenilenecek.", PazaryeriItirazKararlari.YenidenTeslim));
@@ -1790,6 +1809,7 @@ public sealed class TedarikciPazaryeriServiceTests
             new[] { new TedarikciSevkiyatKalemiRequest(lineId, 1, 1, null, null, null, null) }));
         await f.Service(1).ReceiveShipmentQrAsync(replacement.Etiketler[0].QrIcerigi,
             new("redelivery-accept", 1, 0, null, "Sağlam teslim"));
+        await f.ApprovePendingReceiptsAsync();
 
         await using var verified = f.Db();
         var completedLine = await verified.TedarikciSiparisKalemleri.SingleAsync();
@@ -1877,12 +1897,26 @@ public sealed class TedarikciPazaryeriServiceTests
             ProductB = 101;
         }
 
+        public async Task ApprovePendingReceiptsAsync()
+        {
+            List<int> ids;
+            await using (var db = Db())
+            {
+                if (!await db.Kullanicilar.AnyAsync(x => x.AuthProviderUserId == "receipt-reviewer"))
+                    db.Kullanicilar.Add(new Kullanici { Id = 900, AuthProviderUserId = "receipt-reviewer", Durum = "Aktif", Eposta = "review@example.com" });
+                await db.SaveChangesAsync();
+                ids = await db.TedarikciMalKabulleri.Where(x => x.OnayDurumu == "OnayBekliyor").Select(x => x.Id).ToListAsync();
+            }
+            foreach (var id in ids)
+                await Service(1, new FakeCurrentUser("receipt-reviewer")).ApproveReceiptAsync(id, new("İkinci kişi kontrol etti."));
+        }
+
         public IDbContextFactory<CashTrackerDbContext> Factory => new SingleDbContextFactory(_options);
-        public CashTrackerDbContext Db() => new(_options); public TedarikciPazaryeriService Service(int id, ICurrentUserContext? currentUser = null, PazaryeriOptions? options = null, IMarketplacePaymentGateway? gateway = null) { _business.Active = new Isletme { Id = id, Ad = id == 1 ? "Buyer" : id == 2 ? "Supplier A" : "Other" }; return new(new SingleDbContextFactory(_options), _business, new FakeManagement(), gateway ?? new FakeMarketplacePaymentGateway(), options ?? new PazaryeriOptions { KomisyonKdvOrani = 20, TevkifatOrani = 1 }, currentUser ?? new FakeCurrentUser(id == 1 ? "buyer-owner" : $"business-{id}-user")); }
+        public CashTrackerDbContext Db() => new(_options); public TedarikciPazaryeriService Service(int id, ICurrentUserContext? currentUser = null, PazaryeriOptions? options = null, IMarketplacePaymentGateway? gateway = null, bool admin = true) { _business.Active = new Isletme { Id = id, Ad = id == 1 ? "Buyer" : id == 2 ? "Supplier A" : "Other" }; return new(new SingleDbContextFactory(_options), _business, new FakeManagement(admin), gateway ?? new FakeMarketplacePaymentGateway(), options ?? new PazaryeriOptions { KomisyonKdvOrani = 20, TevkifatOrani = 1 }, currentUser ?? new FakeCurrentUser(id == 1 ? "buyer-owner" : $"business-{id}-user")); }
         public async ValueTask DisposeAsync() { await _connection.DisposeAsync(); if (_dbPath is not null) { SqliteConnection.ClearAllPools(); if (File.Exists(_dbPath)) File.Delete(_dbPath); } if (_schema is not null && _postgresConnectionString is not null) { await using var admin = new NpgsqlConnection(_postgresConnectionString); await admin.OpenAsync(); await using var dropSchema = admin.CreateCommand(); dropSchema.CommandText = $"DROP SCHEMA IF EXISTS \"{_schema}\" CASCADE"; await dropSchema.ExecuteNonQueryAsync(); } }
     }
     private sealed class FakeIsletme : IIsletmeService { public Isletme Active { get; set; } = new() { Id = 1, Ad = "Buyer" }; public Task<List<Isletme>> GetAllAsync()=>Task.FromResult(new List<Isletme>{Active}); public Task<Isletme?> GetByIdAsync(int id)=>Task.FromResult<Isletme?>(id==Active.Id?Active:null); public Task<Isletme> GetActiveAsync()=>Task.FromResult(Active); public Task<int> GetActiveIdAsync()=>Task.FromResult(Active.Id); public Task<int> CreateAsync(string ad,bool makeActive=false)=>Task.FromResult(0); public Task RenameAsync(int id,string ad)=>Task.CompletedTask; public Task UpdateSetupAsync(int id,string ad,string t,string k,bool c,string? h=null,bool? m=null,MuhasebeciProfilKaydetRequest? p=null,string? v=null,string? o=null,string? s=null)=>Task.CompletedTask; public Task SetActiveAsync(int id)=>Task.CompletedTask; public Task SetActiveCustomerContextAsync(int id)=>Task.CompletedTask; public Task ClearActiveCustomerContextAsync()=>Task.CompletedTask; public Task<ActiveBusinessAccess> GetActiveAccessAsync()=>Task.FromResult(default(ActiveBusinessAccess)!); public Task DeleteAsync(int id)=>Task.CompletedTask; }
-    private sealed class FakeManagement : ISystemcelYonetimService { public Task<bool> IsCurrentUserAdminAsync(CancellationToken ct=default)=>Task.FromResult(true); public Task<MuhasebeciBasvuruListeDto> GetMuhasebeciBasvurulariAsync(string? d=null,CancellationToken ct=default)=>Task.FromResult(default(MuhasebeciBasvuruListeDto)!); public Task<MuhasebeciBasvuruDto> ApproveMuhasebeciBasvurusuAsync(int i,CancellationToken ct=default)=>Task.FromResult(default(MuhasebeciBasvuruDto)!); public Task<MuhasebeciBasvuruDto> RejectMuhasebeciBasvurusuAsync(int i,MuhasebeciBasvuruRedRequest r,CancellationToken ct=default)=>Task.FromResult(default(MuhasebeciBasvuruDto)!); public Task<YonetimOdemeIncelemeDto> GetOdemeIncelemeAsync(string? d=null,bool s=false,int l=100,CancellationToken ct=default)=>Task.FromResult(default(YonetimOdemeIncelemeDto)!); public Task<MuhasebeciAktarimListeDto> GetMuhasebeciAktarimlariAsync(string d,int? i=null,CancellationToken ct=default)=>Task.FromResult(default(MuhasebeciAktarimListeDto)!); public Task<MuhasebeciAktarimOzetDto> CompleteMuhasebeciAktarimiAsync(int i,MuhasebeciAktarimTamamlaRequest r,CancellationToken ct=default)=>Task.FromResult(default(MuhasebeciAktarimOzetDto)!); public Task<DestekTalebiListeDto> GetDestekTalepleriAsync(CancellationToken ct=default)=>Task.FromResult(default(DestekTalebiListeDto)!); public Task<DestekTalebiDto> UpdateDestekTalebiAsync(int i,DestekTalebiGuncelleRequest r,CancellationToken ct=default)=>Task.FromResult(default(DestekTalebiDto)!); public Task<EntitlementOverrideResult> ApplyEntitlementOverrideAsync(int i,EntitlementOverrideRequest r,CancellationToken ct=default)=>Task.FromResult(default(EntitlementOverrideResult)!); }
+    private sealed class FakeManagement(bool admin = true) : ISystemcelYonetimService { public Task<bool> IsCurrentUserAdminAsync(CancellationToken ct=default)=>Task.FromResult(admin); public Task<MuhasebeciBasvuruListeDto> GetMuhasebeciBasvurulariAsync(string? d=null,CancellationToken ct=default)=>Task.FromResult(default(MuhasebeciBasvuruListeDto)!); public Task<MuhasebeciBasvuruDto> ApproveMuhasebeciBasvurusuAsync(int i,CancellationToken ct=default)=>Task.FromResult(default(MuhasebeciBasvuruDto)!); public Task<MuhasebeciBasvuruDto> RejectMuhasebeciBasvurusuAsync(int i,MuhasebeciBasvuruRedRequest r,CancellationToken ct=default)=>Task.FromResult(default(MuhasebeciBasvuruDto)!); public Task<YonetimOdemeIncelemeDto> GetOdemeIncelemeAsync(string? d=null,bool s=false,int l=100,CancellationToken ct=default)=>Task.FromResult(default(YonetimOdemeIncelemeDto)!); public Task<MuhasebeciAktarimListeDto> GetMuhasebeciAktarimlariAsync(string d,int? i=null,CancellationToken ct=default)=>Task.FromResult(default(MuhasebeciAktarimListeDto)!); public Task<MuhasebeciAktarimOzetDto> CompleteMuhasebeciAktarimiAsync(int i,MuhasebeciAktarimTamamlaRequest r,CancellationToken ct=default)=>Task.FromResult(default(MuhasebeciAktarimOzetDto)!); public Task<DestekTalebiListeDto> GetDestekTalepleriAsync(CancellationToken ct=default)=>Task.FromResult(default(DestekTalebiListeDto)!); public Task<DestekTalebiDto> UpdateDestekTalebiAsync(int i,DestekTalebiGuncelleRequest r,CancellationToken ct=default)=>Task.FromResult(default(DestekTalebiDto)!); public Task<EntitlementOverrideResult> ApplyEntitlementOverrideAsync(int i,EntitlementOverrideRequest r,CancellationToken ct=default)=>Task.FromResult(default(EntitlementOverrideResult)!); }
     private sealed class FakeCurrentUser(string providerUserId) : ICurrentUserContext { public CurrentUserIdentity? GetCurrentUser() => new(providerUserId, null, null, true); }
 
     private sealed class PendingCollectionGateway(bool timesOut) : IMarketplacePaymentGateway

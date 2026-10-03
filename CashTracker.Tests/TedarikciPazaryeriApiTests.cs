@@ -5,6 +5,20 @@ namespace CashTracker.Tests;
 
 public sealed class TedarikciPazaryeriApiTests
 {
+    [Theory]
+    [InlineData("40001", true)]
+    [InlineData("40P01", true)]
+    [InlineData("23505", false)]
+    [InlineData("08006", false)]
+    public void ReceiptConcurrencyConflict_RecognizesRolledBackRacesThroughEfWrappersOnly(string sqlState, bool expected)
+    {
+        var provider = new Npgsql.PostgresException("provider detail", "ERROR", "ERROR", sqlState);
+        var wrapped = new InvalidOperationException("transient wrapper",
+            new Microsoft.EntityFrameworkCore.DbUpdateException("save wrapper", provider));
+        Assert.Equal(expected, TedarikciPazaryeriApi.IsReceiptConcurrencyConflict(wrapped));
+        Assert.False(TedarikciPazaryeriApi.IsReceiptConcurrencyConflict(new InvalidOperationException("business conflict")));
+    }
+
     [Fact]
     public void DisputeDurations_UsesLatestDisputeStartAndComplaintTimeForFirstReply()
     {

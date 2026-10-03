@@ -23,6 +23,9 @@ internal sealed class MarketplaceOrderExpiryHostedService : BackgroundService
             try
             {
                 var expired = await _marketplace.ExpirePendingOrdersAsync(DateTime.UtcNow, stoppingToken);
+                var escalated = await _marketplace.EscalateOverdueDisputesAsync(DateTime.UtcNow, stoppingToken);
+                if (escalated > 0)
+                    _logger.LogInformation("Overdue marketplace disputes escalated. Count={EscalatedCount}", escalated);
                 if (expired > 0)
                     _logger.LogInformation("Expired marketplace reservations released. Count={ExpiredCount}", expired);
             }

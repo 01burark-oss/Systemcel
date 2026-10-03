@@ -10,6 +10,7 @@ namespace CashTracker.Core.Entities
         public int CariKartId { get; set; }
         public int? TedarikciSiparisId { get; set; }
         public int? TedarikciMalKabulId { get; set; }
+        public int? TedarikciMalKabulDuzeltmeId { get; set; }
         public DateTime Tarih { get; set; } = DateTime.Now;
         public string HareketTipi { get; set; } = "Borc"; // Borc | Alacak | Tahsilat | Odeme
         public decimal Tutar { get; set; }

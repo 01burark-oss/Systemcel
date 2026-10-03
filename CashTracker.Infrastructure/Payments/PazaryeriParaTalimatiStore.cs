@@ -99,11 +99,19 @@ public sealed class PazaryeriParaTalimatiStore(IDbContextFactory<CashTrackerDbCo
     internal static IQueryable<PazaryeriParaTalimati> ReadyForDispatch(CashTrackerDbContext db) =>
         db.PazaryeriParaTalimatlari.Where(instruction =>
             instruction.Durum == PazaryeriParaTalimatiDurumlari.Hazir &&
+            (instruction.Tur == PazaryeriParaTalimatiTurleri.Tahsilat ||
+             !db.TedarikciMalKabulDuzeltmeleri.Any(x =>
+                 (x.TedarikciSiparisId == instruction.TedarikciSiparisId ||
+                  (instruction.Tur == PazaryeriParaTalimatiTurleri.Iade && db.PazaryeriOdemeDagitimlari.Any(a => a.PazaryeriOdemeId == instruction.PazaryeriOdemeId && a.TedarikciSiparisId == x.TedarikciSiparisId))) &&
+                 (x.Durum == "OnayBekliyor" || (x.Durum == "Uygulandi" && ((x.ParaDurumu != "Uzlasti" && x.ParaDurumu != "Uygulanmaz") || x.BelgeDurumu != "Tamamlandi" || x.StokDurumu != "Tamamlandi"))))) &&
             (instruction.Tur != PazaryeriParaTalimatiTurleri.Aktarim ||
              (!db.TedarikciSiparisleri.Any(x => x.Id == instruction.TedarikciSiparisId &&
-                 ((x.Durum == PazaryeriSiparisDurumlari.Itirazli && !instruction.KaynakRef.StartsWith("receipt:")) ||
+                 (x.Durum == PazaryeriSiparisDurumlari.Itirazli ||
                   x.Durum == PazaryeriSiparisDurumlari.IptalEdildi ||
                   x.Durum == PazaryeriSiparisDurumlari.IadeEdildi)) &&
+              !db.TedarikciMalKabulleri.Any(x => x.TedarikciSiparisId == instruction.TedarikciSiparisId && x.OnayDurumu == "OnayBekliyor") &&
+              !db.TedarikciSiparisSikayetleri.Any(x => x.TedarikciSiparisId == instruction.TedarikciSiparisId &&
+                  (x.Durum == TedarikciSikayetDurumlari.Acik || x.Durum == TedarikciSikayetDurumlari.Yanitlandi || x.Durum == TedarikciSikayetDurumlari.Cozulemedi)) &&
               !db.PazaryeriParaTalimatlari.Any(x =>
                   x.Id != instruction.Id && x.TedarikciSiparisId == instruction.TedarikciSiparisId &&
                   x.Tur == PazaryeriParaTalimatiTurleri.Aktarim &&

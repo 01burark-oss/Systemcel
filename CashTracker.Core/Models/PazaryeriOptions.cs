@@ -10,6 +10,8 @@ public sealed class PazaryeriOptions
     public decimal OdemeHizmetiOrani { get; init; }
     public int VarsayilanOdemeVadesiGun { get; init; } = 7;
     public int StokRezervasyonSuresiDakika { get; init; } = 30;
+    public string ItirazYukseltmeKullaniciRef { get; init; } = string.Empty;
+    public IReadOnlySet<DateOnly> IsGunuTatilTarihleri { get; init; } = new HashSet<DateOnly>();
     // Unconfigured categories retain the legacy optional-field behavior.
     public IReadOnlyDictionary<string, PazaryeriKategoriSevkKabulKurali> KategoriKurallari { get; init; }
         = new Dictionary<string, PazaryeriKategoriSevkKabulKurali>(StringComparer.OrdinalIgnoreCase);

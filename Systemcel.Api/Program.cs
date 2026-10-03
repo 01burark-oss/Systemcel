@@ -934,6 +934,9 @@ static PazaryeriOptions ResolvePazaryeriOptions(IConfiguration configuration)
     {
         Aktif = active,
         PilotIsletmeIdleri = pilotIds,
+        ItirazYukseltmeKullaniciRef = configuration["Pazaryeri:ItirazYukseltmeKullaniciRef"] ?? string.Empty,
+        IsGunuTatilTarihleri = (configuration.GetSection("Pazaryeri:IsGunuTatilTarihleri").Get<string[]>() ?? [])
+            .Select(value => DateOnly.ParseExact(value, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture)).ToHashSet(),
         KategoriKurallari = normalizedCategoryRules
     };
 }
