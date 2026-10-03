@@ -13,6 +13,85 @@ namespace CashTracker.Tests;
 public sealed class PaymentRefundServiceTests
 {
     [Fact]
+    public async Task LiveCancellationRequiresAdminAndExplicitDispatchConfirmation_AndNeverResendsPendingRefund()
+    {
+        await using var fixture = await Fixture.CreateAsync();
+        var id = await fixture.AddAnnualCancellationAsync();
+        fixture.Provider.ExpectedTestMode = false;
+        fixture.Provider.LiveRefundsEnabled = true;
+        fixture.Provider.PaymentSnapshot = fixture.Provider.PaymentSnapshot with { IsTestPayment = false };
+        fixture.Provider.AutoConfirmRefund = false;
+        var admin = fixture.CancellationService("admin-user");
+        var queue = await admin.ListAsync();
+        Assert.True(queue.IadeIslemleriAcik);
+        Assert.False(queue.TestModu);
+        Assert.False(queue.TestIslemleriAcik);
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => fixture.CancellationService("regular-user").DispatchAsync(id, liveRefundConfirmed: true));
+        await admin.ApproveAsync(id);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => admin.DispatchAsync(id));
+        await using (var check = fixture.Factory.CreateDbContext())
+            Assert.Equal("Hazir", (await check.OdemeIadeTalimatlari.SingleAsync()).Durum);
+        Assert.Equal(0, fixture.Provider.RefundCalls);
+        await admin.DispatchAsync(id, liveRefundConfirmed: true);
+        await admin.DispatchAsync(id, liveRefundConfirmed: true);
+        Assert.Equal("SonucBekliyor", Assert.Single((await admin.ListAsync()).Talepler).Durum);
+        Assert.Equal(1, fixture.Provider.RefundCalls);
+        fixture.Provider.Confirm(fixture.Provider.LastReferenceNo, fixture.Provider.LastRefundAmount);
+        await admin.ReconcileAsync(id);
+        await admin.ReconcileAsync(id);
+        await using var db = fixture.Factory.CreateDbContext();
+        Assert.Equal("Tamamlandi", (await db.OdemeIadeTalimatlari.SingleAsync()).Durum);
+        Assert.Equal(91.67m, fixture.Provider.LastRefundAmount);
+        Assert.Equal(new DateTime(2026, 10, 15, 0, 0, 0, DateTimeKind.Utc), (await db.Abonelikler.SingleAsync()).DonemBitisAt);
+        Assert.Equal(PaymentTransactionStates.Succeeded, (await db.OdemeIslemleri.SingleAsync()).Durum);
+        Assert.Single(await db.OdemeOlaylari.ToListAsync());
+    }
+
+    [Fact]
+    public async Task LiveAllowlistBlocksApprovalDispatchAndQueryWithoutChangingInstruction()
+    {
+        await using var fixture = await Fixture.CreateAsync();
+        var id = await fixture.AddAnnualCancellationAsync();
+        fixture.Provider.ExpectedTestMode = false;
+        fixture.Provider.LiveRefundsEnabled = true;
+        fixture.Provider.PaymentSnapshot = fixture.Provider.PaymentSnapshot with { IsTestPayment = false };
+        var admin = fixture.CancellationService("admin-user");
+        fixture.Provider.LiveBusinessIds = [8];
+        Assert.False(Assert.Single((await admin.ListAsync()).Talepler).Onaylanabilir);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => admin.ApproveAsync(id));
+        fixture.Provider.LiveBusinessIds = [7];
+        await admin.ApproveAsync(id);
+        fixture.Provider.LiveBusinessIds = [8];
+        await Assert.ThrowsAsync<InvalidOperationException>(() => admin.DispatchAsync(id, liveRefundConfirmed: true));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => admin.ReconcileAsync(id));
+        await using var db = fixture.Factory.CreateDbContext();
+        var instruction = await db.OdemeIadeTalimatlari.SingleAsync();
+        await Assert.ThrowsAsync<InvalidOperationException>(() => fixture.Service.DispatchAsync(instruction.Id, liveRefundConfirmed: true));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => fixture.Service.ReconcileAsync(instruction.Id));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => fixture.Service.RequestAsync(7, instruction.OdemeIslemiId, 1m, "forbidden"));
+        Assert.Equal("Hazir", (await db.OdemeIadeTalimatlari.AsNoTracking().SingleAsync()).Durum);
+        Assert.Equal(0, fixture.Provider.RefundCalls);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task LiveFullRefundRequiresMatchingLiveQuery(bool remoteTestMode)
+    {
+        await using var fixture = await Fixture.CreateAsync();
+        var paymentId = await fixture.AddPaymentAsync(withActiveSubscription: true);
+        fixture.Provider.ExpectedTestMode = false;
+        fixture.Provider.LiveRefundsEnabled = true;
+        fixture.Provider.PaymentSnapshot = fixture.Provider.PaymentSnapshot with { IsTestPayment = remoteTestMode };
+        var instruction = await fixture.Service.RequestAsync(7, paymentId, 100m, "live-full");
+        var result = await fixture.Service.DispatchAsync(instruction.Id, liveRefundConfirmed: true);
+        await using var db = fixture.Factory.CreateDbContext();
+        Assert.Equal(remoteTestMode ? "IncelemeGerekli" : "Tamamlandi", result.Durum);
+        Assert.Equal(remoteTestMode ? 0 : 1, fixture.Provider.RefundCalls);
+        Assert.Equal(remoteTestMode ? "Aktif" : "IadeEdildi", (await db.Abonelikler.SingleAsync()).Durum);
+    }
+
+    [Fact]
     public async Task CancellationApproval_IsAtomicIdempotentAndRecordsFirstAdminWithoutSending()
     {
         await using var fixture = await Fixture.CreateAsync();
@@ -557,6 +636,11 @@ public sealed class PaymentRefundServiceTests
     {
         public string Name => "PayTR";
         public bool ExpectedTestMode { get; set; } = true;
+        public bool LiveRefundsEnabled { get; set; }
+        public int[] LiveBusinessIds { get; set; } = [7];
+        public bool RefundsEnabled => ExpectedTestMode || LiveRefundsEnabled;
+        public bool CanRefundBusiness(int businessId) => RefundsEnabled && businessId > 0 &&
+            (ExpectedTestMode || LiveBusinessIds.Contains(businessId));
         public string PaymentOrderId { get; set; } = "order123";
         public ProviderPaymentSnapshot PaymentSnapshot { get; set; } = new("order123", 100m, 100m, "TRY", true, 0m, []);
         public ProviderRefundResult RefundResult { get; set; } = new(true, false);

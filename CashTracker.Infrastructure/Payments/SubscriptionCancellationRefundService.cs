@@ -11,7 +11,9 @@ public sealed class SubscriptionCancellationRefundService(
     ICurrentUserContext currentUser, IPaymentRefundService refunds, IPaymentProvider provider)
     : ISubscriptionCancellationRefundService
 {
-    private bool TestEnabled => provider is IPaymentRefundProvider { ExpectedTestMode: true };
+    private bool RefundsEnabled => provider is IPaymentRefundProvider { RefundsEnabled: true };
+    private bool TestMode => provider is IPaymentStatusQueryProvider { ExpectedTestMode: true };
+    private bool AllowsBusiness(int id) => provider is IPaymentRefundProvider refundsProvider && refundsProvider.CanRefundBusiness(id);
 
     public async Task<CancellationRefundQueueDto> ListAsync(CancellationToken ct = default)
     {
@@ -28,30 +30,30 @@ public sealed class SubscriptionCancellationRefundService(
             .Select(x => x.IptalIadeTalimatiId!.Value).ToArray();
         var instructions = await db.OdemeIadeTalimatlari.AsNoTracking().Where(x => instructionIds.Contains(x.Id))
             .ToDictionaryAsync(x => x.Id, ct);
-        return new(TestEnabled, subscriptions.Select(x =>
+        return new(RefundsEnabled && TestMode, subscriptions.Select(x =>
         {
             var linked = x.IptalIadeTalimatiId is { } id && instructions.TryGetValue(id, out var instruction) ? instruction : null;
             var state = linked?.Durum ?? x.IptalIadeDurumu;
             return new CancellationRefundItemDto(x.Id, businesses.GetValueOrDefault(x.IsletmeId, "İşletme"),
                 x.HesapTipi, x.PlanKodu, x.IptalAt, x.DonemBitisAt, x.IptalKalanAySayisi, x.IptalIadeTutari,
                 x.ParaBirimi, state,
-                TestEnabled && linked is null && state == "OnayBekliyor" && x.IptalIadeTutari > 0 && x.IptalIadeOdemeIslemiId != null,
-                TestEnabled && linked is not null && state == "Hazir",
-                TestEnabled && linked is not null && state is "Gonderiliyor" or "SonucBekliyor" or "IncelemeGerekli", x.IptalIadeOnayAt);
-        }).ToArray());
+                AllowsBusiness(x.IsletmeId) && linked is null && state == "OnayBekliyor" && x.IptalIadeTutari > 0 && x.IptalIadeOdemeIslemiId != null,
+                AllowsBusiness(x.IsletmeId) && linked is not null && state == "Hazir",
+                AllowsBusiness(x.IsletmeId) && linked is not null && state is "Gonderiliyor" or "SonucBekliyor" or "IncelemeGerekli", x.IptalIadeOnayAt);
+        }).ToArray()) { IadeIslemleriAcik = RefundsEnabled, TestModu = TestMode };
     }
 
     public async Task ApproveAsync(int subscriptionId, CancellationToken ct = default)
     {
         var actor = await RequireAdminAsync(ct);
-        if (!TestEnabled) throw new InvalidOperationException("Test iade işlemleri kapalı.");
+        if (!RefundsEnabled) throw new InvalidOperationException("İade işlemleri kapalı.");
         await refunds.ApproveCancellationAsync(subscriptionId, actor, ct);
     }
 
-    public async Task DispatchAsync(int subscriptionId, CancellationToken ct = default)
+    public async Task DispatchAsync(int subscriptionId, CancellationToken ct = default, bool liveRefundConfirmed = false)
     {
         var id = await ApprovedInstructionAsync(subscriptionId, ct);
-        await refunds.DispatchAsync(id, ct);
+        await refunds.DispatchAsync(id, ct, liveRefundConfirmed);
     }
 
     public async Task ReconcileAsync(int subscriptionId, CancellationToken ct = default)
@@ -63,10 +65,11 @@ public sealed class SubscriptionCancellationRefundService(
     private async Task<long> ApprovedInstructionAsync(int subscriptionId, CancellationToken ct)
     {
         await RequireAdminAsync(ct);
-        if (!TestEnabled) throw new InvalidOperationException("Test iade işlemleri kapalı.");
+        if (!RefundsEnabled) throw new InvalidOperationException("İade işlemleri kapalı.");
         await using var db = await factory.CreateDbContextAsync(ct);
         var subscription = await db.Abonelikler.AsNoTracking().SingleOrDefaultAsync(x => x.Id == subscriptionId, ct)
             ?? throw new KeyNotFoundException("Abonelik bulunamadı.");
+        if (!AllowsBusiness(subscription.IsletmeId)) throw new InvalidOperationException("Bu işletme için iade işlemleri açık değil.");
         if (subscription.IptalIadeTalimatiId is not { } id || subscription.IptalIadeOnayAt is null ||
             string.IsNullOrWhiteSpace(subscription.IptalIadeOnaylayanProviderKullaniciId))
             throw new InvalidOperationException("Gönderimden önce yetkili iade onayı gerekir.");

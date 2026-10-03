@@ -23,8 +23,9 @@ public sealed class PaytrIframeClient(HttpClient httpClient)
     private const int MaxResponseBytes = 8192;
 
     public Task<ProviderRefundResult> RefundAsync(string orderId, decimal amount, string referenceNo,
-        string merchantId, string merchantKey, string merchantSalt, CancellationToken ct = default) =>
-        new PaytrRefundClient(httpClient).RefundAsync(orderId, amount, referenceNo, merchantId, merchantKey, merchantSalt, ct);
+        string merchantId, string merchantKey, string merchantSalt, CancellationToken ct = default,
+        PaytrRefundResponseMode responseMode = PaytrRefundResponseMode.TestOne) =>
+        new PaytrRefundClient(httpClient).RefundAsync(orderId, amount, referenceNo, merchantId, merchantKey, merchantSalt, ct, responseMode);
 
     public Task<ProviderPaymentLookupResult> GetPaymentAsync(string orderId, string merchantId,
         string merchantKey, string merchantSalt, CancellationToken ct = default) =>

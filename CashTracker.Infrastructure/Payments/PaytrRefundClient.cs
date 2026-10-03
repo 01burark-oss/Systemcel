@@ -9,8 +9,11 @@ namespace CashTracker.Infrastructure.Payments;
 public sealed class PaytrRefundClient(HttpClient httpClient)
 {
     public async Task<ProviderRefundResult> RefundAsync(string orderId, decimal amount, string referenceNo,
-        string merchantId, string merchantKey, string merchantSalt, CancellationToken ct = default)
+        string merchantId, string merchantKey, string merchantSalt, CancellationToken ct = default,
+        PaytrRefundResponseMode responseMode = PaytrRefundResponseMode.TestOne)
     {
+        if (responseMode != PaytrRefundResponseMode.TestOne && !PaytrRefundResponseContract.IsLive(responseMode))
+            throw new InvalidOperationException("PayTR iade yanıtı sözleşmesi doğrulanmadı.");
         if (string.IsNullOrWhiteSpace(orderId) || orderId.Length > 64 || orderId.Any(c => !char.IsAsciiLetterOrDigit(c)) ||
             string.IsNullOrWhiteSpace(referenceNo) || referenceNo.Length > 64 || referenceNo.Any(c => !char.IsAsciiLetterOrDigit(c)) ||
             amount <= 0 || decimal.Round(amount, 2) != amount)
@@ -49,7 +52,9 @@ public sealed class PaytrRefundClient(HttpClient httpClient)
             if (length > maxBytes) return Unknown("response_too_large");
             using var json = JsonDocument.Parse(buffer.AsMemory(0, length), new JsonDocumentOptions { MaxDepth = 8 });
             var body = json.RootElement;
-            if (body.ValueKind != JsonValueKind.Object || !body.TryGetProperty("status", out var status) ||
+            if (body.ValueKind != JsonValueKind.Object ||
+                body.EnumerateObject().Select(x => x.Name).Distinct(StringComparer.Ordinal).Count() != body.EnumerateObject().Count() ||
+                !body.TryGetProperty("status", out var status) ||
                 status.ValueKind != JsonValueKind.String) return Unknown("invalid_response");
             if (status.GetString() == "failed") return new(false, true, "order_not_found");
             if (status.GetString() == "error")
@@ -61,8 +66,7 @@ public sealed class PaytrRefundClient(HttpClient httpClient)
                 order.ValueKind != JsonValueKind.String || order.GetString() != orderId ||
                 !PaytrPaymentQueryClient.TryMoney(body, "return_amount", out var returned) || returned != amount ||
                 !body.TryGetProperty("reference_no", out var reference) || reference.ValueKind != JsonValueKind.String || reference.GetString() != referenceNo ||
-                !body.TryGetProperty("is_test", out var mode) ||
-                (mode.ValueKind == JsonValueKind.String ? mode.GetString() : mode.GetRawText()) != "1")
+                !MatchesMode(body, responseMode))
                 return Unknown("refund_response_mismatch");
             return new(true, true);
         }
@@ -73,4 +77,13 @@ public sealed class PaytrRefundClient(HttpClient httpClient)
     }
 
     private static ProviderRefundResult Unknown(string code) => new(false, false, code);
+
+    private static bool MatchesMode(JsonElement body, PaytrRefundResponseMode expected)
+    {
+        var present = body.TryGetProperty("is_test", out var mode);
+        if (expected == PaytrRefundResponseMode.LiveAbsent) return !present;
+        if (!present || mode.ValueKind is not (JsonValueKind.String or JsonValueKind.Number)) return false;
+        return (mode.ValueKind == JsonValueKind.String ? mode.GetString() : mode.GetRawText()) ==
+            (expected == PaytrRefundResponseMode.TestOne ? "1" : "0");
+    }
 }

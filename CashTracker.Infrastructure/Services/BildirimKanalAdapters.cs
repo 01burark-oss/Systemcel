@@ -100,9 +100,15 @@ public sealed class EpostaBildirimAdapter : IBildirimKanalAdapter
         var body = message.Trim();
         if (!string.IsNullOrWhiteSpace(path))
         {
-            var url = Uri.TryCreate(path, UriKind.Absolute, out var absolute)
-                ? absolute.AbsoluteUri
-                : $"{_options.PublicBaseUrl.TrimEnd('/')}/{path.TrimStart('/')}";
+            if (path.Contains('\\') || path.StartsWith("//", StringComparison.Ordinal) || path.Any(char.IsControl))
+                throw new InvalidOperationException("E-posta bildirim bağlantısı geçersiz.");
+            // Check relative paths first: Unix treats /app/... as an absolute file URI.
+            var url = Uri.TryCreate(path, UriKind.Relative, out _)
+                ? $"{_options.PublicBaseUrl.TrimEnd('/')}/{path.TrimStart('/')}"
+                : Uri.TryCreate(path, UriKind.Absolute, out var absolute) &&
+                  absolute.Scheme is "https" or "http"
+                    ? absolute.AbsoluteUri
+                    : throw new InvalidOperationException("E-posta bildirim bağlantısı geçersiz.");
             body += $"{Environment.NewLine}{Environment.NewLine}{url}";
         }
         await _client.SendAsync(recipient.Trim(), subject.Trim(), body, ct);

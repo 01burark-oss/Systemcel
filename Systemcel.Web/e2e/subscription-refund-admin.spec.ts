@@ -66,6 +66,40 @@ test.describe("subscription cancellation refund administration", () => {
     }
   });
 
+  test("captures focused test and live confirmations in both themes and widths", async ({ browser }, testInfo) => {
+    test.skip(testInfo.project.name !== "desktop-chromium");
+    const screenshotDir = path.resolve(process.cwd(), "../artifacts/subscription-refund-confirmation-20261004");
+    await fs.mkdir(screenshotDir, { recursive: true });
+    for (const theme of ["light", "dark"] as const) {
+      for (const width of [1366, 320]) {
+        for (const testMode of [true, false]) {
+          const context = await createAdminContext(browser, theme, width);
+          const page = await context.newPage();
+          await installFixture(page, testMode);
+          await page.goto("/app/yonetim/odemeler");
+          const panel = page.getByTestId("cancellation-refund-queue");
+          const actionName = testMode ? "Mavi Atölye test iadesini gönder" : "Mavi Atölye gerçek iadesini gönder";
+          await panel.getByRole("button", { name: actionName }).click();
+          const groupName = testMode ? "Mavi Atölye için test iade teyidi" : "Mavi Atölye için gerçek iade teyidi";
+          const confirmation = panel.getByRole("group", { name: groupName });
+          await expect(confirmation).toBeVisible();
+          const confirmButton = confirmation.getByRole("button", { name: testMode ? "Test iadesini gönder" : "Gerçek iadeyi gönder" });
+          // The confirmation sits before the action row in DOM order, so move
+          // backwards from the trigger through the cancel control to the send action.
+          await page.keyboard.press("Shift+Tab");
+          await page.keyboard.press("Shift+Tab");
+          await expect(confirmButton).toBeFocused();
+          await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+          const layout = await page.evaluate(() => ({ viewport: innerWidth, document: document.documentElement.scrollWidth, group: document.querySelector<HTMLElement>(".cancellation-refund__confirm")?.getBoundingClientRect() }));
+          expect(layout.document).toBeLessThanOrEqual(layout.viewport + 1);
+          expect(layout.group).not.toBeUndefined();
+          await page.screenshot({ path: path.join(screenshotDir, `refund-confirm-${testMode ? "test" : "live"}-${theme}-${width}.png`), fullPage: true });
+          await context.close();
+        }
+      }
+    }
+  });
+
   test("approves without body, confirms test dispatch, and queries an ambiguous result", async ({ page }) => {
     test.skip(test.info().project.name !== "desktop-chromium");
     const fixture = await installFixture(page);
@@ -80,7 +114,7 @@ test.describe("subscription cancellation refund administration", () => {
     expect(fixture.posts.at(-1)).toEqual({ path: "/api/ekran/yonetim/abonelik-iadeleri/201/onayla", body: "" });
 
     await panel.getByRole("button", { name: "Bahar Kafe test iadesini gönder" }).click();
-    await expect(panel.getByRole("group", { name: "Bahar Kafe için test iadesi teyidi" })).toBeVisible();
+    await expect(panel.getByRole("group", { name: "Bahar Kafe için test iade teyidi" })).toBeVisible();
     expect(fixture.posts).toHaveLength(1);
     await panel.getByRole("button", { name: "Test iadesini gönder", exact: true }).click();
     await expect(panel.getByRole("status")).toContainText("İade kaydı güncellendi. Sonucu kontrol edin.");
@@ -89,6 +123,24 @@ test.describe("subscription cancellation refund administration", () => {
     await panel.getByRole("button", { name: "Ada Ofis iade durumunu sorgula" }).click();
     await expect(panel.getByRole("status")).toContainText("Sağlayıcı iade durumu sorgulandı.");
     expect(fixture.posts.at(-1)).toEqual({ path: "/api/ekran/yonetim/abonelik-iadeleri/204/sorgula", body: "" });
+  });
+
+  test("requires a live refund confirmation and sends the explicit live approval", async ({ page }) => {
+    test.skip(test.info().project.name !== "desktop-chromium");
+    const fixture = await installFixture(page, false);
+    await page.goto("/app/yonetim/odemeler");
+    const panel = page.getByTestId("cancellation-refund-queue");
+
+    await panel.getByRole("button", { name: "Mavi Atölye gerçek iadesini gönder" }).click();
+    const confirmation = panel.getByRole("group", { name: "Mavi Atölye için gerçek iade teyidi" });
+    await expect(confirmation).toContainText("Mavi Atölye için ₺11.000,00 müşteriye geri ödenecek.");
+    await expect(confirmation.getByRole("button", { name: "Gerçek iadeyi gönder" })).toBeVisible();
+    expect(fixture.posts).toHaveLength(0);
+    await confirmation.getByRole("button", { name: "Gerçek iadeyi gönder" }).click();
+    expect(fixture.posts.at(-1)).toEqual({
+      path: "/api/ekran/yonetim/abonelik-iadeleri/203/gonder",
+      body: JSON.stringify({ canliIadeOnayi: true })
+    });
   });
 
   test("shows action failures and clears stale data after an admin 403", async ({ page }) => {
@@ -126,13 +178,13 @@ async function createAdminContext(browser: Browser, theme: "light" | "dark", wid
   return context;
 }
 
-async function installFixture(page: Page) {
-  const fixture = { posts: [] as { path: string; body: string }[], failNextAction: false, forbidQueue: false, talepler: queue.map((item) => ({ ...item })) };
+async function installFixture(page: Page, testMode = true) {
+  const fixture = { posts: [] as { path: string; body: string }[], failNextAction: false, forbidQueue: false, testMode, talepler: queue.map((item) => ({ ...item })) };
   await page.route("**/api/**", async (route) => respond(route, fixture));
   return fixture;
 }
 
-async function respond(route: Route, fixture: { posts: { path: string; body: string }[]; failNextAction: boolean; forbidQueue: boolean; talepler: typeof queue }) {
+async function respond(route: Route, fixture: { posts: { path: string; body: string }[]; failNextAction: boolean; forbidQueue: boolean; testMode: boolean; talepler: typeof queue }) {
   const url = new URL(route.request().url());
   const path = url.pathname;
   if (path.startsWith("/api/ekran/yonetim/abonelik-iadeleri/") && route.request().method() === "POST") {
@@ -147,7 +199,7 @@ async function respond(route: Route, fixture: { posts: { path: string; body: str
   }
   if (path === "/api/ekran/yonetim/abonelik-iadeleri") {
     if (fixture.forbidQueue) return json(route, { mesaj: "Yönetici yetkisi gerekli." }, 403);
-    return json(route, { testIslemleriAcik: true, talepler: fixture.talepler });
+    return json(route, { iadeIslemleriAcik: true, testModu: fixture.testMode, testIslemleriAcik: fixture.testMode, talepler: fixture.talepler });
   }
   const fixed: Record<string, unknown> = {
     "/api/public/config": { clerk: { enabled: false } },

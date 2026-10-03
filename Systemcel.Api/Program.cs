@@ -196,7 +196,9 @@ builder.Services.AddSingleton<IPaymentProvider>(services => paymentOptions.UsesF
             paymentOptions.PaytrMerchantId,
             paymentOptions.PaytrMerchantKey,
             paymentOptions.PaytrMerchantSalt,
-            paymentOptions.PaytrTestMode)
+            paymentOptions.PaytrTestMode,
+            paymentOptions.PaytrLiveRefundResponseMode,
+            paymentOptions.PaytrLiveBusinessIds)
         : new UnconfiguredPaymentProvider());
 builder.Services.AddSingleton<IMarketplacePaymentGateway>(_ => paymentOptions.UsesFakeProvider
     ? new FakeMarketplacePaymentGateway()
@@ -669,6 +671,9 @@ static PaymentRuntimeOptions ResolvePaymentOptions(IConfiguration configuration,
         PaytrLiveCheckoutPaused = string.Equals(FirstNonEmpty(
             Environment.GetEnvironmentVariable("SYSTEMCEL_PAYTR_LIVE_CHECKOUT_PAUSED"),
             configuration["Systemcel:Payment:PaytrLiveCheckoutPaused"]), "true", StringComparison.OrdinalIgnoreCase),
+        PaytrLiveRefundResponseMode = PaytrRefundResponseContract.ParseLive(FirstNonEmpty(
+            Environment.GetEnvironmentVariable("SYSTEMCEL_PAYTR_LIVE_REFUND_RESPONSE_MODE"),
+            configuration["Systemcel:Payment:PaytrLiveRefundResponseMode"])),
         PaytrLiveBusinessIds = (FirstNonEmpty(
             Environment.GetEnvironmentVariable("SYSTEMCEL_PAYTR_LIVE_BUSINESS_IDS"),
             configuration["Systemcel:Payment:PaytrLiveBusinessIds"]) ?? string.Empty)

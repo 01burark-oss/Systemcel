@@ -545,7 +545,7 @@ function responseFor(endpoint: string): unknown {
   if (endpoint === "/api/ekran/telegram") return telegram;
   if (endpoint === "/api/ekran/yonetim/muhasebeci-basvurulari") return adminApplications;
   if (endpoint === "/api/ekran/yonetim/odemeler") return adminPayments;
-  if (endpoint === "/api/ekran/yonetim/abonelik-iadeleri") return { testIslemleriAcik: false, talepler: [] };
+  if (endpoint === "/api/ekran/yonetim/abonelik-iadeleri") return { testIslemleriAcik: false, iadeIslemleriAcik: false, testModu: true, talepler: [] };
   if (endpoint === "/api/ekran/yonetim/muhasebeci-aktarimlari") return adminTransfers;
   if (endpoint === "/api/ekran/yonetim/destek") return adminSupport;
   if (endpoint === "/api/ekran/destek-talepleri") return { talepler: supportRequests };

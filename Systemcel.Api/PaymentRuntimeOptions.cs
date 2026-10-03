@@ -1,3 +1,5 @@
+using CashTracker.Infrastructure.Payments;
+
 namespace Systemcel.Api;
 
 public sealed class PaymentRuntimeOptions
@@ -10,6 +12,7 @@ public sealed class PaymentRuntimeOptions
     public bool PaytrTestMode { get; init; } = true;
     public bool PaytrLiveEnabled { get; init; }
     public bool PaytrLiveCheckoutPaused { get; init; }
+    public PaytrRefundResponseMode PaytrLiveRefundResponseMode { get; init; } = PaytrRefundResponseMode.Unconfirmed;
     public int[] PaytrLiveBusinessIds { get; init; } = [];
     public string[] PaytrTrustedProxyIps { get; init; } = [];
     public int[] PaytrTestBusinessIds { get; init; } = [];
@@ -31,7 +34,7 @@ public sealed class PaymentRuntimeOptions
     public bool AllowsPaytrTestBusiness(int businessId) =>
         PaytrTestMode && AllowsPaytrBusiness(businessId);
     public bool AllowsPaytrBusiness(int businessId) => UsesPaytrProvider && businessId > 0 &&
-        (PaytrTestMode || !PaytrLiveCheckoutPaused) &&
+        (PaytrTestMode || !PaytrLiveCheckoutPaused && PaytrRefundResponseContract.IsLive(PaytrLiveRefundResponseMode)) &&
         (PaytrTestMode ? PaytrTestBusinessIds : PaytrLiveBusinessIds).Contains(businessId);
 
     private static bool ValidBusinessIds(int[] ids) => ids.Length > 0 && ids.All(id => id > 0);

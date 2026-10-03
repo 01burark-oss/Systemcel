@@ -138,6 +138,42 @@ public sealed class BildirimDeliveryTests : IDisposable
             2, 8, "user-a", BildirimKanallari.Eposta, "{\"Baslik\":\"X\",\"Mesaj\":\"Y\"}", "claim", 0)));
     }
 
+    [Theory]
+    [InlineData("/app/abonelik", "https://systemcel.app/app/abonelik")]
+    [InlineData("app/abonelik", "https://systemcel.app/app/abonelik")]
+    [InlineData("https://systemcel.app/app/abonelik", "https://systemcel.app/app/abonelik")]
+    [InlineData("file:///app/abonelik", null)]
+    [InlineData("javascript:alert(1)", null)]
+    [InlineData("//other.example/app/abonelik", null)]
+    [InlineData("/\\other.example/app/abonelik", null)]
+    public async Task EmailAdapterUsesWebLinksAcrossPlatformsAndRejectsOtherSchemes(string path, string? expected)
+    {
+        await using (var db = _factory.CreateDbContext())
+        {
+            var user = new Kullanici { AuthProviderUserId = "user-a", Eposta = "user-a@systemcel.local", Durum = "Aktif" };
+            db.Kullanicilar.Add(user);
+            await db.SaveChangesAsync();
+            db.IsletmeUyelikleri.Add(new IsletmeUyelik { IsletmeId = 7, KullaniciId = user.Id, Rol = "isletme_sahibi", Durum = "Aktif" });
+            await db.SaveChangesAsync();
+        }
+        var client = new CapturingEmailClient();
+        var adapter = new EpostaBildirimAdapter(_factory, client,
+            new SubscriptionReminderEmailOptions { Host = "smtp.test", FromAddress = "no-reply@systemcel.local" });
+        var payload = System.Text.Json.JsonSerializer.Serialize(new { Baslik = "Abonelik", Mesaj = "Ödeme bekliyor", Url = path });
+        var claim = new BildirimOutboxClaim(1, 7, "user-a", BildirimKanallari.Eposta, payload, "claim", 0);
+        if (expected is null)
+        {
+            await Assert.ThrowsAsync<InvalidOperationException>(() => adapter.SendAsync(claim));
+            Assert.Empty(client.Recipient);
+        }
+        else
+        {
+            await adapter.SendAsync(claim);
+            Assert.Contains(expected, client.Body);
+            Assert.DoesNotContain("file:", client.Body);
+        }
+    }
+
     [Fact]
     public async Task LegacyTrialSnapshot_DoesNotDuplicateLifecycleEmailSender()
     {

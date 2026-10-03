@@ -8,6 +8,78 @@ namespace CashTracker.Tests;
 
 public sealed class PaytrRefundClientTests
 {
+    [Theory]
+    [InlineData(PaytrRefundResponseMode.LiveZero, ",\"is_test\":0", true)]
+    [InlineData(PaytrRefundResponseMode.LiveZero, ",\"is_test\":\"0\"", true)]
+    [InlineData(PaytrRefundResponseMode.LiveZero, "", false)]
+    [InlineData(PaytrRefundResponseMode.LiveZero, ",\"is_test\":1", false)]
+    [InlineData(PaytrRefundResponseMode.LiveZero, ",\"is_test\":false", false)]
+    [InlineData(PaytrRefundResponseMode.LiveZero, ",\"is_test\":null", false)]
+    [InlineData(PaytrRefundResponseMode.LiveZero, ",\"is_test\":0.0", false)]
+    [InlineData(PaytrRefundResponseMode.LiveZero, ",\"is_test\":1,\"is_test\":0", false)]
+    [InlineData(PaytrRefundResponseMode.LiveAbsent, "", true)]
+    [InlineData(PaytrRefundResponseMode.LiveAbsent, ",\"is_test\":0", false)]
+    [InlineData(PaytrRefundResponseMode.LiveAbsent, ",\"is_test\":1", false)]
+    [InlineData(PaytrRefundResponseMode.LiveAbsent, ",\"is_test\":null", false)]
+    public async Task LiveRefund_AcceptsOnlyExplicitlyConfiguredResponseContract(PaytrRefundResponseMode mode, string field, bool accepted)
+    {
+        var body = "{\"status\":\"success\",\"merchant_oid\":\"order123\",\"return_amount\":\"12.34\",\"reference_no\":\"refund123\"" + field + "}";
+        using var http = new HttpClient(new Handler(_ => Task.FromResult(Response(body))));
+        var result = await new PaytrRefundClient(http).RefundAsync("order123", 12.34m, "refund123", "123456", "key", "salt", responseMode: mode);
+        Assert.Equal(accepted, result.Accepted);
+        Assert.Equal(accepted, result.IsDefinitive);
+    }
+
+    [Theory]
+    [InlineData(PaytrRefundResponseMode.Unconfirmed)]
+    [InlineData((PaytrRefundResponseMode)99)]
+    public async Task UnconfirmedRefundContract_CannotSend(PaytrRefundResponseMode mode)
+    {
+        using var http = new HttpClient(new Handler(_ => throw new InvalidOperationException("Must not send")));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => new PaytrRefundClient(http)
+            .RefundAsync("order123", 12.34m, "refund123", "123456", "key", "salt", responseMode: mode));
+    }
+
+    [Fact]
+    public async Task LiveProviderRequiresContractAndAllowlistBeforeSending()
+    {
+        using var http = new HttpClient(new Handler(_ => throw new InvalidOperationException("Must not send")));
+        var client = new PaytrIframeClient(http);
+        foreach (var provider in new[]
+        {
+            new PaytrSubscriptionProvider(client, "123456", "key", "salt", false),
+            new PaytrSubscriptionProvider(client, "123456", "key", "salt", false, PaytrRefundResponseMode.LiveZero),
+            new PaytrSubscriptionProvider(client, "123456", "key", "salt", false, PaytrRefundResponseMode.LiveZero, [7, 0])
+        })
+        {
+            Assert.False(provider.RefundsEnabled);
+            await Assert.ThrowsAsync<InvalidOperationException>(() => provider.RefundAsync("order123", 10m, "refund123"));
+        }
+        var ids = new[] { 7 };
+        var enabled = new PaytrSubscriptionProvider(client, "123456", "key", "salt", false, PaytrRefundResponseMode.LiveZero, ids);
+        ids[0] = 8;
+        Assert.True(enabled.CanRefundBusiness(7));
+        Assert.False(enabled.CanRefundBusiness(8));
+    }
+
+    [Theory]
+    [InlineData(0, true, 2)]
+    [InlineData(1, false, 1)]
+    public async Task LiveProviderVerifiesPaymentModeBeforeRefund(int paymentMode, bool accepted, int expectedCalls)
+    {
+        var calls = 0;
+        using var http = new HttpClient(new Handler(request =>
+        {
+            calls++;
+            return Task.FromResult(Response(request.RequestUri!.AbsoluteUri.EndsWith("/durum-sorgu")
+                ? "{\"status\":\"success\",\"payment_amount\":100,\"payment_total\":100,\"currency\":\"TRY\",\"test_mode\":" + paymentMode + "}"
+                : """{"status":"success","merchant_oid":"order123","return_amount":"10.00","is_test":0,"reference_no":"refund123"}"""));
+        }));
+        var provider = new PaytrSubscriptionProvider(new PaytrIframeClient(http), "123456", "key", "salt", false, PaytrRefundResponseMode.LiveZero, [7]);
+        Assert.Equal(accepted, (await provider.RefundAsync("order123", 10m, "refund123")).Accepted);
+        Assert.Equal(expectedCalls, calls);
+    }
+
     [Fact]
     public async Task Refund_UsesDecimalLiraSignatureAndStableReference()
     {

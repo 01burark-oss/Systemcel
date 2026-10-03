@@ -18,19 +18,25 @@ public sealed class PaytrSubscriptionProvider : IPaymentProvider, IPaymentRefund
     private readonly string _merchantKey;
     private readonly string _merchantSalt;
     private readonly bool _testMode;
+    private readonly PaytrRefundResponseMode _refundResponseMode;
+    private readonly int[] _liveBusinessIds;
 
     public PaytrSubscriptionProvider(
         PaytrIframeClient client,
         string merchantId,
         string merchantKey,
         string merchantSalt,
-        bool testMode)
+        bool testMode,
+        PaytrRefundResponseMode refundResponseMode = PaytrRefundResponseMode.Unconfirmed,
+        int[]? liveBusinessIds = null)
     {
         _client = client ?? throw new ArgumentNullException(nameof(client));
         _merchantId = merchantId;
         _merchantKey = merchantKey;
         _merchantSalt = merchantSalt;
         _testMode = testMode;
+        _refundResponseMode = testMode ? PaytrRefundResponseMode.TestOne : refundResponseMode;
+        _liveBusinessIds = liveBusinessIds?.ToArray() ?? [];
         // Validate configuration before the provider can accept checkout traffic.
         PaytrIframeProtocol.CreateToken(new PaytrIframeTokenInput(
             merchantId, "127.0.0.1", "ConfigurationCheck", "check@example.com", 1,
@@ -40,16 +46,20 @@ public sealed class PaytrSubscriptionProvider : IPaymentProvider, IPaymentRefund
 
     public string Name => "PayTR";
     public bool ExpectedTestMode => _testMode;
+    public bool RefundsEnabled => _testMode || PaytrRefundResponseContract.IsLive(_refundResponseMode) &&
+        _liveBusinessIds.Length > 0 && _liveBusinessIds.All(id => id > 0);
+    public bool CanRefundBusiness(int businessId) => RefundsEnabled && businessId > 0 &&
+        (_testMode || _liveBusinessIds.Contains(businessId));
 
     public async Task<ProviderRefundResult> RefundAsync(string orderId, decimal amount, string referenceNo, CancellationToken ct = default)
     {
-        if (!_testMode) throw new InvalidOperationException("PayTR refund adapter requires test mode.");
+        if (!RefundsEnabled) throw new InvalidOperationException("PayTR iade işlemleri yapılandırılmadı.");
         var lookup = await GetPaymentAsync(orderId, ct);
-        if (!lookup.Available || lookup.Payment is not { IsTestPayment: true, Currency: "TRY" } payment ||
+        if (!lookup.Available || lookup.Payment is not { Currency: "TRY" } payment || payment.IsTestPayment != _testMode ||
             payment.ProviderOrderId != orderId || amount <= 0 || amount > payment.TotalAmount - payment.RefundedAmount ||
             payment.Refunds?.Any(x => x.ReferenceNo == referenceNo) == true)
-            return new ProviderRefundResult(false, false, "test_payment_not_verified");
-        return await _client.RefundAsync(orderId, amount, referenceNo, _merchantId, _merchantKey, _merchantSalt, ct);
+            return new ProviderRefundResult(false, false, "payment_not_verified");
+        return await _client.RefundAsync(orderId, amount, referenceNo, _merchantId, _merchantKey, _merchantSalt, ct, _refundResponseMode);
     }
 
     public Task<ProviderPaymentLookupResult> GetPaymentAsync(string providerOrderId, CancellationToken ct = default) =>
