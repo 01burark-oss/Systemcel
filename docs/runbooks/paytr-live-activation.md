@@ -7,7 +7,7 @@ Bu kılavuz tek seferlik iFrame abonelik ödemesi içindir. Kayıtlı kart, otom
 1. İletişim, abonelik, teslimat, satış ve iptal/iade koşullarını canlı sitede doğrula. Aylık kurucu fiyatı ilk üç aylık dönem; yıllık peşin fiyat satın alınan 12 ayın tamamı içindir. Tek seferlik kart ödemesi kart saklama veya otomatik yenileme başlatmaz.
 2. PayTR panelindeki Canlı Mod sürecini tamamla; yalnız fiilen tamamlanan entegrasyon/test/bildirim adımlarını onayla. Kimlik veya yeni sözleşme adımı kullanıcıya aittir. İlk iFrame ödemesinin ayrı değerlendirilmesine ilişkin mağaza yanıtını kaydet. Non3D risk kabulünü bu başvuruya dahil etme.
 3. Test iade çelişkisini yazılı olarak çöz: 100 TL talebin API kabulü varken sorgu `returns=[]` ve panelde test işlemlerinin iade edilemeyeceği açıklaması var. Yeni talimat gönderme veya kaydı elle tamamlandı yapma. Testte iade kaydı oluşamıyorsa gerçek kabul yöntemi PayTR tarafından açıklanmalı.
-4. **Mevcut iade adaptörü ve yönetici gönderim ekranı yalnız test modunu destekler. Bu paket canlı iade desteğini tamamlamaz.** Gerçek iade yanıt sözleşmesi doğrulanıp canlı mod için adaptör, yetkili onayı/gönderimi, sorgu ve mutabakat testleri tamamlanmadan müşteri ödemesi açılmaz. `is_test` alanının canlıdaki yok/0 davranışı tahmin edilmez.
+4. Canlı iade yanıt sözleşmesini PayTR'dan yazılı doğrula. Adaptör iki ayrı biçimi destekler: `zero` yalnız sayı/metin `is_test=0`, `absent` yalnız alanın hiç bulunmaması. Sunucuda doğrulanmış biçim seçilmeden canlı iade gönderimi ve yeni canlı checkout kapalıdır; başlangıç değeri `unconfirmed`. Bunlar alternatif sözleşmelerdir, otomatik biçim tahmini yapılmaz. API kabulü iade tamamlandı anlamına gelmez; canlı durum sorgusunda aynı referans/tutarın görünmesi gerekir.
 5. Denetlenebilir bir pilot işletme ve ödeme/iade sorumlusu belirle. Gerçek kart ödemesinin ve gerçek iadenin son onayını kullanıcı gerçekleştirir. Tutar ve sipariş önceden gösterilir.
 
 ## Üretim hazırlığı
@@ -29,9 +29,18 @@ SYSTEMCEL_PAYTR_TEST_MODE=false
 SYSTEMCEL_PAYTR_LIVE_ENABLED=true
 SYSTEMCEL_PAYTR_LIVE_BUSINESS_IDS=<onaylı pozitif pilot işletme kimlikleri>
 SYSTEMCEL_PAYTR_LIVE_CHECKOUT_PAUSED=false
+SYSTEMCEL_PAYTR_LIVE_REFUND_RESPONSE_MODE=<PayTR yazılı yanıtına göre zero veya absent>
 ```
 
-Bu örnek doğrudan çalıştırılacak dosya değildir. Gerçek kimlikler, sırlar ve proxy ayarları güvenli sunucu yapılandırmasına girilir. Boş/geçersiz canlı izin listesi, eksik anahtarlar, güvensiz URL veya kapalı canlı anahtarı sağlayıcıyı devre dışı bırakır. Test izin listesi canlı erişim vermez. Tüm müşterileri açan joker değer yoktur.
+Bu örnek doğrudan çalıştırılacak dosya değildir. Gerçek kimlikler, sırlar ve proxy ayarları güvenli sunucu yapılandırmasına girilir. Boş/geçersiz canlı izin listesi, eksik anahtarlar, güvensiz URL veya kapalı canlı anahtarı sağlayıcıyı devre dışı bırakır. Yanıt sözleşmesi doğrulanmamışsa yeni checkout ve iade gönderimi kapalı kalır; mevcut bildirim/sorgu sağlayıcısı korunur. Test izin listesi canlı erişim vermez. Tüm müşterileri açan joker değer yoktur. Oracle Compose `.env` dosyasını doğrudan uygulamaya iletir; örnek ayar yeni seçeneği kapalı tutar.
+
+Yönetici iade ekranı canlı/test modunu sunucudan alır. Canlı gönderimde işletme ve gerçek tutar gösterilir; ayrı teyit `canliIadeOnayi=true` ile iletilir. Sunucu eski, teyitsiz ekran isteklerini reddeder. Pilot listesi onay, gönderim ve sorguda ayrıca denetlenir. Belirsiz sonuçta gönder düğmesi yeniden açılmaz.
+
+## İlk satış belgesi
+
+İlk pilotta Systemcel'in kendi yazılım satışı için belge, mali müşavirin belirlediği mevcut e-belge sisteminde düzenlenir. Otomatik e-Fatura entegrasyonu varmış gibi belge numarası üretilmez. Ödeme başarı bildirimi kesinleşince sorumlu şu alanları kontrollü kayda geçirir: işletme/müşteri, fatura bilgileri, ödeme/sipariş referansı, satış tarihi, aylık/yıllık dönem, net/KDV/toplam, belge sistemi ve belge numarası, düzenleyen kişi/tarih. İade belgesi ve ilk satış bağlantısı da aynı kayda eklenir. Sistem ve belge yöntemi belirlenmeden bu adım tamamlanmış sayılmaz.
+
+Kabul kaydı şablonu: [paytr-subscription-acceptance.md](paytr-subscription-acceptance.md).
 
 ## Kontrollü kabul
 

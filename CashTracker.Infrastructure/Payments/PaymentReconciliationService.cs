@@ -97,15 +97,16 @@ public sealed class PaymentReconciliationService : IPaymentReconciliationService
         var recorded = 0;
         var cursor = 0;
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
-        if (_provider is IPaymentRefundProvider { ExpectedTestMode: true })
+        if (_provider is IPaymentRefundProvider { RefundsEnabled: true } refundProvider)
         {
             var pending = await db.OdemeIadeTalimatlari.AsNoTracking().Where(x =>
                     x.Durum == "Gonderiliyor" || x.Durum == "SonucBekliyor" || x.Durum == "IncelemeGerekli")
                 .Join(db.OdemeIslemleri.Where(x => x.OdemeSaglayici == _provider.Name),
-                    refund => refund.OdemeIslemiId, payment => payment.Id, (refund, payment) => refund.Id)
+                    refund => refund.OdemeIslemiId, payment => payment.Id, (refund, payment) => new { refund.Id, payment.IsletmeId })
                 .ToListAsync(ct);
             var refunds = new PaymentRefundService(_dbFactory, _provider);
-            foreach (var id in pending) await refunds.ReconcileAsync(id, ct);
+            foreach (var item in pending.Where(x => refundProvider.CanRefundBusiness(x.IsletmeId)))
+                await refunds.ReconcileAsync(item.Id, ct);
         }
         while (true)
         {

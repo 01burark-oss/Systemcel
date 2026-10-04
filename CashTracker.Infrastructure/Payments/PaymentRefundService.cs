@@ -11,8 +11,14 @@ namespace CashTracker.Infrastructure.Payments;
 
 public sealed class PaymentRefundService(IDbContextFactory<CashTrackerDbContext> factory, IPaymentProvider paymentProvider) : IPaymentRefundService
 {
-    private IPaymentRefundProvider Provider => paymentProvider is IPaymentRefundProvider { ExpectedTestMode: true } provider
-        ? provider : throw new InvalidOperationException("Refund provider is not configured for test mode.");
+    private IPaymentRefundProvider Provider => paymentProvider is IPaymentRefundProvider { RefundsEnabled: true } provider
+        ? provider : throw new InvalidOperationException("İade işlemleri yapılandırılmadı.");
+
+    private void RequireBusiness(int businessId)
+    {
+        if (!Provider.CanRefundBusiness(businessId))
+            throw new InvalidOperationException("Bu işletme için iade işlemleri açık değil.");
+    }
 
     public async Task<OdemeIadeTalimati> ApproveCancellationAsync(int subscriptionId, string approvedBy, CancellationToken ct = default)
     {
@@ -23,6 +29,7 @@ public sealed class PaymentRefundService(IDbContextFactory<CashTrackerDbContext>
         await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
         var subscription = await db.Abonelikler.SingleOrDefaultAsync(x => x.Id == subscriptionId, ct)
             ?? throw new KeyNotFoundException("Abonelik bulunamadı.");
+        RequireBusiness(subscription.IsletmeId);
         if (!subscription.DonemSonundaIptal || subscription.IptalAt is null ||
             subscription.FaturalamaDonemi != PaymentBillingPeriods.Annual ||
             subscription.IptalIadeTutari is not > 0m || subscription.IptalIadeOdemeIslemiId is null)
@@ -69,7 +76,7 @@ public sealed class PaymentRefundService(IDbContextFactory<CashTrackerDbContext>
 
     public async Task<OdemeIadeTalimati> RequestAsync(int businessId, int paymentId, decimal amount, string idempotencyKey, CancellationToken ct = default)
     {
-        _ = Provider;
+        RequireBusiness(businessId);
         if (businessId <= 0 || amount <= 0 || decimal.Round(amount, 2) != amount ||
             string.IsNullOrWhiteSpace(idempotencyKey) || idempotencyKey.Length > 100)
             throw new ArgumentException("Invalid refund request.");
@@ -110,9 +117,11 @@ public sealed class PaymentRefundService(IDbContextFactory<CashTrackerDbContext>
         };
     }
 
-    public async Task<OdemeIadeTalimati> DispatchAsync(long instructionId, CancellationToken ct = default)
+    public async Task<OdemeIadeTalimati> DispatchAsync(long instructionId, CancellationToken ct = default, bool liveRefundConfirmed = false)
     {
         var provider = Provider;
+        if (!provider.ExpectedTestMode && !liveRefundConfirmed)
+            throw new InvalidOperationException("Canlı iade gönderimi için tutarı teyit edin.");
         ct.ThrowIfCancellationRequested();
         OdemeIadeTalimati instruction;
         OdemeIslemi payment;
@@ -121,8 +130,9 @@ public sealed class PaymentRefundService(IDbContextFactory<CashTrackerDbContext>
         {
             await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
             instruction = await db.OdemeIadeTalimatlari.SingleAsync(x => x.Id == instructionId, ct);
-            if (instruction.Durum != "Hazir") return instruction;
             payment = await db.OdemeIslemleri.SingleAsync(x => x.Id == instruction.OdemeIslemiId, ct);
+            RequireBusiness(payment.IsletmeId);
+            if (instruction.Durum != "Hazir") return instruction;
             var others = await db.OdemeIadeTalimatlari.Where(x => x.OdemeIslemiId == payment.Id && x.Id != instructionId).ToListAsync(ct);
             if (payment.Durum != PaymentTransactionStates.Succeeded || payment.OdemeSaglayici != paymentProvider.Name ||
                 others.Any(x => x.Durum is "Gonderiliyor" or "SonucBekliyor" or "IncelemeGerekli"))
@@ -160,8 +170,9 @@ public sealed class PaymentRefundService(IDbContextFactory<CashTrackerDbContext>
         var provider = Provider;
         await using var db = await factory.CreateDbContextAsync(ct);
         var selected = await db.OdemeIadeTalimatlari.AsNoTracking().SingleAsync(x => x.Id == instructionId, ct);
-        if (selected.Durum is "Hazir" or "Tamamlandi" or "KesinBasarisiz") return selected;
         var payment = await db.OdemeIslemleri.AsNoTracking().SingleAsync(x => x.Id == selected.OdemeIslemiId, ct);
+        RequireBusiness(payment.IsletmeId);
+        if (selected.Durum is "Hazir" or "Tamamlandi" or "KesinBasarisiz") return selected;
         var lookup = await provider.GetPaymentAsync(payment.SaglayiciOturumId, ct);
         if (!lookup.Available) return selected;
         if (!MatchesPayment(payment, lookup.Payment, provider.ExpectedTestMode))

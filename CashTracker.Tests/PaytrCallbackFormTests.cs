@@ -2,6 +2,7 @@ using System.Text;
 using System.Text.Json;
 using Systemcel.Api.Api;
 using Systemcel.Api;
+using CashTracker.Infrastructure.Payments;
 using Xunit;
 
 namespace CashTracker.Tests;
@@ -112,7 +113,8 @@ public sealed class PaytrCallbackFormTests
             PaytrTestMode = false,
             PublicBaseUrl = "https://systemcel.example",
             PaytrTestBusinessIds = [42],
-            PaytrLiveBusinessIds = [84]
+            PaytrLiveBusinessIds = [84],
+            PaytrLiveRefundResponseMode = PaytrRefundResponseMode.LiveZero
         };
 
         Assert.True(configured.UsesPaytrProvider);
@@ -120,6 +122,28 @@ public sealed class PaytrCallbackFormTests
         Assert.False(configured.AllowsPaytrBusiness(42));
         Assert.False(configured.AllowsPaytrTestBusiness(84));
         Assert.False(configured.AllowsPaytrTestBusiness(42));
+    }
+
+    [Theory]
+    [InlineData(null, false)]
+    [InlineData("", false)]
+    [InlineData("unconfirmed", false)]
+    [InlineData("test", false)]
+    [InlineData("1", false)]
+    [InlineData("zero", true)]
+    [InlineData("absent", true)]
+    public void UnconfirmedLiveRefundContractBlocksNewCheckoutButPreservesCallbackProvider(string? setting, bool allowed)
+    {
+        var configured = new PaymentRuntimeOptions
+        {
+            Provider = "PayTR", PaytrMerchantId = "123456", PaytrMerchantKey = "live-key",
+            PaytrMerchantSalt = "live-salt", PaytrLiveEnabled = true, PaytrTestMode = false,
+            PublicBaseUrl = "https://systemcel.example", PaytrLiveBusinessIds = [84],
+            PaytrLiveRefundResponseMode = PaytrRefundResponseContract.ParseLive(setting)
+        };
+        Assert.True(configured.UsesPaytrProvider);
+        Assert.Equal(allowed, configured.AllowsPaytrBusiness(84));
+        Assert.False(configured.AllowsPaytrBusiness(85));
     }
 
     [Fact]
